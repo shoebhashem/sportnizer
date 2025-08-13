@@ -1,4 +1,5 @@
 import Button from '@/components/Button';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { signInUser } from '@/services/authService';
@@ -6,7 +7,6 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ConfirmationModal from '@/components/ConfirmationModal';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');

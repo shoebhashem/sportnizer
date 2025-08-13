@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, StyleSheet, Text, Modal, Pressable } from 'react-native';
-import { theme } from '@/constants/theme';
 import Button from '@/components/Button';
+import { theme } from '@/constants/theme';
+import React from 'react';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface ConfirmationModalProps {
   visible: boolean;

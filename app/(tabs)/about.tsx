@@ -1,11 +1,11 @@
-import { View, StyleSheet, Text } from 'react-native';
-import { router } from 'expo-router';
-import { theme } from '@/constants/theme';
 import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
-import { signOutUser } from '../../services/authService';
+import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { router } from 'expo-router';
 import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { signOutUser } from '../../services/authService';
 
 export default function AboutScreen() {
   const { user } = useAuth();
