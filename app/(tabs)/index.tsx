@@ -1,19 +1,38 @@
-import { View, StyleSheet } from 'react-native';
-
+import { View, StyleSheet, Text } from 'react-native';
+import { theme } from '@/constants/theme';
 import Button from '@/components/Button';
-import ImageViewer from '@/components/ImageViewer';
-
-const PlaceholderImage = require('@/assets/images/background-image.png');
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Index() {
+  const { user } = useAuth();
+
   return (
     <View style={styles.container}>
-      <View style={styles.imageContainer}>
-        <ImageViewer imgSource={PlaceholderImage} />
+      <View style={styles.content}>
+        <Text style={styles.welcomeText}>Welcome to</Text>
+        <Text style={styles.appName}>Sportnizer</Text>
+        <Text style={styles.subtitle}>
+          Organize your sports groups and events
+        </Text>
+        
+        <View style={styles.userInfo}>
+          <Text style={styles.userLabel}>Logged in as:</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
+        </View>
       </View>
-      <View style={styles.footerContainer}>
-        <Button theme="primary" label="Choose a photo" />
-        <Button label="Use this photo" />
+      
+      <View style={styles.actionSection}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Button
+          label="Create Group"
+          theme="primary"
+          onPress={() => alert('Create Group feature coming soon!')}
+        />
+        <Button
+          label="Join Group"
+          theme="secondary"
+          onPress={() => alert('Join Group feature coming soon!')}
+        />
       </View>
     </View>
   );
@@ -22,14 +41,56 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
-    alignItems: 'center',
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.layout.containerPadding,
   },
-  imageContainer: {
+  content: {
     flex: 1,
-  },
-  footerContainer: {
-    flex: 1 / 3,
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  welcomeText: {
+    fontSize: theme.typography.fontSize.large,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.normal,
+  },
+  appName: {
+    fontSize: theme.typography.fontSize.xxlarge,
+    color: theme.colors.secondary,
+    fontWeight: theme.typography.fontWeight.bold,
+    marginVertical: theme.spacing.sm,
+  },
+  subtitle: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginTop: theme.spacing.sm,
+  },
+  userInfo: {
+    alignItems: 'center',
+    marginTop: theme.spacing.xl,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+  },
+  userLabel: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.xs,
+  },
+  userEmail: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.secondary,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  actionSection: {
+    paddingBottom: theme.spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: theme.typography.fontSize.large,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.bold,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
   },
 });
