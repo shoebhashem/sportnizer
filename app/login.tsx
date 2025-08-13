@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Text, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { theme } from '@/constants/theme';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
+import { theme } from '@/constants/theme';
 import { signInUser } from '@/services/authService';
+import { router } from 'expo-router';
+import React, { useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
