@@ -4,8 +4,9 @@ import { theme } from '@/constants/theme';
 import { signInUser } from '@/services/authService';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -13,6 +14,8 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -82,11 +85,13 @@ export default function LoginScreen() {
             errorMessage = result.error?.message || errorMessage;
         }
         
-        Alert.alert('Sign In Failed', errorMessage);
+        setErrorMessage(errorMessage);
+        setErrorModalVisible(true);
       }
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
       console.error('Login error:', error);
+      setErrorMessage('An unexpected error occurred. Please try again.');
+      setErrorModalVisible(true);
     } finally {
       setLoading(false);
     }
@@ -94,6 +99,11 @@ export default function LoginScreen() {
 
   const handleCreateAccount = () => {
     router.push('/signup' as any);
+  };
+
+  const handleCloseErrorModal = () => {
+    setErrorModalVisible(false);
+    setErrorMessage('');
   };
 
   return (
@@ -152,6 +162,17 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ConfirmationModal
+        visible={errorModalVisible}
+        title="Sign In Error"
+        message={errorMessage}
+        confirmText="OK"
+        cancelText=""
+        onConfirm={handleCloseErrorModal}
+        onCancel={handleCloseErrorModal}
+        confirmButtonTheme="primary"
+      />
     </SafeAreaView>
   );
 }

@@ -1,36 +1,43 @@
-import { View, StyleSheet, Text, Alert } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
 import { theme } from '@/constants/theme';
 import Button from '@/components/Button';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import { signOutUser } from '../../services/authService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useState } from 'react';
 
 export default function AboutScreen() {
   const { user } = useAuth();
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await signOutUser();
-            if (result.success) {
-              router.replace('/login');
-            } else {
-              Alert.alert('Error', 'Failed to sign out. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+  const handleSignOutPress = () => {
+    setShowSignOutModal(true);
+  };
+
+  const handleSignOutConfirm = async () => {
+    setIsSigningOut(true);
+    setShowSignOutModal(false);
+    
+    try {
+      const result = await signOutUser();
+      if (result.success) {
+        router.replace('/login');
+      } else {
+        // Show error in a simple alert for now
+        alert('Failed to sign out. Please try again.');
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+      alert('An error occurred while signing out. Please try again.');
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  const handleSignOutCancel = () => {
+    setShowSignOutModal(false);
   };
 
   return (
@@ -50,10 +57,23 @@ export default function AboutScreen() {
       <View style={styles.footer}>
         <Button
           label="Sign Out"
-          onPress={handleSignOut}
+          onPress={handleSignOutPress}
           theme="secondary"
+          loading={isSigningOut}
+          disabled={isSigningOut}
         />
       </View>
+
+      <ConfirmationModal
+        visible={showSignOutModal}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        onConfirm={handleSignOutConfirm}
+        onCancel={handleSignOutCancel}
+        confirmButtonTheme="primary"
+      />
     </View>
   );
 }

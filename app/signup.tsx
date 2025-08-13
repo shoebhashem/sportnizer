@@ -4,8 +4,9 @@ import { theme } from '@/constants/theme';
 import { signUpUser } from '@/services/authService';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,9 @@ export default function SignupScreen() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -68,16 +72,8 @@ export default function SignupScreen() {
       const result = await signUpUser(email.trim(), password);
       
       if (result.success) {
-        Alert.alert(
-          'Account Created!', 
-          'Your account has been created successfully. You can now sign in.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.replace('/(tabs)')
-            }
-          ]
-        );
+        setModalMessage('Your account has been created successfully. You can now sign in.');
+        setSuccessModalVisible(true);
       } else {
         // Show error
         let errorMessage = 'An error occurred. Please try again.';
@@ -99,11 +95,13 @@ export default function SignupScreen() {
             errorMessage = result.error?.message || errorMessage;
         }
         
-        Alert.alert('Sign Up Failed', errorMessage);
+        setModalMessage(errorMessage);
+        setErrorModalVisible(true);
       }
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
       console.error('Signup error:', error);
+      setModalMessage('An unexpected error occurred. Please try again.');
+      setErrorModalVisible(true);
     } finally {
       setLoading(false);
     }
@@ -111,6 +109,16 @@ export default function SignupScreen() {
 
   const handleBackToLogin = () => {
     router.back();
+  };
+
+  const handleSuccessModalConfirm = () => {
+    setSuccessModalVisible(false);
+    router.replace('/(tabs)');
+  };
+
+  const handleErrorModalClose = () => {
+    setErrorModalVisible(false);
+    setModalMessage('');
   };
 
   return (
@@ -179,6 +187,28 @@ export default function SignupScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ConfirmationModal
+        visible={successModalVisible}
+        title="Account Created!"
+        message={modalMessage}
+        confirmText="Continue"
+        cancelText=""
+        onConfirm={handleSuccessModalConfirm}
+        onCancel={handleSuccessModalConfirm}
+        confirmButtonTheme="primary"
+      />
+
+      <ConfirmationModal
+        visible={errorModalVisible}
+        title="Sign Up Error"
+        message={modalMessage}
+        confirmText="OK"
+        cancelText=""
+        onConfirm={handleErrorModalClose}
+        onCancel={handleErrorModalClose}
+        confirmButtonTheme="primary"
+      />
     </SafeAreaView>
   );
 }
