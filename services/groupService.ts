@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, getFirestore, increment, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getFirestore, increment, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { getCurrentUser } from './authService';
 
 const db = getFirestore();
@@ -65,13 +65,13 @@ export const createGroup = async (groupData: {
     // Add group to groups collection
     const groupRef = await addDoc(collection(db, 'groups'), groupDocData);
 
-    // Add creator as admin member in subcollection
-    await addDoc(collection(db, 'groups', groupRef.id, 'members'), {
+    // Add creator as admin member in subcollection (with document ID as user ID)
+    await setDoc(doc(db, 'groups', groupRef.id, 'members', currentUser.uid), {
       role: 'admin',
       joinedAt: serverTimestamp()
     });
 
-    // Update user's groupsCreated count and groupsJoined array
+    // Update or create user document
     const userUpdateData: any = {
       groupsCreated: increment(1)
     };
@@ -81,15 +81,18 @@ export const createGroup = async (groupData: {
       const userData = userDoc.data();
       const currentGroupsJoined = userData.groupsJoined || [];
       userUpdateData.groupsJoined = [...currentGroupsJoined, groupRef.id];
+      await updateDoc(userRef, userUpdateData);
     } else {
-      // Create user document if it doesn't exist
-      userUpdateData.name = currentUser.displayName || currentUser.email?.split('@')[0] || 'User';
-      userUpdateData.email = currentUser.email;
-      userUpdateData.groupsJoined = [groupRef.id];
-      userUpdateData.createdAt = serverTimestamp();
+      // Create user document if it doesn't exist using setDoc
+      const newUserData = {
+        name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+        email: currentUser.email,
+        groupsJoined: [groupRef.id],
+        groupsCreated: 1,
+        createdAt: serverTimestamp()
+      };
+      await setDoc(userRef, newUserData);
     }
-
-    await updateDoc(userRef, userUpdateData);
 
     return { 
       success: true, 

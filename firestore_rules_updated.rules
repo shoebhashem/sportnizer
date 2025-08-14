@@ -1,0 +1,141 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidUser() {
+      return isSignedIn();
+      // TODO: Enable email verification in production
+      // return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    
+    // Users collection - for user profiles
+    match /users/{userId} {
+      // Users can read and write their own profile
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      
+      // Users can read other users' public profiles (for member lists, etc.)
+      allow read: if isSignedIn();
+      
+      // Users can create or update their own profile (handles both new and existing users)
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Groups collection (renamed from sportsGroups)
+    match /groups/{groupId} {
+      // Anyone authenticated can read groups (for discovery)
+      allow read: if isSignedIn();
+      
+      // Only authenticated users can create groups
+      allow create: if isValidUser() &&
+                   request.resource.data.createdBy == request.auth.uid &&
+                   request.resource.data.keys().hasAll(['name', 'sportType', 'location', 'createdBy', 'createdAt', 'membersCount']);
+      
+      // Only group creator can update group details
+      allow update: if isSignedIn() && 
+                   resource.data.createdBy == request.auth.uid &&
+                   request.resource.data.createdBy == resource.data.createdBy; // Prevent ownership transfer
+      
+      // Only group creator can delete groups
+      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+      
+      // Group members subcollection
+      match /members/{memberId} {
+        // Group members and group creator can read member list
+        allow read: if isSignedIn() && 
+                   (resource.data.createdBy == request.auth.uid ||
+                    exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)));
+        
+        // Group creator can always add members, and users can add themselves when creating the group
+        allow create: if isSignedIn() && 
+                     (get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid ||
+                      memberId == request.auth.uid);
+        
+        // Group creator can update member roles, members can update their own info
+        allow update: if isSignedIn() && 
+                     (get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid ||
+                      memberId == request.auth.uid);
+                     
+        // Group creator can remove members, members can remove themselves
+        allow delete: if isSignedIn() && 
+                     (get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid ||
+                      memberId == request.auth.uid);
+      }
+      
+      // Group events subcollection  
+      match /events/{eventId} {
+        // Helper function to check if user is group member
+        function isGroupMember() {
+          return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+        }
+        
+        // Group members can read events
+        allow read: if isSignedIn() && isGroupMember();
+        
+        // Group members can create events
+        allow create: if isValidUser() &&
+                     request.resource.data.createdBy == request.auth.uid &&
+                     isGroupMember();
+        
+        // Event creator and group creator can update events
+        allow update: if isSignedIn() && 
+                     (resource.data.createdBy == request.auth.uid ||
+                      get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid) &&
+                     request.resource.data.createdBy == resource.data.createdBy;
+        
+        // Event creator and group creator can delete events
+        allow delete: if isSignedIn() && 
+                     (resource.data.createdBy == request.auth.uid ||
+                      get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid);
+      }
+      
+      // Group results subcollection
+      match /results/{resultId} {
+        // Helper function to check if user is group member
+        function isGroupMember() {
+          return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+        }
+        
+        // Helper function to check if user is group admin
+        function isGroupAdmin() {
+          return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) &&
+                 get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin';
+        }
+        
+        // Group members can read results
+        allow read: if isSignedIn() && isGroupMember();
+        
+        // Only group admins can create/update/delete results
+        allow create, update, delete: if isSignedIn() && isGroupAdmin();
+      }
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+      
+      // Users can mark their own notifications as read
+      allow update: if isSignedIn() && 
+                   request.auth.uid == resource.data.userId &&
+                   request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']);
+      
+      // Users can delete their own notifications
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+    
+    // Block all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
