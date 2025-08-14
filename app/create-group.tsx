@@ -114,7 +114,8 @@ export default function CreateGroupScreen() {
 
   const handleSuccessModalConfirm = () => {
     setSuccessModalVisible(false);
-    router.back(); // Go back to previous screen (likely home)
+    // Navigate to home screen instead of using router.back() for better web compatibility
+    router.replace('/(tabs)');
   };
 
   const handleErrorModalClose = () => {
