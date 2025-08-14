@@ -124,7 +124,7 @@ export default function CreateGroupScreen() {
   };
 
   const handleCancel = () => {
-    router.back();
+    router.replace('/(tabs)');
   };
 
   return (
