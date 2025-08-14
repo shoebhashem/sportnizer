@@ -1,10 +1,19 @@
-import { View, StyleSheet, Text } from 'react-native';
-import { theme } from '@/constants/theme';
 import Button from '@/components/Button';
+import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { router } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
 
 export default function Index() {
   const { user } = useAuth();
+
+  const handleCreateGroup = () => {
+    router.push('/create-group');
+  };
+
+  const handleJoinGroup = () => {
+    alert('Join Group feature coming soon!');
+  };
 
   return (
     <View style={styles.container}>
@@ -26,12 +35,12 @@ export default function Index() {
         <Button
           label="Create Group"
           theme="primary"
-          onPress={() => alert('Create Group feature coming soon!')}
+          onPress={handleCreateGroup}
         />
         <Button
           label="Join Group"
           theme="secondary"
-          onPress={() => alert('Join Group feature coming soon!')}
+          onPress={handleJoinGroup}
         />
       </View>
     </View>
