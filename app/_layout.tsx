@@ -19,6 +19,17 @@ export default function RootLayout() {
             headerTintColor: '#fff',
           }} 
         />
+        <Stack.Screen 
+          name="manage-teams" 
+          options={{ 
+            headerShown: true,
+            title: 'Manage Teams',
+            headerStyle: {
+              backgroundColor: '#25292e',
+            },
+            headerTintColor: '#fff',
+          }} 
+        />
       </Stack>
     </AuthProvider>
   );

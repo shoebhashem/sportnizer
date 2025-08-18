@@ -11,6 +11,10 @@ export default function Index() {
     router.push('/create-group');
   };
 
+  const handleManageTeams = () => {
+    router.push('/manage-teams');
+  };
+
   const handleJoinGroup = () => {
     alert('Join Group feature coming soon!');
   };
@@ -36,6 +40,11 @@ export default function Index() {
           label="Create Group"
           theme="primary"
           onPress={handleCreateGroup}
+        />
+        <Button
+          label="Manage Teams"
+          theme="secondary"
+          onPress={handleManageTeams}
         />
         <Button
           label="Join Group"
