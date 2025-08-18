@@ -20,7 +20,7 @@ export default function RootLayout() {
           }} 
         />
         <Stack.Screen 
-          name="manage-teams" 
+          name="manageteams" 
           options={{ 
             headerShown: true,
             title: 'Manage Teams',

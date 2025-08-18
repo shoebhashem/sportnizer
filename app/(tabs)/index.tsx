@@ -12,7 +12,7 @@ export default function Index() {
   };
 
   const handleManageTeams = () => {
-    router.push('/manage-teams');
+    router.push('/manageteams');
   };
 
   const handleJoinGroup = () => {
