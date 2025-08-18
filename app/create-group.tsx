@@ -1,3 +1,4 @@
+import AdContainer from '@/components/AdContainer';
 import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
@@ -215,6 +216,8 @@ export default function CreateGroupScreen() {
             </View>
           </View>
         </ScrollView>
+        
+        <AdContainer position="bottom" />
       </KeyboardAvoidingView>
 
       <ConfirmationModal

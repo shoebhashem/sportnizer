@@ -1,3 +1,4 @@
+import AdContainer from '@/components/AdContainer';
 import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -220,6 +221,8 @@ export default function ManageTeamsScreen() {
           />
         )}
       </View>
+      
+      <AdContainer position="bottom" />
     </SafeAreaView>
   );
 }
