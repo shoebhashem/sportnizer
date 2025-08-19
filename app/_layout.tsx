@@ -30,6 +30,17 @@ export default function RootLayout() {
             headerTintColor: '#fff',
           }} 
         />
+        <Stack.Screen 
+          name="addmembers" 
+          options={{ 
+            headerShown: true,
+            title: 'Add Members',
+            headerStyle: {
+              backgroundColor: '#25292e',
+            },
+            headerTintColor: '#fff',
+          }} 
+        />
       </Stack>
     </AuthProvider>
   );

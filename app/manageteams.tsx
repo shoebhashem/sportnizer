@@ -3,6 +3,7 @@ import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
+import { collection, doc, getDoc, getDocs, getFirestore, query, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,67 +33,119 @@ export default function ManageTeamsScreen() {
   const [loading, setLoading] = useState(true);
   const [membersLoading, setMembersLoading] = useState(false);
 
-  // Mock data for now - we'll implement Firebase logic later
+  // Load user's groups from Firestore
   useEffect(() => {
-    // Simulate loading user's groups
-    setTimeout(() => {
-      const mockGroups: Group[] = [
-        {
-          id: '1',
-          name: 'Champions League',
-          sportType: 'Football',
-          location: 'Stockholm',
-          createdBy: user?.uid || ''
-        },
-        {
-          id: '2',
-          name: 'Basketball Stars',
-          sportType: 'Basketball',
-          location: 'Gothenburg',
-          createdBy: 'other-user'
+    const loadUserGroups = async () => {
+      if (!user?.uid) return;
+
+      try {
+        setLoading(true);
+        const db = getFirestore();
+        
+        // Query groups where user is the creator OR a member
+        const createdGroupsQuery = query(
+          collection(db, 'groups'),
+          where('createdBy', '==', user.uid)
+        );
+        
+        const createdGroupsSnapshot = await getDocs(createdGroupsQuery);
+        const userGroups: Group[] = [];
+        
+        createdGroupsSnapshot.forEach((doc) => {
+          const groupData = doc.data();
+          userGroups.push({
+            id: doc.id,
+            name: groupData.name,
+            sportType: groupData.sportType,
+            location: groupData.location,
+            createdBy: groupData.createdBy
+          });
+        });
+
+        // TODO: Also query groups where user is a member (not creator)
+        // This would require checking the members subcollection
+        
+        setGroups(userGroups);
+        if (userGroups.length > 0) {
+          setSelectedGroupId(userGroups[0].id);
         }
-      ];
-      setGroups(mockGroups);
-      if (mockGroups.length > 0) {
-        setSelectedGroupId(mockGroups[0].id);
+      } catch (error) {
+        console.error('Error loading groups:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    }, 1000);
+    };
+
+    loadUserGroups();
   }, [user]);
 
   const loadMembers = useCallback(async (groupId: string) => {
+    if (!groupId) return;
+    
     setMembersLoading(true);
-    // Mock member data - we'll implement Firebase logic later
-    setTimeout(() => {
-      const mockMembers: Member[] = [
-        {
-          id: user?.uid || '1',
-          name: user?.displayName || user?.email?.split('@')[0] || 'You',
-          email: user?.email || 'your@email.com',
-          role: 'owner',
-          status: 'active',
-          joinedAt: new Date()
-        },
-        {
-          id: '2',
-          name: 'John Doe',
-          email: 'john@email.com',
-          role: 'member',
-          status: 'active',
-          joinedAt: new Date()
-        },
-        {
-          id: '3',
-          name: '',
-          email: 'pending@email.com',
-          role: 'member',
-          status: 'pending'
+    try {
+      const db = getFirestore();
+      
+      // First get the group data to know who the owner is
+      const groupDoc = await getDoc(doc(db, 'groups', groupId));
+      const groupData = groupDoc.exists() ? groupDoc.data() : null;
+      const ownerId = groupData?.createdBy;
+      
+      // Get members from the group's members subcollection
+      const membersQuery = query(collection(db, 'groups', groupId, 'members'));
+      const membersSnapshot = await getDocs(membersQuery);
+      
+      const groupMembers: Member[] = [];
+      
+      // For each member, get their user data
+      for (const memberDoc of membersSnapshot.docs) {
+        const memberData = memberDoc.data();
+        const userId = memberDoc.id;
+        
+        // Get user details from users collection
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          // Determine role: owner, admin, or member
+          let role: 'owner' | 'admin' | 'member' = 'member';
+          if (userId === ownerId) {
+            role = 'owner';
+          } else if (memberData.role === 'admin') {
+            role = 'admin';
+          }
+          
+          groupMembers.push({
+            id: userId,
+            name: userData.name || userData.email?.split('@')[0] || 'User',
+            email: userData.email || 'No email',
+            role: role,
+            status: 'active',
+            joinedAt: memberData.joinedAt?.toDate()
+          });
+        } else {
+          // Handle case where user document doesn't exist (shouldn't happen, but safety first)
+          console.warn(`User document not found for member: ${userId}`);
         }
-      ];
-      setMembers(mockMembers);
+      }
+      
+      // Sort members: owner first, then admins, then members
+      groupMembers.sort((a, b) => {
+        if (a.role === 'owner') return -1;
+        if (b.role === 'owner') return 1;
+        if (a.role === 'admin' && b.role === 'member') return -1;
+        if (b.role === 'admin' && a.role === 'member') return 1;
+        return 0;
+      });
+      
+      setMembers(groupMembers);
+    } catch (error) {
+      console.error('Error loading members:', error);
+    } finally {
       setMembersLoading(false);
-    }, 500);
-  }, [user]);
+    }
+  }, []);
 
   useEffect(() => {
     if (selectedGroupId) {
@@ -107,8 +160,8 @@ export default function ManageTeamsScreen() {
   );
 
   const handleAddMembers = () => {
-    // Navigate to add members screen (to be created later)
-    alert('Add Members feature coming soon!');
+    // Navigate to add members screen with the selected group ID
+    router.push(`/addmembers?groupId=${selectedGroupId}` as any);
   };
 
   const handleMemberPress = (member: Member) => {
