@@ -61,23 +61,46 @@ export default function AddMembersScreen() {
     setLoading(true);
 
     try {
-      const sendInvitation = httpsCallable(functions, 'sendGroupInvitation');
-      
-      await sendInvitation({
-        email: email.trim().toLowerCase(),
+      console.log('Sending invitation with data:', {
+        emails: [email.trim().toLowerCase()],
         groupId: groupId,
         groupName: decodedGroupName,
         inviterName: decodedInviterName
       });
+      
+      const sendInvitation = httpsCallable(functions, 'sendGroupInvitation');
+      
+      // Test if the data is being sent correctly
+      const payload = {
+        emails: [email.trim().toLowerCase()],
+        groupId: groupId,
+        groupName: decodedGroupName,
+        inviterName: decodedInviterName
+      };
+      
+      console.log('Payload being sent:', payload);
+      
+      const result = await sendInvitation(payload);
+      
+      console.log('Invitation result:', result);
 
       setModalMessage(`🎉 Invitation Sent!\n\nAn invitation has been sent to ${email.trim()}. They will receive an email with instructions to join "${decodedGroupName}".`);
       setSuccessModalVisible(true);
     } catch (error: any) {
       console.error('Error sending invitation:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details
+      });
       
       let errorMessage = 'Failed to send invitation. Please try again.';
       
-      if (error.code === 'functions/already-exists') {
+      if (error.code === 'functions/invalid-argument') {
+        errorMessage = `Invalid data: ${error.message}`;
+      } else if (error.code === 'functions/unauthenticated') {
+        errorMessage = 'You must be logged in to send invitations.';
+      } else if (error.code === 'functions/already-exists') {
         errorMessage = 'This user is already a member of the team.';
       } else if (error.code === 'functions/already-invited') {
         errorMessage = 'An invitation has already been sent to this email address.';

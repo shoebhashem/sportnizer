@@ -3,16 +3,21 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { signUpUser } from '@/services/authService';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignupScreen() {
+  const { invite } = useLocalSearchParams<{ invite?: string }>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [invitationInfo, setInvitationInfo] = useState<{
+    groupName: string;
+    inviterName: string;
+  } | null>(null);
   
   // Error states
   const [emailError, setEmailError] = useState('');
@@ -23,6 +28,26 @@ export default function SignupScreen() {
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
+
+  // Load invitation info if invite token is present
+  useEffect(() => {
+    const loadInvitationInfo = async () => {
+      if (invite) {
+        try {
+          // You could add a function to get invitation details without processing it
+          // For now, we'll show a generic message
+          setInvitationInfo({
+            groupName: 'the group',
+            inviterName: 'a team member'
+          });
+        } catch (error) {
+          console.error('Error loading invitation info:', error);
+        }
+      }
+    };
+
+    loadInvitationInfo();
+  }, [invite]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -76,7 +101,36 @@ export default function SignupScreen() {
       const result = await signUpUser(email.trim(), password);
       
       if (result.success) {
-        setModalMessage('Your account has been created successfully. You can now sign in.');
+        // If there's an invitation token, process it after successful signup
+        if (invite) {
+          try {
+            console.log('Processing invitation token:', invite);
+            const response = await fetch(`${process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL}/processInvitation`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                invitationToken: invite,
+                userEmail: email.trim(),
+              }),
+            });
+
+            const invitationResult = await response.json();
+
+            if (invitationResult.success) {
+              setModalMessage(`Account created successfully! You have been added to ${invitationInfo?.groupName || 'the group'}.`);
+            } else {
+              console.error('Invitation processing failed:', invitationResult.error);
+              setModalMessage('Account created successfully, but there was an issue processing your invitation. Please contact the group admin.');
+            }
+          } catch (invitationError) {
+            console.error('Error processing invitation:', invitationError);
+            setModalMessage('Account created successfully, but there was an issue processing your invitation. Please contact the group admin.');
+          }
+        } else {
+          setModalMessage('Your account has been created successfully. You can now sign in.');
+        }
         setSuccessModalVisible(true);
       } else {
         // Show error

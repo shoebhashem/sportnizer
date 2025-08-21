@@ -3,12 +3,13 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { signInUser } from '@/services/authService';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
+  const { invite } = useLocalSearchParams<{ invite?: string }>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,29 @@ export default function LoginScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [invitationInfo, setInvitationInfo] = useState<{
+    groupName: string;
+    inviterName: string;
+  } | null>(null);
+
+  // Load invitation info if invite token is present
+  useEffect(() => {
+    const loadInvitationInfo = async () => {
+      if (invite) {
+        try {
+          // Show invitation context
+          setInvitationInfo({
+            groupName: 'the group',
+            inviterName: 'a team member'
+          });
+        } catch (error) {
+          console.error('Error loading invitation info:', error);
+        }
+      }
+    };
+
+    loadInvitationInfo();
+  }, [invite]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -59,8 +83,41 @@ export default function LoginScreen() {
       const result = await signInUser(email.trim(), password);
       
       if (result.success) {
-        // Navigate to main app (tabs)
-        router.replace('/(tabs)');
+        // If there's an invitation token, process it after successful login
+        if (invite) {
+          try {
+            console.log('Processing invitation token for existing user:', invite);
+            const response = await fetch(`${process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL}/processInvitation`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                invitationToken: invite,
+                userEmail: email.trim(),
+              }),
+            });
+
+            const invitationResult = await response.json();
+
+            if (invitationResult.success) {
+              console.log('Invitation processed successfully');
+              // Navigate to main app - user will see they've been added to the group
+              router.replace('/(tabs)');
+            } else {
+              console.error('Invitation processing failed:', invitationResult.error);
+              // Still navigate to main app, but user should contact admin
+              router.replace('/(tabs)');
+            }
+          } catch (invitationError) {
+            console.error('Error processing invitation:', invitationError);
+            // Still navigate to main app if login was successful
+            router.replace('/(tabs)');
+          }
+        } else {
+          // Navigate to main app (tabs)
+          router.replace('/(tabs)');
+        }
       } else {
         // Show error
         let errorMessage = 'An error occurred. Please try again.';
@@ -98,7 +155,11 @@ export default function LoginScreen() {
   };
 
   const handleCreateAccount = () => {
-    router.push('/signup' as any);
+    if (invite) {
+      router.push(`/signup?invite=${encodeURIComponent(invite)}` as any);
+    } else {
+      router.push('/signup' as any);
+    }
   };
 
   const handleCloseErrorModal = () => {
