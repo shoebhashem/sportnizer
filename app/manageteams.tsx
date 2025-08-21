@@ -160,8 +160,13 @@ export default function ManageTeamsScreen() {
   );
 
   const handleAddMembers = () => {
-    // Navigate to add members screen with the selected group ID
-    router.push(`/addmembers?groupId=${selectedGroupId}` as any);
+    if (!selectedGroup || !user) return;
+    
+    const groupName = encodeURIComponent(selectedGroup.name);
+    const userName = encodeURIComponent(user.displayName || user.email?.split('@')[0] || 'Team Admin');
+    
+    // Navigate to add members screen with the selected group ID, name, and inviter name
+    router.push(`/addmembers?groupId=${selectedGroupId}&groupName=${groupName}&inviterName=${userName}` as any);
   };
 
   const handleMemberPress = (member: Member) => {

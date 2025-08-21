@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import React, { useState } from 'react';
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -13,13 +12,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
+import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
 import { functions } from '../firebaseConfig';
 
 export default function AddMembersScreen() {
-  const { groupId } = useLocalSearchParams<{ groupId: string }>();
+  const { groupId, groupName, inviterName } = useLocalSearchParams<{ 
+    groupId: string; 
+    groupName: string; 
+    inviterName: string; 
+  }>();
+  
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Modal states for web-compatible feedback
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+
+  const decodedGroupName = groupName ? decodeURIComponent(groupName) : 'Your Team';
+  const decodedInviterName = inviterName ? decodeURIComponent(inviterName) : 'Team Admin';
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,17 +41,20 @@ export default function AddMembersScreen() {
 
   const handleSendInvitation = async () => {
     if (!email.trim()) {
-      Alert.alert('Error', 'Please enter an email address.');
+      setModalMessage('Please enter an email address.');
+      setErrorModalVisible(true);
       return;
     }
 
     if (!validateEmail(email.trim())) {
-      Alert.alert('Error', 'Please enter a valid email address.');
+      setModalMessage('Please enter a valid email address.');
+      setErrorModalVisible(true);
       return;
     }
 
     if (!groupId) {
-      Alert.alert('Error', 'Group ID is missing. Please try again.');
+      setModalMessage('Group ID is missing. Please try again.');
+      setErrorModalVisible(true);
       return;
     }
 
@@ -50,26 +66,12 @@ export default function AddMembersScreen() {
       await sendInvitation({
         email: email.trim().toLowerCase(),
         groupId: groupId,
-        groupName: 'Your Team', // You might want to pass this as a parameter
-        inviterName: 'Team Admin' // You might want to get this from user context
+        groupName: decodedGroupName,
+        inviterName: decodedInviterName
       });
 
-      Alert.alert(
-        'Invitation Sent! 📧',
-        `An invitation has been sent to ${email.trim()}. They will receive an email with instructions to join your team.`,
-        [
-          {
-            text: 'Send Another',
-            onPress: () => setEmail(''),
-            style: 'default'
-          },
-          {
-            text: 'Done',
-            onPress: () => router.back(),
-            style: 'cancel'
-          }
-        ]
-      );
+      setModalMessage(`🎉 Invitation Sent!\n\nAn invitation has been sent to ${email.trim()}. They will receive an email with instructions to join "${decodedGroupName}".`);
+      setSuccessModalVisible(true);
     } catch (error: any) {
       console.error('Error sending invitation:', error);
       
@@ -83,7 +85,8 @@ export default function AddMembersScreen() {
         errorMessage = error.message;
       }
       
-      Alert.alert('Error', errorMessage);
+      setModalMessage(errorMessage);
+      setErrorModalVisible(true);
     } finally {
       setLoading(false);
     }
@@ -91,6 +94,20 @@ export default function AddMembersScreen() {
 
   const handleCancel = () => {
     router.back();
+  };
+
+  const handleSuccessModalConfirm = (action: 'another' | 'done') => {
+    setSuccessModalVisible(false);
+    if (action === 'another') {
+      setEmail('');
+    } else {
+      router.back();
+    }
+  };
+
+  const handleErrorModalClose = () => {
+    setErrorModalVisible(false);
+    setModalMessage('');
   };
 
   return (
@@ -106,7 +123,7 @@ export default function AddMembersScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Invite Team Member</Text>
             <Text style={styles.subtitle}>
-              Send an email invitation to add a new member to your team
+              Send an email invitation to add a new member to {decodedGroupName}
             </Text>
           </View>
 
@@ -144,6 +161,30 @@ export default function AddMembersScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Success Modal - Web Compatible */}
+      <ConfirmationModal
+        visible={successModalVisible}
+        title="Invitation Sent! 📧"
+        message={modalMessage}
+        confirmText="Send Another"
+        cancelText="Done"
+        onConfirm={() => handleSuccessModalConfirm('another')}
+        onCancel={() => handleSuccessModalConfirm('done')}
+        confirmButtonTheme="primary"
+      />
+
+      {/* Error Modal - Web Compatible */}
+      <ConfirmationModal
+        visible={errorModalVisible}
+        title="Error"
+        message={modalMessage}
+        confirmText="OK"
+        cancelText=""
+        onConfirm={handleErrorModalClose}
+        onCancel={handleErrorModalClose}
+        confirmButtonTheme="primary"
+      />
     </SafeAreaView>
   );
 }
