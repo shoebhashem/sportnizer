@@ -31,6 +31,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // Initialize Firebase Functions
-const functions = getFunctions(app);
+const functions = getFunctions(app, 'europe-north1');
 
 export { auth, db, functions };
