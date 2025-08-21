@@ -13,9 +13,13 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Error states
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  
+  // Modal states
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
@@ -108,7 +112,7 @@ export default function SignupScreen() {
   };
 
   const handleBackToLogin = () => {
-    router.back();
+    router.replace('/login');
   };
 
   const handleSuccessModalConfirm = () => {

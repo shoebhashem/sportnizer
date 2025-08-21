@@ -20,14 +20,10 @@ service cloud.firestore {
     
     // Users collection - for user profiles
     match /users/{userId} {
-      // Users can read and write their own profile
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
-      
-      // Users can read other users' public profiles (for member lists, etc.)
+      // Users can read any user profile (for search and member lists)
+      // Users can only write their own profile
       allow read: if isSignedIn();
-      
-      // Users can create or update their own profile (handles both new and existing users)
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId;
     }
     
     // Groups collection (renamed from sportsGroups)
@@ -133,9 +129,16 @@ service cloud.firestore {
       allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
     
-    // Block all other collections
-    match /{document=**} {
-      allow read, write: if false;
+    // Invitations collection - for email invitations
+    match /invitations/{invitationId} {
+      // Anyone can read invitations (needed for signup with invitation tokens)
+      allow read: if true;
+      
+      // Only authenticated users can create invitations (via Cloud Functions)
+      allow create: if isSignedIn();
+      
+      // Users can update invitations they were invited to
+      allow update: if isSignedIn();
     }
   }
 }
