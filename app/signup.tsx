@@ -14,10 +14,13 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [invitationModalVisible, setInvitationModalVisible] = useState(false);
+  const [invitationLoading, setInvitationLoading] = useState(false);
   const [invitationInfo, setInvitationInfo] = useState<{
     groupName: string;
     inviterName: string;
   } | null>(null);
+  const [isSignedUp, setIsSignedUp] = useState(false);
   
   // Error states
   const [emailError, setEmailError] = useState('');

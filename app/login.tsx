@@ -1,6 +1,7 @@
 import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
+import InvitationModal from '@/components/InvitationModal';
 import { theme } from '@/constants/theme';
 import { signInUser } from '@/services/authService';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -17,23 +18,29 @@ export default function LoginScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [invitationModalVisible, setInvitationModalVisible] = useState(false);
+  const [invitationLoading, setInvitationLoading] = useState(false);
   const [invitationInfo, setInvitationInfo] = useState<{
     groupName: string;
     inviterName: string;
   } | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Load invitation info if invite token is present
   useEffect(() => {
     const loadInvitationInfo = async () => {
       if (invite) {
         try {
-          // Show invitation context
+          console.log('Loading invitation details for token:', invite);
+          // For now, we'll use a simple approach since getInvitationDetails might not be deployed yet
           setInvitationInfo({
-            groupName: 'the group',
-            inviterName: 'a team member'
+            groupName: 'the group', // We'll get this from the invitation processing response
+            inviterName: 'a team member',
           });
         } catch (error) {
           console.error('Error loading invitation info:', error);
+          // If there's an error, remove the invite parameter
+          router.replace('/login');
         }
       }
     };
@@ -83,37 +90,11 @@ export default function LoginScreen() {
       const result = await signInUser(email.trim(), password);
       
       if (result.success) {
-        // If there's an invitation token, process it after successful login
-        if (invite) {
-          try {
-            console.log('Processing invitation token for existing user:', invite);
-            const response = await fetch(`${process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL}/processInvitation`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                invitationToken: invite,
-                userEmail: email.trim(),
-              }),
-            });
-
-            const invitationResult = await response.json();
-
-            if (invitationResult.success) {
-              console.log('Invitation processed successfully');
-              // Navigate to main app - user will see they've been added to the group
-              router.replace('/(tabs)');
-            } else {
-              console.error('Invitation processing failed:', invitationResult.error);
-              // Still navigate to main app, but user should contact admin
-              router.replace('/(tabs)');
-            }
-          } catch (invitationError) {
-            console.error('Error processing invitation:', invitationError);
-            // Still navigate to main app if login was successful
-            router.replace('/(tabs)');
-          }
+        setIsLoggedIn(true);
+        
+        // If there's an invitation token, show the invitation modal
+        if (invite && invitationInfo) {
+          setInvitationModalVisible(true);
         } else {
           // Navigate to main app (tabs)
           router.replace('/(tabs)');
@@ -154,6 +135,57 @@ export default function LoginScreen() {
     }
   };
 
+  const handleInvitationAccept = async () => {
+    if (!invite || !invitationInfo) return;
+    
+    setInvitationLoading(true);
+    
+    try {
+      console.log('Accepting invitation:', invite);
+      const response = await fetch(`${process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL}/processInvitation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invitationToken: invite,
+          userEmail: email.trim(),
+        }),
+      });
+
+      console.log('Response status:', response.status);
+      const result = await response.json();
+      console.log('Invitation acceptance result:', result);
+
+      if (result.success) {
+        console.log('Successfully joined group!');
+        setInvitationModalVisible(false);
+        // Show success message before navigating
+        setErrorMessage(`Successfully joined the group! Welcome!`);
+        setErrorModalVisible(true);
+        // Navigate after user closes the success message
+      } else {
+        console.error('Failed to accept invitation:', result.error);
+        setErrorMessage(result.error || 'Failed to join group. Please try again.');
+        setInvitationModalVisible(false);
+        setErrorModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      setErrorMessage('An error occurred while joining the group. Please try again.');
+      setInvitationModalVisible(false);
+      setErrorModalVisible(true);
+    } finally {
+      setInvitationLoading(false);
+    }
+  };
+
+  const handleInvitationReject = async () => {
+    setInvitationModalVisible(false);
+    // Navigate to main app without processing invitation
+    router.replace('/(tabs)');
+  };
+
   const handleCreateAccount = () => {
     if (invite) {
       router.push(`/signup?invite=${encodeURIComponent(invite)}` as any);
@@ -164,6 +196,10 @@ export default function LoginScreen() {
 
   const handleCloseErrorModal = () => {
     setErrorModalVisible(false);
+    // If it's a success message (contains "Successfully"), navigate to tabs
+    if (errorMessage.includes('Successfully')) {
+      router.replace('/(tabs)');
+    }
     setErrorMessage('');
   };
 
@@ -234,6 +270,17 @@ export default function LoginScreen() {
         onCancel={handleCloseErrorModal}
         confirmButtonTheme="primary"
       />
+
+      {invitationInfo && (
+        <InvitationModal
+          visible={invitationModalVisible}
+          groupName={invitationInfo.groupName}
+          inviterName={invitationInfo.inviterName}
+          onAccept={handleInvitationAccept}
+          onReject={handleInvitationReject}
+          loading={invitationLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }
