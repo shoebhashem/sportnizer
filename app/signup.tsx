@@ -3,26 +3,27 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { signUpUser } from '@/services/authService';
+import { functions } from '@/services/firebase';
 import { router, useLocalSearchParams } from 'expo-router';
+import { httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignupScreen() {
   const { invite } = useLocalSearchParams<{ invite?: string }>();
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [invitationModalVisible, setInvitationModalVisible] = useState(false);
-  const [invitationLoading, setInvitationLoading] = useState(false);
   const [invitationInfo, setInvitationInfo] = useState<{
     groupName: string;
     inviterName: string;
   } | null>(null);
-  const [isSignedUp, setIsSignedUp] = useState(false);
   
   // Error states
+  const [fullNameError, setFullNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
@@ -34,22 +35,13 @@ export default function SignupScreen() {
 
   // Load invitation info if invite token is present
   useEffect(() => {
-    const loadInvitationInfo = async () => {
-      if (invite) {
-        try {
-          // You could add a function to get invitation details without processing it
-          // For now, we'll show a generic message
-          setInvitationInfo({
-            groupName: 'the group',
-            inviterName: 'a team member'
-          });
-        } catch (error) {
-          console.error('Error loading invitation info:', error);
-        }
-      }
-    };
-
-    loadInvitationInfo();
+    if (invite) {
+      // Set invitation info for display purposes
+      setInvitationInfo({
+        groupName: 'the group',
+        inviterName: 'a team member'
+      });
+    }
   }, [invite]);
 
   const validateEmail = (email: string) => {
@@ -61,9 +53,19 @@ export default function SignupScreen() {
     let isValid = true;
     
     // Reset errors
+    setFullNameError('');
     setEmailError('');
     setPasswordError('');
     setConfirmPasswordError('');
+
+    // Validate full name
+    if (!fullName.trim()) {
+      setFullNameError('Full name is required');
+      isValid = false;
+    } else if (fullName.trim().length < 2) {
+      setFullNameError('Full name must be at least 2 characters');
+      isValid = false;
+    }
 
     // Validate email
     if (!email.trim()) {
@@ -101,40 +103,37 @@ export default function SignupScreen() {
     setLoading(true);
     
     try {
-      const result = await signUpUser(email.trim(), password);
+      const result = await signUpUser(email.trim(), password, fullName.trim());
       
       if (result.success) {
-        // If there's an invitation token, process it after successful signup
+        // Show email verification message
+        setModalMessage(result.message || 'Account created successfully! Please check your email to verify your account before signing in.');
+        setSuccessModalVisible(true);
+        
+        // If there is an invitation token, process it after successful signup
+        // Note: The user will need to verify their email first, but we can still process the invitation
         if (invite) {
           try {
-            console.log('Processing invitation token:', invite);
-            const response = await fetch(`${process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL}/processInvitation`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                invitationToken: invite,
-                userEmail: email.trim(),
-              }),
+            console.log('Processing invitation after signup for token:', invite);
+            // Call the processInvitation function
+            const processInvitationFunction = httpsCallable(functions, 'processInvitation');
+            const invitationResult = await processInvitationFunction({ 
+              invitationToken: invite,
+              userEmail: email.trim()
             });
-
-            const invitationResult = await response.json();
-
-            if (invitationResult.success) {
-              setModalMessage(`Account created successfully! You have been added to ${invitationInfo?.groupName || 'the group'}.`);
-            } else {
-              console.error('Invitation processing failed:', invitationResult.error);
-              setModalMessage('Account created successfully, but there was an issue processing your invitation. Please contact the group admin.');
+            
+            console.log('Invitation processing result:', invitationResult.data);
+            
+            if ((invitationResult.data as any)?.success) {
+              // Update the success message to include invitation acceptance
+              setModalMessage(`Account created successfully! You have also been added to the group.\n\nPlease check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.`);
             }
           } catch (invitationError) {
             console.error('Error processing invitation:', invitationError);
-            setModalMessage('Account created successfully, but there was an issue processing your invitation. Please contact the group admin.');
+            // Don't show error to user since account creation was successful
+            // They can always join the group later if needed
           }
-        } else {
-          setModalMessage('Your account has been created successfully. You can now sign in.');
         }
-        setSuccessModalVisible(true);
       } else {
         // Show error
         let errorMessage = 'An error occurred. Please try again.';
@@ -195,10 +194,25 @@ export default function SignupScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Join</Text>
             <Text style={styles.appName}>Sportnizer</Text>
-            <Text style={styles.subtitle}>Create your account to get started</Text>
+            {invitationInfo ? (
+              <Text style={styles.subtitle}>
+                You have been invited to join {invitationInfo.groupName} by {invitationInfo.inviterName}
+              </Text>
+            ) : (
+              <Text style={styles.subtitle}>Create your account to get started</Text>
+            )}
           </View>
 
           <View style={styles.form}>
+            <Input
+              label="Full Name"
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Enter your full name"
+              autoCapitalize="words"
+              error={fullNameError}
+            />
+
             <Input
               label="Email Address"
               value={email}

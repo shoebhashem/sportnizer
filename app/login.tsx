@@ -24,7 +24,6 @@ export default function LoginScreen() {
     groupName: string;
     inviterName: string;
   } | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Load invitation info if invite token is present
   useEffect(() => {
@@ -90,8 +89,6 @@ export default function LoginScreen() {
       const result = await signInUser(email.trim(), password);
       
       if (result.success) {
-        setIsLoggedIn(true);
-        
         // If there's an invitation token, show the invitation modal
         if (invite && invitationInfo) {
           setInvitationModalVisible(true);
@@ -112,6 +109,9 @@ export default function LoginScreen() {
             break;
           case 'auth/invalid-email':
             errorMessage = 'Invalid email address.';
+            break;
+          case 'auth/email-not-verified':
+            errorMessage = 'Please verify your email address before signing in.\n\nCheck your email inbox and click the verification link to activate your account. If you don\'t see the email, check your spam folder.';
             break;
           case 'auth/too-many-requests':
             errorMessage = 'Too many failed attempts. Please try again later.';
