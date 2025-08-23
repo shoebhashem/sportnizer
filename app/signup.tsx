@@ -11,7 +11,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignupScreen() {
-  const { invite } = useLocalSearchParams<{ invite?: string }>();
+  const { invite, verified } = useLocalSearchParams<{ invite?: string; verified?: string }>();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,6 +43,17 @@ export default function SignupScreen() {
       });
     }
   }, [invite]);
+
+  // Handle email verification status
+  useEffect(() => {
+    if (verified === 'success') {
+      setModalMessage('✅ Email verified successfully!\n\nYour account is now activated. You can now sign in to your Sportnizer account.');
+      setSuccessModalVisible(true);
+    } else if (verified === 'already') {
+      setModalMessage('✅ Email already verified!\n\nYour account is already activated. You can sign in to your Sportnizer account.');
+      setSuccessModalVisible(true);
+    }
+  }, [verified]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -173,7 +184,14 @@ export default function SignupScreen() {
 
   const handleSuccessModalConfirm = () => {
     setSuccessModalVisible(false);
-    router.replace('/(tabs)');
+    
+    // If this is email verification success, redirect to login
+    if (verified === 'success' || verified === 'already') {
+      router.replace('/login');
+    } else {
+      // For regular signup success, stay on signup screen
+      router.replace('/signup');
+    }
   };
 
   const handleErrorModalClose = () => {

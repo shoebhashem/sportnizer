@@ -1,176 +1,4 @@
-impoadmin.initializeApp();
-
-// Initialize Nodemailer transporter
-const transporter = nodemailer.createTransporter({
-  host: 'smtp.strato.com',
-  port: 587,
-  secure: false, // false for 587, true for 465
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-});
-
-// Custom email verification function
-export const sendCustomEmailVerification = onCall(
-  {
-    region: 'europe-north1',
-  },
-  async (request) => {
-    try {
-      const { email, uid } = request.data;
-
-      if (!email || !uid) {
-        throw new HttpsError('invalid-argument', 'Email and UID are required');
-      }
-
-      // Generate verification token
-      const verificationToken = admin.firestore().collection('emailVerifications').doc().id;
-      
-      // Store verification token with expiry (24 hours)
-      await admin.firestore().collection('emailVerifications').doc(verificationToken).set({
-        uid,
-        email: email.toLowerCase(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        verified: false,
-      });
-
-      // Create verification link
-      const verificationLink = `https://sportnizer.com/verify-email?token=${verificationToken}`;
-
-      const mailOptions = {
-        from: 'noreply@sportnizer.com',
-        to: email,
-        subject: 'Verify Your Sportnizer Account',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #007AFF; margin: 0;">Sportnizer</h1>
-            </div>
-            
-            <h2 style="color: #333; margin-bottom: 20px;">Verify Your Email Address</h2>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Thank you for creating your Sportnizer account! To complete your registration and start using the app, 
-              please verify your email address by clicking the button below.
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationLink}" 
-                 style="background-color: #007AFF; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
-                Verify Email Address
-              </a>
-            </div>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              If the button doesn't work, you can copy and paste this link into your browser:
-            </p>
-            
-            <p style="color: #007AFF; word-break: break-all; margin-bottom: 30px;">
-              ${verificationLink}
-            </p>
-            
-            <p style="color: #999; font-size: 14px; margin-bottom: 10px;">
-              This link will expire in 24 hours. If you didn't create a Sportnizer account, you can safely ignore this email.
-            </p>
-            
-            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-            
-            <p style="color: #999; font-size: 12px; text-align: center;">
-              © 2025 Sportnizer. All rights reserved.
-            </p>
-          </div>
-        `,
-      };
-
-      await transporter.sendMail(mailOptions);
-
-      return {
-        success: true,
-        message: 'Verification email sent successfully',
-        verificationToken,
-      };
-
-    } catch (error) {
-      console.error('Error sending verification email:', error);
-      throw new HttpsError('internal', 'Failed to send verification email');
-    }
-  }
-);
-
-// Verify email token
-export const verifyEmailToken = onCall(
-  {
-    region: 'europe-north1',
-  },
-  async (request) => {
-    try {
-      const { token } = request.data;
-
-      if (!token) {
-        throw new HttpsError('invalid-argument', 'Verification token is required');
-      }
-
-      // Get verification document
-      const verificationDoc = await admin.firestore()
-        .collection('emailVerifications')
-        .doc(token)
-        .get();
-
-      if (!verificationDoc.exists) {
-        throw new HttpsError('not-found', 'Invalid verification token');
-      }
-
-      const verificationData = verificationDoc.data();
-
-      if (!verificationData) {
-        throw new HttpsError('not-found', 'Invalid verification token');
-      }
-
-      // Check if already verified
-      if (verificationData.verified) {
-        throw new HttpsError('already-exists', 'Email already verified');
-      }
-
-      // Check if expired
-      if (verificationData.expiresAt.toDate() < new Date()) {
-        throw new HttpsError('deadline-exceeded', 'Verification token expired');
-      }
-
-      // Mark as verified in the verification collection
-      await verificationDoc.ref.update({
-        verified: true,
-        verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      // Update user document to mark email as verified
-      await admin.firestore()
-        .collection('users')
-        .doc(verificationData.uid)
-        .update({
-          emailVerified: true,
-        });
-
-      // Also update Firebase Auth user (requires Admin SDK)
-      await admin.auth().updateUser(verificationData.uid, {
-        emailVerified: true,
-      });
-
-      return {
-        success: true,
-        message: 'Email verified successfully',
-      };
-
-    } catch (error) {
-      console.error('Error verifying email token:', error);
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      throw new HttpsError('internal', 'Failed to verify email');
-    }
-  }
-);n from 'firebase-admin';
+import * as admin from 'firebase-admin';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import * as nodemailer from 'nodemailer';
 
@@ -732,6 +560,192 @@ export const getInvitationDetails = onRequest(
       res.status(500).json({ 
         success: false, 
         error: 'Internal server error' 
+      });
+    }
+  }
+);
+
+// Custom Email Verification Functions
+export const sendEmailVerification = onCall(
+  {
+    region: 'europe-north1',
+  },
+  async (request) => {
+    try {
+      const { email, uid, fullName } = request.data;
+
+      if (!email || !uid || !fullName) {
+        throw new HttpsError('invalid-argument', 'Email, UID, and full name are required');
+      }
+
+      // Generate verification token
+      const verificationToken = admin.firestore().collection('emailVerifications').doc().id;
+      
+      // Store verification token with expiry (24 hours)
+      await admin.firestore().collection('emailVerifications').doc(verificationToken).set({
+        uid,
+        email: email.toLowerCase(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        verified: false,
+      });
+
+      // Create verification link - make URL easily replaceable
+      const baseUrl = process.env.BASE_URL || 'http://localhost:8081';
+      const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
+
+      const mailOptions = {
+        from: 'noreply@sportnizer.com',
+        to: email,
+        subject: 'Verify Your Sportnizer Account',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #007AFF; margin: 0; font-size: 28px;">Sportnizer</h1>
+            </div>
+            
+            <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <h2 style="color: #333; margin-bottom: 20px;">Welcome ${fullName}!</h2>
+              
+              <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 25px;">
+                Thank you for signing up for Sportnizer! To complete your registration and start using the app, 
+                please verify your email address by clicking the button below.
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verificationLink}" 
+                   style="background-color: #007AFF; color: white; padding: 15px 30px; text-decoration: none; 
+                          border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">
+                  Verify Your Email
+                </a>
+              </div>
+              
+              <p style="color: #999; font-size: 14px; margin-top: 25px;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${verificationLink}" style="color: #007AFF; word-break: break-all;">${verificationLink}</a>
+              </p>
+              
+              <p style="color: #999; font-size: 12px; margin-top: 25px;">
+                This verification link will expire in 24 hours. If you didn't create an account with Sportnizer, 
+                please ignore this email.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+              <p style="color: #999; font-size: 12px;">© 2025 Sportnizer. All rights reserved.</p>
+            </div>
+          </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log('Verification email sent successfully to:', email);
+
+      return { 
+        success: true, 
+        message: 'Verification email sent successfully! Please check your inbox.' 
+      };
+
+    } catch (error: any) {
+      console.error('Error sending verification email:', error);
+      throw new HttpsError('internal', 'Failed to send verification email');
+    }
+  }
+);
+
+export const verifyEmail = onRequest(
+  {
+    region: 'europe-north1',
+  },
+  async (req, res) => {
+    try {
+      const { token } = req.query;
+
+      if (!token || typeof token !== 'string') {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid verification token'
+        });
+        return;
+      }
+
+      // Get verification document
+      const verificationDoc = await admin.firestore()
+        .collection('emailVerifications')
+        .doc(token)
+        .get();
+
+      if (!verificationDoc.exists) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid or expired verification token'
+        });
+        return;
+      }
+
+      const verificationData = verificationDoc.data();
+      
+      // Check if already verified
+      if (verificationData?.verified) {
+        // Redirect to success page (signup screen)
+        const baseUrl = process.env.BASE_URL || 'http://localhost:8081';
+        res.redirect(`${baseUrl}/signup?verified=already`);
+        return;
+      }
+
+      // Check if expired
+      const now = new Date();
+      const expiresAt = verificationData?.expiresAt?.toDate();
+      
+      if (expiresAt && now > expiresAt) {
+        // Clean up expired token
+        await admin.firestore()
+          .collection('emailVerifications')
+          .doc(token)
+          .delete();
+          
+        res.status(400).json({
+          success: false,
+          error: 'Verification token has expired'
+        });
+        return;
+      }
+
+      // Update user document to mark email as verified
+      await admin.firestore()
+        .collection('users')
+        .doc(verificationData?.uid)
+        .update({
+          emailVerified: true,
+          verifiedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+      // Mark verification as used
+      await admin.firestore()
+        .collection('emailVerifications')
+        .doc(token)
+        .update({
+          verified: true,
+          verifiedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+      // Clean up verification document after successful verification
+      await admin.firestore()
+        .collection('emailVerifications')
+        .doc(token)
+        .delete();
+
+      console.log('Email verified successfully for user:', verificationData?.uid);
+
+      // Redirect to success page (signup screen with success message)
+      const baseUrl = process.env.BASE_URL || 'http://localhost:8081';
+      res.redirect(`${baseUrl}/signup?verified=success`);
+
+    } catch (error: any) {
+      console.error('Error verifying email:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error during email verification'
       });
     }
   }
