@@ -590,9 +590,8 @@ export const sendEmailVerification = onCall(
         verified: false,
       });
 
-      // Create verification link - make URL easily replaceable
-      const baseUrl = process.env.BASE_URL || 'http://localhost:8081';
-      const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
+      // Create verification link - point directly to Firebase Function
+      const verificationLink = `https://europe-north1-sportnizer.cloudfunctions.net/verifyEmail?token=${verificationToken}`;
 
       const mailOptions = {
         from: 'noreply@sportnizer.com',
