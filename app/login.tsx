@@ -18,6 +18,7 @@ export default function LoginScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [resendSuccessModalVisible, setResendSuccessModalVisible] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
   const [invitationModalVisible, setInvitationModalVisible] = useState(false);
@@ -204,6 +205,7 @@ export default function LoginScreen() {
   const handleResendVerification = async () => {
     if (!email.trim()) {
       setErrorMessage('Please enter your email address to resend verification.');
+      setErrorModalVisible(true);
       return;
     }
 
@@ -213,14 +215,17 @@ export default function LoginScreen() {
       const result = await resendVerificationEmail(email.trim());
       
       if (result.success) {
-        setErrorMessage(`✅ Verification email sent successfully!\n\n${result.message}`);
+        // Show success modal instead of error modal
         setShowResendButton(false); // Hide resend button after successful send
+        setResendSuccessModalVisible(true);
       } else {
         setErrorMessage(`❌ Failed to resend verification email.\n\n${result.error?.message || 'Please try again.'}`);
+        setErrorModalVisible(true);
       }
     } catch (error) {
       console.error('Resend error:', error);
       setErrorMessage('❌ An unexpected error occurred. Please try again.');
+      setErrorModalVisible(true);
     } finally {
       setResendLoading(false);
     }
@@ -237,6 +242,10 @@ export default function LoginScreen() {
       router.replace('/(tabs)');
     }
     setErrorMessage('');
+  };
+
+  const handleCloseResendSuccessModal = () => {
+    setResendSuccessModalVisible(false);
   };
 
   return (
@@ -314,6 +323,17 @@ export default function LoginScreen() {
         cancelText=""
         onConfirm={handleCloseErrorModal}
         onCancel={handleCloseErrorModal}
+        confirmButtonTheme="primary"
+      />
+
+      <ConfirmationModal
+        visible={resendSuccessModalVisible}
+        title="Verification Email Sent!"
+        message={`📧 A new verification link has been sent to your email inbox.\n\nPlease check your email and click the verification link to activate your account.\n\nDon't forget to check your spam folder if you don't see the email.`}
+        confirmText="OK"
+        cancelText=""
+        onConfirm={handleCloseResendSuccessModal}
+        onCancel={handleCloseResendSuccessModal}
         confirmButtonTheme="primary"
       />
 
