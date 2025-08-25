@@ -3,11 +3,11 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import InvitationModal from '@/components/InvitationModal';
 import { theme } from '@/constants/theme';
-import { signInUser } from '@/services/authService';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { resendVerificationEmail, signInUser } from '../services/authService';
 
 export default function LoginScreen() {
   const { invite } = useLocalSearchParams<{ invite?: string }>();
@@ -18,6 +18,8 @@ export default function LoginScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [showResendButton, setShowResendButton] = useState(false);
   const [invitationModalVisible, setInvitationModalVisible] = useState(false);
   const [invitationLoading, setInvitationLoading] = useState(false);
   const [invitationInfo, setInvitationInfo] = useState<{
@@ -89,6 +91,8 @@ export default function LoginScreen() {
       const result = await signInUser(email.trim(), password);
       
       if (result.success) {
+        // Reset resend button state on successful sign in
+        setShowResendButton(false);
         // If there's an invitation token, show the invitation modal
         if (invite && invitationInfo) {
           setInvitationModalVisible(true);
@@ -112,6 +116,7 @@ export default function LoginScreen() {
             break;
           case 'auth/email-not-verified':
             errorMessage = 'Please verify your email address before signing in.\n\nCheck your email inbox and click the verification link to activate your account. If you don\'t see the email, check your spam folder.';
+            setShowResendButton(true);
             break;
           case 'auth/too-many-requests':
             errorMessage = 'Too many failed attempts. Please try again later.';
@@ -187,6 +192,8 @@ export default function LoginScreen() {
   };
 
   const handleCreateAccount = () => {
+    // Reset resend button state when navigating to signup
+    setShowResendButton(false);
     if (invite) {
       router.push(`/signup?invite=${encodeURIComponent(invite)}` as any);
     } else {
@@ -194,8 +201,37 @@ export default function LoginScreen() {
     }
   };
 
+  const handleResendVerification = async () => {
+    if (!email.trim()) {
+      setErrorMessage('Please enter your email address to resend verification.');
+      return;
+    }
+
+    setResendLoading(true);
+    
+    try {
+      const result = await resendVerificationEmail(email.trim());
+      
+      if (result.success) {
+        setErrorMessage(`✅ Verification email sent successfully!\n\n${result.message}`);
+        setShowResendButton(false); // Hide resend button after successful send
+      } else {
+        setErrorMessage(`❌ Failed to resend verification email.\n\n${result.error?.message || 'Please try again.'}`);
+      }
+    } catch (error) {
+      console.error('Resend error:', error);
+      setErrorMessage('❌ An unexpected error occurred. Please try again.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const handleCloseErrorModal = () => {
     setErrorModalVisible(false);
+    // Only reset resend button state if it's a success message (verification email sent)
+    if (errorMessage.includes('sent successfully')) {
+      setShowResendButton(false);
+    }
     // If it's a success message (contains "Successfully"), navigate to tabs
     if (errorMessage.includes('Successfully')) {
       router.replace('/(tabs)');
@@ -248,6 +284,16 @@ export default function LoginScreen() {
                 loading={loading}
                 disabled={loading}
               />
+
+              {showResendButton && (
+                <Button
+                  label="Resend Verification Email"
+                  onPress={handleResendVerification}
+                  theme="secondary"
+                  loading={resendLoading}
+                  disabled={loading || resendLoading || !email.trim()}
+                />
+              )}
 
               <Button
                 label="Create New Account"

@@ -12,7 +12,7 @@ This document outlines the new database architecture strategy we've agreed upon 
   - Users must verify email before accessing the app
   - Custom verification messages with clear instructions
   - Automatic sign-out after account creation
-  - Email verification handled by Firebase Auth
+  - Custom Email verification handled by Firebase fucntion to be implemented  
 
 - **User Document Structure**: ✅ Implemented in signup flow
   ```javascript
@@ -53,15 +53,13 @@ This document outlines the new database architecture strategy we've agreed upon 
   - createdBy: string (user uid)
   - createdAt: timestamp
   - memberCount: number
-  - isActive: boolean
   - customStats: array[3] (optional custom stat names defined by group creator)
     // Example: ["Goals Scored", "Assists", "Yellow Cards"]
 
 /groups/{groupId}/members/{uid}
   - joinedAt: timestamp
-  - role: "admin" | "member"
+  - role: "owner" | "admin" | "member"
   - invitedBy: string (user uid)
-  - status: "active" | "inactive"
   - customStats: object (dynamic fields based on group's customStats)
     // Example: { "Goals Scored": 0, "Assists": 0, "Yellow Cards": 0 }
     // Note: Field names match exactly what group creator defined

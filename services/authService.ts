@@ -84,6 +84,41 @@ export const signUpUser = async (email: string, password: string, fullName: stri
   }
 };
 
+// Resend verification email
+export const resendVerificationEmail = async (email: string) => {
+  try {
+    // Call the dedicated Firebase Function for resending verification email
+    const resendFunction = httpsCallable(functions, 'resendVerificationEmail');
+    const result = await resendFunction({ email: email.trim() });
+
+    return { 
+      success: true, 
+      message: (result.data as any)?.message || 'Verification email sent! Please check your inbox.'
+    };
+
+  } catch (error: any) {
+    console.error('Error resending verification email:', error);
+    
+    let errorMessage = 'Failed to resend verification email. Please try again.';
+    
+    if (error.code === 'functions/not-found') {
+      errorMessage = 'No account found with this email address.';
+    } else if (error.code === 'functions/already-exists') {
+      errorMessage = 'This email address is already verified.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    return { 
+      success: false, 
+      error: {
+        code: error.code || 'unknown',
+        message: errorMessage
+      }
+    };
+  }
+};
+
 // Sign out
 export const signOutUser = async () => {
   try {

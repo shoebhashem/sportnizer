@@ -24,6 +24,16 @@ service cloud.firestore {
       // Users can only write their own profile
       allow read: if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == userId;
+      
+      // Allow querying users by email for resend verification functionality
+      allow list: if isSignedIn();
+    }
+    
+    // Email verification collection - for custom email verification
+    match /emailVerifications/{tokenId} {
+      // Only Firebase Functions should access this collection
+      // However, we need some client access for error handling
+      allow read, write: if false; // Restrict client access - only functions should use this
     }
     
     // Groups collection (renamed from sportsGroups)
