@@ -578,6 +578,23 @@ export const sendEmailVerification = onCall(
         throw new HttpsError('invalid-argument', 'Email, UID, and full name are required');
       }
 
+      // Clean up any existing unverified tokens for this user (to prevent spam/duplicates)
+      const existingTokensQuery = await admin.firestore()
+        .collection('emailVerifications')
+        .where('uid', '==', uid)
+        .where('verified', '==', false)
+        .get();
+      
+      const batch = admin.firestore().batch();
+      existingTokensQuery.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      if (!existingTokensQuery.empty) {
+        await batch.commit();
+        console.log(`Cleaned up ${existingTokensQuery.docs.length} existing unverified tokens for user:`, uid);
+      }
+
       // Generate verification token
       const verificationToken = admin.firestore().collection('emailVerifications').doc().id;
       
@@ -648,6 +665,130 @@ export const sendEmailVerification = onCall(
     } catch (error: any) {
       console.error('Error sending verification email:', error);
       throw new HttpsError('internal', 'Failed to send verification email');
+    }
+  }
+);
+
+// Resend verification email function
+export const resendVerificationEmail = onCall(
+  {
+    region: 'europe-north1',
+  },
+  async (request) => {
+    try {
+      const { email } = request.data;
+
+      if (!email) {
+        throw new HttpsError('invalid-argument', 'Email is required');
+      }
+
+      // Find user by email in Firestore
+      const usersQuery = await admin.firestore()
+        .collection('users')
+        .where('email', '==', email.toLowerCase())
+        .limit(1)
+        .get();
+
+      if (usersQuery.empty) {
+        throw new HttpsError('not-found', 'No account found with this email address');
+      }
+
+      const userDoc = usersQuery.docs[0];
+      const userData = userDoc.data();
+      const uid = userDoc.id;
+
+      // Check if email is already verified
+      if (userData.emailVerified) {
+        throw new HttpsError('already-exists', 'This email address is already verified');
+      }
+
+      // Clean up any existing unverified tokens for this user
+      const existingTokensQuery = await admin.firestore()
+        .collection('emailVerifications')
+        .where('uid', '==', uid)
+        .where('verified', '==', false)
+        .get();
+      
+      const batch = admin.firestore().batch();
+      existingTokensQuery.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      if (!existingTokensQuery.empty) {
+        await batch.commit();
+        console.log(`Cleaned up ${existingTokensQuery.docs.length} existing tokens for resend`);
+      }
+
+      // Generate new verification token
+      const verificationToken = admin.firestore().collection('emailVerifications').doc().id;
+      
+      // Store verification token with expiry (24 hours)
+      await admin.firestore().collection('emailVerifications').doc(verificationToken).set({
+        uid,
+        email: email.toLowerCase(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        verified: false,
+      });
+
+      // Create verification link
+      const verificationLink = `https://europe-north1-sportnizer.cloudfunctions.net/verifyEmail?token=${verificationToken}`;
+
+      const mailOptions = {
+        from: 'noreply@sportnizer.com',
+        to: email,
+        subject: 'Verify Your Sportnizer Account - Resent',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #007AFF; margin: 0; font-size: 28px;">Sportnizer</h1>
+            </div>
+            
+            <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <h2 style="color: #333; margin-bottom: 20px;">Verify Your Email - Resent</h2>
+              
+              <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 25px;">
+                You requested a new verification email for your Sportnizer account. 
+                Please click the button below to verify your email address and activate your account.
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verificationLink}" 
+                   style="background-color: #007AFF; color: white; padding: 15px 30px; text-decoration: none; 
+                          border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">
+                  Verify Your Email
+                </a>
+              </div>
+              
+              <p style="color: #999; font-size: 14px; margin-top: 25px;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${verificationLink}" style="color: #007AFF; word-break: break-all;">${verificationLink}</a>
+              </p>
+              
+              <p style="color: #999; font-size: 12px; margin-top: 25px;">
+                This verification link will expire in 24 hours. If you didn't request this email, 
+                please ignore it.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+              <p style="color: #999; font-size: 12px;">© 2025 Sportnizer. All rights reserved.</p>
+            </div>
+          </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log('Verification email resent successfully to:', email);
+
+      return { 
+        success: true, 
+        message: 'Verification email sent successfully! Please check your inbox.' 
+      };
+
+    } catch (error: any) {
+      console.error('Error resending verification email:', error);
+      throw new HttpsError('internal', 'Failed to resend verification email');
     }
   }
 );
