@@ -22,6 +22,7 @@ export default function CreateGroupScreen() {
   const [ageGroup, setAgeGroup] = useState('');
   const [sportType, setSportType] = useState('');
   const [loading, setLoading] = useState(false);
+  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
 
   // Error states
   const [groupNameError, setGroupNameError] = useState('');
@@ -81,7 +82,8 @@ export default function CreateGroupScreen() {
         customStats: [] // Empty array for now
       });
 
-      if (result.success) {
+      if (result.success && result.groupId) {
+        setCreatedGroupId(result.groupId);
         setModalMessage(`Great! Your ${sportType} group "${groupName}" has been created successfully. You can now start inviting members and scheduling events.`);
         setSuccessModalVisible(true);
       } else {
@@ -112,8 +114,13 @@ export default function CreateGroupScreen() {
 
   const handleSuccessModalConfirm = () => {
     setSuccessModalVisible(false);
-    // Navigate to home screen instead of using router.back() for better web compatibility
-    router.replace('/(tabs)');
+    // Navigate to manage-group screen for the newly created group
+    if (createdGroupId) {
+      router.replace('/manage-group');
+    } else {
+      // Fallback to home screen if no group ID
+      router.replace('/(tabs)');
+    }
   };
 
   const handleErrorModalClose = () => {
