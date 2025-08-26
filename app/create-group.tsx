@@ -10,19 +10,23 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DropdownInput from '../components/DropdownInput';
 
+// Age group options
+const AGE_GROUP_OPTIONS = [
+  'Children/Youth (0-17 years) - Requires guardian communication',
+  'Adults (18+ years)',
+  'Mixed (All ages in the same group)'
+];
+
 export default function CreateGroupScreen() {
   const [groupName, setGroupName] = useState('');
+  const [ageGroup, setAgeGroup] = useState('');
   const [sportType, setSportType] = useState('');
-  const [location, setLocation] = useState('');
-  const [customStat1, setCustomStat1] = useState('');
-  const [customStat2, setCustomStat2] = useState('');
-  const [customStat3, setCustomStat3] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Error states
   const [groupNameError, setGroupNameError] = useState('');
+  const [ageGroupError, setAgeGroupError] = useState('');
   const [sportTypeError, setSportTypeError] = useState('');
-  const [locationError, setLocationError] = useState('');
 
   // Modal states
   const [successModalVisible, setSuccessModalVisible] = useState(false);
@@ -34,8 +38,8 @@ export default function CreateGroupScreen() {
 
     // Reset errors
     setGroupNameError('');
+    setAgeGroupError('');
     setSportTypeError('');
-    setLocationError('');
 
     // Validate group name
     if (!groupName.trim()) {
@@ -49,18 +53,15 @@ export default function CreateGroupScreen() {
       isValid = false;
     }
 
-    // Validate sport type
-    if (!sportType) {
-      setSportTypeError('Please select a sport type');
+    // Validate age group
+    if (!ageGroup) {
+      setAgeGroupError('Please select an age group');
       isValid = false;
     }
 
-    // Validate location
-    if (!location.trim()) {
-      setLocationError('Location is required');
-      isValid = false;
-    } else if (location.trim().length > 100) {
-      setLocationError('Location must be less than 100 characters');
+    // Validate sport type
+    if (!sportType) {
+      setSportTypeError('Please select a sport type');
       isValid = false;
     }
 
@@ -73,15 +74,11 @@ export default function CreateGroupScreen() {
     setLoading(true);
 
     try {
-      const customStats = [customStat1, customStat2, customStat3]
-        .filter(stat => stat.trim() !== '')
-        .map(stat => stat.trim());
-
       const result = await createGroup({
         name: groupName.trim(),
         sportType,
-        location: location.trim(),
-        customStats
+        location: '', // Temporary placeholder
+        customStats: [] // Empty array for now
       });
 
       if (result.success) {
@@ -149,8 +146,17 @@ export default function CreateGroupScreen() {
               label="Group Name *"
               value={groupName}
               onChangeText={setGroupName}
-              placeholder="e.g., Champions League Legends"
+              placeholder="e.g., Gais Pojkar 2016"
               error={groupNameError}
+            />
+
+            <DropdownInput
+              label="Age Group *"
+              value={ageGroup}
+              onValueChange={setAgeGroup}
+              options={AGE_GROUP_OPTIONS}
+              placeholder="Select age group"
+              error={ageGroupError}
             />
 
             <DropdownInput
@@ -161,42 +167,6 @@ export default function CreateGroupScreen() {
               placeholder="Select a sport"
               error={sportTypeError}
             />
-
-            <Input
-              label="Location *"
-              value={location}
-              onChangeText={setLocation}
-              placeholder="e.g., Stockholm, Sweden"
-              error={locationError}
-            />
-
-            <View style={styles.customStatsSection}>
-              <Text style={styles.sectionTitle}>Custom Statistics (Optional)</Text>
-              <Text style={styles.sectionSubtitle}>
-                Add up to 3 statistics you want to track for your team members (e.g., goals, assists, wins)
-              </Text>
-              
-              <Input
-                label="Statistic 1"
-                value={customStat1}
-                onChangeText={setCustomStat1}
-                placeholder="e.g., Goals"
-              />
-
-              <Input
-                label="Statistic 2"
-                value={customStat2}
-                onChangeText={setCustomStat2}
-                placeholder="e.g., Assists"
-              />
-
-              <Input
-                label="Statistic 3"
-                value={customStat3}
-                onChangeText={setCustomStat3}
-                placeholder="e.g., Wins"
-              />
-            </View>
 
             <View style={styles.buttonContainer}>
               <Button
