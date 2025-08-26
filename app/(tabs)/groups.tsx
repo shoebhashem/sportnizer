@@ -1,4 +1,3 @@
-import AdContainer from '@/components/AdContainer';
 import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { router } from 'expo-router';
@@ -53,8 +52,6 @@ export default function GroupsScreen() {
           </View>
         </View>
       </ScrollView>
-      
-      <AdContainer position="bottom" />
     </SafeAreaView>
   );
 }
