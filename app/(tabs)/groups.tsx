@@ -60,7 +60,7 @@ export default function GroupsScreen() {
   };
 
   const handleGroupPress = (groupId: string) => {
-    router.push('/manage-group');
+    router.push(`/manage-group?groupId=${groupId}` as any);
   };
 
   const renderGroupItem = ({ item }: { item: Group }) => (
