@@ -4,7 +4,7 @@ import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { doc, getDoc, getFirestore, runTransaction } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, getFirestore, runTransaction, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +27,7 @@ export default function GroupSettingsScreen() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [adminCount, setAdminCount] = useState(0);
 
   const fetchGroupData = useCallback(async () => {
     if (!groupId || !user?.uid) return;
@@ -44,11 +45,23 @@ export default function GroupSettingsScreen() {
         });
       }
 
-      // Fetch user's role in this group
-      const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', user.uid));
-      if (memberDoc.exists()) {
-        setUserRole(memberDoc.data().role || 'member');
-      }
+      // Fetch user's role in this group and count admins
+      const membersSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'members'));
+      let userRole = 'member';
+      let adminCount = 0;
+      
+      membersSnapshot.forEach((doc) => {
+        const memberData = doc.data();
+        if (doc.id === user.uid) {
+          userRole = memberData.role || 'member';
+        }
+        if (memberData.role === 'admin') {
+          adminCount++;
+        }
+      });
+      
+      setUserRole(userRole);
+      setAdminCount(adminCount);
     } catch (error) {
       console.error('Error fetching group data:', error);
       setErrorMessage('Failed to load group data');
@@ -63,6 +76,13 @@ export default function GroupSettingsScreen() {
   }, [fetchGroupData]);
 
   const handleLeaveGroup = () => {
+    // Check if user is the last admin
+    if (userRole === 'admin' && adminCount <= 1) {
+      setErrorMessage('You cannot leave the group as you are the only admin. Please assign another admin first or delete the group.');
+      setShowErrorModal(true);
+      return;
+    }
+    
     setShowLeaveModal(true);
   };
 
@@ -91,7 +111,7 @@ export default function GroupSettingsScreen() {
       });
 
       // Show success modal
-      setSuccessMessage('You have left the group');
+      setSuccessMessage('You have left the group successfully');
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Error leaving group:', error);
@@ -110,24 +130,56 @@ export default function GroupSettingsScreen() {
     try {
       const db = getFirestore();
       
-      await runTransaction(db, async (transaction) => {
-        // Delete the group document
-        const groupRef = doc(db, 'groups', groupId as string);
-        transaction.delete(groupRef);
-        
-        // Update creator's groupsCreated count
-        const creatorRef = doc(db, 'users', group?.createdBy || '');
-        const creatorDoc = await transaction.get(creatorRef);
+      // Use batch operations to delete everything
+      const batch = writeBatch(db);
+      
+      // Get all subcollections first
+      const membersSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'members'));
+      const eventsSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'events'));
+      const subgroupsSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'subgroups'));
+      const resultsSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'results'));
+      
+      // Delete all members
+      membersSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      
+      // Delete all events
+      eventsSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      
+      // Delete all subgroups
+      subgroupsSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      
+      // Delete all results
+      resultsSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      
+      // Delete the group document
+      const groupRef = doc(db, 'groups', groupId as string);
+      batch.delete(groupRef);
+      
+      // Update creator's groupsCreated count
+      if (group?.createdBy) {
+        const creatorRef = doc(db, 'users', group.createdBy);
+        const creatorDoc = await getDoc(creatorRef);
         if (creatorDoc.exists()) {
           const currentCount = creatorDoc.data().groupsCreated || 0;
-          transaction.update(creatorRef, {
+          batch.update(creatorRef, {
             groupsCreated: Math.max(0, currentCount - 1)
           });
         }
-      });
+      }
+      
+      // Commit all deletions
+      await batch.commit();
 
       // Show success modal
-      setSuccessMessage('Group has been deleted');
+      setSuccessMessage('Group has been deleted successfully');
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Error deleting group:', error);
@@ -260,7 +312,7 @@ export default function GroupSettingsScreen() {
       <ConfirmationModal
         visible={showDeleteModal}
         title="Delete Group"
-        message={`Are you sure you want to permanently delete "${group?.name || 'this group'}"? This action cannot be undone.`}
+        message={`Are you sure you want to permanently delete "${group?.name || 'this group'}"? This will also delete all future events for all members in this group and cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         onConfirm={confirmDeleteGroup}
