@@ -284,8 +284,7 @@ export default function ManageGroupScreen() {
           <TouchableOpacity 
             style={styles.kebabMenuButton}
             onPress={() => {
-              // TODO: Handle kebab menu press
-              console.log('Kebab menu pressed');
+              router.push(`/group-settings?groupId=${groupId}` as any);
             }}
           >
             <Ionicons 
