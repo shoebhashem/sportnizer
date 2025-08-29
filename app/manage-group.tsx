@@ -2,6 +2,7 @@ import Button from '@/components/Button';
 import DropdownInput from '@/components/DropdownInput';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -280,6 +281,19 @@ export default function ManageGroupScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.title}>{group.name}</Text>
+          <TouchableOpacity 
+            style={styles.kebabMenuButton}
+            onPress={() => {
+              // TODO: Handle kebab menu press
+              console.log('Kebab menu pressed');
+            }}
+          >
+            <Ionicons 
+              name="ellipsis-vertical" 
+              size={24} 
+              color={theme.colors.text} 
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.tabContainer}>
@@ -319,15 +333,22 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.sm,
   },
   title: {
     fontSize: theme.typography.fontSize.xlarge,
     color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.bold,
-    textAlign: 'center',
+    flex: 1,
+  },
+  kebabMenuButton: {
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
   },
   loadingContainer: {
     flex: 1,
