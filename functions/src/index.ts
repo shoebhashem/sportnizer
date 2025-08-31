@@ -244,6 +244,8 @@ export const processInvitation = onRequest(
       batch.set(userRef, {
         groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
       }, { merge: true });
+      
+      console.log(`Added group ${invitationData.groupId} to user ${userRecord.uid} groupsJoined array`);
 
       // Mark invitation as used
       batch.update(invitationDoc.ref, {
@@ -437,6 +439,8 @@ export const respondToInvitation = onRequest(
       batch.set(userRef, {
         groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
       }, { merge: true });
+      
+      console.log(`Added group ${invitationData.groupId} to user ${userRecord.uid} groupsJoined array via respondToInvitation`);
 
       // Mark invitation as accepted
       console.log('Marking invitation as accepted');

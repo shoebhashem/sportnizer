@@ -54,6 +54,7 @@ export const signUpUser = async (email: string, password: string, fullName: stri
       email: email.toLowerCase(),
       createdAt: serverTimestamp(),
       groupsCreated: 0,
+      groupsJoined: [], // Initialize empty array for joined groups
       emailVerified: false, // Track verification status
     });
     

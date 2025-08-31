@@ -2,7 +2,7 @@ import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
-import { collection, getDocs, getFirestore, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,18 +24,19 @@ export default function GroupsScreen() {
     try {
       const db = getFirestore();
       
+      // Get user document to check groupsJoined array
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      const userGroups: Group[] = [];
+      
       // Get groups where user is the creator
       const createdGroupsQuery = query(
         collection(db, 'groups'),
         where('createdBy', '==', user.uid)
       );
-      
-      // Get groups where user is a member (from subcollection)
-      // Note: This is a simplified approach - in production you might want to maintain 
-      // a user document with group references for better performance
       const createdGroupsSnapshot = await getDocs(createdGroupsQuery);
       
-      const userGroups: Group[] = [];
       createdGroupsSnapshot.forEach((doc) => {
         userGroups.push({
           id: doc.id,
@@ -43,6 +44,50 @@ export default function GroupsScreen() {
         });
       });
 
+      // Get groups where user is a member (from user's groupsJoined array)
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const groupsJoined = userData.groupsJoined || [];
+        
+        console.log('User groupsJoined:', groupsJoined);
+        
+        // Fetch each joined group (excluding ones user created to avoid duplicates)
+        for (const groupId of groupsJoined) {
+          // Skip if this is a group the user created (already included above)
+          if (userGroups.some(group => group.id === groupId)) {
+            continue;
+          }
+          
+          try {
+            const groupDocRef = doc(db, 'groups', groupId);
+            const groupDoc = await getDoc(groupDocRef);
+            
+            if (groupDoc.exists()) {
+              userGroups.push({
+                id: groupDoc.id,
+                name: groupDoc.data().name
+              });
+            }
+          } catch (error) {
+            console.error(`Error fetching group ${groupId}:`, error);
+          }
+        }
+      } else {
+        // If user document doesn't exist, create it with empty groupsJoined array
+        console.log('User document not found, creating one...');
+        const userDocRef = doc(db, 'users', user.uid);
+        await setDoc(userDocRef, {
+          name: user.displayName || user.email?.split('@')[0] || 'User',
+          email: user.email || '',
+          createdAt: serverTimestamp(),
+          groupsCreated: 0,
+          groupsJoined: [],
+          emailVerified: true, // Assume verified if they're logged in
+        });
+      }
+
+      console.log('Total groups found:', userGroups.length);
+      console.log('Groups data:', userGroups);
       setGroups(userGroups);
     } catch (error) {
       console.error('Error fetching groups:', error);
