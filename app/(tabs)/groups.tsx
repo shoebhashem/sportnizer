@@ -1,8 +1,8 @@
 import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { router } from 'expo-router';
-import { collection, doc, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { router, useFocusEffect } from 'expo-router';
+import { collection, doc, getDoc, getDocs, getFirestore, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -96,9 +96,97 @@ export default function GroupsScreen() {
     }
   }, [user]);
 
+  // Real-time listener for user's groups
   useEffect(() => {
-    fetchUserGroups();
-  }, [fetchUserGroups]);
+    if (!user) return;
+
+    const db = getFirestore();
+    let unsubscribeCreatedGroups: (() => void) | null = null;
+    let unsubscribeUser: (() => void) | null = null;
+
+    const setupListeners = async () => {
+      // Listen to groups created by user
+      const createdGroupsQuery = query(
+        collection(db, 'groups'),
+        where('createdBy', '==', user.uid)
+      );
+      
+      unsubscribeCreatedGroups = onSnapshot(createdGroupsQuery, async (snapshot) => {
+        const createdGroups: Group[] = [];
+        snapshot.forEach((doc) => {
+          createdGroups.push({
+            id: doc.id,
+            name: doc.data().name
+          });
+        });
+        
+        // Fetch joined groups and combine with created groups
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          const allGroups = [...createdGroups];
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const groupsJoined = userData.groupsJoined || [];
+            
+            // Fetch each joined group (excluding ones user created to avoid duplicates)
+            for (const groupId of groupsJoined) {
+              if (allGroups.some(group => group.id === groupId)) {
+                continue;
+              }
+              
+              try {
+                const groupDocRef = doc(db, 'groups', groupId);
+                const groupDoc = await getDoc(groupDocRef);
+                
+                if (groupDoc.exists()) {
+                  allGroups.push({
+                    id: groupDoc.id,
+                    name: groupDoc.data().name
+                  });
+                }
+              } catch (error) {
+                console.error(`Error fetching group ${groupId}:`, error);
+              }
+            }
+          }
+
+          setGroups(allGroups);
+          setLoading(false);
+        } catch (error) {
+          console.error('Error fetching joined groups:', error);
+          setLoading(false);
+        }
+      });
+
+      // Listen to user document changes (for groupsJoined array changes)
+      const userDocRef = doc(db, 'users', user.uid);
+      unsubscribeUser = onSnapshot(userDocRef, async (doc) => {
+        if (doc.exists()) {
+          // Re-trigger the created groups listener which will also fetch joined groups
+          console.log('User document changed, refreshing groups...');
+        }
+      });
+    };
+
+    setupListeners();
+
+    return () => {
+      unsubscribeCreatedGroups?.();
+      unsubscribeUser?.();
+    };
+  }, [user]);
+
+  // Refresh data when screen comes into focus (e.g., after creating/deleting groups)
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        fetchUserGroups();
+      }
+    }, [user, fetchUserGroups])
+  );
 
   const handleCreateGroup = () => {
     router.push('/create-group');

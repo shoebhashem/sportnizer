@@ -116,10 +116,10 @@ export default function CreateGroupScreen() {
     setSuccessModalVisible(false);
     // Navigate to manage-group screen for the newly created group
     if (createdGroupId) {
-      router.replace('/manage-group');
+      router.replace(`/manage-group?groupId=${createdGroupId}` as any);
     } else {
-      // Fallback to home screen if no group ID
-      router.replace('/(tabs)');
+      // Fallback to groups screen
+      router.replace('/(tabs)/groups');
     }
   };
 

@@ -4,8 +4,8 @@ import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { addDoc, collection, doc, getDoc, getDocs, getFirestore, runTransaction, setDoc, writeBatch } from 'firebase/firestore';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { addDoc, arrayRemove, collection, doc, getDoc, getDocs, getFirestore, runTransaction, setDoc, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -85,6 +85,13 @@ export default function GroupSettingsScreen() {
     fetchGroupData();
   }, [fetchGroupData]);
 
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchGroupData();
+    }, [fetchGroupData])
+  );
+
   const handleLeaveGroup = () => {
     // Check if user is the last admin
     if (userRole === 'admin' && adminCount <= 1) {
@@ -149,6 +156,15 @@ export default function GroupSettingsScreen() {
       const subgroupsSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'subgroups'));
       const resultsSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'results'));
       
+      // Remove group from all members' groupsJoined arrays
+      membersSnapshot.forEach((memberDoc) => {
+        const userId = memberDoc.id;
+        const userRef = doc(db, 'users', userId);
+        batch.update(userRef, {
+          groupsJoined: arrayRemove(groupId as string)
+        });
+      });
+
       // Delete all members
       membersSnapshot.forEach((doc) => {
         batch.delete(doc.ref);
