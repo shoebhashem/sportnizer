@@ -5,7 +5,7 @@ import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { addDoc, collection, doc, getDoc, getDocs, getFirestore, runTransaction, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, getFirestore, runTransaction, setDoc, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -63,6 +63,12 @@ export default function GroupSettingsScreen() {
           adminCount++;
         }
       });
+      
+      // If user is the group creator but not found in members, consider them as admin
+      if (groupDoc.exists() && groupDoc.data().createdBy === user.uid && userRole === 'member') {
+        userRole = 'admin';
+        console.log('Group creator automatically granted admin permissions');
+      }
       
       setUserRole(userRole);
       setAdminCount(adminCount);
@@ -210,23 +216,91 @@ export default function GroupSettingsScreen() {
       return;
     }
 
+    if (!groupId || !user?.uid) {
+      setErrorMessage('Missing group ID or user information. Please try again.');
+      setShowErrorModal(true);
+      return;
+    }
+
+    // Check if user has permission to create subgroups
+    console.log('Permission check:', {
+      userRole,
+      canManage,
+      isAdmin,
+      groupCreatedBy: group?.createdBy,
+      currentUserId: user.uid
+    });
+    
+    if (!canManage) {
+      setErrorMessage('You do not have permission to create subgroups in this group.');
+      setShowErrorModal(true);
+      return;
+    }
+
     setCreatingSubgroup(true);
     
     try {
       const db = getFirestore();
+      
+      // First, ensure group creator is added as admin member if not already present
+      if (isGroupCreator) {
+        const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', user.uid));
+        if (!memberDoc.exists()) {
+          console.log('Adding group creator as admin member');
+          await setDoc(doc(db, 'groups', groupId as string, 'members', user.uid), {
+            role: 'admin',
+            joinedAt: new Date()
+          });
+        }
+      } else {
+        // For non-creators, verify membership and role
+        const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', user.uid));
+        console.log('User membership check:', {
+          exists: memberDoc.exists(),
+          data: memberDoc.exists() ? memberDoc.data() : null
+        });
+        
+        if (!memberDoc.exists()) {
+          setErrorMessage('You are not a member of this group. Please contact an admin.');
+          setShowErrorModal(true);
+          setCreatingSubgroup(false);
+          return;
+        }
+        
+        const memberRole = memberDoc.data()?.role;
+        if (memberRole !== 'admin' && memberRole !== 'coach') {
+          setErrorMessage('You do not have permission to create subgroups. Only admins and coaches can create subgroups.');
+          setShowErrorModal(true);
+          setCreatingSubgroup(false);
+          return;
+        }
+      }
+      
+      console.log('Creating subgroup with data:', {
+        name: subgroupName.trim(),
+        memberIds: [],
+        createdBy: user.uid,
+        createdAt: new Date()
+      });
+      
       const docRef = await addDoc(collection(db, 'groups', groupId as string, 'subgroups'), {
         name: subgroupName.trim(),
-        memberIds: []
+        memberIds: [],
+        createdBy: user.uid,
+        createdAt: new Date()
       });
+
+      console.log('Subgroup created successfully with ID:', docRef.id);
 
       setShowCreateSubgroupModal(false);
       setSubgroupName('');
       
-      // Navigate to manage-subgroup screen
-      router.push(`/manage-subgroup?groupId=${groupId}&subgroupId=${docRef.id}&groupName=${encodeURIComponent(group?.name || '')}&subgroupName=${encodeURIComponent(subgroupName.trim())}` as any);
+      // Navigate to manage-group screen with subgroups tab active
+      router.push(`/manage-group?groupId=${groupId}&tab=subgroups` as any);
     } catch (error) {
       console.error('Error creating subgroup:', error);
-      setErrorMessage('Failed to create subgroup. Please try again.');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+      setErrorMessage(`Failed to create subgroup: ${errorMsg}`);
       setShowErrorModal(true);
     } finally {
       setCreatingSubgroup(false);
@@ -234,7 +308,8 @@ export default function GroupSettingsScreen() {
   };
 
   const isAdmin = userRole === 'admin';
-  const canManage = userRole === 'admin' || userRole === 'coach';
+  const isGroupCreator = group?.createdBy === user?.uid;
+  const canManage = userRole === 'admin' || userRole === 'coach' || isGroupCreator;
 
   if (loading) {
     return (

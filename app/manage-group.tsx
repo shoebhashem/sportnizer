@@ -2,7 +2,7 @@ import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -27,13 +27,15 @@ interface Subgroup {
 }
 
 export default function ManageGroupScreen() {
-  const { groupId } = useLocalSearchParams();
+  const { groupId, tab } = useLocalSearchParams();
   const { user } = useAuth();
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'members' | 'subgroups'>('members');
+  const [activeTab, setActiveTab] = useState<'members' | 'subgroups'>(
+    tab === 'subgroups' ? 'subgroups' : 'members'
+  );
   const [openKebabMenuId, setOpenKebabMenuId] = useState<string | null>(null);
   const [expandedSubgroups, setExpandedSubgroups] = useState<Set<string>>(new Set());
 
@@ -112,6 +114,13 @@ export default function ManageGroupScreen() {
   useEffect(() => {
     fetchGroupData();
   }, [fetchGroupData]);
+
+  // Refresh data when screen comes into focus (e.g., returning from group-settings)
+  useFocusEffect(
+    useCallback(() => {
+      fetchGroupData();
+    }, [fetchGroupData])
+  );
 
   const handleManageSubgroupMembersFromKebab = (subgroupId: string) => {
     const subgroupName = subgroups.find(s => s.id === subgroupId)?.name || '';
