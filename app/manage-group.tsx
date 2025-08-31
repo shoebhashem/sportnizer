@@ -123,7 +123,11 @@ export default function ManageGroupScreen() {
   }, [fetchGroupData]);
 
   const handleAddMember = () => {
-    router.push(`/addmembers?groupId=${groupId}` as any);
+    if (group && user) {
+      const groupName = encodeURIComponent(group.name);
+      const inviterName = encodeURIComponent(user.displayName || user.email?.split('@')[0] || 'User');
+      router.push(`/addmembers?groupId=${groupId}&groupName=${groupName}&inviterName=${inviterName}` as any);
+    }
   };
 
   const handleCreateSubgroup = () => {

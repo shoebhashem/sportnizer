@@ -31,8 +31,27 @@ export default function AddMembersScreen() {
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
 
-  const decodedGroupName = groupName ? decodeURIComponent(groupName) : 'Your Team';
-  const decodedInviterName = inviterName ? decodeURIComponent(inviterName) : 'Team Admin';
+  const decodedGroupName = groupName ? decodeURIComponent(groupName) : '';
+  const decodedInviterName = inviterName ? decodeURIComponent(inviterName) : '';
+
+  // Log parameters for debugging
+  console.log('AddMembersScreen params:', { groupId, groupName, inviterName, decodedGroupName, decodedInviterName });
+
+  // Early return if essential parameters are missing
+  if (!groupId || !decodedGroupName || !decodedInviterName) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Missing required information to send invitations</Text>
+          <Button
+            label="Go Back"
+            onPress={() => router.back()}
+            theme="secondary"
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,6 +73,18 @@ export default function AddMembersScreen() {
 
     if (!groupId) {
       setModalMessage('Group ID is missing. Please try again.');
+      setErrorModalVisible(true);
+      return;
+    }
+
+    if (!decodedGroupName) {
+      setModalMessage('Group name is missing. Please try again.');
+      setErrorModalVisible(true);
+      return;
+    }
+
+    if (!decodedInviterName) {
+      setModalMessage('Inviter name is missing. Please try again.');
       setErrorModalVisible(true);
       return;
     }
@@ -264,5 +295,17 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginTop: theme.spacing.lg,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.xl,
+  },
+  errorText: {
+    fontSize: theme.typography.fontSize.large,
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
   },
 });

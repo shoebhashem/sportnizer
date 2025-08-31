@@ -226,26 +226,23 @@ export const processInvitation = onRequest(
       
       const batch = admin.firestore().batch();
 
-      // Add user to group members
+      // Add user to group members subcollection (new structure)
+      const memberRef = admin.firestore().collection('groups').doc(invitationData.groupId).collection('members').doc(userRecord.uid);
+      batch.set(memberRef, {
+        role: 'member',
+        joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+        invitedBy: invitationData.inviterUid,
+      });
+
+      // Update group member count
       batch.update(groupRef, {
-        members: admin.firestore.FieldValue.arrayUnion(userRecord.uid),
-        [`memberDetails.${userRecord.uid}`]: {
-          email: userEmail.trim().toLowerCase(),
-          joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-          invitedBy: invitationData.inviterUid,
-          role: 'member',
-        }
+        membersCount: admin.firestore.FieldValue.increment(1)
       });
 
       // Add group to user's profile
       const userRef = admin.firestore().collection('users').doc(userRecord.uid);
       batch.set(userRef, {
-        groups: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
-        [`groupDetails.${invitationData.groupId}`]: {
-          name: invitationData.groupName,
-          joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-          role: 'member',
-        }
+        groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
       }, { merge: true });
 
       // Mark invitation as used
@@ -420,28 +417,25 @@ export const respondToInvitation = onRequest(
 
       const batch = admin.firestore().batch();
 
-      // Add user to group members
-      console.log('Adding user to group members');
+      // Add user to group members subcollection (new structure)
+      console.log('Adding user to group members subcollection');
+      const memberRef = admin.firestore().collection('groups').doc(invitationData.groupId).collection('members').doc(userRecord.uid);
+      batch.set(memberRef, {
+        role: 'member',
+        joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+        invitedBy: invitationData.inviterUid,
+      });
+
+      // Update group member count
       batch.update(groupRef, {
-        members: admin.firestore.FieldValue.arrayUnion(userRecord.uid),
-        [`memberDetails.${userRecord.uid}`]: {
-          email: userEmail.trim().toLowerCase(),
-          joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-          invitedBy: invitationData.inviterUid,
-          role: 'member',
-        }
+        membersCount: admin.firestore.FieldValue.increment(1)
       });
 
       // Add group to user's groups
       console.log('Adding group to user profile');
       const userRef = admin.firestore().collection('users').doc(userRecord.uid);
       batch.set(userRef, {
-        groups: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
-        [`groupDetails.${invitationData.groupId}`]: {
-          name: invitationData.groupName,
-          joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-          role: 'member',
-        }
+        groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
       }, { merge: true });
 
       // Mark invitation as accepted
