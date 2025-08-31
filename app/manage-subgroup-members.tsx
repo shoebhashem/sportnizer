@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 interface Member {
   id: string;
   role: string;
+  name: string;
   selected: boolean;
 }
 
@@ -29,13 +30,33 @@ export default function ManageSubgroupMembersScreen() {
       // Fetch all group members
       const membersSnapshot = await getDocs(collection(db, 'groups', groupId, 'members'));
       const allMembers: Member[] = [];
-      membersSnapshot.forEach((doc) => {
-        allMembers.push({
-          id: doc.id,
-          role: doc.data().role || 'member',
-          selected: false
-        });
-      });
+      
+      // For each member, fetch their user data to get their name
+      for (const memberDoc of membersSnapshot.docs) {
+        const memberId = memberDoc.id;
+        const memberRole = memberDoc.data().role || 'member';
+        
+        // Fetch user data to get the name
+        try {
+          const userDoc = await getDoc(doc(db, 'users', memberId));
+          const userName = userDoc.exists() ? userDoc.data().name || 'Unknown User' : 'Unknown User';
+          
+          allMembers.push({
+            id: memberId,
+            role: memberRole,
+            name: userName,
+            selected: false
+          });
+        } catch (error) {
+          console.error(`Error fetching user data for ${memberId}:`, error);
+          allMembers.push({
+            id: memberId,
+            role: memberRole,
+            name: 'Unknown User',
+            selected: false
+          });
+        }
+      }
 
       // Fetch current subgroup to see which members are already selected
       const subgroupDoc = await getDoc(doc(db, 'groups', groupId, 'subgroups', subgroupId));
@@ -97,7 +118,7 @@ export default function ManageSubgroupMembersScreen() {
       onPress={() => toggleMemberSelection(item.id)}
     >
       <View style={styles.memberInfo}>
-        <Text style={styles.memberText}>{item.id}</Text>
+        <Text style={styles.memberText}>{item.name}</Text>
         <Text style={styles.memberRole}>{item.role}</Text>
       </View>
       <View style={styles.checkbox}>

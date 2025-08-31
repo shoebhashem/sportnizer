@@ -1,12 +1,13 @@
 import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { collection, doc, getDoc, getDocs, getFirestore, runTransaction, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, getFirestore, runTransaction, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Group {
@@ -28,6 +29,9 @@ export default function GroupSettingsScreen() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [adminCount, setAdminCount] = useState(0);
+  const [showCreateSubgroupModal, setShowCreateSubgroupModal] = useState(false);
+  const [subgroupName, setSubgroupName] = useState('');
+  const [creatingSubgroup, setCreatingSubgroup] = useState(false);
 
   const fetchGroupData = useCallback(async () => {
     if (!groupId || !user?.uid) return;
@@ -188,7 +192,49 @@ export default function GroupSettingsScreen() {
     }
   };
 
+  const handleAddMember = () => {
+    if (group && user) {
+      const groupName = encodeURIComponent(group.name);
+      const inviterName = encodeURIComponent(user.displayName || user.email?.split('@')[0] || 'User');
+      router.push(`/addmembers?groupId=${groupId}&groupName=${groupName}&inviterName=${inviterName}` as any);
+    }
+  };
+
+  const handleCreateSubgroup = () => {
+    setSubgroupName('');
+    setShowCreateSubgroupModal(true);
+  };
+
+  const handleConfirmCreateSubgroup = async () => {
+    if (!subgroupName.trim()) {
+      return;
+    }
+
+    setCreatingSubgroup(true);
+    
+    try {
+      const db = getFirestore();
+      const docRef = await addDoc(collection(db, 'groups', groupId as string, 'subgroups'), {
+        name: subgroupName.trim(),
+        memberIds: []
+      });
+
+      setShowCreateSubgroupModal(false);
+      setSubgroupName('');
+      
+      // Navigate to manage-subgroup screen
+      router.push(`/manage-subgroup?groupId=${groupId}&subgroupId=${docRef.id}&groupName=${encodeURIComponent(group?.name || '')}&subgroupName=${encodeURIComponent(subgroupName.trim())}` as any);
+    } catch (error) {
+      console.error('Error creating subgroup:', error);
+      setErrorMessage('Failed to create subgroup. Please try again.');
+      setShowErrorModal(true);
+    } finally {
+      setCreatingSubgroup(false);
+    }
+  };
+
   const isAdmin = userRole === 'admin';
+  const canManage = userRole === 'admin' || userRole === 'coach';
 
   if (loading) {
     return (
@@ -246,6 +292,56 @@ export default function GroupSettingsScreen() {
 
         {/* Settings Options */}
         <View style={styles.optionsContainer}>
+          {/* Add Member Option - Only for Admin/Coach */}
+          {canManage && (
+            <TouchableOpacity 
+              style={styles.optionItem}
+              onPress={handleAddMember}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons 
+                  name="person-add-outline" 
+                  size={24} 
+                  color={theme.colors.secondary} 
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Add Member</Text>
+                <Text style={styles.optionDescription}>Invite new members to join this group</Text>
+              </View>
+              <Ionicons 
+                name="chevron-forward" 
+                size={20} 
+                color={theme.colors.textSecondary} 
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Create Subgroup Option - Only for Admin/Coach */}
+          {canManage && (
+            <TouchableOpacity 
+              style={styles.optionItem}
+              onPress={handleCreateSubgroup}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons 
+                  name="layers-outline" 
+                  size={24} 
+                  color={theme.colors.secondary} 
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Create Subgroup</Text>
+                <Text style={styles.optionDescription}>Create a new subgroup within this group</Text>
+              </View>
+              <Ionicons 
+                name="chevron-forward" 
+                size={20} 
+                color={theme.colors.textSecondary} 
+              />
+            </TouchableOpacity>
+          )}
+
           {/* Leave Group Option */}
           <TouchableOpacity 
             style={styles.optionItem}
@@ -347,6 +443,51 @@ export default function GroupSettingsScreen() {
         onCancel={() => setShowErrorModal(false)}
         confirmButtonTheme="secondary"
       />
+
+      {/* Create Subgroup Modal */}
+      <Modal
+        visible={showCreateSubgroupModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCreateSubgroupModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setShowCreateSubgroupModal(false)}
+        >
+          <View style={styles.modalContainer}>
+            <Pressable onPress={() => {}} style={styles.modal}>
+              <Text style={styles.modalTitle}>Create Subgroup</Text>
+              
+              <Input
+                label="Subgroup Name"
+                value={subgroupName}
+                onChangeText={setSubgroupName}
+                placeholder="Enter subgroup name"
+                autoCapitalize="words"
+              />
+              
+              <View style={styles.modalButtons}>
+                <View style={styles.modalButton}>
+                  <Button
+                    label="Cancel"
+                    onPress={() => setShowCreateSubgroupModal(false)}
+                    theme="secondary"
+                  />
+                </View>
+                <View style={styles.modalButton}>
+                  <Button
+                    label={creatingSubgroup ? "Creating..." : "Create"}
+                    onPress={handleConfirmCreateSubgroup}
+                    theme="primary"
+                    disabled={creatingSubgroup || !subgroupName.trim()}
+                  />
+                </View>
+              </View>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -459,5 +600,38 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     textAlign: 'center',
     marginBottom: theme.spacing.lg,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+    padding: theme.spacing.md,
+  },
+  modal: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  modalTitle: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+  },
+  modalButton: {
+    flex: 1,
   },
 });

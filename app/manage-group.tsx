@@ -1,13 +1,11 @@
 import Button from '@/components/Button';
-import DropdownInput from '@/components/DropdownInput';
-import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { addDoc, collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Group {
@@ -34,12 +32,10 @@ export default function ManageGroupScreen() {
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
-  const [selectedSubgroup, setSelectedSubgroup] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'members' | 'subgroups'>('members');
-  const [showCreateSubgroupModal, setShowCreateSubgroupModal] = useState(false);
-  const [subgroupName, setSubgroupName] = useState('');
-  const [creatingSubgroup, setCreatingSubgroup] = useState(false);
+  const [openKebabMenuId, setOpenKebabMenuId] = useState<string | null>(null);
+  const [expandedSubgroups, setExpandedSubgroups] = useState<Set<string>>(new Set());
 
   // Check if user is admin or coach (can manage group/subgroups)
   const canManage = user && group && (
@@ -105,11 +101,6 @@ export default function ManageGroupScreen() {
         });
       });
       setSubgroups(subgroupsData);
-      
-      // Set first subgroup as selected by default
-      if (subgroupsData.length > 0) {
-        setSelectedSubgroup(subgroupsData[0].id);
-      }
 
     } catch (error) {
       console.error('Error fetching group data:', error);
@@ -122,62 +113,24 @@ export default function ManageGroupScreen() {
     fetchGroupData();
   }, [fetchGroupData]);
 
-  const handleAddMember = () => {
-    if (group && user) {
-      const groupName = encodeURIComponent(group.name);
-      const inviterName = encodeURIComponent(user.displayName || user.email?.split('@')[0] || 'User');
-      router.push(`/addmembers?groupId=${groupId}&groupName=${groupName}&inviterName=${inviterName}` as any);
-    }
+  const handleManageSubgroupMembersFromKebab = (subgroupId: string) => {
+    const subgroupName = subgroups.find(s => s.id === subgroupId)?.name || '';
+    setOpenKebabMenuId(null); // Close kebab menu
+    router.push(`/manage-subgroup-members?groupId=${groupId}&subgroupId=${subgroupId}&subgroupName=${subgroupName}` as any);
   };
 
-  const handleCreateSubgroup = () => {
-    setSubgroupName('');
-    setShowCreateSubgroupModal(true);
-  };
-
-  const handleConfirmCreateSubgroup = async () => {
-    if (!subgroupName.trim()) {
-      return;
-    }
-
-    setCreatingSubgroup(true);
-    
-    try {
-      const db = getFirestore();
-      
-      // Create new subgroup in Firestore
-      const subgroupData = {
-        name: subgroupName.trim(),
-        createdBy: user?.uid,
-        createdAt: new Date(),
-        memberIds: []
-      };
-      
-      const docRef = await addDoc(collection(db, 'groups', groupId as string, 'subgroups'), subgroupData);
-      
-      // Add to local state
-      const newSubgroup: Subgroup = {
-        id: docRef.id,
-        name: subgroupName.trim(),
-        memberIds: []
-      };
-      
-      setSubgroups(prev => [...prev, newSubgroup]);
-      setShowCreateSubgroupModal(false);
-      setSubgroupName('');
-      
-      // Navigate to manage-subgroup screen
-      router.push(`/manage-subgroup?groupId=${groupId}&subgroupId=${docRef.id}&groupName=${encodeURIComponent(group?.name || '')}&subgroupName=${encodeURIComponent(subgroupName.trim())}` as any);
-    } catch (error) {
-      console.error('Error creating subgroup:', error);
-    } finally {
-      setCreatingSubgroup(false);
-    }
-  };
-
-  const handleManageSubgroupMembers = () => {
-    const subgroupName = subgroups.find(s => s.id === selectedSubgroup)?.name || '';
-    router.push(`/manage-subgroup-members?groupId=${groupId}&subgroupId=${selectedSubgroup}&subgroupName=${subgroupName}` as any);
+  const toggleSubgroupExpansion = (subgroupId: string) => {
+    setExpandedSubgroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(subgroupId)) {
+        newSet.delete(subgroupId);
+      } else {
+        newSet.add(subgroupId);
+      }
+      return newSet;
+    });
+    // Close any open kebab menu when expanding/collapsing
+    setOpenKebabMenuId(null);
   };
 
   const renderMemberItem = ({ item }: { item: Member }) => (
@@ -187,31 +140,78 @@ export default function ManageGroupScreen() {
     </View>
   );
 
-  const getSubgroupMembers = () => {
-    if (!selectedSubgroup) return [];
-    const subgroup = subgroups.find(s => s.id === selectedSubgroup);
-    return members.filter(member => subgroup?.memberIds.includes(member.id));
-  };
+  const renderSubgroupItem = ({ item }: { item: Subgroup }) => {
+    const isExpanded = expandedSubgroups.has(item.id);
+    const subgroupMembers = members.filter(member => item.memberIds.includes(member.id));
 
-  const renderSubgroupMemberItem = ({ item }: { item: Member }) => (
-    <View style={styles.memberItem}>
-      <Text style={styles.memberText}>{item.name}</Text>
-    </View>
-  );
+    return (
+      <View style={styles.subgroupContainer}>
+        {/* Subgroup Header */}
+        <View style={styles.subgroupItem}>
+          <TouchableOpacity
+            style={styles.subgroupHeader}
+            onPress={() => toggleSubgroupExpansion(item.id)}
+          >
+            <View style={styles.subgroupInfo}>
+              <Text style={styles.subgroupName}>{item.name}</Text>
+              <Text style={styles.subgroupMemberCount}>
+                {item.memberIds.length} {item.memberIds.length === 1 ? 'member' : 'members'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          {/* Kebab Menu */}
+          {canManage && (
+            <View style={styles.kebabContainer}>
+              <TouchableOpacity
+                style={styles.kebabButton}
+                onPress={() => setOpenKebabMenuId(openKebabMenuId === item.id ? null : item.id)}
+              >
+                <Ionicons 
+                  name="ellipsis-vertical" 
+                  size={20} 
+                  color={theme.colors.text} 
+                />
+              </TouchableOpacity>
+              
+              {openKebabMenuId === item.id && (
+                <View style={styles.kebabMenu}>
+                  <TouchableOpacity
+                    style={styles.kebabMenuItem}
+                    onPress={() => handleManageSubgroupMembersFromKebab(item.id)}
+                  >
+                    <Ionicons name="people" size={16} color={theme.colors.text} />
+                    <Text style={styles.kebabMenuText}>Manage Members</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Expanded Members List */}
+        {isExpanded && (
+          <View style={styles.expandedMembersContainer}>
+            {subgroupMembers.length > 0 ? (
+              subgroupMembers.map((member) => (
+                <View key={member.id} style={styles.expandedMemberItem}>
+                  <Text style={styles.expandedMemberName}>{member.name}</Text>
+                  <Text style={styles.expandedMemberRole}>{member.role}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.expandedEmptyState}>
+                <Text style={styles.expandedEmptyText}>No members assigned</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   const renderMembersTab = () => (
     <View style={styles.tabContent}>
-      {canManage && (
-        <View style={{ marginBottom: 16 }}>
-          <Button
-            label="Add Member"
-            onPress={handleAddMember}
-            theme="primary"
-            icon="plus"
-          />
-        </View>
-      )}
-      
       <Text style={styles.sectionTitle}>Members ({members.length})</Text>
       
       {members.length > 0 ? (
@@ -231,65 +231,18 @@ export default function ManageGroupScreen() {
   );
 
   const renderSubgroupsTab = () => {
-    const subgroupOptions = subgroups.map(s => s.name);
-    const subgroupMembers = getSubgroupMembers();
-
     return (
       <View style={styles.tabContent}>
-        {canManage && (
-          <View style={{ marginBottom: 16 }}>
-            <Button
-              label="Create Subgroup"
-              onPress={handleCreateSubgroup}
-              theme="primary"
-              icon="plus"
-            />
-          </View>
-        )}
-
         <Text style={styles.sectionTitle}>Subgroups</Text>
 
         {subgroups.length > 0 ? (
-          <>
-            <DropdownInput
-              label="Select Subgroup"
-              value={subgroups.find(s => s.id === selectedSubgroup)?.name || ''}
-              onValueChange={(value) => {
-                const subgroup = subgroups.find(s => s.name === value);
-                if (subgroup) setSelectedSubgroup(subgroup.id);
-              }}
-              options={subgroupOptions}
-              placeholder="Select a subgroup"
-            />
-
-            {canManage && selectedSubgroup && (
-              <View style={styles.manageButtonContainer}>
-                <Button
-                  label={`Manage Members for ${subgroups.find(s => s.id === selectedSubgroup)?.name || 'Subgroup'}`}
-                  onPress={handleManageSubgroupMembers}
-                  theme="secondary"
-                />
-              </View>
-            )}
-
-            <Text style={styles.subSectionTitle}>
-              Members in {subgroups.find(s => s.id === selectedSubgroup)?.name || 'Subgroup'} ({subgroupMembers.length})
-            </Text>
-
-            {subgroupMembers.length > 0 ? (
-              <FlatList
-                data={subgroupMembers}
-                renderItem={renderSubgroupMemberItem}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-                style={styles.membersList}
-              />
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No members in this subgroup yet</Text>
-              </View>
-            )}
-          </>
+          <FlatList
+            data={subgroups}
+            renderItem={renderSubgroupItem}
+            keyExtractor={(item) => item.id}
+            scrollEnabled={false}
+            style={styles.membersList}
+          />
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No subgroups created for this group yet</Text>
@@ -323,10 +276,11 @@ export default function ManageGroupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <Pressable style={{ flex: 1 }} onPress={() => setOpenKebabMenuId(null)}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.header}>
           <Text style={styles.title}>{group.name}</Text>
           <TouchableOpacity 
@@ -365,50 +319,7 @@ export default function ManageGroupScreen() {
 
         {activeTab === 'members' ? renderMembersTab() : renderSubgroupsTab()}
       </ScrollView>
-
-      {/* Create Subgroup Modal */}
-      <Modal
-        visible={showCreateSubgroupModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowCreateSubgroupModal(false)}
-      >
-        <Pressable 
-          style={styles.modalOverlay} 
-          onPress={() => setShowCreateSubgroupModal(false)}
-        >
-          <View style={styles.modalContainer}>
-            <Pressable onPress={() => {}} style={styles.modal}>
-              <Text style={styles.modalTitle}>Create Subgroup</Text>
-              
-              <Input
-                label="Subgroup Name"
-                value={subgroupName}
-                onChangeText={setSubgroupName}
-                placeholder="Enter subgroup name"
-              />
-              
-              <View style={styles.modalButtons}>
-                <View style={styles.modalButton}>
-                  <Button
-                    label="Cancel"
-                    onPress={() => setShowCreateSubgroupModal(false)}
-                    theme="secondary"
-                  />
-                </View>
-                <View style={styles.modalButton}>
-                  <Button
-                    label={creatingSubgroup ? "Creating..." : "OK"}
-                    onPress={handleConfirmCreateSubgroup}
-                    theme="primary"
-                    disabled={creatingSubgroup || !subgroupName.trim()}
-                  />
-                </View>
-              </View>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -544,37 +455,106 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+  subgroupItem: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400,
-    padding: theme.spacing.md,
+  subgroupInfo: {
+    flex: 1,
   },
-  modal: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.large,
-    padding: theme.spacing.xl,
+  subgroupName: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.medium,
+    marginBottom: theme.spacing.xs,
+  },
+  subgroupMemberCount: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+  },
+  kebabContainer: {
+    position: 'relative',
+  },
+  kebabButton: {
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
+  },
+  kebabMenu: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
+    minWidth: 150,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
   },
-  modalTitle: {
-    fontSize: theme.typography.fontSize.large,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.text,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  modalButtons: {
+  kebabMenuItem: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.lg,
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
-  modalButton: {
+  kebabMenuText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+  },
+  subgroupContainer: {
+    marginBottom: theme.spacing.xs,
+  },
+  subgroupHeader: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  expandedMembersContainer: {
+    marginTop: theme.spacing.sm,
+    marginLeft: theme.spacing.md,
+    marginRight: theme.spacing.sm,
+  },
+  expandedMemberItem: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.small,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  expandedMemberName: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    flex: 1,
+  },
+  expandedMemberRole: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.fontWeight.medium,
+    textTransform: 'capitalize',
+  },
+  expandedEmptyState: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.small,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
+    alignItems: 'center',
+  },
+  expandedEmptyText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
   },
 });
