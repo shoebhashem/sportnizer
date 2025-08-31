@@ -108,6 +108,8 @@ export default function ManageGroupScreen() {
         });
       });
       setSubgroups(subgroupsData);
+      
+      console.log('Subgroups fetched:', subgroupsData.length, subgroupsData.map(s => ({ id: s.id, name: s.name })));
 
     } catch (error) {
       console.error('Error fetching group data:', error);
@@ -196,8 +198,13 @@ export default function ManageGroupScreen() {
     const isExpanded = expandedSubgroups.has(item.id);
     const subgroupMembers = members.filter(member => item.memberIds.includes(member.id));
 
+    console.log('Rendering subgroup:', item.id, item.name, 'canManage:', canManage);
+
     return (
-      <View style={styles.subgroupContainer}>
+      <View style={[
+        styles.subgroupContainer,
+        openKebabMenuId === item.id && { zIndex: 999999, position: 'relative' }
+      ]}>
         {/* Subgroup Header */}
         <View style={styles.subgroupItem}>
           <TouchableOpacity
@@ -296,13 +303,13 @@ export default function ManageGroupScreen() {
         <Text style={styles.sectionTitle}>Subgroups</Text>
 
         {subgroups.length > 0 ? (
-          <FlatList
-            data={subgroups}
-            renderItem={renderSubgroupItem}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-            style={styles.membersList}
-          />
+          <View style={[styles.membersList, { overflow: 'visible' }]}>
+            {subgroups.map((subgroup) => (
+              <View key={subgroup.id} style={{ zIndex: openKebabMenuId === subgroup.id ? 999999 : 1 }}>
+                {renderSubgroupItem({ item: subgroup })}
+              </View>
+            ))}
+          </View>
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No subgroups created for this group yet</Text>
@@ -548,6 +555,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    position: 'relative',
+    zIndex: 1,
   },
   subgroupInfo: {
     flex: 1,
@@ -564,6 +573,7 @@ const styles = StyleSheet.create({
   },
   kebabContainer: {
     position: 'relative',
+    zIndex: 999999,
   },
   kebabButton: {
     padding: theme.spacing.sm,
@@ -585,8 +595,8 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
-    zIndex: 1000,
+    elevation: 20,
+    zIndex: 99999999,
   },
   kebabMenuItem: {
     flexDirection: 'row',
@@ -598,8 +608,29 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.text,
   },
+  floatingKebabMenu: {
+    position: 'absolute',
+    top: 100,
+    right: 20,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    minWidth: 150,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 20,
+    zIndex: 99999999,
+  },
   subgroupContainer: {
     marginBottom: theme.spacing.xs,
+    position: 'relative',
+    zIndex: 1,
   },
   subgroupHeader: {
     flex: 1,
