@@ -1,9 +1,10 @@
 import Button from '@/components/Button';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,6 +39,10 @@ export default function ManageGroupScreen() {
   );
   const [openKebabMenuId, setOpenKebabMenuId] = useState<string | null>(null);
   const [expandedSubgroups, setExpandedSubgroups] = useState<Set<string>>(new Set());
+  const [showDeleteSubgroupModal, setShowDeleteSubgroupModal] = useState(false);
+  const [subgroupToDelete, setSubgroupToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Check if user is admin or coach (can manage group/subgroups)
   const canManage = user && group && (
@@ -128,6 +133,44 @@ export default function ManageGroupScreen() {
     router.push(`/manage-subgroup-members?groupId=${groupId}&subgroupId=${subgroupId}&subgroupName=${subgroupName}` as any);
   };
 
+  const handleDeleteSubgroupFromKebab = (subgroupId: string) => {
+    const subgroup = subgroups.find(s => s.id === subgroupId);
+    if (subgroup) {
+      setSubgroupToDelete({ id: subgroup.id, name: subgroup.name });
+      setOpenKebabMenuId(null); // Close kebab menu
+      setShowDeleteSubgroupModal(true);
+    }
+  };
+
+  const handleConfirmDeleteSubgroup = async () => {
+    if (!subgroupToDelete) return;
+
+    setShowDeleteSubgroupModal(false);
+    
+    try {
+      const db = getFirestore();
+      
+      // Delete the subgroup from Firestore
+      await deleteDoc(doc(db, 'groups', groupId as string, 'subgroups', subgroupToDelete.id));
+      
+      // Remove from local state
+      setSubgroups(prev => prev.filter(s => s.id !== subgroupToDelete.id));
+      
+      // Show success message
+      setSuccessMessage(`"${subgroupToDelete.name}" has been deleted successfully`);
+      setShowSuccessModal(true);
+      
+      // Clear the subgroup to delete
+      setSubgroupToDelete(null);
+      
+      // Refresh data to ensure consistency
+      fetchGroupData();
+    } catch (error) {
+      console.error('Error deleting subgroup:', error);
+      // You might want to add error handling here
+    }
+  };
+
   const toggleSubgroupExpansion = (subgroupId: string) => {
     setExpandedSubgroups(prev => {
       const newSet = new Set(prev);
@@ -191,6 +234,14 @@ export default function ManageGroupScreen() {
                   >
                     <Ionicons name="people" size={16} color={theme.colors.text} />
                     <Text style={styles.kebabMenuText}>Manage Members</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.kebabMenuItem}
+                    onPress={() => handleDeleteSubgroupFromKebab(item.id)}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+                    <Text style={[styles.kebabMenuText, { color: theme.colors.error }]}>Delete Subgroup</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -329,6 +380,32 @@ export default function ManageGroupScreen() {
         {activeTab === 'members' ? renderMembersTab() : renderSubgroupsTab()}
       </ScrollView>
       </Pressable>
+
+      {/* Delete Subgroup Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteSubgroupModal}
+        title="Delete Subgroup"
+        message={`Are you sure you want to delete "${subgroupToDelete?.name || 'this subgroup'}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDeleteSubgroup}
+        onCancel={() => {
+          setShowDeleteSubgroupModal(false);
+          setSubgroupToDelete(null);
+        }}
+        confirmButtonTheme="secondary"
+      />
+
+      {/* Success Modal */}
+      <ConfirmationModal
+        visible={showSuccessModal}
+        title="Success"
+        message={successMessage}
+        confirmText="OK"
+        onConfirm={() => setShowSuccessModal(false)}
+        onCancel={() => setShowSuccessModal(false)}
+        confirmButtonTheme="primary"
+      />
     </SafeAreaView>
   );
 }
