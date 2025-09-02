@@ -20,6 +20,7 @@ interface Member {
   id: string;
   role: string;
   name: string;
+  isConfirmed?: boolean; // For children in ageGroup 1, indicates guardian confirmation
 }
 
 interface Subgroup {
@@ -72,29 +73,36 @@ export default function ManageGroupScreen() {
       const membersSnapshot = await getDocs(collection(db, 'groups', groupId, 'members'));
       const membersData: Member[] = [];
       
-      // For each member, fetch their user data to get their name
+      // For each member, get their data
       for (const memberDoc of membersSnapshot.docs) {
         const memberId = memberDoc.id;
-        const memberRole = memberDoc.data().role || 'member';
+        const memberData = memberDoc.data();
+        const memberRole = memberData.role || 'member';
         
-        // Fetch user data to get the name
-        try {
-          const userDoc = await getDoc(doc(db, 'users', memberId));
-          const userName = userDoc.exists() ? userDoc.data().name || 'Unknown User' : 'Unknown User';
-          
-          membersData.push({
-            id: memberId,
-            role: memberRole,
-            name: userName
-          });
-        } catch (error) {
-          console.error(`Error fetching user data for ${memberId}:`, error);
-          membersData.push({
-            id: memberId,
-            role: memberRole,
-            name: 'Unknown User'
-          });
+        // Check if name is stored in member document (for children) or fetch from users collection (for adults)
+        let userName = 'Unknown User';
+        let isConfirmed = true; // Default confirmed for adults
+        
+        if (memberData.name) {
+          // Name stored in member document (children in ageGroup 1)
+          userName = memberData.name;
+          isConfirmed = memberData.isConfirmed !== false; // Default to true if not specified
+        } else {
+          // Fetch user data from users collection (adults in ageGroup 2)
+          try {
+            const userDoc = await getDoc(doc(db, 'users', memberId));
+            userName = userDoc.exists() ? userDoc.data().name || 'Unknown User' : 'Unknown User';
+          } catch (error) {
+            console.error(`Error fetching user data for ${memberId}:`, error);
+          }
         }
+        
+        membersData.push({
+          id: memberId,
+          role: memberRole,
+          name: userName,
+          isConfirmed
+        });
       }
       setMembers(membersData);
 
@@ -194,7 +202,22 @@ export default function ManageGroupScreen() {
       openKebabMenuId === item.id && { zIndex: 999999, position: 'relative' }
     ]}>
       <View style={styles.memberInfo}>
-        <Text style={styles.memberText}>{item.name}</Text>
+        <View style={styles.memberNameContainer}>
+          <Text style={styles.memberText}>{item.name}</Text>
+          {group?.ageGroup === 1 && (
+            <View style={[
+              styles.confirmationBadge, 
+              item.isConfirmed ? styles.confirmedBadge : styles.unconfirmedBadge
+            ]}>
+              <Text style={[
+                styles.confirmationText,
+                item.isConfirmed ? styles.confirmedText : styles.unconfirmedText
+              ]}>
+                {item.isConfirmed ? 'Confirmed' : 'Unconfirmed'}
+              </Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.memberRole}>{item.role}</Text>
       </View>
       
@@ -560,6 +583,35 @@ const styles = StyleSheet.create({
   },
   memberInfo: {
     flex: 1,
+  },
+  memberNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  confirmationBadge: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs / 2,
+    borderRadius: theme.borderRadius.small,
+    borderWidth: 1,
+  },
+  confirmedBadge: {
+    backgroundColor: theme.colors.success + '20',
+    borderColor: theme.colors.success,
+  },
+  unconfirmedBadge: {
+    backgroundColor: theme.colors.error + '20',
+    borderColor: theme.colors.error,
+  },
+  confirmationText: {
+    fontSize: theme.typography.fontSize.small,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  confirmedText: {
+    color: theme.colors.success,
+  },
+  unconfirmedText: {
+    color: theme.colors.error,
   },
   memberText: {
     fontSize: theme.typography.fontSize.medium,

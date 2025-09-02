@@ -15,16 +15,23 @@ import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
 import { functions } from '../firebaseConfig';
+import { addUnconfirmedChild } from '../services/groupService';
 
 export default function AddMembersScreen() {
-  const { groupId, groupName, inviterName } = useLocalSearchParams<{ 
+  const { groupId, groupName, inviterName, ageGroup } = useLocalSearchParams<{ 
     groupId: string; 
     groupName: string; 
     inviterName: string; 
+    ageGroup: string;
   }>();
   
   const [email, setEmail] = useState('');
+  const [childName, setChildName] = useState('');
+  const [childBirthDate, setChildBirthDate] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Parse ageGroup to number
+  const parsedAgeGroup = ageGroup ? parseInt(ageGroup) : 2;
   
   // Modal states for web-compatible feedback
   const [successModalVisible, setSuccessModalVisible] = useState(false);
@@ -56,6 +63,53 @@ export default function AddMembersScreen() {
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+  };
+
+  // Handle adding child for ageGroup 1
+  const handleAddChild = async () => {
+    if (!childName.trim()) {
+      setModalMessage('Please enter the child\'s name.');
+      setErrorModalVisible(true);
+      return;
+    }
+
+    if (!groupId) {
+      setModalMessage('Group ID is missing. Please try again.');
+      setErrorModalVisible(true);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await addUnconfirmedChild(groupId as string, {
+        name: childName.trim(),
+        birthDate: childBirthDate.trim() || undefined
+      });
+
+      if (result.success) {
+        setModalMessage(`🎉 Child Added!\n\n"${childName.trim()}" has been added to "${decodedGroupName}" as an unconfirmed member.\n\nUse "Send Confirmation Link to Guardians" in group settings to invite their guardians.`);
+        setSuccessModalVisible(true);
+      } else {
+        const error = result.error;
+        let errorMessage = 'Failed to add child. Please try again.';
+        
+        if (error?.code === 'child/already-exists') {
+          errorMessage = error.message;
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+        
+        setModalMessage(errorMessage);
+        setErrorModalVisible(true);
+      }
+    } catch (error: any) {
+      console.error('Error adding child:', error);
+      setModalMessage('Failed to add child. Please try again.');
+      setErrorModalVisible(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSendInvitation = async () => {
@@ -153,7 +207,12 @@ export default function AddMembersScreen() {
   const handleSuccessModalConfirm = (action: 'another' | 'done') => {
     setSuccessModalVisible(false);
     if (action === 'another') {
-      setEmail('');
+      if (parsedAgeGroup === 1) {
+        setChildName('');
+        setChildBirthDate('');
+      } else {
+        setEmail('');
+      }
     } else {
       router.back();
     }
@@ -175,43 +234,99 @@ export default function AddMembersScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Invite Team Member</Text>
+            <Text style={styles.title}>
+              {parsedAgeGroup === 1 ? 'Add Child' : 'Invite Team Member'}
+            </Text>
             <Text style={styles.subtitle}>
-              Send an email invitation to add a new member to {decodedGroupName}
+              {parsedAgeGroup === 1 
+                ? `Add a child to "${decodedGroupName}". The child will be added as unconfirmed until guardians confirm participation.`
+                : `Send an email invitation to add a new member to "${decodedGroupName}"`
+              }
             </Text>
           </View>
 
           <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Email Address</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter team member's email"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholderTextColor="#A0A0A0"
-              />
-            </View>
+            {parsedAgeGroup === 1 ? (
+              // ageGroup 1: Child addition form
+              <>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Child&apos;s Name *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter child's name"
+                    value={childName}
+                    onChangeText={setChildName}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    placeholderTextColor="#A0A0A0"
+                  />
+                </View>
 
-            <View style={styles.buttonContainer}>
-              <Button
-                label="Send Invitation"
-                onPress={handleSendInvitation}
-                theme="primary"
-                loading={loading}
-                disabled={loading || !email.trim()}
-              />
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Birth Date (Optional)</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="YYYY-MM-DD"
+                    value={childBirthDate}
+                    onChangeText={setChildBirthDate}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholderTextColor="#A0A0A0"
+                  />
+                </View>
 
-              <Button
-                label="Cancel"
-                onPress={handleCancel}
-                theme="secondary"
-                disabled={loading}
-              />
-            </View>
+                <View style={styles.buttonContainer}>
+                  <Button
+                    label="Add Child"
+                    onPress={handleAddChild}
+                    theme="primary"
+                    loading={loading}
+                    disabled={loading || !childName.trim()}
+                  />
+
+                  <Button
+                    label="Cancel"
+                    onPress={handleCancel}
+                    theme="secondary"
+                    disabled={loading}
+                  />
+                </View>
+              </>
+            ) : (
+              // ageGroup 2: Email invitation form
+              <>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Email Address</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter team member's email"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholderTextColor="#A0A0A0"
+                  />
+                </View>
+
+                <View style={styles.buttonContainer}>
+                  <Button
+                    label="Send Invitation"
+                    onPress={handleSendInvitation}
+                    theme="primary"
+                    loading={loading}
+                    disabled={loading || !email.trim()}
+                  />
+
+                  <Button
+                    label="Cancel"
+                    onPress={handleCancel}
+                    theme="secondary"
+                    disabled={loading}
+                  />
+                </View>
+              </>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -219,9 +334,9 @@ export default function AddMembersScreen() {
       {/* Success Modal - Web Compatible */}
       <ConfirmationModal
         visible={successModalVisible}
-        title="Invitation Sent! 📧"
+        title={parsedAgeGroup === 1 ? "Child Added! 👶" : "Invitation Sent! 📧"}
         message={modalMessage}
-        confirmText="Send Another"
+        confirmText={parsedAgeGroup === 1 ? "Add Another" : "Send Another"}
         cancelText="Done"
         onConfirm={() => handleSuccessModalConfirm('another')}
         onCancel={() => handleSuccessModalConfirm('done')}

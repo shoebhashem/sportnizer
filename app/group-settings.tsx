@@ -249,7 +249,8 @@ export default function GroupSettingsScreen() {
     if (group && user) {
       const groupName = encodeURIComponent(group.name);
       const inviterName = encodeURIComponent(user.displayName || user.email?.split('@')[0] || 'User');
-      router.push(`/addmembers?groupId=${groupId}&groupName=${groupName}&inviterName=${inviterName}` as any);
+      const ageGroup = group.ageGroup || 2; // Default to adult group
+      router.push(`/addmembers?groupId=${groupId}&groupName=${groupName}&inviterName=${inviterName}&ageGroup=${ageGroup}` as any);
     }
   };
 
@@ -497,8 +498,8 @@ export default function GroupSettingsScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Send Confirmation Link - Only for ageGroup 1 & 3 */}
-          {canManage && (group?.ageGroup === 1 || group?.ageGroup === 3) && (
+          {/* Send Confirmation Link - Only for ageGroup 1 */}
+          {canManage && group?.ageGroup === 1 && (
             <TouchableOpacity 
               style={styles.optionItem}
               onPress={() => setShowGuardianConfirmModal(true)}
@@ -689,8 +690,8 @@ export default function GroupSettingsScreen() {
               </Text>
               
               <View style={styles.coachOptionsList}>
-                {/* Promote Member Option - ageGroup 2&3 only */}
-                {(group?.ageGroup === 2 || group?.ageGroup === 3) && (
+                {/* Promote Member Option - ageGroup 2 only */}
+                {group?.ageGroup === 2 && (
                   <TouchableOpacity style={styles.coachOption}>
                     <Ionicons name="people-outline" size={24} color={theme.colors.secondary} />
                     <Text style={styles.coachOptionText}>Promote Existing Member</Text>
@@ -698,8 +699,8 @@ export default function GroupSettingsScreen() {
                   </TouchableOpacity>
                 )}
                 
-                {/* Promote Guardian Option - ageGroup 1&3 only */}
-                {(group?.ageGroup === 1 || group?.ageGroup === 3) && (
+                {/* Promote Guardian Option - ageGroup 1 only */}
+                {group?.ageGroup === 1 && (
                   <TouchableOpacity style={styles.coachOption}>
                     <Ionicons name="shield-outline" size={24} color={theme.colors.secondary} />
                     <Text style={styles.coachOptionText}>Promote Guardian</Text>

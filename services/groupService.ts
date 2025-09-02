@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, getFirestore, increment, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, getFirestore, increment, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { getCurrentUser } from './authService';
 
 const db = getFirestore();
@@ -56,9 +56,8 @@ export const createGroup = async (groupData: {
     let ageGroupNumber = 2; // Default to adults
     if (groupData.ageGroup.includes('Children/Youth')) {
       ageGroupNumber = 1;
-    } else if (groupData.ageGroup.includes('Mixed')) {
-      ageGroupNumber = 3;
     }
+    // Note: ageGroup 3 (Mixed) removed for MVP simplicity
 
     // Create group document
     const groupDocData = {
@@ -256,6 +255,83 @@ export const createCoachInvitation = async (groupId: string, invitedEmail: strin
       error: {
         code: error.code || 'unknown',
         message: error.message || 'An error occurred while creating coach invitation'
+      }
+    };
+  }
+};
+
+// Add unconfirmed child to ageGroup 1 groups
+export const addUnconfirmedChild = async (
+  groupId: string, 
+  childData: { name: string; birthDate?: string }
+) => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: { code: 'auth/no-user', message: 'No authenticated user' } };
+    }
+
+    const groupRef = doc(db, 'groups', groupId);
+    const groupDoc = await getDoc(groupRef);
+    
+    if (!groupDoc.exists()) {
+      return { success: false, error: { code: 'group/not-found', message: 'Group not found' } };
+    }
+
+    // Check if child already exists in members subcollection
+    const membersRef = collection(db, 'groups', groupId, 'members');
+    const membersSnapshot = await getDocs(membersRef);
+    
+    const childExists = membersSnapshot.docs.some((memberDoc: any) => {
+      const memberData = memberDoc.data();
+      // Add null/undefined check for name
+      return memberData.name && memberData.name.toLowerCase().trim() === childData.name.toLowerCase().trim();
+    });
+    
+    if (childExists) {
+      return { 
+        success: false, 
+        error: { 
+          code: 'child/already-exists', 
+          message: 'A child with this name already exists in the group' 
+        } 
+      };
+    }
+
+    console.log('Adding child to members subcollection:', {
+      groupId,
+      childName: childData.name.trim(),
+      hasBirthDate: !!childData.birthDate?.trim()
+    });
+
+    // Create member document in subcollection
+    const memberData: any = {
+      name: childData.name.trim(),
+      role: 'member',
+      isConfirmed: false,
+      joinedAt: serverTimestamp()
+    };
+
+    // Only add birthDate if it's provided and not empty
+    if (childData.birthDate?.trim()) {
+      memberData.birthDate = childData.birthDate.trim();
+    }
+
+    console.log('Member data to be added:', memberData);
+
+    const docRef = await addDoc(membersRef, memberData);
+    
+    console.log('Member added successfully with ID:', docRef.id);
+
+    return { success: true };
+
+  } catch (error: any) {
+    console.error('Error adding unconfirmed child:', error);
+    return { 
+      success: false, 
+      error: {
+        code: error.code || 'unknown',
+        message: error.message || 'An error occurred while adding child'
       }
     };
   }

@@ -13,8 +13,7 @@ import DropdownInput from '../components/DropdownInput';
 // Age group options
 const AGE_GROUP_OPTIONS = [
   'Children/Youth (0-17 years) - Requires guardian communication',
-  'Adults (18+ years)',
-  'Mixed (All ages in the same group)'
+  'Adults (18+ years)'
 ];
 
 export default function CreateGroupScreen() {
