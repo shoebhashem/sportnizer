@@ -15,6 +15,25 @@ interface Group {
   name: string;
   createdBy: string;
   ageGroup?: number; // 1=children, 2=adults, 3=mixed
+  coaches?: Coach[];
+  unconfirmedChildren?: UnconfirmedChild[];
+}
+
+interface Coach {
+  uid: string;
+  email: string;
+  name: string;
+  role: 'coach';
+  addedAt: any;
+  addedBy: string;
+  isExternal: boolean;
+}
+
+interface UnconfirmedChild {
+  name: string;
+  birthDate?: string;
+  confirmationSent: boolean;
+  invitationCode?: string;
 }
 
 export default function GroupSettingsScreen() {
@@ -33,6 +52,14 @@ export default function GroupSettingsScreen() {
   const [showCreateSubgroupModal, setShowCreateSubgroupModal] = useState(false);
   const [subgroupName, setSubgroupName] = useState('');
   const [creatingSubgroup, setCreatingSubgroup] = useState(false);
+  
+  // Coach Management State
+  const [showAddCoachModal, setShowAddCoachModal] = useState(false);
+  const [addingCoach, setAddingCoach] = useState(false);
+  
+  // Guardian Confirmation State
+  const [showGuardianConfirmModal, setShowGuardianConfirmModal] = useState(false);
+  const [sendingConfirmations, setSendingConfirmations] = useState(false);
 
   const fetchGroupData = useCallback(async () => {
     if (!groupId || !user?.uid) return;
@@ -46,7 +73,10 @@ export default function GroupSettingsScreen() {
         setGroup({
           id: groupDoc.id,
           name: groupDoc.data().name,
-          createdBy: groupDoc.data().createdBy
+          createdBy: groupDoc.data().createdBy,
+          ageGroup: groupDoc.data().ageGroup,
+          coaches: groupDoc.data().coaches || [],
+          unconfirmedChildren: groupDoc.data().unconfirmedChildren || []
         });
       }
 
@@ -324,6 +354,14 @@ export default function GroupSettingsScreen() {
     }
   };
 
+  const handleAddCoach = () => {
+    setShowAddCoachModal(true);
+  };
+
+  const handleSendGuardianConfirmation = () => {
+    setShowGuardianConfirmModal(true);
+  };
+
   const isAdmin = userRole === 'admin';
   const isGroupCreator = group?.createdBy === user?.uid;
   const canManage = userRole === 'admin' || userRole === 'coach' || isGroupCreator;
@@ -425,6 +463,56 @@ export default function GroupSettingsScreen() {
               <View style={styles.optionContent}>
                 <Text style={styles.optionTitle}>Create Subgroup</Text>
                 <Text style={styles.optionDescription}>Create a new subgroup within this group</Text>
+              </View>
+              <Ionicons 
+                name="chevron-forward" 
+                size={20} 
+                color={theme.colors.textSecondary} 
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Add Coach Option - Only for Admin/Coach */}
+          {canManage && (
+            <TouchableOpacity 
+              style={styles.optionItem}
+              onPress={() => setShowAddCoachModal(true)}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons 
+                  name="person-add-outline" 
+                  size={24} 
+                  color={theme.colors.secondary} 
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Add Coach</Text>
+                <Text style={styles.optionDescription}>Promote members or invite external coaches</Text>
+              </View>
+              <Ionicons 
+                name="chevron-forward" 
+                size={20} 
+                color={theme.colors.textSecondary} 
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Send Confirmation Link - Only for ageGroup 1 & 3 */}
+          {canManage && (group?.ageGroup === 1 || group?.ageGroup === 3) && (
+            <TouchableOpacity 
+              style={styles.optionItem}
+              onPress={() => setShowGuardianConfirmModal(true)}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons 
+                  name="mail-outline" 
+                  size={24} 
+                  color={theme.colors.secondary} 
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Send Confirmation Link to Guardians</Text>
+                <Text style={styles.optionDescription}>Send guardian confirmation links for unconfirmed children</Text>
               </View>
               <Ionicons 
                 name="chevron-forward" 
@@ -580,6 +668,126 @@ export default function GroupSettingsScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Add Coach Modal */}
+      <Modal
+        visible={showAddCoachModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddCoachModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setShowAddCoachModal(false)}
+        >
+          <View style={styles.modalContainer}>
+            <Pressable onPress={() => {}} style={styles.modal}>
+              <Text style={styles.modalTitle}>Add Coach</Text>
+              
+              <Text style={styles.modalDescription}>
+                Choose how to add a new coach to your group:
+              </Text>
+              
+              <View style={styles.coachOptionsList}>
+                {/* Promote Member Option - ageGroup 2&3 only */}
+                {(group?.ageGroup === 2 || group?.ageGroup === 3) && (
+                  <TouchableOpacity style={styles.coachOption}>
+                    <Ionicons name="people-outline" size={24} color={theme.colors.secondary} />
+                    <Text style={styles.coachOptionText}>Promote Existing Member</Text>
+                    <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+                
+                {/* Promote Guardian Option - ageGroup 1&3 only */}
+                {(group?.ageGroup === 1 || group?.ageGroup === 3) && (
+                  <TouchableOpacity style={styles.coachOption}>
+                    <Ionicons name="shield-outline" size={24} color={theme.colors.secondary} />
+                    <Text style={styles.coachOptionText}>Promote Guardian</Text>
+                    <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+                
+                {/* Invite External Adult - All ageGroups */}
+                <TouchableOpacity style={styles.coachOption}>
+                  <Ionicons name="person-add-outline" size={24} color={theme.colors.secondary} />
+                  <Text style={styles.coachOptionText}>Invite External Adult</Text>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.modalButtons}>
+                <Button
+                  label="Cancel"
+                  onPress={() => setShowAddCoachModal(false)}
+                  theme="secondary"
+                />
+              </View>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Guardian Confirmation Modal */}
+      <Modal
+        visible={showGuardianConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowGuardianConfirmModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setShowGuardianConfirmModal(false)}
+        >
+          <View style={styles.modalContainer}>
+            <Pressable onPress={() => {}} style={styles.modal}>
+              <Text style={styles.modalTitle}>Send Confirmation Links</Text>
+              
+              <Text style={styles.modalDescription}>
+                Select children to send guardian confirmation links:
+              </Text>
+              
+              <ScrollView style={styles.unconfirmedChildrenList}>
+                {group?.unconfirmedChildren?.map((child, index) => (
+                  <TouchableOpacity key={index} style={styles.childOption}>
+                    <View style={styles.childInfo}>
+                      <Text style={styles.childName}>{child.name}</Text>
+                      {child.birthDate && (
+                        <Text style={styles.childBirthDate}>Born: {child.birthDate}</Text>
+                      )}
+                    </View>
+                    <View style={styles.confirmationStatus}>
+                      {child.confirmationSent ? (
+                        <Text style={styles.sentStatus}>✓ Sent</Text>
+                      ) : (
+                        <Text style={styles.pendingStatus}>Pending</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              
+              <View style={styles.modalButtons}>
+                <View style={styles.modalButton}>
+                  <Button
+                    label="Cancel"
+                    onPress={() => setShowGuardianConfirmModal(false)}
+                    theme="secondary"
+                  />
+                </View>
+                <View style={styles.modalButton}>
+                  <Button
+                    label={sendingConfirmations ? "Sending..." : "Send Selected"}
+                    onPress={() => {/* TODO: Implement send confirmations */}}
+                    theme="primary"
+                    disabled={sendingConfirmations}
+                  />
+                </View>
+              </View>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -725,5 +933,73 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+  modalDescription: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  coachOptionsList: {
+    marginBottom: theme.spacing.lg,
+  },
+  coachOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  coachOptionText: {
+    flex: 1,
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    marginLeft: theme.spacing.md,
+  },
+  unconfirmedChildrenList: {
+    maxHeight: 200,
+    marginBottom: theme.spacing.lg,
+  },
+  childOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  childInfo: {
+    flex: 1,
+  },
+  childName: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  childBirthDate: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.xs,
+  },
+  confirmationStatus: {
+    alignItems: 'flex-end',
+  },
+  sentStatus: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.success,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  pendingStatus: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.error,
+    fontWeight: theme.typography.fontWeight.medium,
   },
 });

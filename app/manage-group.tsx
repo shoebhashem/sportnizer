@@ -189,9 +189,44 @@ export default function ManageGroupScreen() {
   };
 
   const renderMemberItem = ({ item }: { item: Member }) => (
-    <View style={styles.memberItem}>
-      <Text style={styles.memberText}>{item.name}</Text>
-      <Text style={styles.memberRole}>{item.role}</Text>
+    <View style={[
+      styles.memberItem,
+      openKebabMenuId === item.id && { zIndex: 999999, position: 'relative' }
+    ]}>
+      <View style={styles.memberInfo}>
+        <Text style={styles.memberText}>{item.name}</Text>
+        <Text style={styles.memberRole}>{item.role}</Text>
+      </View>
+      
+      {/* Member Kebab Menu */}
+      <View style={styles.kebabContainer}>
+        <TouchableOpacity 
+          style={styles.kebabButton}
+          onPress={() => setOpenKebabMenuId(openKebabMenuId === item.id ? null : item.id)}
+        >
+          <Ionicons 
+            name="ellipsis-vertical" 
+            size={20} 
+            color={theme.colors.text} 
+          />
+        </TouchableOpacity>
+
+        {/* Kebab Menu Content */}
+        {openKebabMenuId === item.id && (
+          <View style={styles.kebabMenu}>
+            <TouchableOpacity
+              style={styles.kebabMenuItem}
+              onPress={() => {
+                setOpenKebabMenuId(null);
+                router.push(`/member-profile?groupId=${groupId}&memberId=${item.id}` as any);
+              }}
+            >
+              <Ionicons name="person-outline" size={16} color={theme.colors.secondary} />
+              <Text style={styles.kebabMenuText}>View Profile</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
   );
 
@@ -522,6 +557,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  memberInfo: {
+    flex: 1,
   },
   memberText: {
     fontSize: theme.typography.fontSize.medium,

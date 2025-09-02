@@ -19,16 +19,29 @@ groups/{groupId} {
   name: "Gais Pojkar 2016",
   sportType: "Football",
   ageGroup: 1, // 1=children(≤18), 2=adults(18+), 3=mixed
-  enrolledChildren: [
+  unconfirmedChildren: [
     {
       name: "Alex Johnson",
       birthDate?: "2016-03-15", // Optional - if club has this data
-      invitationSent: false
+      confirmationSent: false,
+      invitationCode?: string // Generated when invitation sent
     },
     {
       name: "Emma Smith", 
       birthDate?: "2015-08-22",
-      invitationSent: false
+      confirmationSent: false,
+      invitationCode?: string
+    }
+  ],
+  coaches: [
+    {
+      uid: "coachUserId",
+      email: "coach@email.com", 
+      name: "John Doe",
+      role: "coach",
+      addedAt: timestamp,
+      addedBy: "adminUserId",
+      isExternal: false // true if invited externally, false if promoted
     }
   ],
   createdBy: "userId",
@@ -69,6 +82,50 @@ groups/{groupId}/members/{memberId}/guardians/{guardianId} {
   contactPhone: "+46701234567",
   addedAt: timestamp
 }
+```
+
+---
+
+## 🏈 **Coach Addition Process**
+
+### **ageGroup 1 (Children Groups):**
+- **Cannot promote children to coach** (age restriction)
+- **Can promote guardians to coach:** Select from existing members' guardians
+- **Can invite external adults:** Send coach invitation to external adult email
+
+### **ageGroup 2 & 3 (Adult/Mixed Groups):**
+- **Can promote existing members to coach:** Select from current group members
+- **Can promote guardians to coach:** Select from existing members' guardians (ageGroup 3 only)
+- **Can invite external adults:** Send coach invitation to external adult email
+
+### **Coach Invitation Flow:**
+```
+1. Admin clicks "Add Coach" in group-settings
+2. Admin chooses:
+   - "Promote Member" (ageGroup 2&3 only)
+   - "Promote Guardian" (ageGroup 1&3 only) 
+   - "Invite External Adult" (all ageGroups)
+3. System sends appropriate invitation/promotion
+4. New coach appears in group coaches list
+```
+
+---
+
+## 📧 **Guardian Confirmation System**
+
+### **Unconfirmed Children Management:**
+- Admin maintains list of children not yet confirmed by guardians
+- Admin can select specific child(ren) to send confirmation links
+- Each child gets personalized invitation link for their guardians
+
+### **Confirmation Link Process:**
+```
+1. Admin selects child(ren) from unconfirmed list
+2. System generates unique invitation code per child
+3. Personalized link sent to guardian emails:
+   "Confirm Alex Johnson's participation in Gais Pojkar 2016"
+4. Guardian clicks link → registers/logs in → confirms child
+5. Child moves from unconfirmedChildren to confirmed members
 ```
 
 ---
@@ -203,13 +260,24 @@ ageGroup=3 groups:
 - [ ] Update Firestore rules for ageGroup validation
 - [ ] Update group interfaces and types
 
-### **⏳ Phase 1B: Enrolled Children System**
-- [ ] Add enrolledChildren array to group creation
-- [ ] Create UI for managing enrolled children list  
-- [ ] Update group creation to store enrolled children data
-- [ ] Add validation for enrolled children
+### **⏳ Phase 1B: Enhanced Group Management & Coach System**
+- [ ] Add "Add Coach" option to group-settings (all ageGroups)
+- [ ] Add "Send Confirmation Link to Guardians" option (ageGroups 1 & 3 only)
+- [ ] Implement coach role in Firestore schema and permissions
+- [ ] Create coach promotion system:
+  - ageGroup 2&3: Promote existing members to coach
+  - ageGroup 1: Promote guardians to coach  
+  - All ageGroups: Invite external adults as coach
+- [ ] Add unconfirmed children management system
 
-### **⏳ Phase 1C: Enhanced Invitation System**
+### **⏳ Phase 1C: Member Profile & Management System**
+- [ ] Update member kebab menus with role-based visibility
+- [ ] Create member-profile.tsx screen
+- [ ] Implement view/edit member information
+- [ ] Add guardian contacts display
+- [ ] Enable guardian editing of their children's profiles
+
+### **⏳ Phase 1D: Enhanced Invitation System**
 - [ ] Create child-specific invitation links
 - [ ] Build guardian registration flow with pre-filled data
 - [ ] Implement guardian-child linking during onboarding

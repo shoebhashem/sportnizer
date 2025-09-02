@@ -139,3 +139,124 @@ export const getUserGroupsCount = async (userId: string) => {
     return 0;
   }
 };
+
+// Coach Management Functions
+
+export interface Coach {
+  uid: string;
+  email: string;
+  name: string;
+  role: 'coach';
+  addedAt: any;
+  addedBy: string;
+  isExternal: boolean;
+}
+
+export interface CoachInvitation {
+  groupId: string;
+  groupName: string;
+  invitedEmail: string;
+  invitedBy: string;
+  invitationCode: string;
+  createdAt: any;
+  expiresAt: any;
+  status: 'pending' | 'accepted' | 'expired';
+}
+
+// Add coach to group
+export const addCoachToGroup = async (groupId: string, coach: Omit<Coach, 'addedAt'>) => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: { code: 'auth/no-user', message: 'No authenticated user' } };
+    }
+
+    const groupRef = doc(db, 'groups', groupId);
+    const groupDoc = await getDoc(groupRef);
+    
+    if (!groupDoc.exists()) {
+      return { success: false, error: { code: 'group/not-found', message: 'Group not found' } };
+    }
+
+    const groupData = groupDoc.data();
+    const existingCoaches = groupData.coaches || [];
+    
+    // Check if user is already a coach
+    const isAlreadyCoach = existingCoaches.some((c: Coach) => c.uid === coach.uid);
+    if (isAlreadyCoach) {
+      return { success: false, error: { code: 'coach/already-exists', message: 'User is already a coach' } };
+    }
+
+    // Add coach with timestamp
+    const newCoach = {
+      ...coach,
+      addedAt: serverTimestamp()
+    };
+
+    const updatedCoaches = [...existingCoaches, newCoach];
+    
+    await updateDoc(groupRef, {
+      coaches: updatedCoaches
+    });
+
+    return { success: true };
+
+  } catch (error: any) {
+    console.error('Error adding coach:', error);
+    return { 
+      success: false, 
+      error: {
+        code: error.code || 'unknown',
+        message: error.message || 'An error occurred while adding coach'
+      }
+    };
+  }
+};
+
+// Create coach invitation for external user
+export const createCoachInvitation = async (groupId: string, invitedEmail: string) => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: { code: 'auth/no-user', message: 'No authenticated user' } };
+    }
+
+    const groupRef = doc(db, 'groups', groupId);
+    const groupDoc = await getDoc(groupRef);
+    
+    if (!groupDoc.exists()) {
+      return { success: false, error: { code: 'group/not-found', message: 'Group not found' } };
+    }
+
+    const groupData = groupDoc.data();
+    const invitationCode = Math.random().toString(36).substring(2, 15);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
+
+    const invitation: CoachInvitation = {
+      groupId,
+      groupName: groupData.name,
+      invitedEmail,
+      invitedBy: currentUser.uid,
+      invitationCode,
+      createdAt: serverTimestamp(),
+      expiresAt,
+      status: 'pending'
+    };
+
+    // Store invitation in Firestore
+    await addDoc(collection(db, 'coachInvitations'), invitation);
+
+    return { success: true, invitationCode };
+
+  } catch (error: any) {
+    console.error('Error creating coach invitation:', error);
+    return { 
+      success: false, 
+      error: {
+        code: error.code || 'unknown',
+        message: error.message || 'An error occurred while creating coach invitation'
+      }
+    };
+  }
+};
