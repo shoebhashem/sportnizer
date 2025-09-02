@@ -22,6 +22,7 @@ export const SPORT_TYPES = [
 export const createGroup = async (groupData: {
   name: string;
   sportType: string;
+  ageGroup: string;
   location: string;
   customStats: string[];
 }) => {
@@ -51,10 +52,19 @@ export const createGroup = async (groupData: {
       }
     }
 
+    // Convert ageGroup string to number
+    let ageGroupNumber = 2; // Default to adults
+    if (groupData.ageGroup.includes('Children/Youth')) {
+      ageGroupNumber = 1;
+    } else if (groupData.ageGroup.includes('Mixed')) {
+      ageGroupNumber = 3;
+    }
+
     // Create group document
     const groupDocData = {
       name: groupData.name.trim(),
       sportType: groupData.sportType,
+      ageGroup: ageGroupNumber,
       location: groupData.location.trim(),
       createdBy: currentUser.uid,
       createdAt: serverTimestamp(),

@@ -68,7 +68,9 @@ service cloud.firestore {
       // Only authenticated users can create groups (creator becomes admin)
       allow create: if isValidUser() &&
                    request.resource.data.createdBy == request.auth.uid &&
-                   request.resource.data.keys().hasAll(['name', 'sportType', 'location', 'createdBy', 'createdAt', 'membersCount']);
+                   request.resource.data.keys().hasAll(['name', 'sportType', 'ageGroup', 'location', 'createdBy', 'createdAt', 'membersCount']) &&
+                   request.resource.data.ageGroup is int &&
+                   request.resource.data.ageGroup >= 1 && request.resource.data.ageGroup <= 3;
       
       // Only group admin can update group details
       allow update: if isSignedIn() && 

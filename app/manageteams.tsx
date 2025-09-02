@@ -14,6 +14,7 @@ interface Group {
   sportType: string;
   location: string;
   createdBy: string;
+  ageGroup?: number; // 1=children, 2=adults, 3=mixed
 }
 
 interface Member {

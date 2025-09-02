@@ -78,6 +78,7 @@ export default function CreateGroupScreen() {
       const result = await createGroup({
         name: groupName.trim(),
         sportType,
+        ageGroup,
         location: '', // Temporary placeholder
         customStats: [] // Empty array for now
       });

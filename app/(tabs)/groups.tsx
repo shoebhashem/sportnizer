@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 interface Group {
   id: string;
   name: string;
+  ageGroup?: number; // 1=children, 2=adults, 3=mixed
 }
 
 export default function GroupsScreen() {

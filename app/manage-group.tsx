@@ -13,6 +13,7 @@ interface Group {
   id: string;
   name: string;
   createdBy: string;
+  ageGroup?: number; // 1=children, 2=adults, 3=mixed
 }
 
 interface Member {
