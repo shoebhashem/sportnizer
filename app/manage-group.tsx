@@ -65,7 +65,8 @@ export default function ManageGroupScreen() {
         setGroup({
           id: groupDoc.id,
           name: groupDoc.data().name,
-          createdBy: groupDoc.data().createdBy
+          createdBy: groupDoc.data().createdBy,
+          ageGroup: groupDoc.data().ageGroup
         });
       }
 
@@ -86,12 +87,15 @@ export default function ManageGroupScreen() {
         if (memberData.name) {
           // Name stored in member document (children in ageGroup 1)
           userName = memberData.name;
-          isConfirmed = memberData.isConfirmed !== false; // Default to true if not specified
+          isConfirmed = memberData.isConfirmed === true; // Only true if explicitly set to true
         } else {
           // Fetch user data from users collection (adults in ageGroup 2)
           try {
             const userDoc = await getDoc(doc(db, 'users', memberId));
-            userName = userDoc.exists() ? userDoc.data().name || 'Unknown User' : 'Unknown User';
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              userName = userData.name || userData.email?.split('@')[0] || 'Unknown User';
+            }
           } catch (error) {
             console.error(`Error fetching user data for ${memberId}:`, error);
           }
@@ -196,62 +200,66 @@ export default function ManageGroupScreen() {
     setOpenKebabMenuId(null);
   };
 
-  const renderMemberItem = ({ item }: { item: Member }) => (
-    <View style={[
-      styles.memberItem,
-      openKebabMenuId === item.id && { zIndex: 999999, position: 'relative' }
-    ]}>
-      <View style={styles.memberInfo}>
-        <View style={styles.memberNameContainer}>
-          <Text style={styles.memberText}>{item.name}</Text>
-          {group?.ageGroup === 1 && (
-            <View style={[
-              styles.confirmationBadge, 
-              item.isConfirmed ? styles.confirmedBadge : styles.unconfirmedBadge
-            ]}>
-              <Text style={[
-                styles.confirmationText,
-                item.isConfirmed ? styles.confirmedText : styles.unconfirmedText
-              ]}>
-                {item.isConfirmed ? 'Confirmed' : 'Unconfirmed'}
-              </Text>
+  const renderMemberItem = ({ item }: { item: Member }) => {
+    // For ageGroup 1 (children), only show as confirmed if explicitly set to true
+    // For ageGroup 2 (adults), always show as confirmed (no guardian confirmation needed)
+    const isConfirmed = group?.ageGroup === 1 ? item.isConfirmed === true : true;
+    const memberOpacity = group?.ageGroup === 1 && !isConfirmed ? 0.5 : 1;
+    
+    return (
+      <View style={[
+        styles.memberItem,
+        { opacity: memberOpacity },
+        openKebabMenuId === item.id && { zIndex: 999999, position: 'relative' }
+      ]}>
+        <View style={styles.memberInfo}>
+          <View style={styles.memberNameContainer}>
+            <Text style={styles.memberText}>{item.name}</Text>
+            {/* Show confirmation icon for ageGroup 1 confirmed members only */}
+            {group?.ageGroup === 1 && isConfirmed && (
+              <Ionicons 
+                name="checkmark-circle" 
+                size={16} 
+                color={theme.colors.success} 
+                style={{ marginLeft: theme.spacing.xs }}
+              />
+            )}
+          </View>
+          <Text style={styles.memberRole}>{item.role}</Text>
+        </View>
+        
+        {/* Member Kebab Menu */}
+        <View style={styles.kebabContainer}>
+          <TouchableOpacity 
+            style={styles.kebabButton}
+            onPress={() => setOpenKebabMenuId(openKebabMenuId === item.id ? null : item.id)}
+          >
+            <Ionicons 
+              name="ellipsis-vertical" 
+              size={20} 
+              color={theme.colors.text} 
+            />
+          </TouchableOpacity>
+
+          {/* Kebab Menu Content */}
+          {openKebabMenuId === item.id && (
+            <View style={styles.kebabMenu}>
+              <TouchableOpacity
+                style={styles.kebabMenuItem}
+                onPress={() => {
+                  setOpenKebabMenuId(null);
+                  router.push(`/member-profile?groupId=${groupId}&memberId=${item.id}` as any);
+                }}
+              >
+                <Ionicons name="person-outline" size={16} color={theme.colors.secondary} />
+                <Text style={styles.kebabMenuText}>View Profile</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
-        <Text style={styles.memberRole}>{item.role}</Text>
       </View>
-      
-      {/* Member Kebab Menu */}
-      <View style={styles.kebabContainer}>
-        <TouchableOpacity 
-          style={styles.kebabButton}
-          onPress={() => setOpenKebabMenuId(openKebabMenuId === item.id ? null : item.id)}
-        >
-          <Ionicons 
-            name="ellipsis-vertical" 
-            size={20} 
-            color={theme.colors.text} 
-          />
-        </TouchableOpacity>
-
-        {/* Kebab Menu Content */}
-        {openKebabMenuId === item.id && (
-          <View style={styles.kebabMenu}>
-            <TouchableOpacity
-              style={styles.kebabMenuItem}
-              onPress={() => {
-                setOpenKebabMenuId(null);
-                router.push(`/member-profile?groupId=${groupId}&memberId=${item.id}` as any);
-              }}
-            >
-              <Ionicons name="person-outline" size={16} color={theme.colors.secondary} />
-              <Text style={styles.kebabMenuText}>View Profile</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderSubgroupItem = ({ item }: { item: Subgroup }) => {
     const isExpanded = expandedSubgroups.has(item.id);
