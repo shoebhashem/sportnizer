@@ -33,21 +33,13 @@ export default function EventsScreen() {
           />
         </View>
 
-        {/* Upcoming Events Section */}
+        {/* Event Management Features - Future Implementation */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upcoming Events</Text>
+          <Text style={styles.sectionTitle}>Event Management</Text>
           <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={64} color={theme.colors.textSecondary} />
-            <Text style={styles.emptyText}>No upcoming events</Text>
-            <Text style={styles.emptySubtext}>Create your first event to get started</Text>
-          </View>
-        </View>
-
-        {/* Recent Events Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Events</Text>
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No recent events</Text>
+            <Ionicons name="settings-outline" size={64} color={theme.colors.textSecondary} />
+            <Text style={styles.emptyText}>Advanced event management coming soon</Text>
+            <Text style={styles.emptySubtext}>Edit, cancel, and manage event responses</Text>
           </View>
         </View>
       </ScrollView>
