@@ -1,5 +1,6 @@
 import AdContainer from '@/components/AdContainer';
 import AuthGuard from '@/components/AuthGuard';
+import { useEventPermissions } from '@/utils/roleUtils';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -7,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const adHeight = Platform.OS === 'web' ? 100 : 70;
+  const { canCreateEvents, loading } = useEventPermissions();
   
   return (
     <AuthGuard>
@@ -35,6 +37,18 @@ export default function TabLayout() {
                 ),
               }}
             />
+            {/* Conditional Calendar Tab - Only show for admins/coaches */}
+            {!loading && canCreateEvents && (
+              <Tabs.Screen
+                name="events"
+                options={{
+                  title: 'Events',
+                  tabBarIcon: ({ color, focused }) => (
+                    <Ionicons name={focused ? 'calendar' : 'calendar-outline'} color={color} size={24} />
+                  ),
+                }}
+              />
+            )}
             <Tabs.Screen
               name="groups"
               options={{
