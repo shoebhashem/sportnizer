@@ -2,11 +2,12 @@ import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { getAvatarSource } from '@/utils/avatarUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { collection, deleteDoc, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Group {
@@ -21,6 +22,8 @@ interface Member {
   role: string;
   name: string;
   isConfirmed?: boolean; // For children in ageGroup 1, indicates guardian confirmation
+  profileImageUrl?: string; // URL to profile image in Firebase Storage
+  hasCustomImage?: boolean; // Track if using custom vs default image
 }
 
 interface Subgroup {
@@ -212,6 +215,12 @@ export default function ManageGroupScreen() {
         { opacity: memberOpacity },
         openKebabMenuId === item.id && { zIndex: 999999, position: 'relative' }
       ]}>
+        {/* Member Avatar */}
+        <Image 
+          source={group ? getAvatarSource(item, group) : require('@/assets/images/avatars/adult-default.png')} 
+          style={styles.memberAvatar}
+        />
+        
         <View style={styles.memberInfo}>
           <View style={styles.memberNameContainer}>
             <Text style={styles.memberText}>{item.name}</Text>
@@ -329,8 +338,14 @@ export default function ManageGroupScreen() {
             {subgroupMembers.length > 0 ? (
               subgroupMembers.map((member) => (
                 <View key={member.id} style={styles.expandedMemberItem}>
-                  <Text style={styles.expandedMemberName}>{member.name}</Text>
-                  <Text style={styles.expandedMemberRole}>{member.role}</Text>
+                  <Image 
+                    source={group ? getAvatarSource(member, group) : require('@/assets/images/avatars/adult-default.png')} 
+                    style={styles.expandedMemberAvatar}
+                  />
+                  <View style={styles.expandedMemberInfo}>
+                    <Text style={styles.expandedMemberName}>{member.name}</Text>
+                    <Text style={styles.expandedMemberRole}>{member.role}</Text>
+                  </View>
                 </View>
               ))
             ) : (
@@ -589,6 +604,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  memberAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: theme.spacing.md,
+    backgroundColor: theme.colors.inputBorder, // fallback background
+  },
   memberInfo: {
     flex: 1,
   },
@@ -749,6 +771,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  expandedMemberAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: theme.spacing.sm,
+    backgroundColor: theme.colors.inputBorder, // fallback background
+  },
+  expandedMemberInfo: {
+    flex: 1,
   },
   expandedMemberName: {
     fontSize: theme.typography.fontSize.medium,
