@@ -374,6 +374,7 @@ export default function CreateEventScreen() {
               value={eventData.date}
               mode="date"
               display="spinner"
+              textColor="white"
               onChange={(event: any, selectedDate: any) => {
                 if (selectedDate) {
                   setEventData(prev => ({ ...prev, date: selectedDate }));
@@ -525,6 +526,7 @@ export default function CreateEventScreen() {
               value={eventData.time}
               mode="time"
               display="spinner"
+              textColor="white"
               onChange={(event: any, selectedTime: any) => {
                 if (selectedTime) {
                   setEventData(prev => ({ ...prev, time: selectedTime }));
