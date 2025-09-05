@@ -1,5 +1,4 @@
 import { FontAwesome } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -14,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../components/Button';
+import CustomDateTimePicker from '../components/DateTimePicker';
 import { theme } from '../constants/theme';
 
 interface EventData {
@@ -324,312 +324,30 @@ export default function CreateEventScreen() {
         }} />
       )}
 
-      {/* Date Picker */}
-      {Platform.OS === 'android' && showDatePicker && (
-        <DateTimePicker
-          value={eventData.date}
-          mode="date"
-          display="default"
-          is24Hour={true}
-          onChange={(event: any, selectedDate: any) => {
-            setShowDatePicker(false);
-            if (selectedDate) {
-              setEventData(prev => ({ ...prev, date: selectedDate }));
-            }
-          }}
-        />
-      )}
+      {/* Unified Date and Time Picker */}
+      <CustomDateTimePicker
+        value={eventData.date}
+        mode="date"
+        isVisible={showDatePicker}
+        onConfirm={(date) => {
+          setEventData(prev => ({ ...prev, date }));
+          setShowDatePicker(false);
+        }}
+        onCancel={() => setShowDatePicker(false)}
+        title="Select Date"
+      />
 
-      {/* iOS Date Picker in Modal */}
-      {Platform.OS === 'ios' && showDatePicker && (
-        <View style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000,
-        }}>
-          <View style={{
-            backgroundColor: theme.colors.inputBackground,
-            borderRadius: 12,
-            padding: 20,
-            margin: 20,
-            width: '90%',
-            maxWidth: 400,
-          }}>
-            <Text style={{ 
-              color: theme.colors.text, 
-              fontSize: 18, 
-              fontWeight: '600', 
-              textAlign: 'center',
-              marginBottom: 20 
-            }}>
-              Select Date
-            </Text>
-            <DateTimePicker
-              value={eventData.date}
-              mode="date"
-              display="spinner"
-              textColor="white"
-              onChange={(event: any, selectedDate: any) => {
-                if (selectedDate) {
-                  setEventData(prev => ({ ...prev, date: selectedDate }));
-                }
-              }}
-              style={{ backgroundColor: theme.colors.inputBackground }}
-            />
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-              <TouchableOpacity
-                onPress={() => setShowDatePicker(false)}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  backgroundColor: theme.colors.inputBorder,
-                  borderRadius: 8,
-                  alignItems: 'center'
-                }}
-              >
-                <Text style={{ color: theme.colors.text }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setShowDatePicker(false)}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  backgroundColor: theme.colors.secondary,
-                  borderRadius: 8,
-                  alignItems: 'center'
-                }}
-              >
-                <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Web Date Picker */}
-      {Platform.OS === 'web' && showDatePicker && (
-        <View style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: [{ translateX: -150 }, { translateY: -100 }],
-          backgroundColor: theme.colors.inputBackground,
-          padding: 20,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: theme.colors.inputBorder,
-          zIndex: 1000,
-          width: 300,
-        }}>
-          <Text style={{ color: theme.colors.text, fontSize: 16, marginBottom: 12, fontWeight: '600' }}>
-            Select Date
-          </Text>
-          <input
-            type="date"
-            value={eventData.date.toISOString().split('T')[0]}
-            onChange={(e) => {
-              setEventData(prev => ({ ...prev, date: new Date(e.target.value) }));
-            }}
-            style={{
-              width: '100%',
-              padding: 12,
-              fontSize: 16,
-              borderRadius: 8,
-              border: `1px solid ${theme.colors.inputBorder}`,
-              backgroundColor: theme.colors.primary,
-              color: theme.colors.text,
-              marginBottom: 16
-            }}
-          />
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity
-              onPress={() => setShowDatePicker(false)}
-              style={{
-                flex: 1,
-                padding: 12,
-                backgroundColor: theme.colors.inputBorder,
-                borderRadius: 8,
-                alignItems: 'center'
-              }}
-            >
-              <Text style={{ color: theme.colors.text }}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowDatePicker(false)}
-              style={{
-                flex: 1,
-                padding: 12,
-                backgroundColor: theme.colors.secondary,
-                borderRadius: 8,
-                alignItems: 'center'
-              }}
-            >
-              <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* Time Picker */}
-      {Platform.OS === 'android' && showTimePicker && (
-        <DateTimePicker
-          value={eventData.time}
-          mode="time"
-          display="clock"
-          is24Hour={true}
-          onChange={(event: any, selectedTime: any) => {
-            setShowTimePicker(false);
-            if (selectedTime) {
-              setEventData(prev => ({ ...prev, time: selectedTime }));
-            }
-          }}
-        />
-      )}
-
-      {/* iOS Time Picker in Modal */}
-      {Platform.OS === 'ios' && showTimePicker && (
-        <View style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000,
-        }}>
-          <View style={{
-            backgroundColor: theme.colors.inputBackground,
-            borderRadius: 12,
-            padding: 20,
-            margin: 20,
-            width: '90%',
-            maxWidth: 400,
-          }}>
-            <Text style={{ 
-              color: theme.colors.text, 
-              fontSize: 18, 
-              fontWeight: '600', 
-              textAlign: 'center',
-              marginBottom: 20 
-            }}>
-              Select Time
-            </Text>
-            <DateTimePicker
-              value={eventData.time}
-              mode="time"
-              display="spinner"
-              textColor="white"
-              onChange={(event: any, selectedTime: any) => {
-                if (selectedTime) {
-                  setEventData(prev => ({ ...prev, time: selectedTime }));
-                }
-              }}
-              style={{ backgroundColor: theme.colors.inputBackground }}
-            />
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-              <TouchableOpacity
-                onPress={() => setShowTimePicker(false)}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  backgroundColor: theme.colors.inputBorder,
-                  borderRadius: 8,
-                  alignItems: 'center'
-                }}
-              >
-                <Text style={{ color: theme.colors.text }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setShowTimePicker(false)}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  backgroundColor: theme.colors.secondary,
-                  borderRadius: 8,
-                  alignItems: 'center'
-                }}
-              >
-                <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Web Time Picker */}
-      {Platform.OS === 'web' && showTimePicker && (
-        <View style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: [{ translateX: -150 }, { translateY: -100 }],
-          backgroundColor: theme.colors.inputBackground,
-          padding: 20,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: theme.colors.inputBorder,
-          zIndex: 1000,
-          width: 300,
-        }}>
-          <Text style={{ color: theme.colors.text, fontSize: 16, marginBottom: 12, fontWeight: '600' }}>
-            Select Time
-          </Text>
-          <input
-            type="time"
-            value={eventData.time.toTimeString().slice(0, 5)}
-            onChange={(e) => {
-              const [hours, minutes] = e.target.value.split(':');
-              const newTime = new Date();
-              newTime.setHours(parseInt(hours), parseInt(minutes));
-              setEventData(prev => ({ ...prev, time: newTime }));
-            }}
-            style={{
-              width: '100%',
-              padding: 12,
-              fontSize: 16,
-              borderRadius: 8,
-              border: `1px solid ${theme.colors.inputBorder}`,
-              backgroundColor: theme.colors.primary,
-              color: theme.colors.text,
-              marginBottom: 16
-            }}
-          />
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity
-              onPress={() => setShowTimePicker(false)}
-              style={{
-                flex: 1,
-                padding: 12,
-                backgroundColor: theme.colors.inputBorder,
-                borderRadius: 8,
-                alignItems: 'center'
-              }}
-            >
-              <Text style={{ color: theme.colors.text }}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowTimePicker(false)}
-              style={{
-                flex: 1,
-                padding: 12,
-                backgroundColor: theme.colors.secondary,
-                borderRadius: 8,
-                alignItems: 'center'
-              }}
-            >
-              <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      <CustomDateTimePicker
+        value={eventData.time}
+        mode="time"
+        isVisible={showTimePicker}
+        onConfirm={(time) => {
+          setEventData(prev => ({ ...prev, time }));
+          setShowTimePicker(false);
+        }}
+        onCancel={() => setShowTimePicker(false)}
+        title="Select Time"
+      />
     </SafeAreaView>
   );
 }
