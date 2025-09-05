@@ -1,5 +1,6 @@
 import AdContainer from '@/components/AdContainer';
 import AuthGuard from '@/components/AuthGuard';
+import UserAvatar from '@/components/UserAvatar';
 import { useEventPermissions } from '@/utils/roleUtils';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
@@ -22,6 +23,7 @@ export default function TabLayout() {
               },
               headerShadowVisible: false,
               headerTintColor: '#fff',
+              headerRight: () => <UserAvatar />,
               tabBarStyle: {
                 backgroundColor: '#25292e',
                 marginBottom: adHeight, // Make room for the ad
