@@ -55,10 +55,16 @@ export default function CustomDateTimePicker({
           color: ${theme.colors.text};
           font-weight: 600;
         }
-        .custom-datepicker .react-datepicker__day-name,
+        .custom-datepicker .react-datepicker__day-name {
+          color: ${theme.colors.textSecondary};
+          font-weight: 600;
+        }
         .custom-datepicker .react-datepicker__day,
         .custom-datepicker .react-datepicker__time-name {
+          background-color: ${theme.colors.inputBackground};
           color: ${theme.colors.text};
+          border-radius: 4px;
+          margin: 1px;
         }
         .custom-datepicker .react-datepicker__day:hover {
           background-color: ${theme.colors.secondary};
@@ -68,16 +74,24 @@ export default function CustomDateTimePicker({
         .custom-datepicker .react-datepicker__day--keyboard-selected {
           background-color: ${theme.colors.secondary};
           color: ${theme.colors.primary};
+          font-weight: 600;
         }
         .custom-datepicker .react-datepicker__day--today {
           background-color: ${theme.colors.inputBorder};
           color: ${theme.colors.text};
+          font-weight: 600;
+        }
+        .custom-datepicker .react-datepicker__day--outside-month {
+          background-color: ${theme.colors.primary};
+          color: ${theme.colors.textSecondary};
         }
         .custom-datepicker .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box {
           background-color: ${theme.colors.inputBackground};
         }
         .custom-datepicker .react-datepicker__time-list-item {
+          background-color: ${theme.colors.inputBackground};
           color: ${theme.colors.text};
+          padding: 8px 16px;
         }
         .custom-datepicker .react-datepicker__time-list-item:hover {
           background-color: ${theme.colors.secondary};
@@ -86,6 +100,7 @@ export default function CustomDateTimePicker({
         .custom-datepicker .react-datepicker__time-list-item--selected {
           background-color: ${theme.colors.secondary};
           color: ${theme.colors.primary};
+          font-weight: 600;
         }
         .custom-datepicker .react-datepicker__navigation {
           border: none;
@@ -95,6 +110,9 @@ export default function CustomDateTimePicker({
         }
         .custom-datepicker .react-datepicker__navigation--next {
           border-left-color: ${theme.colors.text};
+        }
+        .custom-datepicker .react-datepicker__month {
+          background-color: ${theme.colors.inputBackground};
         }
       `}</style>
 
@@ -135,7 +153,8 @@ export default function CustomDateTimePicker({
               showTimeSelectOnly={mode === 'time'}
               timeIntervals={15}
               timeCaption="Time"
-              dateFormat={mode === 'date' ? "MMMM d, yyyy" : "h:mm aa"}
+              timeFormat="HH:mm"
+              dateFormat={mode === 'date' ? "MMMM d, yyyy" : "HH:mm"}
               inline
               calendarClassName="custom-datepicker"
             />
