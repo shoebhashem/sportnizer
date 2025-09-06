@@ -17,8 +17,7 @@ export default function EventsScreen() {
   };
 
   const handleCreatePoll = () => {
-    // TODO: Implement poll creation functionality
-    console.log('Create poll');
+    router.push('/create-poll' as any);
   };
 
   const handleMakeAnnouncement = () => {
