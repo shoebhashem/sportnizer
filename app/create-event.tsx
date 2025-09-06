@@ -2,7 +2,6 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
     Platform,
     ScrollView,
     Text,
@@ -13,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../components/Button';
+import ConfirmationModal from '../components/ConfirmationModal';
 import CustomDateTimePicker from '../components/DateTimePicker';
 import { theme } from '../constants/theme';
 
@@ -23,6 +23,12 @@ interface EventData {
   time: Date;
   location: string;
   type: 'practice' | 'game' | 'meeting' | 'other';
+}
+
+interface ModalState {
+  visible: boolean;
+  title: string;
+  message: string;
 }
 
 export default function CreateEventScreen() {
@@ -38,6 +44,11 @@ export default function CreateEventScreen() {
   
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [modal, setModal] = useState<ModalState>({
+    visible: false,
+    title: '',
+    message: ''
+  });
 
   const eventTypes = [
     { key: 'practice', label: 'Practice', icon: 'dribbble' },
@@ -48,12 +59,20 @@ export default function CreateEventScreen() {
 
   const handleNext = () => {
     if (!eventData.title.trim()) {
-      Alert.alert('Error', 'Please enter an event title');
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Please enter an event title'
+      });
       return;
     }
     
     if (!eventData.location.trim()) {
-      Alert.alert('Error', 'Please enter a location');
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Please enter a location'
+      });
       return;
     }
 
@@ -64,6 +83,10 @@ export default function CreateEventScreen() {
         eventData: JSON.stringify(eventData)
       }
     });
+  };
+
+  const handleModalClose = () => {
+    setModal({ ...modal, visible: false });
   };
 
   const formatDate = (date: Date) => {
@@ -347,6 +370,18 @@ export default function CreateEventScreen() {
         }}
         onCancel={() => setShowTimePicker(false)}
         title="Select Time"
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        confirmText="OK"
+        cancelText={undefined}
+        onConfirm={handleModalClose}
+        onCancel={handleModalClose}
+        confirmButtonTheme="primary"
       />
     </SafeAreaView>
   );

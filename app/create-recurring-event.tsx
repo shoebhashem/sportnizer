@@ -2,7 +2,6 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
     Platform,
     ScrollView,
     Text,
@@ -13,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../components/Button';
+import ConfirmationModal from '../components/ConfirmationModal';
 import CustomDateTimePicker from '../components/DateTimePicker';
 import { theme } from '../constants/theme';
 
@@ -31,6 +31,12 @@ interface RecurringEventData {
     endType: 'date' | 'count';
     occurrences?: number; // if endType is 'count'
   };
+}
+
+interface ModalState {
+  visible: boolean;
+  title: string;
+  message: string;
 }
 
 export default function CreateRecurringEventScreen() {
@@ -58,6 +64,11 @@ export default function CreateRecurringEventScreen() {
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [modal, setModal] = useState<ModalState>({
+    visible: false,
+    title: '',
+    message: ''
+  });
 
   const eventTypes = [
     { key: 'practice', label: 'Practice', icon: 'dribbble' },
@@ -84,27 +95,47 @@ export default function CreateRecurringEventScreen() {
 
   const handleNext = () => {
     if (!eventData.title.trim()) {
-      Alert.alert('Error', 'Please enter an event title');
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Please enter an event title'
+      });
       return;
     }
     
     if (!eventData.location.trim()) {
-      Alert.alert('Error', 'Please enter a location');
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Please enter a location'
+      });
       return;
     }
 
     if (eventData.startDate >= eventData.endDate) {
-      Alert.alert('Error', 'End date must be after start date');
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'End date must be after start date'
+      });
       return;
     }
 
     if (eventData.recurrence.pattern === 'weekly' && (!eventData.recurrence.daysOfWeek || eventData.recurrence.daysOfWeek.length === 0)) {
-      Alert.alert('Error', 'Please select at least one day of the week');
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Please select at least one day of the week'
+      });
       return;
     }
 
     if (eventData.recurrence.endType === 'count' && (!eventData.recurrence.occurrences || eventData.recurrence.occurrences < 1)) {
-      Alert.alert('Error', 'Please enter a valid number of occurrences');
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Please enter a valid number of occurrences'
+      });
       return;
     }
 
@@ -116,6 +147,10 @@ export default function CreateRecurringEventScreen() {
         isRecurring: 'true'
       }
     });
+  };
+
+  const handleModalClose = () => {
+    setModal({ ...modal, visible: false });
   };
 
   const formatDate = (date: Date) => {
@@ -721,6 +756,18 @@ export default function CreateRecurringEventScreen() {
         }}
         onCancel={() => setShowTimePicker(false)}
         title="Select Time"
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        confirmText="OK"
+        cancelText={undefined}
+        onConfirm={handleModalClose}
+        onCancel={handleModalClose}
+        confirmButtonTheme="primary"
       />
     </SafeAreaView>
   );
