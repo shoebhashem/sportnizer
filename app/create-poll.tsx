@@ -2,7 +2,6 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
     ScrollView,
     Text,
     TextInput,
@@ -12,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../components/Button';
+import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
 
 interface PollData {
@@ -20,12 +20,26 @@ interface PollData {
   options: string[];
 }
 
+interface ModalState {
+  visible: boolean;
+  title: string;
+  message: string;
+  type: 'error' | 'success';
+}
+
 export default function CreatePollScreen() {
   const router = useRouter();
   const [pollData, setPollData] = useState<PollData>({
     question: '',
     description: '',
     options: ['', '']
+  });
+
+  const [modal, setModal] = useState<ModalState>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error'
   });
 
   const handleAddOption = () => {
@@ -56,21 +70,47 @@ export default function CreatePollScreen() {
   const handleCreatePoll = () => {
     // Validate poll data
     if (!pollData.question.trim()) {
-      Alert.alert('Error', 'Please enter a poll question');
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Please enter a poll question',
+        type: 'error'
+      });
       return;
     }
 
     const validOptions = pollData.options.filter(option => option.trim());
     if (validOptions.length < 2) {
-      Alert.alert('Error', 'Please provide at least 2 options');
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Please provide at least 2 options',
+        type: 'error'
+      });
       return;
     }
 
     // TODO: Implement poll creation logic
     console.log('Creating poll:', { ...pollData, options: validOptions });
-    Alert.alert('Success', 'Poll created successfully!', [
-      { text: 'OK', onPress: () => router.back() }
-    ]);
+    setModal({
+      visible: true,
+      title: 'Success',
+      message: 'Poll created successfully!',
+      type: 'success'
+    });
+  };
+
+  const handleModalConfirm = () => {
+    if (modal.type === 'success') {
+      setModal({ ...modal, visible: false });
+      router.back();
+    } else {
+      setModal({ ...modal, visible: false });
+    }
+  };
+
+  const handleModalCancel = () => {
+    setModal({ ...modal, visible: false });
   };
 
   return (
@@ -326,6 +366,18 @@ export default function CreatePollScreen() {
           theme="secondary"
         />
       </View>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        confirmText={modal.type === 'success' ? 'OK' : 'OK'}
+        cancelText={modal.type === 'error' ? undefined : undefined}
+        onConfirm={handleModalConfirm}
+        onCancel={handleModalCancel}
+        confirmButtonTheme={modal.type === 'success' ? 'secondary' : 'primary'}
+      />
     </SafeAreaView>
   );
 }
