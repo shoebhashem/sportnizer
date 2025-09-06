@@ -13,8 +13,7 @@ export default function EventsScreen() {
   };
 
   const handleRecurringEvents = () => {
-    // TODO: Implement recurring events functionality
-    console.log('Schedule recurring events');
+    router.push('/create-recurring-event' as any);
   };
 
   const handleCreatePoll = () => {
