@@ -21,8 +21,7 @@ export default function EventsScreen() {
   };
 
   const handleMakeAnnouncement = () => {
-    // TODO: Implement announcement functionality
-    console.log('Make announcement');
+    router.push('/make-announcement' as any);
   };
 
   return (
