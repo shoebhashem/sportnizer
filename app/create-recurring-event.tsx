@@ -139,7 +139,7 @@ export default function CreateRecurringEventScreen() {
       return;
     }
 
-    // Navigate to select groups screen with recurring event data
+    // Navigate to select recipients screen with recurring event data
     router.push({
       pathname: '/select-event-group' as any,
       params: {
@@ -703,7 +703,7 @@ export default function CreateRecurringEventScreen() {
         paddingBottom: Platform.OS === 'ios' ? 34 : 16
       }}>
         <Button
-          label="Next: Select Groups"
+          label="Next: Select Recipients"
           onPress={handleNext}
         />
       </View>

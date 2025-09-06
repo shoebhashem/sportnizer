@@ -38,7 +38,7 @@ export default function MakeAnnouncementScreen() {
     message: ''
   });
 
-  const handleSelectGroup = () => {
+  const handleSelectRecipients = () => {
     // Validate announcement data
     if (!announcementData.title.trim()) {
       setModal({
@@ -58,14 +58,14 @@ export default function MakeAnnouncementScreen() {
       return;
     }
 
-    // TODO: Navigate to select groups screen with announcement data
-    console.log('Navigating to select groups with announcement:', announcementData);
+    // TODO: Navigate to select recipients screen with announcement data
+    console.log('Navigating to select recipients with announcement:', announcementData);
     
     // For now, show success message
     setModal({
       visible: true,
       title: 'Success',
-      message: 'Announcement ready! Group selection will be implemented soon.'
+      message: 'Announcement ready! Recipient selection will be implemented soon.'
     });
   };
 
@@ -248,7 +248,7 @@ export default function MakeAnnouncementScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Select Group Button */}
+      {/* Select Recipients Button */}
       <View style={{
         padding: theme.layout.containerPadding,
         borderTopWidth: 1,
@@ -256,8 +256,8 @@ export default function MakeAnnouncementScreen() {
         backgroundColor: theme.colors.primary,
       }}>
         <Button
-          label="Select Group"
-          onPress={handleSelectGroup}
+          label="Select Recipients"
+          onPress={handleSelectRecipients}
           theme="secondary"
         />
       </View>

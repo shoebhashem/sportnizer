@@ -67,7 +67,7 @@ export default function CreatePollScreen() {
     }));
   };
 
-  const handleCreatePoll = () => {
+  const handleSelectRecipients = () => {
     // Validate poll data
     if (!pollData.question.trim()) {
       setModal({
@@ -90,12 +90,14 @@ export default function CreatePollScreen() {
       return;
     }
 
-    // TODO: Implement poll creation logic
-    console.log('Creating poll:', { ...pollData, options: validOptions });
+    // TODO: Navigate to select recipients screen with poll data
+    console.log('Navigating to select recipients with poll:', { ...pollData, options: validOptions });
+    
+    // For now, show success message
     setModal({
       visible: true,
       title: 'Success',
-      message: 'Poll created successfully!',
+      message: 'Poll ready! Recipient selection will be implemented soon.',
       type: 'success'
     });
   };
@@ -353,7 +355,7 @@ export default function CreatePollScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Create Poll Button */}
+      {/* Select Recipients Button */}
       <View style={{
         padding: theme.layout.containerPadding,
         borderTopWidth: 1,
@@ -361,8 +363,8 @@ export default function CreatePollScreen() {
         backgroundColor: theme.colors.primary,
       }}>
         <Button
-          label="Create Poll"
-          onPress={handleCreatePoll}
+          label="Select Recipients"
+          onPress={handleSelectRecipients}
           theme="secondary"
         />
       </View>

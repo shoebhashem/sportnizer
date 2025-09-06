@@ -76,7 +76,7 @@ export default function CreateEventScreen() {
       return;
     }
 
-    // Navigate to select groups screen with event data
+    // Navigate to select recipients screen with event data
     router.push({
       pathname: '/select-event-group' as any,
       params: {
@@ -329,7 +329,7 @@ export default function CreateEventScreen() {
         paddingBottom: Platform.OS === 'ios' ? 34 : 16
       }}>
         <Button
-          label="Next: Select Groups"
+          label="Next: Select Recipients"
           onPress={handleNext}
         />
       </View>
