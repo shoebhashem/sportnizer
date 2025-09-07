@@ -78,9 +78,11 @@ export default function CreateEventScreen() {
 
     // Navigate to select recipients screen with event data
     router.push({
-      pathname: '/select-event-group' as any,
+      pathname: '/select-recipients' as any,
       params: {
-        eventData: JSON.stringify(eventData)
+        feature: 'event',
+        sourceScreen: 'create-event',
+        data: JSON.stringify(eventData)
       }
     });
   };

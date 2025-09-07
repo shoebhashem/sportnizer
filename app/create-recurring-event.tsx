@@ -141,10 +141,11 @@ export default function CreateRecurringEventScreen() {
 
     // Navigate to select recipients screen with recurring event data
     router.push({
-      pathname: '/select-event-group' as any,
+      pathname: '/select-recipients' as any,
       params: {
-        eventData: JSON.stringify(eventData),
-        isRecurring: 'true'
+        feature: 'recurring-event',
+        sourceScreen: 'create-recurring-event',
+        data: JSON.stringify(eventData)
       }
     });
   };

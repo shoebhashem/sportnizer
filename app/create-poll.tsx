@@ -90,15 +90,15 @@ export default function CreatePollScreen() {
       return;
     }
 
-    // TODO: Navigate to select recipients screen with poll data
-    console.log('Navigating to select recipients with poll:', { ...pollData, options: validOptions });
-    
-    // For now, show success message
-    setModal({
-      visible: true,
-      title: 'Success',
-      message: 'Poll ready! Recipient selection will be implemented soon.',
-      type: 'success'
+    // Navigate to select recipients screen with poll data
+    const validPollData = { ...pollData, options: validOptions };
+    router.push({
+      pathname: '/select-recipients' as any,
+      params: {
+        feature: 'poll',
+        sourceScreen: 'create-poll',
+        data: JSON.stringify(validPollData)
+      }
     });
   };
 

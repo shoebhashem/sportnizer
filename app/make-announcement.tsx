@@ -58,14 +58,14 @@ export default function MakeAnnouncementScreen() {
       return;
     }
 
-    // TODO: Navigate to select recipients screen with announcement data
-    console.log('Navigating to select recipients with announcement:', announcementData);
-    
-    // For now, show success message
-    setModal({
-      visible: true,
-      title: 'Success',
-      message: 'Announcement ready! Recipient selection will be implemented soon.'
+    // Navigate to select recipients screen with announcement data
+    router.push({
+      pathname: '/select-recipients' as any,
+      params: {
+        feature: 'announcement',
+        sourceScreen: 'make-announcement',
+        data: JSON.stringify(announcementData)
+      }
     });
   };
 
