@@ -1,5 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
     ScrollView,
@@ -13,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
+import { getCurrentUser } from '../services/authService';
 
 // Data Interfaces
 interface GroupPermission {
@@ -70,40 +72,67 @@ class RecipientsCache {
       return this.permissions;
     }
 
-    // TODO: Replace with actual Firestore query
-    // For now, return mock data for development
-    const mockPermissions: GroupPermission[] = [
-      {
-        groupId: 'group1',
-        groupName: 'U18 Soccer Team',
-        role: 'admin',
-        memberCount: 24,
-        subgroups: [
-          { subgroupId: 'sub1', subgroupName: 'Defenders', memberCount: 8 },
-          { subgroupId: 'sub2', subgroupName: 'Midfielders', memberCount: 8 }
-        ]
-      },
-      {
-        groupId: 'group2',
-        groupName: 'U16 Basketball',
-        role: 'coach',
-        memberCount: 18,
-        subgroups: [
-          { subgroupId: 'sub3', subgroupName: 'Starters', memberCount: 10 }
-        ]
-      },
-      {
-        groupId: 'group3',
-        groupName: 'Swimming Club',
-        role: 'admin',
-        memberCount: 32,
-        subgroups: []
-      }
-    ];
+    try {
+      const db = getFirestore();
+      const permissions: GroupPermission[] = [];
 
-    this.permissions = mockPermissions;
-    this.lastPermissionsUpdate = now;
-    return mockPermissions;
+      // Get user document to find all groups they belong to
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      const userData = userDoc.data();
+      const userGroupIds = userData?.groupsJoined || [];
+
+      // Get groups where user has admin or coach permissions
+      for (const groupId of userGroupIds) {
+        try {
+          // Get group info
+          const groupDoc = await getDoc(doc(db, 'groups', groupId));
+          if (!groupDoc.exists()) continue;
+
+          const groupData = groupDoc.data();
+
+          // Get user's role in this group
+          const memberDoc = await getDoc(doc(db, 'groups', groupId, 'members', userId));
+          if (!memberDoc.exists()) continue;
+
+          const memberData = memberDoc.data();
+          const userRole = memberData.role;
+
+          // Only include if user is admin or coach
+          if (userRole === 'admin' || userRole === 'coach') {
+            // Get subgroups for this group
+            const subgroupsSnapshot = await getDocs(collection(db, 'groups', groupId, 'subgroups'));
+            const subgroups: SubgroupInfo[] = [];
+            
+            subgroupsSnapshot.forEach((subgroupDoc) => {
+              const subgroupData = subgroupDoc.data();
+              subgroups.push({
+                subgroupId: subgroupDoc.id,
+                subgroupName: subgroupData.name || 'Unnamed Subgroup',
+                memberCount: subgroupData.memberCount || 0
+              });
+            });
+
+            permissions.push({
+              groupId: groupId,
+              groupName: groupData.name || 'Unnamed Group',
+              role: userRole as 'admin' | 'coach',
+              memberCount: groupData.membersCount || 0,
+              subgroups: subgroups
+            });
+          }
+        } catch (error) {
+          console.error(`Error loading group ${groupId}:`, error);
+          // Continue with other groups
+        }
+      }
+
+      this.permissions = permissions;
+      this.lastPermissionsUpdate = now;
+      return permissions;
+    } catch (error) {
+      console.error('Error loading user permissions:', error);
+      throw error;
+    }
   }
 
   static async getGroupMembers(groupId: string): Promise<Member[]> {
@@ -111,18 +140,65 @@ class RecipientsCache {
       return this.groupMembers.get(groupId)!;
     }
 
-    // TODO: Replace with actual Firestore query
-    // Mock data for development
-    const mockMembers: Member[] = [
-      { userId: 'user1', name: 'John Smith', role: 'admin', groupId },
-      { userId: 'user2', name: 'Sarah Johnson', role: 'coach', groupId },
-      { userId: 'user3', name: 'Mike Wilson', role: 'member', groupId },
-      { userId: 'user4', name: 'Lisa Brown', role: 'member', groupId },
-      { userId: 'user5', name: 'Tom Davis', role: 'guardian', groupId }
-    ];
+    try {
+      const db = getFirestore();
+      const members: Member[] = [];
 
-    this.groupMembers.set(groupId, mockMembers);
-    return mockMembers;
+      // Get all members from the group's members subcollection
+      const membersSnapshot = await getDocs(collection(db, 'groups', groupId, 'members'));
+      
+      // Get all users data in batch for efficiency
+      const userIds: string[] = [];
+      const memberRoles: Map<string, string> = new Map();
+      
+      membersSnapshot.forEach((memberDoc) => {
+        const memberData = memberDoc.data();
+        userIds.push(memberDoc.id);
+        memberRoles.set(memberDoc.id, memberData.role || 'member');
+      });
+
+      // Get user documents for names
+      for (const userId of userIds) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          const userData = userDoc.data();
+          
+          members.push({
+            userId: userId,
+            name: userData?.name || userData?.email?.split('@')[0] || 'Unknown User',
+            role: memberRoles.get(userId) as 'admin' | 'coach' | 'member' | 'guardian',
+            groupId: groupId
+          });
+        } catch (error) {
+          console.error(`Error loading user ${userId}:`, error);
+          // Add with minimal info
+          members.push({
+            userId: userId,
+            name: 'Unknown User',
+            role: memberRoles.get(userId) as 'admin' | 'coach' | 'member' | 'guardian',
+            groupId: groupId
+          });
+        }
+      }
+
+      this.groupMembers.set(groupId, members);
+      return members;
+    } catch (error) {
+      console.error('Error loading group members:', error);
+      throw error;
+    }
+  }
+
+  // Clear cache when needed (e.g., on logout or when data might be stale)
+  static clearCache() {
+    this.permissions = null;
+    this.groupMembers.clear();
+    this.lastPermissionsUpdate = 0;
+  }
+
+  // Force refresh permissions
+  static async refreshPermissions(userId: string): Promise<GroupPermission[]> {
+    return this.getUserPermissions(userId, true);
   }
 }
 
@@ -175,9 +251,29 @@ export default function SelectRecipientsScreen() {
   const loadUserPermissions = async () => {
     try {
       setLoading(true);
-      // TODO: Get actual user ID from auth context
-      const permissions = await RecipientsCache.getUserPermissions('currentUserId');
+      
+      // Get current authenticated user
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        setModal({
+          visible: true,
+          title: 'Authentication Error',
+          message: 'You must be logged in to select recipients.'
+        });
+        return;
+      }
+
+      const permissions = await RecipientsCache.getUserPermissions(currentUser.uid);
       setUserPermissions(permissions);
+      
+      if (permissions.length === 0) {
+        setModal({
+          visible: true,
+          title: 'No Permissions',
+          message: 'You do not have admin or coach permissions in any groups.'
+        });
+        return;
+      }
       
       if (permissions.length > 1) {
         setSelectAllGroups(true);
@@ -205,6 +301,11 @@ export default function SelectRecipientsScreen() {
       setGroupMembers(prev => new Map(prev.set(groupId, members)));
     } catch (error) {
       console.error('Error loading group members:', error);
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to load group members. Please try again.'
+      });
     }
   };
 
