@@ -4,7 +4,6 @@ import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firesto
 import React, { useEffect, useState } from 'react';
 import {
     ScrollView,
-    Switch,
     Text,
     TouchableOpacity,
     View
@@ -208,13 +207,10 @@ export default function SelectRecipientsScreen() {
   
   // Parse navigation parameters
   const feature = params.feature as string;
-  const sourceScreen = params.sourceScreen as string;
-  const data = params.data ? JSON.parse(params.data as string) : {};
 
   // State
   const [userPermissions, setUserPermissions] = useState<GroupPermission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectAllGroups, setSelectAllGroups] = useState(true);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [groupSelectionMode, setGroupSelectionMode] = useState<Map<string, 'entire' | 'subgroups' | 'members'>>(new Map());
@@ -233,9 +229,9 @@ export default function SelectRecipientsScreen() {
     loadUserPermissions();
   }, []);
 
-  // Update selected groups when selectAllGroups changes
+  // Auto-select all groups when permissions are loaded
   useEffect(() => {
-    if (selectAllGroups && userPermissions.length > 0) {
+    if (userPermissions.length > 0) {
       const allGroupIds = new Set(userPermissions.map(p => p.groupId));
       setSelectedGroups(allGroupIds);
       
@@ -246,7 +242,7 @@ export default function SelectRecipientsScreen() {
       });
       setGroupSelectionMode(allGroupsEntire);
     }
-  }, [selectAllGroups, userPermissions]);
+  }, [userPermissions]);
 
   const loadUserPermissions = async () => {
     try {
@@ -275,12 +271,8 @@ export default function SelectRecipientsScreen() {
         return;
       }
       
-      if (permissions.length > 1) {
-        setSelectAllGroups(true);
-      } else if (permissions.length === 1) {
-        setSelectedGroups(new Set([permissions[0].groupId]));
-        setGroupSelectionMode(new Map([[permissions[0].groupId, 'entire']]));
-      }
+      // All groups will be auto-selected by the useEffect hook
+      // that runs when userPermissions change
     } catch (error) {
       console.error('Error loading permissions:', error);
       setModal({
@@ -322,10 +314,6 @@ export default function SelectRecipientsScreen() {
   };
 
   const toggleGroupSelection = (groupId: string) => {
-    if (selectAllGroups) {
-      setSelectAllGroups(false);
-    }
-
     const newSelected = new Set(selectedGroups);
     if (selectedGroups.has(groupId)) {
       newSelected.delete(groupId);
@@ -462,7 +450,7 @@ export default function SelectRecipientsScreen() {
 
     // Build selection data
     const selection: RecipientSelection = {
-      type: selectAllGroups ? 'all-groups' : 'selected-groups',
+      type: 'selected-groups',
       groups: Array.from(selectedGroups).map(groupId => ({
         groupId,
         scope: groupSelectionMode.get(groupId) || 'entire',
@@ -559,42 +547,6 @@ export default function SelectRecipientsScreen() {
           </Text>
         </View>
 
-        {/* All Groups Toggle */}
-        {userPermissions.length > 1 && (
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: theme.colors.inputBackground,
-            borderRadius: theme.borderRadius.medium,
-            padding: theme.spacing.md,
-            marginBottom: theme.spacing.lg,
-          }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{
-                color: theme.colors.text,
-                fontSize: theme.typography.fontSize.medium,
-                fontWeight: theme.typography.fontWeight.medium,
-              }}>
-                All My Groups
-              </Text>
-              <Text style={{
-                color: theme.colors.textSecondary,
-                fontSize: theme.typography.fontSize.small,
-                marginTop: theme.spacing.xs,
-              }}>
-                Send to all {userPermissions.length} groups I manage
-              </Text>
-            </View>
-            <Switch
-              value={selectAllGroups}
-              onValueChange={setSelectAllGroups}
-              trackColor={{ false: theme.colors.inputBorder, true: theme.colors.secondary }}
-              thumbColor={selectAllGroups ? theme.colors.primary : theme.colors.textSecondary}
-            />
-          </View>
-        )}
-
         {/* Groups List */}
         <View style={{ marginBottom: theme.spacing.xxl }}>
           <Text style={{
@@ -616,7 +568,6 @@ export default function SelectRecipientsScreen() {
               selectedSubgroups={selectedSubgroups.get(group.groupId) || new Set()}
               selectedMembers={selectedMembers.get(group.groupId) || new Set()}
               members={groupMembers.get(group.groupId) || []}
-              selectAllGroups={selectAllGroups}
               onToggleSelection={() => toggleGroupSelection(group.groupId)}
               onToggleExpansion={() => toggleGroupExpansion(group.groupId)}
               onSetScope={(scope) => setGroupScope(group.groupId, scope)}
@@ -668,7 +619,6 @@ interface GroupCardProps {
   selectedSubgroups: Set<string>;
   selectedMembers: Set<string>;
   members: Member[];
-  selectAllGroups: boolean;
   onToggleSelection: () => void;
   onToggleExpansion: () => void;
   onSetScope: (scope: 'entire' | 'subgroups' | 'members') => void;
@@ -684,7 +634,6 @@ function GroupCard({
   selectedSubgroups,
   selectedMembers,
   members,
-  selectAllGroups,
   onToggleSelection,
   onToggleExpansion,
   onSetScope,
@@ -692,14 +641,14 @@ function GroupCard({
   onToggleMember
 }: GroupCardProps) {
   const getSelectionIcon = () => {
-    if (selectAllGroups || isSelected) {
+    if (isSelected) {
       return 'check-square';
     }
     return 'square-o';
   };
 
   const getSelectionColor = () => {
-    if (selectAllGroups || isSelected) {
+    if (isSelected) {
       return theme.colors.secondary;
     }
     return theme.colors.textSecondary;
@@ -715,7 +664,6 @@ function GroupCard({
       {/* Main Group Card */}
       <TouchableOpacity
         onPress={onToggleSelection}
-        disabled={selectAllGroups}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -747,7 +695,7 @@ function GroupCard({
           </Text>
         </View>
 
-        {(selectAllGroups || isSelected) && (
+        {isSelected && (
           <TouchableOpacity
             onPress={onToggleExpansion}
             style={{
@@ -769,7 +717,7 @@ function GroupCard({
       </TouchableOpacity>
 
       {/* Expanded Options */}
-      {isExpanded && (selectAllGroups || isSelected) && (
+      {isExpanded && isSelected && (
         <View style={{
           borderTopWidth: 1,
           borderTopColor: theme.colors.inputBorder,
