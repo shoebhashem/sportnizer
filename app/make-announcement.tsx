@@ -256,7 +256,7 @@ export default function MakeAnnouncementScreen() {
         backgroundColor: theme.colors.primary,
       }}>
         <Button
-          label="Select Recipients"
+          label="Next: Select Recipients"
           onPress={handleSelectRecipients}
           theme="secondary"
         />

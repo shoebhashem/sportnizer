@@ -363,7 +363,7 @@ export default function CreatePollScreen() {
         backgroundColor: theme.colors.primary,
       }}>
         <Button
-          label="Select Recipients"
+          label="Next: Select Recipients"
           onPress={handleSelectRecipients}
           theme="secondary"
         />
