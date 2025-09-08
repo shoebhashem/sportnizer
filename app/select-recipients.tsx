@@ -461,11 +461,27 @@ export default function SelectRecipientsScreen() {
     };
 
     // Navigate back with selection data
-    router.back();
+    console.log('Navigating back with selection:', selection);
     
-    // TODO: Pass selection data back to previous screen
-    // This will be handled via route params or global state
-    console.log('Selection completed:', selection);
+    if (feature === 'event') {
+      // Navigate back to create-event with both recipients and original event data
+      const navigationParams: any = {
+        recipients: JSON.stringify(selection)
+      };
+      
+      // Preserve original event data if it was passed
+      if (params.eventData) {
+        navigationParams.eventData = params.eventData;
+      }
+      
+      router.navigate({
+        pathname: '/create-event',
+        params: navigationParams
+      } as any);
+    } else {
+      // For other features, just go back for now
+      router.back();
+    }
   };
 
   const handleModalClose = () => {

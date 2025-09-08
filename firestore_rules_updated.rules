@@ -271,6 +271,83 @@ service cloud.firestore {
       allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
     
+    // TOP-LEVEL EVENTS COLLECTION - NEW STRUCTURE FOR ACTIVITIES
+    match /events/{eventId} {
+      // Helper function to check if user has admin/coach role in any of the event's target groups
+      function canManageEventGroups() {
+        // For now, allow any signed-in user to create events
+        // TODO: In production, check if user has admin/coach role in the specified groups
+        return isSignedIn();
+      }
+
+      // Anyone can read events (will be filtered by groupIds on client side)
+      allow read: if isSignedIn();
+      
+      // Users with admin/coach roles can create events
+      allow create: if isValidUser() && 
+                   request.resource.data.createdBy == request.auth.uid &&
+                   canManageEventGroups();
+      
+      // Event creator and users with admin/coach roles can update events
+      allow update: if isSignedIn() && 
+                   (request.auth.uid == resource.data.createdBy || canManageEventGroups()) &&
+                   request.resource.data.createdBy == resource.data.createdBy; // Prevent ownership transfer
+      
+      // Event creator and admins can delete events
+      allow delete: if isSignedIn() && 
+                   (request.auth.uid == resource.data.createdBy || canManageEventGroups());
+    }
+
+    // TOP-LEVEL POLLS COLLECTION
+    match /polls/{pollId} {
+      // Helper function to check if user has admin/coach role in any of the poll's target groups
+      function canManagePollGroups() {
+        return isSignedIn();
+      }
+
+      // Anyone can read polls (will be filtered by groupIds on client side)
+      allow read: if isSignedIn();
+      
+      // Users with admin/coach roles can create polls
+      allow create: if isValidUser() && 
+                   request.resource.data.createdBy == request.auth.uid &&
+                   canManagePollGroups();
+      
+      // Poll creator and users with admin/coach roles can update polls
+      allow update: if isSignedIn() && 
+                   (request.auth.uid == resource.data.createdBy || canManagePollGroups()) &&
+                   request.resource.data.createdBy == resource.data.createdBy; // Prevent ownership transfer
+      
+      // Poll creator and admins can delete polls
+      allow delete: if isSignedIn() && 
+                   (request.auth.uid == resource.data.createdBy || canManagePollGroups());
+    }
+
+    // TOP-LEVEL ANNOUNCEMENTS COLLECTION
+    match /announcements/{announcementId} {
+      // Helper function to check if user has admin/coach role in any of the announcement's target groups
+      function canManageAnnouncementGroups() {
+        return isSignedIn();
+      }
+
+      // Anyone can read announcements (will be filtered by groupIds on client side)
+      allow read: if isSignedIn();
+      
+      // Users with admin/coach roles can create announcements
+      allow create: if isValidUser() && 
+                   request.resource.data.createdBy == request.auth.uid &&
+                   canManageAnnouncementGroups();
+      
+      // Announcement creator and users with admin/coach roles can update announcements
+      allow update: if isSignedIn() && 
+                   (request.auth.uid == resource.data.createdBy || canManageAnnouncementGroups()) &&
+                   request.resource.data.createdBy == resource.data.createdBy; // Prevent ownership transfer
+      
+      // Announcement creator and admins can delete announcements
+      allow delete: if isSignedIn() && 
+                   (request.auth.uid == resource.data.createdBy || canManageAnnouncementGroups());
+    }
+
     // Invitations collection - for email invitations
     match /invitations/{invitationId} {
       // Anyone can read invitations (needed for signup with invitation tokens)

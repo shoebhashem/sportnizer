@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
     Platform,
     ScrollView,
@@ -15,6 +15,8 @@ import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomDateTimePicker from '../components/DateTimePicker';
 import { theme } from '../constants/theme';
+import { getCurrentUser } from '../services/authService';
+import { eventService } from '../services/eventService';
 
 interface EventData {
   title: string;
@@ -25,14 +27,28 @@ interface EventData {
   type: 'practice' | 'game' | 'meeting' | 'other';
 }
 
+interface RecipientSelection {
+  type: 'selected-groups';
+  groups: {
+    groupId: string;
+    scope: 'entire' | 'subgroups' | 'members';
+    subgroupIds?: string[];
+    memberIds?: string[];
+  }[];
+  totalCount: number;
+}
+
 interface ModalState {
   visible: boolean;
   title: string;
   message: string;
+  type?: 'error' | 'success' | 'info';
 }
 
 export default function CreateEventScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  
   const [eventData, setEventData] = useState<EventData>({
     title: '',
     description: '',
@@ -42,13 +58,58 @@ export default function CreateEventScreen() {
     type: 'practice'
   });
   
+  const [recipients, setRecipients] = useState<RecipientSelection | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [modal, setModal] = useState<ModalState>({
     visible: false,
     title: '',
-    message: ''
+    message: '',
+    type: 'error'
   });
+
+  // Handle returning from select-recipients screen
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Create-event focused, params:', params);
+      console.log('Platform:', Platform.OS);
+      
+      // Restore event data if coming back from select-recipients
+      if (params.eventData) {
+        try {
+          const savedEventData = JSON.parse(params.eventData as string);
+          console.log('Restoring event data:', savedEventData);
+          setEventData({
+            ...savedEventData,
+            date: new Date(savedEventData.date),
+            time: new Date(savedEventData.time)
+          });
+        } catch (error) {
+          console.error('Error parsing event data:', error);
+        }
+      }
+      
+      // Set recipients data
+      if (params.recipients) {
+        try {
+          const recipientData = JSON.parse(params.recipients as string);
+          console.log('Setting recipients:', recipientData);
+          setRecipients(recipientData);
+          
+          // Force re-render on iOS
+          if (Platform.OS === 'ios') {
+            setTimeout(() => {
+              console.log('iOS: Force re-render with recipients:', recipientData);
+              setRecipients({...recipientData});
+            }, 100);
+          }
+        } catch (error) {
+          console.error('Error parsing recipient data:', error);
+        }
+      }
+    }, [params])
+  );
 
   const eventTypes = [
     { key: 'practice', label: 'Practice', icon: 'dribbble' },
@@ -57,38 +118,153 @@ export default function CreateEventScreen() {
     { key: 'other', label: 'Other', icon: 'calendar' }
   ];
 
-  const handleNext = () => {
+  const validateEventData = (): boolean => {
     if (!eventData.title.trim()) {
       setModal({
         visible: true,
-        title: 'Error',
-        message: 'Please enter an event title'
+        title: 'Missing Information',
+        message: 'Please enter an event title',
+        type: 'error'
       });
-      return;
+      return false;
     }
     
     if (!eventData.location.trim()) {
       setModal({
         visible: true,
-        title: 'Error',
-        message: 'Please enter a location'
+        title: 'Missing Information',
+        message: 'Please enter a location',
+        type: 'error'
       });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleNext = () => {
+    if (!validateEventData()) return;
+
+    if (recipients) {
+      // Recipients already selected, create the event
+      handleCreateEvent();
+    } else {
+      // Navigate to select recipients screen with current event data
+      router.push({
+        pathname: '/select-recipients' as any,
+        params: {
+          feature: 'event',
+          sourceScreen: 'create-event',
+          data: JSON.stringify(eventData),
+          eventData: JSON.stringify(eventData) // Pass event data for preservation
+        }
+      });
+    }
+  };
+
+  const handleCreateEvent = async () => {
+    console.log('handleCreateEvent called');
+    console.log('eventData:', eventData);
+    console.log('recipients:', recipients);
+    
+    if (!validateEventData() || !recipients) {
+      console.log('Validation failed');
       return;
     }
 
-    // Navigate to select recipients screen with event data
-    router.push({
-      pathname: '/select-recipients' as any,
-      params: {
-        feature: 'event',
-        sourceScreen: 'create-event',
-        data: JSON.stringify(eventData)
+    setIsCreating(true);
+    console.log('Starting event creation...');
+
+    try {
+      const currentUser = await getCurrentUser();
+      console.log('Current user:', currentUser);
+      
+      if (!currentUser) {
+        throw new Error('User not authenticated');
       }
-    });
+
+      // Combine date and time for start/end timestamps
+      const startDateTime = new Date(eventData.date);
+      startDateTime.setHours(eventData.time.getHours());
+      startDateTime.setMinutes(eventData.time.getMinutes());
+      
+      // Default duration: 2 hours
+      const endDateTime = new Date(startDateTime);
+      endDateTime.setHours(startDateTime.getHours() + 2);
+
+      const eventToCreate = {
+        title: eventData.title,
+        description: eventData.description,
+        startTime: startDateTime,
+        endTime: endDateTime,
+        location: eventData.location,
+        type: eventData.type
+      };
+
+      console.log('Event to create:', eventToCreate);
+      console.log('Recipients:', recipients);
+
+      // Create the event using the service
+      const eventId = await eventService.createEvent(eventToCreate, recipients, currentUser.uid);
+      console.log('Event created with ID:', eventId);
+
+      // Show success message
+      setModal({
+        visible: true,
+        title: 'Success!',
+        message: `Event "${eventData.title}" has been created and sent to ${recipients.totalCount} recipients.`,
+        type: 'success'
+      });
+
+    } catch (error) {
+      console.error('Error creating event:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error details:', errorMessage);
+      
+      setModal({
+        visible: true,
+        title: 'Creation Failed',
+        message: `There was an error creating the event: ${errorMessage}. Please try again.`,
+        type: 'error'
+      });
+    } finally {
+      setIsCreating(false);
+      console.log('Event creation finished');
+    }
   };
 
   const handleModalClose = () => {
-    setModal({ ...modal, visible: false });
+    if (modal.type === 'success') {
+      // Reset form and navigate back to home
+      setEventData({
+        title: '',
+        description: '',
+        date: new Date(),
+        time: new Date(),
+        location: '',
+        type: 'practice'
+      });
+      setRecipients(null);
+      setModal({ ...modal, visible: false });
+      router.back(); // Navigate back to home or previous screen
+    } else {
+      setModal({ ...modal, visible: false });
+    }
+  };
+
+  const getButtonLabel = (): string => {
+    console.log('getButtonLabel called - isCreating:', isCreating, 'recipients:', recipients);
+    if (isCreating) {
+      return 'Creating Event...';
+    }
+    if (recipients) {
+      return `Create Event (${recipients.totalCount} recipients)`;
+    }
+    return 'Next: Select Recipients';
+  };
+
+  const isButtonDisabled = (): boolean => {
+    return isCreating || !eventData.title.trim() || !eventData.location.trim();
   };
 
   const formatDate = (date: Date) => {
@@ -330,9 +506,65 @@ export default function CreateEventScreen() {
         borderTopColor: theme.colors.inputBorder,
         paddingBottom: Platform.OS === 'ios' ? 34 : 16
       }}>
+        {recipients && (
+          <View style={{
+            backgroundColor: theme.colors.success + '20',
+            borderColor: theme.colors.success,
+            borderWidth: 1,
+            borderRadius: theme.borderRadius.medium,
+            padding: theme.spacing.sm,
+            marginBottom: theme.spacing.md,
+            flexDirection: 'row',
+            alignItems: 'center'
+          }}>
+            <FontAwesome 
+              name="check-circle" 
+              size={16} 
+              color={theme.colors.success} 
+              style={{ marginRight: theme.spacing.xs }} 
+            />
+            <Text style={{
+              color: theme.colors.success,
+              fontSize: theme.typography.fontSize.small,
+              flex: 1
+            }}>
+              Recipients selected: {recipients.totalCount} people
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                router.push({
+                  pathname: '/select-recipients' as any,
+                  params: {
+                    feature: 'event',
+                    sourceScreen: 'create-event',
+                    data: JSON.stringify(eventData),
+                    recipients: JSON.stringify(recipients)
+                  }
+                });
+              }}
+              style={{
+                paddingHorizontal: theme.spacing.xs,
+                paddingVertical: theme.spacing.xs / 2
+              }}
+            >
+              <Text style={{
+                color: theme.colors.success,
+                fontSize: theme.typography.fontSize.small,
+                fontWeight: theme.typography.fontWeight.medium
+              }}>
+                Edit
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         <Button
-          label="Next: Select Recipients"
-          onPress={handleNext}
+          label={getButtonLabel()}
+          onPress={() => {
+            console.log('Button pressed - Recipients:', recipients, 'IsCreating:', isCreating);
+            handleNext();
+          }}
+          disabled={isButtonDisabled()}
         />
       </View>
 
@@ -379,11 +611,11 @@ export default function CreateEventScreen() {
         visible={modal.visible}
         title={modal.title}
         message={modal.message}
-        confirmText="OK"
+        confirmText={modal.type === 'success' ? 'Continue' : 'OK'}
         cancelText={undefined}
         onConfirm={handleModalClose}
         onCancel={handleModalClose}
-        confirmButtonTheme="primary"
+        confirmButtonTheme={modal.type === 'success' ? 'primary' : 'primary'}
       />
     </SafeAreaView>
   );
