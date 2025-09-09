@@ -507,6 +507,21 @@ export default function SelectRecipientsScreen() {
         pathname: '/create-recurring-event',
         params: navigationParams
       } as any);
+    } else if (feature === 'poll') {
+      // Navigate back to create-poll with both recipients and original poll data
+      const navigationParams: any = {
+        recipients: JSON.stringify(selection)
+      };
+      
+      // Preserve original poll data if it was passed
+      if (params.pollData) {
+        navigationParams.pollData = params.pollData;
+      }
+      
+      router.navigate({
+        pathname: '/create-poll',
+        params: navigationParams
+      } as any);
     } else {
       // For other features, just go back for now
       router.back();

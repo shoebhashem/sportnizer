@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useRef, useState } from 'react';
 import {
     ScrollView,
     Text,
@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
+import { getCurrentUser } from '../services/authService';
+import { pollService } from '../services/pollService';
 
 interface PollData {
   question: string;
@@ -20,27 +22,84 @@ interface PollData {
   options: string[];
 }
 
+interface RecipientSelection {
+  type: 'selected-groups';
+  groups: {
+    groupId: string;
+    scope: 'entire' | 'subgroups' | 'members';
+    subgroupIds?: string[];
+    memberIds?: string[];
+  }[];
+  totalCount: number;
+}
+
 interface ModalState {
   visible: boolean;
   title: string;
   message: string;
-  type: 'error' | 'success';
+  type?: 'error' | 'success' | 'info';
 }
 
 export default function CreatePollScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  
   const [pollData, setPollData] = useState<PollData>({
     question: '',
     description: '',
     options: ['', '']
   });
 
+  const [recipients, setRecipients] = useState<RecipientSelection | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [modal, setModal] = useState<ModalState>({
     visible: false,
     title: '',
     message: '',
     type: 'error'
   });
+
+  // Track processed params to prevent infinite loops
+  const processedParams = useRef<{pollData?: string; recipients?: string}>({});
+
+  // Handle returning from select-recipients screen
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Create-poll focused');
+      console.log('All params:', params);
+      
+      const pollDataParam = params.pollData as string;
+      const recipientsParam = params.recipients as string;
+      
+      console.log('pollDataParam:', pollDataParam);
+      console.log('recipientsParam:', recipientsParam);
+      console.log('processedParams.current:', processedParams.current);
+      
+      // Only process if params have changed
+      if (pollDataParam && pollDataParam !== processedParams.current.pollData) {
+        try {
+          const savedPollData = JSON.parse(pollDataParam);
+          console.log('Restoring poll data:', savedPollData);
+          setPollData(savedPollData);
+          processedParams.current.pollData = pollDataParam;
+        } catch (error) {
+          console.error('Error parsing poll data:', error);
+        }
+      }
+      
+      // Only process recipients if they've changed
+      if (recipientsParam && recipientsParam !== 'undefined' && recipientsParam !== processedParams.current.recipients) {
+        try {
+          const recipientData = JSON.parse(recipientsParam);
+          console.log('Setting recipients:', recipientData);
+          setRecipients(recipientData);
+          processedParams.current.recipients = recipientsParam;
+        } catch (error) {
+          console.error('Error parsing recipient data:', error);
+        }
+      }
+    }, [params])
+  );
 
   const handleAddOption = () => {
     if (pollData.options.length < 6) { // Limit to 6 options
@@ -90,29 +149,107 @@ export default function CreatePollScreen() {
       return;
     }
 
-    // Navigate to select recipients screen with poll data
     const validPollData = { ...pollData, options: validOptions };
-    router.push({
-      pathname: '/select-recipients' as any,
-      params: {
-        feature: 'poll',
-        sourceScreen: 'create-poll',
-        data: JSON.stringify(validPollData)
+    
+    if (recipients) {
+      // Recipients already selected, create the poll
+      handleCreatePoll(validPollData);
+    } else {
+      // Navigate to select recipients screen with poll data
+      router.push({
+        pathname: '/select-recipients' as any,
+        params: {
+          feature: 'poll',
+          sourceScreen: 'create-poll',
+          data: JSON.stringify(validPollData),
+          pollData: JSON.stringify(validPollData) // Pass poll data for preservation
+        }
+      });
+    }
+  };
+
+  const handleCreatePoll = async (validPollData: PollData) => {
+    console.log('handleCreatePoll called');
+    console.log('pollData:', validPollData);
+    console.log('recipients:', recipients);
+    
+    if (!recipients) {
+      console.log('No recipients selected');
+      return;
+    }
+
+    setIsCreating(true);
+    console.log('Starting poll creation...');
+
+    try {
+      const currentUser = await getCurrentUser();
+      console.log('Current user:', currentUser);
+      
+      if (!currentUser) {
+        throw new Error('User not authenticated');
       }
-    });
+
+      console.log('Creating poll...');
+      const pollId = await pollService.createPoll(validPollData, recipients, currentUser.uid);
+      console.log('Poll created with ID:', pollId);
+
+      // Show success message
+      setModal({
+        visible: true,
+        title: 'Success!',
+        message: `Poll "${validPollData.question}" has been created and sent to ${recipients.totalCount} recipients.`,
+        type: 'success'
+      });
+
+    } catch (error) {
+      console.error('Error creating poll:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error details:', errorMessage);
+      
+      setModal({
+        visible: true,
+        title: 'Creation Failed',
+        message: `There was an error creating the poll: ${errorMessage}. Please try again.`,
+        type: 'error'
+      });
+    } finally {
+      setIsCreating(false);
+      console.log('Poll creation finished');
+    }
   };
 
   const handleModalConfirm = () => {
     if (modal.type === 'success') {
+      // Reset form and navigate to home tab
+      setPollData({
+        question: '',
+        description: '',
+        options: ['', '']
+      });
+      setRecipients(null);
       setModal({ ...modal, visible: false });
-      router.back();
+      
+      // Navigate to home tab instead of going back
+      router.replace('/(tabs)/' as any);
     } else {
       setModal({ ...modal, visible: false });
     }
   };
 
-  const handleModalCancel = () => {
-    setModal({ ...modal, visible: false });
+  const getButtonLabel = (): string => {
+    console.log('getButtonLabel called - isCreating:', isCreating, 'recipients:', recipients);
+    if (isCreating) {
+      return 'Creating Poll...';
+    }
+    if (recipients) {
+      return `Create Poll (${recipients.totalCount} recipients)`;
+    }
+    return 'Next: Select Recipients';
+  };
+
+  const isButtonDisabled = (): boolean => {
+    const validOptions = pollData.options.filter(option => option.trim());
+    return isCreating || !pollData.question.trim() || validOptions.length < 2;
   };
 
   return (
@@ -355,16 +492,74 @@ export default function CreatePollScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Select Recipients Button */}
+      {/* Bottom Action */}
       <View style={{
         padding: theme.layout.containerPadding,
         borderTopWidth: 1,
         borderTopColor: theme.colors.inputBorder,
         backgroundColor: theme.colors.primary,
       }}>
+        {recipients && (
+          <View style={{
+            backgroundColor: theme.colors.success + '20',
+            borderColor: theme.colors.success,
+            borderWidth: 1,
+            borderRadius: theme.borderRadius.medium,
+            padding: theme.spacing.sm,
+            marginBottom: theme.spacing.md,
+            flexDirection: 'row',
+            alignItems: 'center'
+          }}>
+            <FontAwesome 
+              name="check-circle" 
+              size={16} 
+              color={theme.colors.success} 
+              style={{ marginRight: theme.spacing.xs }} 
+            />
+            <Text style={{
+              color: theme.colors.success,
+              fontSize: theme.typography.fontSize.small,
+              flex: 1
+            }}>
+              Recipients selected: {recipients.totalCount} people
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                const validOptions = pollData.options.filter(option => option.trim());
+                const validPollData = { ...pollData, options: validOptions };
+                router.push({
+                  pathname: '/select-recipients' as any,
+                  params: {
+                    feature: 'poll',
+                    sourceScreen: 'create-poll',
+                    data: JSON.stringify(validPollData),
+                    recipients: JSON.stringify(recipients)
+                  }
+                });
+              }}
+              style={{
+                paddingHorizontal: theme.spacing.xs,
+                paddingVertical: theme.spacing.xs / 2
+              }}
+            >
+              <Text style={{
+                color: theme.colors.success,
+                fontSize: theme.typography.fontSize.small,
+                fontWeight: theme.typography.fontWeight.medium
+              }}>
+                Edit
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         <Button
-          label="Next: Select Recipients"
-          onPress={handleSelectRecipients}
+          label={getButtonLabel()}
+          onPress={() => {
+            console.log('Button pressed - Recipients:', recipients, 'IsCreating:', isCreating);
+            handleSelectRecipients();
+          }}
+          disabled={isButtonDisabled()}
           theme="secondary"
         />
       </View>
@@ -374,11 +569,11 @@ export default function CreatePollScreen() {
         visible={modal.visible}
         title={modal.title}
         message={modal.message}
-        confirmText={modal.type === 'success' ? 'OK' : 'OK'}
-        cancelText={modal.type === 'error' ? undefined : undefined}
+        confirmText="OK"
+        cancelText=""
         onConfirm={handleModalConfirm}
-        onCancel={handleModalCancel}
-        confirmButtonTheme={modal.type === 'success' ? 'secondary' : 'primary'}
+        onCancel={handleModalConfirm}
+        confirmButtonTheme="primary"
       />
     </SafeAreaView>
   );
