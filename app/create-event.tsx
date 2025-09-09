@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
     Platform,
     ScrollView,
@@ -69,46 +69,49 @@ export default function CreateEventScreen() {
     type: 'error'
   });
 
+  // Track processed params to prevent infinite loops
+  const processedParams = useRef<{eventData?: string; recipients?: string}>({});
+
   // Handle returning from select-recipients screen
   useFocusEffect(
     useCallback(() => {
-      console.log('Create-event focused, params:', params);
+      console.log('Create-event focused');
       console.log('Platform:', Platform.OS);
       
-      // Restore event data if coming back from select-recipients
-      if (params.eventData) {
+      const eventDataParam = params.eventData as string;
+      const recipientsParam = params.recipients as string;
+      
+      // Only process if params have changed
+      if (eventDataParam && eventDataParam !== processedParams.current.eventData) {
         try {
-          const savedEventData = JSON.parse(params.eventData as string);
+          const savedEventData = JSON.parse(eventDataParam);
           console.log('Restoring event data:', savedEventData);
-          setEventData({
+          
+          const newEventData = {
             ...savedEventData,
             date: new Date(savedEventData.date),
             time: new Date(savedEventData.time)
-          });
+          };
+          
+          setEventData(newEventData);
+          processedParams.current.eventData = eventDataParam;
         } catch (error) {
           console.error('Error parsing event data:', error);
         }
       }
       
-      // Set recipients data
-      if (params.recipients) {
+      // Only process recipients if they've changed
+      if (recipientsParam && recipientsParam !== 'undefined' && recipientsParam !== processedParams.current.recipients) {
         try {
-          const recipientData = JSON.parse(params.recipients as string);
+          const recipientData = JSON.parse(recipientsParam);
           console.log('Setting recipients:', recipientData);
           setRecipients(recipientData);
-          
-          // Force re-render on iOS
-          if (Platform.OS === 'ios') {
-            setTimeout(() => {
-              console.log('iOS: Force re-render with recipients:', recipientData);
-              setRecipients({...recipientData});
-            }, 100);
-          }
+          processedParams.current.recipients = recipientsParam;
         } catch (error) {
           console.error('Error parsing recipient data:', error);
         }
       }
-    }, [params])
+    }, [params.eventData, params.recipients])
   );
 
   const eventTypes = [
@@ -235,7 +238,7 @@ export default function CreateEventScreen() {
 
   const handleModalClose = () => {
     if (modal.type === 'success') {
-      // Reset form and navigate back to home
+      // Reset form and navigate to home tab
       setEventData({
         title: '',
         description: '',
@@ -246,7 +249,9 @@ export default function CreateEventScreen() {
       });
       setRecipients(null);
       setModal({ ...modal, visible: false });
-      router.back(); // Navigate back to home or previous screen
+      
+      // Navigate to home tab instead of going back
+      router.replace('/(tabs)/' as any);
     } else {
       setModal({ ...modal, visible: false });
     }
