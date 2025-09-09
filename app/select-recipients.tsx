@@ -522,6 +522,21 @@ export default function SelectRecipientsScreen() {
         pathname: '/create-poll',
         params: navigationParams
       } as any);
+    } else if (feature === 'announcement') {
+      // Navigate back to make-announcement with both recipients and original announcement data
+      const navigationParams: any = {
+        recipients: JSON.stringify(selection)
+      };
+      
+      // Preserve original announcement data if it was passed
+      if (params.announcementData) {
+        navigationParams.announcementData = params.announcementData;
+      }
+      
+      router.navigate({
+        pathname: '/make-announcement',
+        params: navigationParams
+      } as any);
     } else {
       // For other features, just go back for now
       router.back();

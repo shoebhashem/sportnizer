@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useRef, useState } from 'react';
 import {
     ScrollView,
     Text,
@@ -13,38 +13,98 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
+import { announcementService } from '../services/announcementService';
+import { getCurrentUser } from '../services/authService';
 
 interface AnnouncementData {
   title: string;
   message: string;
 }
 
+interface RecipientSelection {
+  type: 'selected-groups';
+  groups: {
+    groupId: string;
+    scope: 'entire' | 'subgroups' | 'members';
+    subgroupIds?: string[];
+    memberIds?: string[];
+  }[];
+  totalCount: number;
+}
+
 interface ModalState {
   visible: boolean;
   title: string;
   message: string;
+  type?: 'error' | 'success' | 'info';
 }
 
-export default function MakeAnnouncementScreen() {
+export default function MakeAnnouncement() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [announcementData, setAnnouncementData] = useState<AnnouncementData>({
     title: '',
     message: ''
   });
+  const [selectedRecipients, setSelectedRecipients] = useState<RecipientSelection | null>(null);
 
   const [modal, setModal] = useState<ModalState>({
     visible: false,
+    type: 'error',
     title: '',
     message: ''
   });
+
+  // Track processed params to prevent infinite loops
+  const processedParams = useRef<{announcementData?: string; recipients?: string}>({});
+
+  // Handle recipients selected from select-recipients screen
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Make-announcement focused');
+      console.log('All params:', params);
+      
+      const announcementDataParam = params.announcementData as string;
+      const recipientsParam = params.recipients as string;
+      
+      console.log('announcementDataParam:', announcementDataParam);
+      console.log('recipientsParam:', recipientsParam);
+      console.log('processedParams.current:', processedParams.current);
+      
+      // Only process if params have changed
+      if (announcementDataParam && announcementDataParam !== processedParams.current.announcementData) {
+        try {
+          const savedAnnouncementData = JSON.parse(announcementDataParam);
+          console.log('Restoring announcement data:', savedAnnouncementData);
+          setAnnouncementData(savedAnnouncementData);
+          processedParams.current.announcementData = announcementDataParam;
+        } catch (error) {
+          console.error('Error parsing announcement data:', error);
+        }
+      }
+      
+      // Only process recipients if they've changed
+      if (recipientsParam && recipientsParam !== processedParams.current.recipients) {
+        try {
+          const selectedRecipients = JSON.parse(recipientsParam);
+          console.log('Recipients received:', selectedRecipients);
+          setSelectedRecipients(selectedRecipients);
+          processedParams.current.recipients = recipientsParam;
+        } catch (error) {
+          console.error('Error parsing recipients:', error);
+        }
+      }
+    }, [params])
+  );
 
   const handleSelectRecipients = () => {
     // Validate announcement data
     if (!announcementData.title.trim()) {
       setModal({
         visible: true,
-        title: 'Error',
-        message: 'Please enter an announcement title'
+        title: 'Missing Title',
+        message: 'Please enter a title for your announcement.',
+        type: 'error'
       });
       return;
     }
@@ -52,8 +112,9 @@ export default function MakeAnnouncementScreen() {
     if (!announcementData.message.trim()) {
       setModal({
         visible: true,
-        title: 'Error',
-        message: 'Please enter an announcement message'
+        title: 'Missing Message', 
+        message: 'Please enter a message for your announcement.',
+        type: 'error'
       });
       return;
     }
@@ -64,13 +125,79 @@ export default function MakeAnnouncementScreen() {
       params: {
         feature: 'announcement',
         sourceScreen: 'make-announcement',
-        data: JSON.stringify(announcementData)
+        announcementData: JSON.stringify(announcementData)
       }
     });
   };
 
+  const handleCreateAnnouncement = async () => {
+    if (!announcementData.title.trim()) {
+      setModal({
+        visible: true,
+        title: 'Missing Title',
+        message: 'Please enter a title for your announcement.',
+        type: 'error'
+      });
+      return;
+    }
+
+    if (!announcementData.message.trim()) {
+      setModal({
+        visible: true,
+        title: 'Missing Message',
+        message: 'Please enter a message for your announcement.',
+        type: 'error'
+      });
+      return;
+    }
+
+    if (!selectedRecipients) {
+      setModal({
+        visible: true,
+        title: 'No Recipients Selected',
+        message: 'Please select recipients for your announcement.',
+        type: 'error'
+      });
+      return;
+    }
+
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      await announcementService.createAnnouncement(
+        {
+          title: announcementData.title.trim(),
+          message: announcementData.message.trim()
+        },
+        selectedRecipients,
+        currentUser.uid
+      );
+
+      setModal({
+        visible: true,
+        title: 'Announcement Created',
+        message: 'Your announcement has been created successfully.',
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Error creating announcement:', error);
+      setModal({
+        visible: true,
+        title: 'Creation Failed',
+        message: 'Failed to create announcement. Please try again.',
+        type: 'error'
+      });
+    }
+  };
+
   const handleModalClose = () => {
     setModal({ ...modal, visible: false });
+    if (modal.type === 'success') {
+      router.replace('/(tabs)/' as any);
+    }
   };
 
   return (
@@ -170,6 +297,53 @@ export default function MakeAnnouncementScreen() {
           />
         </View>
 
+        {/* Recipients Section */}
+        {selectedRecipients && (
+          <View style={{ marginBottom: theme.spacing.lg }}>
+            <Text style={{
+              fontSize: theme.typography.fontSize.medium,
+              fontWeight: theme.typography.fontWeight.medium,
+              color: theme.colors.text,
+              marginBottom: theme.spacing.sm,
+            }}>
+              Selected Recipients
+            </Text>
+            <View style={{
+              backgroundColor: theme.colors.inputBackground,
+              borderWidth: 1,
+              borderColor: theme.colors.inputBorder,
+              borderRadius: theme.borderRadius.medium,
+              padding: theme.spacing.md,
+            }}>
+              <Text style={{
+                fontSize: theme.typography.fontSize.medium,
+                color: theme.colors.text,
+                marginBottom: theme.spacing.xs,
+              }}>
+                {selectedRecipients.totalCount} recipient{selectedRecipients.totalCount !== 1 ? 's' : ''} selected
+              </Text>
+              <TouchableOpacity
+                onPress={handleSelectRecipients}
+                style={{
+                  backgroundColor: theme.colors.secondary + '20',
+                  paddingHorizontal: theme.spacing.sm,
+                  paddingVertical: theme.spacing.xs,
+                  borderRadius: theme.borderRadius.small,
+                  alignSelf: 'flex-start',
+                }}
+              >
+                <Text style={{
+                  color: theme.colors.secondary,
+                  fontSize: theme.typography.fontSize.small,
+                  fontWeight: theme.typography.fontWeight.medium,
+                }}>
+                  Change Recipients
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Preview Section */}
         {(announcementData.title.trim() || announcementData.message.trim()) && (
           <View style={{ marginBottom: theme.spacing.lg }}>
@@ -248,7 +422,7 @@ export default function MakeAnnouncementScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Select Recipients Button */}
+      {/* Action Button */}
       <View style={{
         padding: theme.layout.containerPadding,
         borderTopWidth: 1,
@@ -256,8 +430,8 @@ export default function MakeAnnouncementScreen() {
         backgroundColor: theme.colors.primary,
       }}>
         <Button
-          label="Next: Select Recipients"
-          onPress={handleSelectRecipients}
+          label={selectedRecipients ? "Create Announcement" : "Next: Select Recipients"}
+          onPress={selectedRecipients ? handleCreateAnnouncement : handleSelectRecipients}
           theme="secondary"
         />
       </View>
@@ -268,7 +442,7 @@ export default function MakeAnnouncementScreen() {
         title={modal.title}
         message={modal.message}
         confirmText="OK"
-        cancelText={undefined}
+        cancelText=""
         onConfirm={handleModalClose}
         onCancel={handleModalClose}
         confirmButtonTheme="primary"
