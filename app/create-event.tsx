@@ -616,11 +616,11 @@ export default function CreateEventScreen() {
         visible={modal.visible}
         title={modal.title}
         message={modal.message}
-        confirmText={modal.type === 'success' ? 'Continue' : 'OK'}
-        cancelText={undefined}
+        confirmText="OK"
+        cancelText=""
         onConfirm={handleModalClose}
         onCancel={handleModalClose}
-        confirmButtonTheme={modal.type === 'success' ? 'primary' : 'primary'}
+        confirmButtonTheme="primary"
       />
     </SafeAreaView>
   );
