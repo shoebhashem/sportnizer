@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useRef, useState } from 'react';
 import {
     Platform,
     ScrollView,
@@ -15,6 +15,8 @@ import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomDateTimePicker from '../components/DateTimePicker';
 import { theme } from '../constants/theme';
+import { getCurrentUser } from '../services/authService';
+import { eventService } from '../services/eventService';
 
 interface RecurringEventData {
   title: string;
@@ -33,14 +35,28 @@ interface RecurringEventData {
   };
 }
 
+interface RecipientSelection {
+  type: 'selected-groups';
+  groups: {
+    groupId: string;
+    scope: 'entire' | 'subgroups' | 'members';
+    subgroupIds?: string[];
+    memberIds?: string[];
+  }[];
+  totalCount: number;
+}
+
 interface ModalState {
   visible: boolean;
   title: string;
   message: string;
+  type?: 'error' | 'success' | 'info';
 }
 
 export default function CreateRecurringEventScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  
   const [eventData, setEventData] = useState<RecurringEventData>({
     title: '',
     description: '',
@@ -64,11 +80,65 @@ export default function CreateRecurringEventScreen() {
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [recipients, setRecipients] = useState<RecipientSelection | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [modal, setModal] = useState<ModalState>({
     visible: false,
     title: '',
-    message: ''
+    message: '',
+    type: 'error'
   });
+
+  // Track processed params to prevent infinite loops
+  const processedParams = useRef<{eventData?: string; recipients?: string}>({});
+
+  // Handle returning from select-recipients screen
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Create-recurring-event focused');
+      console.log('Platform:', Platform.OS);
+      console.log('All params:', params);
+      
+      const eventDataParam = params.eventData as string;
+      const recipientsParam = params.recipients as string;
+      
+      console.log('eventDataParam:', eventDataParam);
+      console.log('recipientsParam:', recipientsParam);
+      console.log('processedParams.current:', processedParams.current);
+      
+      // Only process if params have changed
+      if (eventDataParam && eventDataParam !== processedParams.current.eventData) {
+        try {
+          const savedEventData = JSON.parse(eventDataParam);
+          console.log('Restoring recurring event data:', savedEventData);
+          
+          const newEventData = {
+            ...savedEventData,
+            startDate: new Date(savedEventData.startDate),
+            endDate: new Date(savedEventData.endDate),
+            time: new Date(savedEventData.time)
+          };
+          
+          setEventData(newEventData);
+          processedParams.current.eventData = eventDataParam;
+        } catch (error) {
+          console.error('Error parsing event data:', error);
+        }
+      }
+      
+      // Only process recipients if they've changed
+      if (recipientsParam && recipientsParam !== 'undefined' && recipientsParam !== processedParams.current.recipients) {
+        try {
+          const recipientData = JSON.parse(recipientsParam);
+          console.log('Setting recipients:', recipientData);
+          setRecipients(recipientData);
+          processedParams.current.recipients = recipientsParam;
+        } catch (error) {
+          console.error('Error parsing recipient data:', error);
+        }
+      }
+    }, [params])
+  );
 
   const eventTypes = [
     { key: 'practice', label: 'Practice', icon: 'dribbble' },
@@ -139,19 +209,104 @@ export default function CreateRecurringEventScreen() {
       return;
     }
 
-    // Navigate to select recipients screen with recurring event data
-    router.push({
-      pathname: '/select-recipients' as any,
-      params: {
-        feature: 'recurring-event',
-        sourceScreen: 'create-recurring-event',
-        data: JSON.stringify(eventData)
+    if (recipients) {
+      // Recipients already selected, create the recurring events
+      handleCreateRecurringEvents();
+    } else {
+      // Navigate to select recipients screen with recurring event data
+      router.push({
+        pathname: '/select-recipients' as any,
+        params: {
+          feature: 'recurring-event',
+          sourceScreen: 'create-recurring-event',
+          data: JSON.stringify(eventData),
+          eventData: JSON.stringify(eventData) // Pass event data for preservation
+        }
+      });
+    }
+  };
+
+  const handleCreateRecurringEvents = async () => {
+    console.log('handleCreateRecurringEvents called');
+    console.log('eventData:', eventData);
+    console.log('recipients:', recipients);
+    
+    if (!recipients) {
+      console.log('No recipients selected');
+      return;
+    }
+
+    setIsCreating(true);
+    console.log('Starting recurring events creation...');
+
+    try {
+      const currentUser = await getCurrentUser();
+      console.log('Current user:', currentUser);
+      
+      if (!currentUser) {
+        throw new Error('User not authenticated');
       }
-    });
+
+      console.log('Creating recurring events...');
+      const result = await eventService.createRecurringEvents(eventData, recipients, currentUser.uid);
+      console.log('Recurring events created:', result);
+
+      // Show success message
+      const totalEvents = result.eventIds.length;
+      setModal({
+        visible: true,
+        title: 'Success!',
+        message: `Recurring event "${eventData.title}" has been created with ${totalEvents} occurrences and sent to ${recipients.totalCount} recipients.`,
+        type: 'success'
+      });
+
+    } catch (error) {
+      console.error('Error creating recurring events:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error details:', errorMessage);
+      
+      setModal({
+        visible: true,
+        title: 'Creation Failed',
+        message: `There was an error creating the recurring events: ${errorMessage}. Please try again.`,
+        type: 'error'
+      });
+    } finally {
+      setIsCreating(false);
+      console.log('Recurring events creation finished');
+    }
   };
 
   const handleModalClose = () => {
-    setModal({ ...modal, visible: false });
+    if (modal.type === 'success') {
+      // Reset form and navigate to home tab
+      setEventData({
+        title: '',
+        description: '',
+        startDate: new Date(),
+        endDate: (() => {
+          const date = new Date();
+          date.setMonth(date.getMonth() + 3);
+          return date;
+        })(),
+        time: new Date(),
+        location: '',
+        type: 'practice',
+        recurrence: {
+          pattern: 'weekly',
+          interval: 1,
+          daysOfWeek: [new Date().getDay()],
+          endType: 'date'
+        }
+      });
+      setRecipients(null);
+      setModal({ ...modal, visible: false });
+      
+      // Navigate to home tab instead of going back
+      router.replace('/(tabs)/' as any);
+    } else {
+      setModal({ ...modal, visible: false });
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -162,6 +317,21 @@ export default function CreateRecurringEventScreen() {
     const hours = time.getHours().toString().padStart(2, '0');
     const minutes = time.getMinutes().toString().padStart(2, '0');
     return `${hours}:${minutes}`;
+  };
+
+  const getButtonLabel = (): string => {
+    console.log('getButtonLabel called - isCreating:', isCreating, 'recipients:', recipients);
+    if (isCreating) {
+      return 'Creating Events...';
+    }
+    if (recipients) {
+      return `Create Recurring Events (${recipients.totalCount} recipients)`;
+    }
+    return 'Next: Select Recipients';
+  };
+
+  const isButtonDisabled = (): boolean => {
+    return isCreating || !eventData.title.trim() || !eventData.location.trim();
   };
 
   const toggleDayOfWeek = (day: number) => {
@@ -703,9 +873,65 @@ export default function CreateRecurringEventScreen() {
         borderTopColor: theme.colors.inputBorder,
         paddingBottom: Platform.OS === 'ios' ? 34 : 16
       }}>
+        {recipients && (
+          <View style={{
+            backgroundColor: theme.colors.success + '20',
+            borderColor: theme.colors.success,
+            borderWidth: 1,
+            borderRadius: theme.borderRadius.medium,
+            padding: theme.spacing.sm,
+            marginBottom: theme.spacing.md,
+            flexDirection: 'row',
+            alignItems: 'center'
+          }}>
+            <FontAwesome 
+              name="check-circle" 
+              size={16} 
+              color={theme.colors.success} 
+              style={{ marginRight: theme.spacing.xs }} 
+            />
+            <Text style={{
+              color: theme.colors.success,
+              fontSize: theme.typography.fontSize.small,
+              flex: 1
+            }}>
+              Recipients selected: {recipients.totalCount} people
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                router.push({
+                  pathname: '/select-recipients' as any,
+                  params: {
+                    feature: 'recurring-event',
+                    sourceScreen: 'create-recurring-event',
+                    data: JSON.stringify(eventData),
+                    recipients: JSON.stringify(recipients)
+                  }
+                });
+              }}
+              style={{
+                paddingHorizontal: theme.spacing.xs,
+                paddingVertical: theme.spacing.xs / 2
+              }}
+            >
+              <Text style={{
+                color: theme.colors.success,
+                fontSize: theme.typography.fontSize.small,
+                fontWeight: theme.typography.fontWeight.medium
+              }}>
+                Edit
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         <Button
-          label="Next: Select Recipients"
-          onPress={handleNext}
+          label={getButtonLabel()}
+          onPress={() => {
+            console.log('Button pressed - Recipients:', recipients, 'IsCreating:', isCreating);
+            handleNext();
+          }}
+          disabled={isButtonDisabled()}
         />
       </View>
 
@@ -765,7 +991,7 @@ export default function CreateRecurringEventScreen() {
         title={modal.title}
         message={modal.message}
         confirmText="OK"
-        cancelText={undefined}
+        cancelText=""
         onConfirm={handleModalClose}
         onCancel={handleModalClose}
         confirmButtonTheme="primary"

@@ -492,6 +492,21 @@ export default function SelectRecipientsScreen() {
         pathname: '/create-event',
         params: navigationParams
       } as any);
+    } else if (feature === 'recurring-event') {
+      // Navigate back to create-recurring-event with both recipients and original event data
+      const navigationParams: any = {
+        recipients: JSON.stringify(selection)
+      };
+      
+      // Preserve original event data if it was passed
+      if (params.eventData) {
+        navigationParams.eventData = params.eventData;
+      }
+      
+      router.navigate({
+        pathname: '/create-recurring-event',
+        params: navigationParams
+      } as any);
     } else {
       // For other features, just go back for now
       router.back();
