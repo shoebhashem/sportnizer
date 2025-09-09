@@ -156,15 +156,29 @@ class RecipientsCache {
         memberRoles.set(memberDoc.id, memberData.role || 'member');
       });
 
-      // Get user documents for names
-      for (const userId of userIds) {
+      // Get member documents with names and user documents for names
+      for (const memberDoc of membersSnapshot.docs) {
+        const userId = memberDoc.id;
+        const memberData = memberDoc.data();
+        let userName = 'Unknown User';
+        
         try {
-          const userDoc = await getDoc(doc(db, 'users', userId));
-          const userData = userDoc.data();
+          // Check if name is stored in member document (for children) or fetch from users collection (for adults)
+          if (memberData.name) {
+            // Name stored in member document (children in ageGroup 1)
+            userName = memberData.name;
+          } else {
+            // Fetch user data from users collection (adults in ageGroup 2)
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              userName = userData?.name || userData?.email?.split('@')[0] || 'Unknown User';
+            }
+          }
           
           members.push({
             userId: userId,
-            name: userData?.name || userData?.email?.split('@')[0] || 'Unknown User',
+            name: userName,
             role: memberRoles.get(userId) as 'admin' | 'coach' | 'member' | 'guardian',
             groupId: groupId
           });
