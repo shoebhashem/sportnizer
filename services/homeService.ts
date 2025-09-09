@@ -80,15 +80,31 @@ class HomeService {
    */
   private async getUserGroups(userId: string): Promise<string[]> {
     try {
+      console.log('HomeService: Getting user groups for userId:', userId);
       const userDoc = await getDoc(doc(this.db, 'users', userId));
       const userData = userDoc.data();
       
-      if (!userData || !userData.groups) {
+      console.log('HomeService: User data retrieved:', userData);
+      console.log('HomeService: User data keys:', userData ? Object.keys(userData) : 'no userData');
+      console.log('HomeService: User groups field (groups):', userData?.groups);
+      console.log('HomeService: User groupsJoined field:', userData?.groupsJoined);
+      
+      // Check if user has groupsJoined array (new structure) or groups object (old structure)
+      let groupIds: string[] = [];
+      
+      if (userData?.groupsJoined && Array.isArray(userData.groupsJoined)) {
+        groupIds = userData.groupsJoined;
+        console.log('HomeService: Using groupsJoined array:', groupIds);
+      } else if (userData?.groups && typeof userData.groups === 'object') {
+        groupIds = Object.keys(userData.groups);
+        console.log('HomeService: Using groups object keys:', groupIds);
+      } else {
+        console.log('HomeService: No user groups found in either groupsJoined or groups fields');
         return [];
       }
 
-      // Extract group IDs from user's groups object
-      return Object.keys(userData.groups);
+      console.log('HomeService: Final user group IDs:', groupIds);
+      return groupIds;
     } catch (error) {
       console.error('Error fetching user groups:', error);
       return [];
@@ -96,17 +112,59 @@ class HomeService {
   }
 
   /**
+   * Check if user is eligible for an event based on recipientSelection
+   */
+  private async isUserEligibleForEvent(eventData: any, userGroups: string[], userId: string): Promise<boolean> {
+    try {
+      if (!eventData.recipientSelection || !eventData.recipientSelection.groups) {
+        console.log('HomeService: No recipientSelection found in event:', eventData.title);
+        return false;
+      }
+
+      // Check each group in recipientSelection
+      for (const group of eventData.recipientSelection.groups) {
+        if (userGroups.includes(group.groupId)) {
+          if (group.scope === 'entire') {
+            // User is in the group and scope is entire, so they're eligible
+            console.log(`HomeService: User eligible for event "${eventData.title}" via entire group ${group.groupId}`);
+            return true;
+          } else if (group.scope === 'subgroups' && group.subgroupIds) {
+            // Need to check if user is in any of the selected subgroups
+            // For now, we'll include them (this would need more detailed user-subgroup checking)
+            console.log(`HomeService: User might be eligible for event "${eventData.title}" via subgroups in ${group.groupId}`);
+            return true;
+          } else if (group.scope === 'members' && group.memberIds) {
+            // Check if user is in the selected members list
+            if (group.memberIds.includes(userId)) {
+              console.log(`HomeService: User eligible for event "${eventData.title}" via direct member selection`);
+              return true;
+            }
+          }
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error checking user eligibility:', error);
+      return false;
+    }
+  }
+
+  /**
    * Fetch upcoming events for the next period
    */
   async getUpcomingEvents(weeksAhead: number = 1): Promise<HomeEvent[]> {
+    console.log('🚀 HomeService.getUpcomingEvents() CALLED with weeksAhead:', weeksAhead);
     try {
       const currentUser = getCurrentUser();
+      console.log('👤 Current user:', currentUser ? currentUser.uid : 'null');
       if (!currentUser) {
         throw new Error('User not authenticated');
       }
 
       const userGroups = await this.getUserGroups(currentUser.uid);
       if (userGroups.length === 0) {
+        console.log('HomeService: No user groups found');
         return [];
       }
 
@@ -119,53 +177,80 @@ class HomeService {
 
       const events: HomeEvent[] = [];
       
-      // Query events collection - we'll need to query for each group separately since Firestore doesn't support array-intersects-any
+      // Query events collection for eligible event types
+      // We'll query for each group separately to get all potential events
       for (const groupId of userGroups) {
+        // Simplified query without date filter to avoid index requirement
+        // We'll filter by date after fetching
         const eventsQuery = query(
           collection(this.db, 'events'),
-          where('recipientGroups', 'array-contains', groupId),
-          where('startTime', '>=', Timestamp.fromDate(now)),
-          where('startTime', '<=', Timestamp.fromDate(endDate)),
-          orderBy('startTime', 'asc'),
-          limit(20)
+          where('groupIds', 'array-contains', groupId)
         );
 
         const eventsSnapshot = await getDocs(eventsQuery);
-        eventsSnapshot.forEach((eventDoc) => {
+        console.log(`HomeService: Found ${eventsSnapshot.size} potential events for group ${groupId}`);
+        
+        for (const eventDoc of eventsSnapshot.docs) {
           // Check if we already have this event to avoid duplicates
-          if (!events.find(e => e.id === eventDoc.id)) {
-            const eventData = eventDoc.data() as any;
-            events.push({
-              id: eventDoc.id,
-              type: eventData.type || 'event',
-              title: eventData.title || 'Untitled Event',
-              description: eventData.description || '',
-              startTime: eventData.startTime?.toDate() || new Date(),
-              endTime: eventData.endTime?.toDate() || new Date(),
-              location: eventData.location || '',
-              eventType: eventData.eventType || 'other',
-              createdBy: eventData.createdBy || '',
-              responses: eventData.responses || {},
-              recipientGroups: eventData.recipientGroups || [],
-              isRecurring: eventData.type === 'recurring-event',
-              recurringMasterId: eventData.recurringMasterId
-            });
+          if (events.find(e => e.id === eventDoc.id)) {
+            console.log('HomeService: Skipping duplicate event:', eventDoc.id);
+            continue;
           }
-        });
+
+          const eventData = eventDoc.data() as any;
+          console.log('HomeService: Processing event:', eventDoc.id, eventData.title, 'Type:', eventData.type);
+          
+          // Skip recurring-event-master documents (they're not displayable events)
+          if (eventData.type === 'recurring-event-master') {
+            console.log('HomeService: Skipping recurring-event-master:', eventDoc.id);
+            continue;
+          }
+
+          // Filter by date range (since we couldn't do it in the query)
+          const eventStartTime = eventData.startTime?.toDate();
+          if (!eventStartTime || eventStartTime < now || eventStartTime > endDate) {
+            console.log('HomeService: Skipping event outside date range:', eventDoc.id, eventStartTime);
+            continue;
+          }
+
+          // Check if user is eligible for this event based on recipientSelection
+          const isEligible = await this.isUserEligibleForEvent(eventData, userGroups, currentUser.uid);
+          if (!isEligible) {
+            console.log('HomeService: User not eligible for event:', eventDoc.id);
+            continue;
+          }
+
+          // Add eligible event to list
+          events.push({
+            id: eventDoc.id,
+            type: eventData.type || 'one-time',
+            title: eventData.title || 'Untitled Event',
+            description: eventData.description || '',
+            startTime: eventData.startTime?.toDate() || new Date(),
+            endTime: eventData.endTime?.toDate() || new Date(),
+            location: eventData.location || '',
+            eventType: eventData.eventType || 'other',
+            createdBy: eventData.createdBy || '',
+            responses: eventData.responses || {},
+            recipientGroups: eventData.groupIds || [],
+            isRecurring: eventData.type === 'recurring-occurrence',
+            recurringMasterId: eventData.recurringMasterId
+          });
+          
+          console.log('HomeService: Added eligible event:', eventDoc.id, eventData.title);
+        }
       }
 
-      // Sort by start time
-      events.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-
-      console.log('Found', events.length, 'upcoming events');
+            // Sort by date
+      events.sort((a: HomeEvent, b: HomeEvent) => a.startTime.getTime() - b.startTime.getTime());
+      
+      console.log('✅ HomeService.getUpcomingEvents() RETURNING', events.length, 'events:', events);
       return events;
     } catch (error) {
-      console.error('Error fetching upcoming events:', error);
-      return [];
+      console.error('HomeService: Error fetching upcoming events:', error);
+      throw error;
     }
-  }
-
-  /**
+  }  /**
    * Fetch news flow items (announcements and polls)
    */
   async getNewsFlow(weeksBack: number = 2): Promise<NewsFlowItem[]> {
@@ -193,7 +278,7 @@ class HomeService {
       for (const groupId of userGroups) {
         const announcementsQuery = query(
           collection(this.db, 'announcements'),
-          where('recipientGroups', 'array-contains', groupId),
+          where('groupIds', 'array-contains', groupId),
           where('createdAt', '>=', Timestamp.fromDate(startDate)),
           orderBy('createdAt', 'desc'),
           limit(15)
@@ -211,7 +296,7 @@ class HomeService {
               message: announcementData.message || '',
               createdBy: announcementData.createdBy || '',
               createdAt: announcementData.createdAt?.toDate() || new Date(),
-              recipientGroups: announcementData.recipientGroups || [],
+              recipientGroups: announcementData.groupIds || [],
               readBy: announcementData.readBy || {},
               readStats: announcementData.readStats || { totalReads: 0, invitedCount: 0 }
             } as HomeAnnouncement);
@@ -221,7 +306,7 @@ class HomeService {
         // Query polls
         const pollsQuery = query(
           collection(this.db, 'polls'),
-          where('recipientGroups', 'array-contains', groupId),
+          where('groupIds', 'array-contains', groupId),
           where('createdAt', '>=', Timestamp.fromDate(startDate)),
           orderBy('createdAt', 'desc'),
           limit(15)
@@ -241,7 +326,7 @@ class HomeService {
               createdBy: pollData.createdBy || '',
               createdAt: pollData.createdAt?.toDate() || new Date(),
               closedAt: pollData.closedAt?.toDate(),
-              recipientGroups: pollData.recipientGroups || [],
+              recipientGroups: pollData.groupIds || [],
               votes: pollData.votes || {},
               voteStats: pollData.voteStats || {}
             } as HomePoll);
