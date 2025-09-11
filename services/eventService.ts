@@ -27,6 +27,10 @@ export interface RecurringEventData {
     enabled: boolean;
     maxAttendees?: number;
   };
+  notification: {
+    advanceTime: number; // Days/hours before event to send notification
+    timeUnit: 'days' | 'hours'; // Unit for advance time
+  };
   recurrence: {
     pattern: 'daily' | 'weekly' | 'monthly';
     interval: number;
@@ -55,6 +59,16 @@ export interface RecurringEventMaster {
   originalLocation: string;
   originalEventType: 'practice' | 'game' | 'meeting' | 'other';
   originalTime: Date;
+  originalEndTime: Date;
+  originalGatheringTime?: Date;
+  capacity: {
+    enabled: boolean;
+    maxAttendees?: number;
+  };
+  notification: {
+    advanceTime: number;
+    timeUnit: 'days' | 'hours';
+  };
   recurrence: {
     pattern: 'daily' | 'weekly' | 'monthly';
     interval: number;
@@ -76,8 +90,13 @@ export interface Event {
   description: string;
   startTime: Date;
   endTime: Date;
+  gatheringTime?: Date;
   location: string;
   eventType: 'practice' | 'game' | 'meeting' | 'other';
+  capacity?: {
+    enabled: boolean;
+    maxAttendees?: number;
+  };
   
   // Recurring event fields (for recurring instances)
   recurringEventId?: string;
@@ -204,6 +223,10 @@ export class EventService {
         originalLocation: eventData.location,
         originalEventType: eventData.type,
         originalTime: eventData.startTime,
+        originalEndTime: eventData.endTime,
+        originalGatheringTime: eventData.gatheringTime,
+        capacity: eventData.capacity,
+        notification: eventData.notification,
         recurrence: eventData.recurrence,
         createdBy,
         createdAt: serverTimestamp(),
@@ -223,18 +246,31 @@ export class EventService {
       for (let i = 0; i < occurrences.length; i++) {
         const occurrence = occurrences[i];
         
-        // Calculate end time (default 2 hours duration)
+        // Calculate end time based on the duration from start to end time
+        const startDate = new Date(occurrence);
         const endTime = new Date(occurrence);
-        endTime.setHours(endTime.getHours() + 2);
+        
+        // Calculate duration from original start and end times
+        const originalDuration = eventData.endTime.getTime() - eventData.startTime.getTime();
+        endTime.setTime(startDate.getTime() + originalDuration);
+
+        // Calculate gathering time if specified
+        let gatheringTime: Date | undefined;
+        if (eventData.gatheringTime) {
+          const gatheringOffset = eventData.gatheringTime.getTime() - eventData.startTime.getTime();
+          gatheringTime = new Date(startDate.getTime() + gatheringOffset);
+        }
 
         const eventDoc: Event = {
           type: 'recurring-instance',
           title: eventData.title,
           description: eventData.description,
-          startTime: occurrence,
+          startTime: startDate,
           endTime: endTime,
+          gatheringTime: gatheringTime,
           location: eventData.location,
           eventType: eventData.type,
+          capacity: eventData.capacity,
           
           // Recurring event fields
           recurringEventId: masterId,

@@ -32,6 +32,10 @@ interface RecurringEventData {
     enabled: boolean;
     maxAttendees?: number;
   };
+  notification: {
+    advanceTime: number; // Days before event to send notification
+    timeUnit: 'days' | 'hours'; // Unit for advance time
+  };
   recurrence: {
     pattern: 'daily' | 'weekly' | 'monthly';
     interval: number; // every X days/weeks/months
@@ -84,6 +88,10 @@ export default function CreateRecurringEventScreen() {
     capacity: {
       enabled: false,
       maxAttendees: undefined
+    },
+    notification: {
+      advanceTime: 7, // Default 7 days before
+      timeUnit: 'days'
     },
     recurrence: {
       pattern: 'weekly',
@@ -321,6 +329,10 @@ export default function CreateRecurringEventScreen() {
         capacity: {
           enabled: false,
           maxAttendees: undefined
+        },
+        notification: {
+          advanceTime: 7, // Default 7 days before
+          timeUnit: 'days'
         },
         recurrence: {
           pattern: 'weekly',
@@ -1135,6 +1147,124 @@ export default function CreateRecurringEventScreen() {
               />
             </View>
           )}
+        </View>
+
+        {/* Notification Timing */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '600', 
+            color: theme.colors.text,
+            marginBottom: 8
+          }}>
+            Send Invites
+          </Text>
+          <Text style={{ 
+            fontSize: 14, 
+            color: theme.colors.textSecondary,
+            marginBottom: 12
+          }}>
+            When should members receive event invitations?
+          </Text>
+          
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12
+          }}>
+            {/* Advance Time Input */}
+            <View style={{ flex: 1 }}>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 16,
+                  backgroundColor: theme.colors.inputBackground,
+                  color: theme.colors.text,
+                  textAlign: 'center'
+                }}
+                value={eventData.notification.advanceTime.toString()}
+                onChangeText={(text) => {
+                  const number = parseInt(text) || 1;
+                  setEventData(prev => ({ 
+                    ...prev, 
+                    notification: { ...prev.notification, advanceTime: Math.max(1, number) } 
+                  }));
+                }}
+                placeholder="7"
+                placeholderTextColor={theme.colors.textSecondary}
+                keyboardType="numeric"
+              />
+            </View>
+
+            {/* Time Unit Selector */}
+            <View style={{ flex: 2 }}>
+              <View style={{ 
+                flexDirection: 'row', 
+                gap: 8
+              }}>
+                {[
+                  { key: 'days', label: 'Days' },
+                  { key: 'hours', label: 'Hours' }
+                ].map((unit) => (
+                  <TouchableOpacity
+                    key={unit.key}
+                    onPress={() => setEventData(prev => ({ 
+                      ...prev, 
+                      notification: { 
+                        ...prev.notification, 
+                        timeUnit: unit.key as 'days' | 'hours',
+                        // Convert days to hours or hours to days when switching units
+                        advanceTime: unit.key === 'hours' && prev.notification.timeUnit === 'days' 
+                          ? prev.notification.advanceTime * 24
+                          : unit.key === 'days' && prev.notification.timeUnit === 'hours'
+                          ? Math.max(1, Math.round(prev.notification.advanceTime / 24))
+                          : prev.notification.advanceTime
+                      } 
+                    }))}
+                    style={{
+                      flex: 1,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: eventData.notification.timeUnit === unit.key ? theme.colors.secondary : theme.colors.inputBorder,
+                      backgroundColor: eventData.notification.timeUnit === unit.key ? theme.colors.secondary + '20' : theme.colors.inputBackground
+                    }}
+                  >
+                    <Text style={{
+                      color: eventData.notification.timeUnit === unit.key ? theme.colors.secondary : theme.colors.textSecondary,
+                      fontWeight: eventData.notification.timeUnit === unit.key ? '600' : 'normal',
+                      textAlign: 'center',
+                      fontSize: 14
+                    }}>
+                      {unit.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <Text style={{ 
+              color: theme.colors.textSecondary,
+              fontSize: 14,
+              fontWeight: '500'
+            }}>
+              before
+            </Text>
+          </View>
+
+          {/* Helper Text */}
+          <Text style={{ 
+            fontSize: 12, 
+            color: theme.colors.textSecondary,
+            marginTop: 8,
+            fontStyle: 'italic'
+          }}>
+            Members will receive invitations {eventData.notification.advanceTime} {eventData.notification.timeUnit} before each event
+          </Text>
         </View>
       </ScrollView>
 
