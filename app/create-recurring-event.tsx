@@ -19,11 +19,13 @@ import { getCurrentUser } from '../services/authService';
 import { eventService } from '../services/eventService';
 
 interface RecurringEventData {
+  mode: 'simple' | 'advanced'; // New mode selection
   title: string;
   description: string;
   startDate: Date;
   endDate: Date;
   startTime: Date;
+  duration?: number; // Duration in minutes (for simple mode)
   gatheringTime?: Date; // Optional gathering time
   endTime: Date;
   location: string;
@@ -72,6 +74,7 @@ export default function CreateRecurringEventScreen() {
   const params = useLocalSearchParams();
   
   const [eventData, setEventData] = useState<RecurringEventData>({
+    mode: 'simple', // Default to simple mode
     title: '',
     description: '',
     startDate: new Date(),
@@ -81,6 +84,7 @@ export default function CreateRecurringEventScreen() {
       return date;
     })(),
     startTime: new Date(),
+    duration: 120, // Default 2 hours (120 minutes)
     gatheringTime: undefined,
     endTime: (() => {
       const time = new Date();
@@ -318,6 +322,7 @@ export default function CreateRecurringEventScreen() {
     if (modal.type === 'success') {
       // Reset form and navigate to home tab
       setEventData({
+        mode: 'simple', // Default to simple mode
         title: '',
         description: '',
         startDate: new Date(),
@@ -327,6 +332,7 @@ export default function CreateRecurringEventScreen() {
           return date;
         })(),
         startTime: new Date(),
+        duration: 120, // Default 2 hours (120 minutes)
         gatheringTime: undefined,
         endTime: (() => {
           const time = new Date();
@@ -448,6 +454,101 @@ export default function CreateRecurringEventScreen() {
       </View>
 
       <ScrollView style={{ flex: 1, padding: 16 }}>
+        {/* Mode Toggle */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '600', 
+            color: theme.colors.text,
+            marginBottom: 12,
+            textAlign: 'center'
+          }}>
+            Creation Mode
+          </Text>
+          <View style={{ 
+            flexDirection: 'row', 
+            backgroundColor: theme.colors.inputBackground,
+            borderRadius: 12,
+            padding: 4,
+            borderWidth: 1,
+            borderColor: theme.colors.inputBorder
+          }}>
+            <TouchableOpacity
+              onPress={() => setEventData(prev => ({ 
+                ...prev, 
+                mode: 'simple',
+                // Reset advanced-only fields when switching to simple
+                gatheringTime: undefined,
+                capacity: { enabled: false, maxAttendees: undefined },
+                notification: { advanceTime: 7, timeUnit: 'days' },
+                responseDeadline: { enabled: false, date: undefined }
+              }))}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                paddingHorizontal: 20,
+                borderRadius: 8,
+                backgroundColor: eventData.mode === 'simple' ? theme.colors.secondary : 'transparent',
+                alignItems: 'center'
+              }}
+            >
+              <FontAwesome 
+                name="magic" 
+                size={16} 
+                color={eventData.mode === 'simple' ? 'white' : theme.colors.textSecondary}
+                style={{ marginBottom: 4 }}
+              />
+              <Text style={{
+                color: eventData.mode === 'simple' ? 'white' : theme.colors.textSecondary,
+                fontWeight: eventData.mode === 'simple' ? '600' : 'normal',
+                fontSize: 14
+              }}>
+                Simple
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => setEventData(prev => ({ ...prev, mode: 'advanced' }))}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                paddingHorizontal: 20,
+                borderRadius: 8,
+                backgroundColor: eventData.mode === 'advanced' ? theme.colors.secondary : 'transparent',
+                alignItems: 'center'
+              }}
+            >
+              <FontAwesome 
+                name="cogs" 
+                size={16} 
+                color={eventData.mode === 'advanced' ? 'white' : theme.colors.textSecondary}
+                style={{ marginBottom: 4 }}
+              />
+              <Text style={{
+                color: eventData.mode === 'advanced' ? 'white' : theme.colors.textSecondary,
+                fontWeight: eventData.mode === 'advanced' ? '600' : 'normal',
+                fontSize: 14
+              }}>
+                Advanced
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Mode Description */}
+          <Text style={{ 
+            fontSize: 12, 
+            color: theme.colors.textSecondary,
+            textAlign: 'center',
+            marginTop: 8,
+            fontStyle: 'italic'
+          }}>
+            {eventData.mode === 'simple' 
+              ? 'Quick setup with essential options only'
+              : 'Full control with all advanced features'
+            }
+          </Text>
+        </View>
+
         {/* Event Title */}
         <View style={{ marginBottom: 20 }}>
           <Text style={{ 
@@ -715,8 +816,187 @@ export default function CreateRecurringEventScreen() {
           </View>
         </View>
 
-        {/* Gathering Time (Optional) */}
-        <View style={{ marginBottom: 20 }}>
+        {/* Duration (Simple Mode) */}
+        {eventData.mode === 'simple' && (
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '600', 
+              color: theme.colors.text,
+              marginBottom: 8
+            }}>
+              Duration
+            </Text>
+            <View style={{ 
+              flexDirection: 'row', 
+              gap: 8,
+              flexWrap: 'wrap'
+            }}>
+              {[
+                { minutes: 60, label: '1 hour' },
+                { minutes: 90, label: '1.5 hours' },
+                { minutes: 120, label: '2 hours' },
+                { minutes: 180, label: '3 hours' }
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.minutes}
+                  onPress={() => {
+                    // Update duration and automatically calculate end time
+                    const newEndTime = new Date(eventData.startTime);
+                    newEndTime.setMinutes(newEndTime.getMinutes() + option.minutes);
+                    setEventData(prev => ({ 
+                      ...prev, 
+                      duration: option.minutes,
+                      endTime: newEndTime
+                    }));
+                  }}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor: eventData.duration === option.minutes ? theme.colors.secondary : theme.colors.inputBorder,
+                    backgroundColor: eventData.duration === option.minutes ? theme.colors.secondary + '20' : theme.colors.inputBackground
+                  }}
+                >
+                  <Text style={{
+                    color: eventData.duration === option.minutes ? theme.colors.secondary : theme.colors.textSecondary,
+                    fontWeight: eventData.duration === option.minutes ? '600' : 'normal',
+                    fontSize: 14
+                  }}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              
+              {/* Custom Duration Input */}
+              <View style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: theme.colors.inputBorder,
+                borderRadius: 20,
+                backgroundColor: theme.colors.inputBackground,
+                paddingHorizontal: 12,
+                paddingVertical: 6
+              }}>
+                <TextInput
+                  style={{
+                    width: 50,
+                    fontSize: 14,
+                    color: theme.colors.text,
+                    textAlign: 'center'
+                  }}
+                  value={eventData.duration?.toString() || ''}
+                  onChangeText={(text) => {
+                    const minutes = parseInt(text) || 60;
+                    const newEndTime = new Date(eventData.startTime);
+                    newEndTime.setMinutes(newEndTime.getMinutes() + minutes);
+                    setEventData(prev => ({ 
+                      ...prev, 
+                      duration: minutes,
+                      endTime: newEndTime
+                    }));
+                  }}
+                  placeholder="120"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  keyboardType="numeric"
+                />
+                <Text style={{ 
+                  color: theme.colors.textSecondary, 
+                  fontSize: 12,
+                  marginLeft: 4
+                }}>
+                  min
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Gathering Time (Advanced Mode Only) */}
+        {eventData.mode === 'advanced' && (
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '600', 
+              color: theme.colors.text,
+              marginBottom: 8
+            }}>
+              Gathering Time (Optional)
+            </Text>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12
+            }}>
+              <View style={{ flex: 1 }}>
+                <TouchableOpacity
+                  onPress={() => eventData.gatheringTime ? setShowGatheringTimePicker(true) : null}
+                  disabled={!eventData.gatheringTime}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.inputBorder,
+                    borderRadius: 8,
+                    padding: 12,
+                    backgroundColor: eventData.gatheringTime ? theme.colors.inputBackground : theme.colors.inputBackground + '80',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    opacity: eventData.gatheringTime ? 1 : 0.6
+                  }}
+                >
+                  <Text style={{ 
+                    color: eventData.gatheringTime ? theme.colors.text : theme.colors.textSecondary, 
+                    fontSize: 16 
+                  }}>
+                    {eventData.gatheringTime ? formatTime(eventData.gatheringTime!) : 'No gathering time'}
+                  </Text>
+                  <FontAwesome 
+                    name="clock-o" 
+                    size={16} 
+                    color={eventData.gatheringTime ? theme.colors.textSecondary : theme.colors.textSecondary + '80'} 
+                  />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  if (eventData.gatheringTime) {
+                    // Remove gathering time
+                    setEventData(prev => ({ ...prev, gatheringTime: undefined }));
+                  } else {
+                    // Add gathering time (30 minutes before start time)
+                    const gatheringTime = new Date(eventData.startTime);
+                    gatheringTime.setMinutes(gatheringTime.getMinutes() - 30);
+                    setEventData(prev => ({ ...prev, gatheringTime }));
+                  }
+                }}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  backgroundColor: eventData.gatheringTime ? theme.colors.error : theme.colors.secondary,
+                }}
+              >
+                <Text style={{ 
+                  color: 'white', 
+                  fontWeight: '600',
+                  fontSize: 14
+                }}>
+                  {eventData.gatheringTime ? 'Remove' : 'Add'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* End Date and Time (Advanced Mode Only) */}
+        {eventData.mode === 'advanced' && (
+          <View style={{ 
+            flexDirection: 'row', 
+            gap: 12,
+            marginBottom: 20
+          }}>
           <Text style={{ 
             fontSize: 16, 
             fontWeight: '600', 
@@ -750,7 +1030,7 @@ export default function CreateRecurringEventScreen() {
                   color: eventData.gatheringTime ? theme.colors.text : theme.colors.textSecondary, 
                   fontSize: 16 
                 }}>
-                  {eventData.gatheringTime ? formatTime(eventData.gatheringTime) : 'No gathering time'}
+                  {eventData.gatheringTime ? formatTime(eventData.gatheringTime!) : 'No gathering time'}
                 </Text>
                 <FontAwesome 
                   name="clock-o" 
@@ -788,71 +1068,7 @@ export default function CreateRecurringEventScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* End Date and Time */}
-        <View style={{ 
-          flexDirection: 'row', 
-          gap: 12,
-          marginBottom: 20
-        }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ 
-              fontSize: 16, 
-              fontWeight: '600', 
-              color: theme.colors.text,
-              marginBottom: 8
-            }}>
-              End Date
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowEndDatePicker(true)}
-              style={{
-                borderWidth: 1,
-                borderColor: theme.colors.inputBorder,
-                borderRadius: 8,
-                padding: 12,
-                backgroundColor: theme.colors.inputBackground,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}
-            >
-              <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                {formatDate(eventData.endDate)}
-              </Text>
-              <FontAwesome name="calendar" size={16} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <Text style={{ 
-              fontSize: 16, 
-              fontWeight: '600', 
-              color: theme.colors.text,
-              marginBottom: 8
-            }}>
-              End Time
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowEndTimePicker(true)}
-              style={{
-                borderWidth: 1,
-                borderColor: theme.colors.inputBorder,
-                borderRadius: 8,
-                padding: 12,
-                backgroundColor: theme.colors.inputBackground,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}
-            >
-              <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                {formatTime(eventData.endTime)}
-              </Text>
-              <FontAwesome name="clock-o" size={16} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
+        )}
 
         {/* End Condition */}
         <View style={{ marginBottom: 20 }}>
@@ -1059,8 +1275,9 @@ export default function CreateRecurringEventScreen() {
           />
         </View>
 
-        {/* Capacity Management */}
-        <View style={{ marginBottom: 20 }}>
+        {/* Capacity Management (Advanced Mode Only) */}
+        {eventData.mode === 'advanced' && (
+          <View style={{ marginBottom: 20 }}>
           <Text style={{ 
             fontSize: 16, 
             fontWeight: '600', 
@@ -1161,8 +1378,10 @@ export default function CreateRecurringEventScreen() {
             </View>
           )}
         </View>
+        )}
 
-        {/* Notification Timing */}
+        {/* Notification Timing (Advanced Mode Only) */}
+        {eventData.mode === 'advanced' && (
         <View style={{ marginBottom: 20 }}>
           <Text style={{ 
             fontSize: 16, 
@@ -1279,9 +1498,11 @@ export default function CreateRecurringEventScreen() {
             Members will receive invitations {eventData.notification.advanceTime} {eventData.notification.timeUnit} before each event
           </Text>
         </View>
+        )}
 
-        {/* Response Deadline */}
-        <View style={{ marginBottom: 20 }}>
+        {/* Response Deadline (Advanced Mode Only) */}
+        {eventData.mode === 'advanced' && (
+          <View style={{ marginBottom: 20 }}>
           <Text style={{ 
             fontSize: 16, 
             fontWeight: '600', 
@@ -1393,6 +1614,7 @@ export default function CreateRecurringEventScreen() {
             </View>
           )}
         </View>
+        )}
       </ScrollView>
 
       {/* Bottom Action */}
