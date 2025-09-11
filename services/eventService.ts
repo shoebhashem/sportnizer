@@ -12,6 +12,8 @@ export interface EventData {
   gatheringTime?: Date;
   location: string;
   type: 'practice' | 'game' | 'meeting' | 'other';
+  mode: 'simple' | 'advanced'; // Simple or advanced creation mode
+  duration?: number; // Duration in minutes for simple mode
   capacity?: {
     enabled: boolean;
     maxAttendees?: number;

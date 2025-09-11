@@ -28,6 +28,8 @@ interface EventData {
   endTime: Date;
   location: string;
   type: 'practice' | 'game' | 'meeting' | 'other';
+  mode: 'simple' | 'advanced'; // Simple or advanced creation mode
+  duration?: number; // Duration in minutes for simple mode
   capacity: {
     enabled: boolean;
     maxAttendees?: number;
@@ -78,6 +80,8 @@ export default function CreateEventScreen() {
     })(),
     location: '',
     type: 'practice',
+    mode: 'simple', // Default to simple mode
+    duration: 120, // Default 2 hours in minutes
     capacity: {
       enabled: false,
       maxAttendees: undefined
@@ -242,8 +246,13 @@ export default function CreateEventScreen() {
         description: eventData.description,
         startTime: startDateTime,
         endTime: endDateTime,
+        gatheringTime: eventData.gatheringTime,
         location: eventData.location,
-        type: eventData.type
+        type: eventData.type,
+        mode: eventData.mode,
+        duration: eventData.duration,
+        capacity: eventData.capacity,
+        responseDeadline: eventData.responseDeadline
       };
 
       console.log('Event to create:', eventToCreate);
@@ -299,6 +308,8 @@ export default function CreateEventScreen() {
         })(),
         location: '',
         type: 'practice',
+        mode: 'simple', // Default to simple mode
+        duration: 120, // Default 2 hours in minutes
         capacity: {
           enabled: false,
           maxAttendees: undefined
@@ -368,6 +379,112 @@ export default function CreateEventScreen() {
       </View>
 
       <ScrollView style={{ flex: 1, padding: 16 }}>
+        {/* Creation Mode Toggle */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '600', 
+            color: theme.colors.text,
+            marginBottom: 12
+          }}>
+            Creation Mode
+          </Text>
+          
+          <View style={{
+            flexDirection: 'row',
+            backgroundColor: theme.colors.inputBackground,
+            borderRadius: 12,
+            padding: 4,
+            borderWidth: 1,
+            borderColor: theme.colors.inputBorder
+          }}>
+            {/* Simple Mode */}
+            <TouchableOpacity
+              onPress={() => {
+                setEventData(prev => ({ 
+                  ...prev, 
+                  mode: 'simple',
+                  // Reset advanced fields when switching to simple
+                  gatheringTime: undefined,
+                  capacity: { enabled: false, maxAttendees: undefined },
+                  responseDeadline: { enabled: false, date: undefined }
+                }));
+              }}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                borderRadius: 8,
+                backgroundColor: eventData.mode === 'simple' ? theme.colors.secondary : 'transparent'
+              }}
+            >
+              <FontAwesome 
+                name="magic" 
+                size={16} 
+                color={eventData.mode === 'simple' ? 'white' : theme.colors.textSecondary}
+                style={{ marginRight: 8 }}
+              />
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{
+                  color: eventData.mode === 'simple' ? 'white' : theme.colors.text,
+                  fontWeight: eventData.mode === 'simple' ? '600' : 'normal',
+                  fontSize: 16
+                }}>
+                  Simple
+                </Text>
+                <Text style={{
+                  color: eventData.mode === 'simple' ? 'white' : theme.colors.textSecondary,
+                  fontSize: 12,
+                  marginTop: 2
+                }}>
+                  Quick setup
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Advanced Mode */}
+            <TouchableOpacity
+              onPress={() => setEventData(prev => ({ ...prev, mode: 'advanced' }))}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                borderRadius: 8,
+                backgroundColor: eventData.mode === 'advanced' ? theme.colors.secondary : 'transparent'
+              }}
+            >
+              <FontAwesome 
+                name="cogs" 
+                size={16} 
+                color={eventData.mode === 'advanced' ? 'white' : theme.colors.textSecondary}
+                style={{ marginRight: 8 }}
+              />
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{
+                  color: eventData.mode === 'advanced' ? 'white' : theme.colors.text,
+                  fontWeight: eventData.mode === 'advanced' ? '600' : 'normal',
+                  fontSize: 16
+                }}>
+                  Advanced
+                </Text>
+                <Text style={{
+                  color: eventData.mode === 'advanced' ? 'white' : theme.colors.textSecondary,
+                  fontSize: 12,
+                  marginTop: 2
+                }}>
+                  Full control
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Event Title */}
         <View style={{ marginBottom: 20 }}>
           <Text style={{ 
@@ -507,7 +624,116 @@ export default function CreateEventScreen() {
           </View>
         </View>
 
-        {/* Gathering Time (Optional) */}
+        {/* Duration (Simple Mode) */}
+        {eventData.mode === 'simple' && (
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '600', 
+              color: theme.colors.text,
+              marginBottom: 8
+            }}>
+              Duration
+            </Text>
+            <View style={{ 
+              flexDirection: 'row', 
+              gap: 8,
+              flexWrap: 'wrap'
+            }}>
+              {[
+                { minutes: 60, label: '1 hour' },
+                { minutes: 90, label: '1.5 hours' },
+                { minutes: 120, label: '2 hours' },
+                { minutes: 180, label: '3 hours' }
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.minutes}
+                  onPress={() => {
+                    // Update duration and automatically calculate end time
+                    const newEndTime = new Date(eventData.startTime);
+                    newEndTime.setMinutes(newEndTime.getMinutes() + option.minutes);
+                    const newEndDate = new Date(eventData.startDate);
+                    if (newEndTime.getDate() !== eventData.startTime.getDate()) {
+                      newEndDate.setDate(newEndDate.getDate() + 1);
+                    }
+                    setEventData(prev => ({ 
+                      ...prev, 
+                      duration: option.minutes,
+                      endTime: newEndTime,
+                      endDate: newEndDate
+                    }));
+                  }}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor: eventData.duration === option.minutes ? theme.colors.secondary : theme.colors.inputBorder,
+                    backgroundColor: eventData.duration === option.minutes ? theme.colors.secondary + '20' : theme.colors.inputBackground
+                  }}
+                >
+                  <Text style={{
+                    color: eventData.duration === option.minutes ? theme.colors.secondary : theme.colors.textSecondary,
+                    fontWeight: eventData.duration === option.minutes ? '600' : 'normal',
+                    fontSize: 14
+                  }}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              
+              {/* Custom Duration Input */}
+              <View style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: theme.colors.inputBorder,
+                borderRadius: 20,
+                backgroundColor: theme.colors.inputBackground,
+                paddingHorizontal: 12,
+                paddingVertical: 6
+              }}>
+                <TextInput
+                  style={{
+                    width: 50,
+                    fontSize: 14,
+                    color: theme.colors.text,
+                    textAlign: 'center'
+                  }}
+                  value={eventData.duration?.toString() || ''}
+                  onChangeText={(text) => {
+                    const minutes = parseInt(text) || 60;
+                    const newEndTime = new Date(eventData.startTime);
+                    newEndTime.setMinutes(newEndTime.getMinutes() + minutes);
+                    const newEndDate = new Date(eventData.startDate);
+                    if (newEndTime.getDate() !== eventData.startTime.getDate()) {
+                      newEndDate.setDate(newEndDate.getDate() + 1);
+                    }
+                    setEventData(prev => ({ 
+                      ...prev, 
+                      duration: minutes,
+                      endTime: newEndTime,
+                      endDate: newEndDate
+                    }));
+                  }}
+                  placeholder="120"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  keyboardType="numeric"
+                />
+                <Text style={{ 
+                  color: theme.colors.textSecondary, 
+                  fontSize: 12,
+                  marginLeft: 4
+                }}>
+                  min
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Gathering Time (Optional) - Advanced Mode Only */}
+        {eventData.mode === 'advanced' && (
         <View style={{ marginBottom: 20 }}>
           <Text style={{ 
             fontSize: 16, 
@@ -580,8 +806,10 @@ export default function CreateEventScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        )}
 
-        {/* End Date and Time */}
+        {/* End Date and Time (Advanced Mode Only) */}
+        {eventData.mode === 'advanced' && (
         <View style={{ 
           flexDirection: 'row', 
           gap: 12,
@@ -645,6 +873,7 @@ export default function CreateEventScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        )}
 
         {/* Location */}
         <View style={{ marginBottom: 20 }}>
@@ -703,8 +932,9 @@ export default function CreateEventScreen() {
           />
         </View>
 
-        {/* Capacity Management */}
-        <View style={{ marginBottom: 20 }}>
+        {/* Capacity Management (Advanced Mode Only) */}
+        {eventData.mode === 'advanced' && (
+          <View style={{ marginBottom: 20 }}>
           <Text style={{ 
             fontSize: 16, 
             fontWeight: '600', 
@@ -805,9 +1035,11 @@ export default function CreateEventScreen() {
             </View>
           )}
         </View>
+        )}
 
-        {/* Response Deadline */}
-        <View style={{ marginBottom: 20 }}>
+        {/* Response Deadline (Advanced Mode Only) */}
+        {eventData.mode === 'advanced' && (
+          <View style={{ marginBottom: 20 }}>
           <Text style={{ 
             fontSize: 16, 
             fontWeight: '600', 
@@ -919,6 +1151,7 @@ export default function CreateEventScreen() {
             </View>
           )}
         </View>
+        )}
       </ScrollView>
 
       {/* Bottom Action */}
