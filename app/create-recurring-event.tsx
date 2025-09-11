@@ -23,9 +23,15 @@ interface RecurringEventData {
   description: string;
   startDate: Date;
   endDate: Date;
-  time: Date;
+  startTime: Date;
+  gatheringTime?: Date; // Optional gathering time
+  endTime: Date;
   location: string;
   type: 'practice' | 'game' | 'meeting' | 'other';
+  capacity: {
+    enabled: boolean;
+    maxAttendees?: number;
+  };
   recurrence: {
     pattern: 'daily' | 'weekly' | 'monthly';
     interval: number; // every X days/weeks/months
@@ -66,9 +72,19 @@ export default function CreateRecurringEventScreen() {
       date.setMonth(date.getMonth() + 3); // Default 3 months from now
       return date;
     })(),
-    time: new Date(),
+    startTime: new Date(),
+    gatheringTime: undefined,
+    endTime: (() => {
+      const time = new Date();
+      time.setHours(time.getHours() + 2); // Default 2 hours later
+      return time;
+    })(),
     location: '',
     type: 'practice',
+    capacity: {
+      enabled: false,
+      maxAttendees: undefined
+    },
     recurrence: {
       pattern: 'weekly',
       interval: 1,
@@ -78,8 +94,10 @@ export default function CreateRecurringEventScreen() {
   });
   
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showGatheringTimePicker, setShowGatheringTimePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [recipients, setRecipients] = useState<RecipientSelection | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [modal, setModal] = useState<ModalState>({
@@ -116,7 +134,9 @@ export default function CreateRecurringEventScreen() {
             ...savedEventData,
             startDate: new Date(savedEventData.startDate),
             endDate: new Date(savedEventData.endDate),
-            time: new Date(savedEventData.time)
+            startTime: new Date(savedEventData.startTime),
+            gatheringTime: savedEventData.gatheringTime ? new Date(savedEventData.gatheringTime) : undefined,
+            endTime: new Date(savedEventData.endTime)
           };
           
           setEventData(newEventData);
@@ -289,9 +309,19 @@ export default function CreateRecurringEventScreen() {
           date.setMonth(date.getMonth() + 3);
           return date;
         })(),
-        time: new Date(),
+        startTime: new Date(),
+        gatheringTime: undefined,
+        endTime: (() => {
+          const time = new Date();
+          time.setHours(time.getHours() + 2);
+          return time;
+        })(),
         location: '',
         type: 'practice',
+        capacity: {
+          enabled: false,
+          maxAttendees: undefined
+        },
         recurrence: {
           pattern: 'weekly',
           interval: 1,
@@ -637,10 +667,10 @@ export default function CreateRecurringEventScreen() {
               color: theme.colors.text,
               marginBottom: 8
             }}>
-              Time
+              Start Time
             </Text>
             <TouchableOpacity
-              onPress={() => setShowTimePicker(true)}
+              onPress={() => setShowStartTimePicker(true)}
               style={{
                 borderWidth: 1,
                 borderColor: theme.colors.inputBorder,
@@ -653,7 +683,146 @@ export default function CreateRecurringEventScreen() {
               }}
             >
               <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                {formatTime(eventData.time)}
+                {formatTime(eventData.startTime)}
+              </Text>
+              <FontAwesome name="clock-o" size={16} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Gathering Time (Optional) */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '600', 
+            color: theme.colors.text,
+            marginBottom: 8
+          }}>
+            Gathering Time (Optional)
+          </Text>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12
+          }}>
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => eventData.gatheringTime ? setShowGatheringTimePicker(true) : null}
+                disabled={!eventData.gatheringTime}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  backgroundColor: eventData.gatheringTime ? theme.colors.inputBackground : theme.colors.inputBackground + '80',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  opacity: eventData.gatheringTime ? 1 : 0.6
+                }}
+              >
+                <Text style={{ 
+                  color: eventData.gatheringTime ? theme.colors.text : theme.colors.textSecondary, 
+                  fontSize: 16 
+                }}>
+                  {eventData.gatheringTime ? formatTime(eventData.gatheringTime) : 'No gathering time'}
+                </Text>
+                <FontAwesome 
+                  name="clock-o" 
+                  size={16} 
+                  color={eventData.gatheringTime ? theme.colors.textSecondary : theme.colors.textSecondary + '80'} 
+                />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (eventData.gatheringTime) {
+                  // Remove gathering time
+                  setEventData(prev => ({ ...prev, gatheringTime: undefined }));
+                } else {
+                  // Add gathering time (30 minutes before start time)
+                  const gatheringTime = new Date(eventData.startTime);
+                  gatheringTime.setMinutes(gatheringTime.getMinutes() - 30);
+                  setEventData(prev => ({ ...prev, gatheringTime }));
+                }
+              }}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderRadius: 8,
+                backgroundColor: eventData.gatheringTime ? theme.colors.error : theme.colors.secondary,
+              }}
+            >
+              <Text style={{ 
+                color: 'white', 
+                fontWeight: '600',
+                fontSize: 14
+              }}>
+                {eventData.gatheringTime ? 'Remove' : 'Add'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* End Date and Time */}
+        <View style={{ 
+          flexDirection: 'row', 
+          gap: 12,
+          marginBottom: 20
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '600', 
+              color: theme.colors.text,
+              marginBottom: 8
+            }}>
+              End Date
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowEndDatePicker(true)}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.inputBorder,
+                borderRadius: 8,
+                padding: 12,
+                backgroundColor: theme.colors.inputBackground,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Text style={{ color: theme.colors.text, fontSize: 16 }}>
+                {formatDate(eventData.endDate)}
+              </Text>
+              <FontAwesome name="calendar" size={16} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '600', 
+              color: theme.colors.text,
+              marginBottom: 8
+            }}>
+              End Time
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowEndTimePicker(true)}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.inputBorder,
+                borderRadius: 8,
+                padding: 12,
+                backgroundColor: theme.colors.inputBackground,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Text style={{ color: theme.colors.text, fontSize: 16 }}>
+                {formatTime(eventData.endTime)}
               </Text>
               <FontAwesome name="clock-o" size={16} color={theme.colors.textSecondary} />
             </TouchableOpacity>
@@ -864,6 +1033,109 @@ export default function CreateRecurringEventScreen() {
             multiline
           />
         </View>
+
+        {/* Capacity Management */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '600', 
+            color: theme.colors.text,
+            marginBottom: 8
+          }}>
+            Capacity Limit
+          </Text>
+          
+          {/* Enable/Disable Toggle */}
+          <TouchableOpacity
+            onPress={() => setEventData(prev => ({ 
+              ...prev, 
+              capacity: { 
+                ...prev.capacity, 
+                enabled: !prev.capacity.enabled,
+                maxAttendees: !prev.capacity.enabled ? 10 : undefined
+              } 
+            }))}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: theme.colors.inputBorder,
+              backgroundColor: theme.colors.inputBackground,
+              marginBottom: eventData.capacity.enabled ? 12 : 0
+            }}
+          >
+            <View style={{
+              width: 20,
+              height: 20,
+              borderRadius: 4,
+              borderWidth: 2,
+              borderColor: eventData.capacity.enabled ? theme.colors.secondary : theme.colors.inputBorder,
+              backgroundColor: eventData.capacity.enabled ? theme.colors.secondary : 'transparent',
+              marginRight: 12,
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {eventData.capacity.enabled && (
+                <FontAwesome name="check" size={12} color="white" />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ 
+                color: theme.colors.text, 
+                fontSize: 16,
+                fontWeight: '500'
+              }}>
+                Limit number of attendees
+              </Text>
+              <Text style={{ 
+                color: theme.colors.textSecondary, 
+                fontSize: 14,
+                marginTop: 2
+              }}>
+                Only first {eventData.capacity.maxAttendees || 10} members who accept can attend each occurrence
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Max Attendees Input */}
+          {eventData.capacity.enabled && (
+            <View>
+              <Text style={{ 
+                fontSize: 14, 
+                fontWeight: '500', 
+                color: theme.colors.text,
+                marginBottom: 8
+              }}>
+                Maximum Attendees
+              </Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 16,
+                  backgroundColor: theme.colors.inputBackground,
+                  color: theme.colors.text
+                }}
+                value={eventData.capacity.maxAttendees?.toString() || ''}
+                onChangeText={(text) => {
+                  const number = parseInt(text) || undefined;
+                  setEventData(prev => ({ 
+                    ...prev, 
+                    capacity: { ...prev.capacity, maxAttendees: number } 
+                  }));
+                }}
+                placeholder="e.g. 10"
+                placeholderTextColor={theme.colors.textSecondary}
+                keyboardType="numeric"
+              />
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* Bottom Action */}
@@ -936,7 +1208,7 @@ export default function CreateRecurringEventScreen() {
       </View>
 
       {/* Web Modal Overlay */}
-      {Platform.OS === 'web' && (showStartDatePicker || showEndDatePicker || showTimePicker) && (
+      {Platform.OS === 'web' && (showStartDatePicker || showStartTimePicker || showGatheringTimePicker || showEndDatePicker || showEndTimePicker) && (
         <View style={{
           position: 'absolute',
           top: 0,
@@ -948,7 +1220,7 @@ export default function CreateRecurringEventScreen() {
         }} />
       )}
 
-      {/* Date and Time Pickers */}
+      {/* Start Date Picker */}
       <CustomDateTimePicker
         value={eventData.startDate}
         mode="date"
@@ -961,6 +1233,33 @@ export default function CreateRecurringEventScreen() {
         title="Select Start Date"
       />
 
+      {/* Start Time Picker */}
+      <CustomDateTimePicker
+        value={eventData.startTime}
+        mode="time"
+        isVisible={showStartTimePicker}
+        onConfirm={(time) => {
+          setEventData(prev => ({ ...prev, startTime: time }));
+          setShowStartTimePicker(false);
+        }}
+        onCancel={() => setShowStartTimePicker(false)}
+        title="Select Start Time"
+      />
+
+      {/* Gathering Time Picker */}
+      <CustomDateTimePicker
+        value={eventData.gatheringTime || eventData.startTime}
+        mode="time"
+        isVisible={showGatheringTimePicker}
+        onConfirm={(time) => {
+          setEventData(prev => ({ ...prev, gatheringTime: time }));
+          setShowGatheringTimePicker(false);
+        }}
+        onCancel={() => setShowGatheringTimePicker(false)}
+        title="Select Gathering Time"
+      />
+
+      {/* End Date Picker */}
       <CustomDateTimePicker
         value={eventData.endDate}
         mode="date"
@@ -970,19 +1269,20 @@ export default function CreateRecurringEventScreen() {
           setShowEndDatePicker(false);
         }}
         onCancel={() => setShowEndDatePicker(false)}
-        title="Select End Date"
+        title="Select Recurrence End Date"
       />
 
+      {/* End Time Picker */}
       <CustomDateTimePicker
-        value={eventData.time}
+        value={eventData.endTime}
         mode="time"
-        isVisible={showTimePicker}
+        isVisible={showEndTimePicker}
         onConfirm={(time) => {
-          setEventData(prev => ({ ...prev, time }));
-          setShowTimePicker(false);
+          setEventData(prev => ({ ...prev, endTime: time }));
+          setShowEndTimePicker(false);
         }}
-        onCancel={() => setShowTimePicker(false)}
-        title="Select Time"
+        onCancel={() => setShowEndTimePicker(false)}
+        title="Select End Time"
       />
 
       {/* Confirmation Modal */}

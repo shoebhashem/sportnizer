@@ -1,7 +1,7 @@
 // Sportnizer App Theme
 export const theme = {
   colors: {
-    primary: '#25292e',      // Dark background
+    primary: '#E9967A',      // Dark background
     secondary: '#ffd33d',    // Yellow accent
     white: '#fff',
     text: '#fff',

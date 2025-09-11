@@ -18,9 +18,15 @@ export interface RecurringEventData {
   description: string;
   startDate: Date;
   endDate: Date;
-  time: Date;
+  startTime: Date;
+  gatheringTime?: Date; // Optional gathering time
+  endTime: Date;
   location: string;
   type: 'practice' | 'game' | 'meeting' | 'other';
+  capacity: {
+    enabled: boolean;
+    maxAttendees?: number;
+  };
   recurrence: {
     pattern: 'daily' | 'weekly' | 'monthly';
     interval: number;
@@ -197,7 +203,7 @@ export class EventService {
         originalDescription: eventData.description,
         originalLocation: eventData.location,
         originalEventType: eventData.type,
-        originalTime: eventData.time,
+        originalTime: eventData.startTime,
         recurrence: eventData.recurrence,
         createdBy,
         createdAt: serverTimestamp(),
@@ -279,7 +285,7 @@ export class EventService {
    */
   private generateRecurringDates(eventData: RecurringEventData): Date[] {
     const dates: Date[] = [];
-    const { startDate, endDate, time, recurrence } = eventData;
+    const { startDate, endDate, startTime, recurrence } = eventData;
     const { pattern, interval, daysOfWeek, endType, occurrences } = recurrence;
 
     let currentDate = new Date(startDate);
@@ -309,8 +315,8 @@ export class EventService {
       if (shouldInclude) {
         // Combine the date with the specified time
         const eventDateTime = new Date(currentDate);
-        eventDateTime.setHours(time.getHours());
-        eventDateTime.setMinutes(time.getMinutes());
+        eventDateTime.setHours(startTime.getHours());
+        eventDateTime.setMinutes(startTime.getMinutes());
         eventDateTime.setSeconds(0);
         eventDateTime.setMilliseconds(0);
         

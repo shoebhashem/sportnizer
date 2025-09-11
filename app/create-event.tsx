@@ -21,10 +21,17 @@ import { eventService } from '../services/eventService';
 interface EventData {
   title: string;
   description: string;
-  date: Date;
-  time: Date;
+  startDate: Date;
+  startTime: Date;
+  gatheringTime?: Date; // Optional gathering time
+  endDate: Date;
+  endTime: Date;
   location: string;
   type: 'practice' | 'game' | 'meeting' | 'other';
+  capacity: {
+    enabled: boolean;
+    maxAttendees?: number;
+  };
 }
 
 interface RecipientSelection {
@@ -52,16 +59,34 @@ export default function CreateEventScreen() {
   const [eventData, setEventData] = useState<EventData>({
     title: '',
     description: '',
-    date: new Date(),
-    time: new Date(),
+    startDate: new Date(),
+    startTime: new Date(),
+    gatheringTime: undefined,
+    endDate: (() => {
+      const date = new Date();
+      date.setHours(date.getHours() + 2); // Default 2 hours later
+      return date;
+    })(),
+    endTime: (() => {
+      const time = new Date();
+      time.setHours(time.getHours() + 2); // Default 2 hours later
+      return time;
+    })(),
     location: '',
-    type: 'practice'
+    type: 'practice',
+    capacity: {
+      enabled: false,
+      maxAttendees: undefined
+    }
   });
   
   const [recipients, setRecipients] = useState<RecipientSelection | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showGatheringTimePicker, setShowGatheringTimePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [modal, setModal] = useState<ModalState>({
     visible: false,
     title: '',
@@ -89,8 +114,11 @@ export default function CreateEventScreen() {
           
           const newEventData = {
             ...savedEventData,
-            date: new Date(savedEventData.date),
-            time: new Date(savedEventData.time)
+            startDate: new Date(savedEventData.startDate),
+            startTime: new Date(savedEventData.startTime),
+            gatheringTime: savedEventData.gatheringTime ? new Date(savedEventData.gatheringTime) : undefined,
+            endDate: new Date(savedEventData.endDate),
+            endTime: new Date(savedEventData.endTime)
           };
           
           setEventData(newEventData);
@@ -186,14 +214,15 @@ export default function CreateEventScreen() {
         throw new Error('User not authenticated');
       }
 
-      // Combine date and time for start/end timestamps
-      const startDateTime = new Date(eventData.date);
-      startDateTime.setHours(eventData.time.getHours());
-      startDateTime.setMinutes(eventData.time.getMinutes());
+      // Combine start date and time for start timestamp
+      const startDateTime = new Date(eventData.startDate);
+      startDateTime.setHours(eventData.startTime.getHours());
+      startDateTime.setMinutes(eventData.startTime.getMinutes());
       
-      // Default duration: 2 hours
-      const endDateTime = new Date(startDateTime);
-      endDateTime.setHours(startDateTime.getHours() + 2);
+      // Combine end date and time for end timestamp
+      const endDateTime = new Date(eventData.endDate);
+      endDateTime.setHours(eventData.endTime.getHours());
+      endDateTime.setMinutes(eventData.endTime.getMinutes());
 
       const eventToCreate = {
         title: eventData.title,
@@ -242,10 +271,25 @@ export default function CreateEventScreen() {
       setEventData({
         title: '',
         description: '',
-        date: new Date(),
-        time: new Date(),
+        startDate: new Date(),
+        startTime: new Date(),
+        gatheringTime: undefined,
+        endDate: (() => {
+          const date = new Date();
+          date.setHours(date.getHours() + 2);
+          return date;
+        })(),
+        endTime: (() => {
+          const time = new Date();
+          time.setHours(time.getHours() + 2);
+          return time;
+        })(),
         location: '',
-        type: 'practice'
+        type: 'practice',
+        capacity: {
+          enabled: false,
+          maxAttendees: undefined
+        }
       });
       setRecipients(null);
       setModal({ ...modal, visible: false });
@@ -381,7 +425,7 @@ export default function CreateEventScreen() {
           </View>
         </View>
 
-        {/* Date and Time */}
+        {/* Start Date and Time */}
         <View style={{ 
           flexDirection: 'row', 
           gap: 12,
@@ -394,10 +438,10 @@ export default function CreateEventScreen() {
               color: theme.colors.text,
               marginBottom: 8
             }}>
-              Date
+              Start Date
             </Text>
             <TouchableOpacity
-              onPress={() => setShowDatePicker(true)}
+              onPress={() => setShowStartDatePicker(true)}
               style={{
                 borderWidth: 1,
                 borderColor: theme.colors.inputBorder,
@@ -410,7 +454,7 @@ export default function CreateEventScreen() {
               }}
             >
               <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                {formatDate(eventData.date)}
+                {formatDate(eventData.startDate)}
               </Text>
               <FontAwesome name="calendar" size={16} color={theme.colors.textSecondary} />
             </TouchableOpacity>
@@ -423,10 +467,10 @@ export default function CreateEventScreen() {
               color: theme.colors.text,
               marginBottom: 8
             }}>
-              Time
+              Start Time
             </Text>
             <TouchableOpacity
-              onPress={() => setShowTimePicker(true)}
+              onPress={() => setShowStartTimePicker(true)}
               style={{
                 borderWidth: 1,
                 borderColor: theme.colors.inputBorder,
@@ -439,7 +483,146 @@ export default function CreateEventScreen() {
               }}
             >
               <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                {formatTime(eventData.time)}
+                {formatTime(eventData.startTime)}
+              </Text>
+              <FontAwesome name="clock-o" size={16} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Gathering Time (Optional) */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '600', 
+            color: theme.colors.text,
+            marginBottom: 8
+          }}>
+            Gathering Time (Optional)
+          </Text>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12
+          }}>
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => eventData.gatheringTime ? setShowGatheringTimePicker(true) : null}
+                disabled={!eventData.gatheringTime}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  backgroundColor: eventData.gatheringTime ? theme.colors.inputBackground : theme.colors.inputBackground + '80',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  opacity: eventData.gatheringTime ? 1 : 0.6
+                }}
+              >
+                <Text style={{ 
+                  color: eventData.gatheringTime ? theme.colors.text : theme.colors.textSecondary, 
+                  fontSize: 16 
+                }}>
+                  {eventData.gatheringTime ? formatTime(eventData.gatheringTime) : 'No gathering time'}
+                </Text>
+                <FontAwesome 
+                  name="clock-o" 
+                  size={16} 
+                  color={eventData.gatheringTime ? theme.colors.textSecondary : theme.colors.textSecondary + '80'} 
+                />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (eventData.gatheringTime) {
+                  // Remove gathering time
+                  setEventData(prev => ({ ...prev, gatheringTime: undefined }));
+                } else {
+                  // Add gathering time (30 minutes before start time)
+                  const gatheringTime = new Date(eventData.startTime);
+                  gatheringTime.setMinutes(gatheringTime.getMinutes() - 30);
+                  setEventData(prev => ({ ...prev, gatheringTime }));
+                }
+              }}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderRadius: 8,
+                backgroundColor: eventData.gatheringTime ? theme.colors.error : theme.colors.secondary,
+              }}
+            >
+              <Text style={{ 
+                color: 'white', 
+                fontWeight: '600',
+                fontSize: 14
+              }}>
+                {eventData.gatheringTime ? 'Remove' : 'Add'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* End Date and Time */}
+        <View style={{ 
+          flexDirection: 'row', 
+          gap: 12,
+          marginBottom: 20
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '600', 
+              color: theme.colors.text,
+              marginBottom: 8
+            }}>
+              End Date
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowEndDatePicker(true)}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.inputBorder,
+                borderRadius: 8,
+                padding: 12,
+                backgroundColor: theme.colors.inputBackground,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Text style={{ color: theme.colors.text, fontSize: 16 }}>
+                {formatDate(eventData.endDate)}
+              </Text>
+              <FontAwesome name="calendar" size={16} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '600', 
+              color: theme.colors.text,
+              marginBottom: 8
+            }}>
+              End Time
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowEndTimePicker(true)}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.inputBorder,
+                borderRadius: 8,
+                padding: 12,
+                backgroundColor: theme.colors.inputBackground,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Text style={{ color: theme.colors.text, fontSize: 16 }}>
+                {formatTime(eventData.endTime)}
               </Text>
               <FontAwesome name="clock-o" size={16} color={theme.colors.textSecondary} />
             </TouchableOpacity>
@@ -501,6 +684,109 @@ export default function CreateEventScreen() {
             placeholderTextColor={theme.colors.textSecondary}
             multiline
           />
+        </View>
+
+        {/* Capacity Management */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '600', 
+            color: theme.colors.text,
+            marginBottom: 8
+          }}>
+            Capacity Limit
+          </Text>
+          
+          {/* Enable/Disable Toggle */}
+          <TouchableOpacity
+            onPress={() => setEventData(prev => ({ 
+              ...prev, 
+              capacity: { 
+                ...prev.capacity, 
+                enabled: !prev.capacity.enabled,
+                maxAttendees: !prev.capacity.enabled ? 10 : undefined
+              } 
+            }))}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: theme.colors.inputBorder,
+              backgroundColor: theme.colors.inputBackground,
+              marginBottom: eventData.capacity.enabled ? 12 : 0
+            }}
+          >
+            <View style={{
+              width: 20,
+              height: 20,
+              borderRadius: 4,
+              borderWidth: 2,
+              borderColor: eventData.capacity.enabled ? theme.colors.secondary : theme.colors.inputBorder,
+              backgroundColor: eventData.capacity.enabled ? theme.colors.secondary : 'transparent',
+              marginRight: 12,
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {eventData.capacity.enabled && (
+                <FontAwesome name="check" size={12} color="white" />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ 
+                color: theme.colors.text, 
+                fontSize: 16,
+                fontWeight: '500'
+              }}>
+                Limit number of attendees
+              </Text>
+              <Text style={{ 
+                color: theme.colors.textSecondary, 
+                fontSize: 14,
+                marginTop: 2
+              }}>
+                Only first {eventData.capacity.maxAttendees || 10} members who accept can attend
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Max Attendees Input */}
+          {eventData.capacity.enabled && (
+            <View>
+              <Text style={{ 
+                fontSize: 14, 
+                fontWeight: '500', 
+                color: theme.colors.text,
+                marginBottom: 8
+              }}>
+                Maximum Attendees
+              </Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 16,
+                  backgroundColor: theme.colors.inputBackground,
+                  color: theme.colors.text
+                }}
+                value={eventData.capacity.maxAttendees?.toString() || ''}
+                onChangeText={(text) => {
+                  const number = parseInt(text) || undefined;
+                  setEventData(prev => ({ 
+                    ...prev, 
+                    capacity: { ...prev.capacity, maxAttendees: number } 
+                  }));
+                }}
+                placeholder="e.g. 10"
+                placeholderTextColor={theme.colors.textSecondary}
+                keyboardType="numeric"
+              />
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -574,7 +860,7 @@ export default function CreateEventScreen() {
       </View>
 
       {/* Web Modal Overlay */}
-      {Platform.OS === 'web' && (showDatePicker || showTimePicker) && (
+      {Platform.OS === 'web' && (showStartDatePicker || showStartTimePicker || showGatheringTimePicker || showEndDatePicker || showEndTimePicker) && (
         <View style={{
           position: 'absolute',
           top: 0,
@@ -586,29 +872,69 @@ export default function CreateEventScreen() {
         }} />
       )}
 
-      {/* Unified Date and Time Picker */}
+      {/* Start Date Picker */}
       <CustomDateTimePicker
-        value={eventData.date}
+        value={eventData.startDate}
         mode="date"
-        isVisible={showDatePicker}
+        isVisible={showStartDatePicker}
         onConfirm={(date) => {
-          setEventData(prev => ({ ...prev, date }));
-          setShowDatePicker(false);
+          setEventData(prev => ({ ...prev, startDate: date }));
+          setShowStartDatePicker(false);
         }}
-        onCancel={() => setShowDatePicker(false)}
-        title="Select Date"
+        onCancel={() => setShowStartDatePicker(false)}
+        title="Select Start Date"
       />
 
+      {/* Start Time Picker */}
       <CustomDateTimePicker
-        value={eventData.time}
+        value={eventData.startTime}
         mode="time"
-        isVisible={showTimePicker}
+        isVisible={showStartTimePicker}
         onConfirm={(time) => {
-          setEventData(prev => ({ ...prev, time }));
-          setShowTimePicker(false);
+          setEventData(prev => ({ ...prev, startTime: time }));
+          setShowStartTimePicker(false);
         }}
-        onCancel={() => setShowTimePicker(false)}
-        title="Select Time"
+        onCancel={() => setShowStartTimePicker(false)}
+        title="Select Start Time"
+      />
+
+      {/* Gathering Time Picker */}
+      <CustomDateTimePicker
+        value={eventData.gatheringTime || eventData.startTime}
+        mode="time"
+        isVisible={showGatheringTimePicker}
+        onConfirm={(time) => {
+          setEventData(prev => ({ ...prev, gatheringTime: time }));
+          setShowGatheringTimePicker(false);
+        }}
+        onCancel={() => setShowGatheringTimePicker(false)}
+        title="Select Gathering Time"
+      />
+
+      {/* End Date Picker */}
+      <CustomDateTimePicker
+        value={eventData.endDate}
+        mode="date"
+        isVisible={showEndDatePicker}
+        onConfirm={(date) => {
+          setEventData(prev => ({ ...prev, endDate: date }));
+          setShowEndDatePicker(false);
+        }}
+        onCancel={() => setShowEndDatePicker(false)}
+        title="Select End Date"
+      />
+
+      {/* End Time Picker */}
+      <CustomDateTimePicker
+        value={eventData.endTime}
+        mode="time"
+        isVisible={showEndTimePicker}
+        onConfirm={(time) => {
+          setEventData(prev => ({ ...prev, endTime: time }));
+          setShowEndTimePicker(false);
+        }}
+        onCancel={() => setShowEndTimePicker(false)}
+        title="Select End Time"
       />
 
       {/* Confirmation Modal */}
