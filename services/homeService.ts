@@ -12,9 +12,11 @@ export interface HomeEvent {
   description: string;
   startTime: Date;
   endTime: Date;
+  gatheringTime?: Date; // Optional gathering time
   location: string;
   eventType: 'practice' | 'game' | 'meeting' | 'other';
   createdBy: string;
+  recipientName: string; // Name of the user this invite is addressed to
   responses: {
     [userId: string]: {
       response: 'accepted' | 'declined' | 'maybe';
@@ -112,6 +114,52 @@ class HomeService {
   }
 
   /**
+   * Get user's display name for event invites with role context
+   */
+  private async getUserDisplayName(userId: string, groupId?: string, role?: string): Promise<string> {
+    try {
+      const userDoc = await getDoc(doc(this.db, 'users', userId));
+      const userData = userDoc.data();
+      
+      console.log('HomeService: User data for display name:', userData);
+      
+      let baseName = 'You';
+      
+      // Try different name fields
+      if (userData?.fullName) {
+        baseName = userData.fullName;
+      } else if (userData?.displayName) {
+        baseName = userData.displayName;
+      } else if (userData?.firstName && userData?.lastName) {
+        baseName = `${userData.firstName} ${userData.lastName}`;
+      } else if (userData?.firstName) {
+        baseName = userData.firstName;
+      } else if (userData?.name) {
+        baseName = userData.name;
+      } else if (userData?.email) {
+        // Extract name from email as last resort
+        baseName = userData.email.split('@')[0].replace(/[._-]/g, ' ');
+      }
+
+      // Add role context if available
+      if (role && groupId) {
+        if (role === 'coach') {
+          return `${baseName} (Coach)`;
+        } else if (role === 'admin') {
+          return `${baseName} (Admin)`;
+        } else if (role === 'guardian') {
+          return `${baseName} (Guardian)`;
+        }
+      }
+
+      return baseName;
+    } catch (error) {
+      console.error('Error fetching user display name:', error);
+      return 'You'; // Fallback on error
+    }
+  }
+
+  /**
    * Check if user is eligible for an event based on recipientSelection
    */
   private async isUserEligibleForEvent(eventData: any, userGroups: string[], userId: string): Promise<boolean> {
@@ -163,6 +211,7 @@ class HomeService {
       }
 
       const userGroups = await this.getUserGroups(currentUser.uid);
+      
       if (userGroups.length === 0) {
         console.log('HomeService: No user groups found');
         return [];
@@ -220,6 +269,15 @@ class HomeService {
             continue;
           }
 
+          // Get the user's display name with role context for this specific group
+          const primaryGroupId = eventData.groupIds?.[0];
+          let recipientName = currentUser.displayName || currentUser.email || 'You';
+          
+          if (primaryGroupId) {
+            const displayName = await this.getUserDisplayName(currentUser.uid, primaryGroupId);
+            recipientName = displayName || recipientName;
+          }
+
           // Add eligible event to list
           events.push({
             id: eventDoc.id,
@@ -228,9 +286,11 @@ class HomeService {
             description: eventData.description || '',
             startTime: eventData.startTime?.toDate() || new Date(),
             endTime: eventData.endTime?.toDate() || new Date(),
+            gatheringTime: eventData.gatheringTime?.toDate() || undefined,
             location: eventData.location || '',
             eventType: eventData.eventType || 'other',
             createdBy: eventData.createdBy || '',
+            recipientName: recipientName, // Add the recipient name with role context
             responses: eventData.responses || {},
             recipientGroups: eventData.groupIds || [],
             isRecurring: eventData.type === 'recurring-occurrence',

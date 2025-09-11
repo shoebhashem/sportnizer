@@ -663,6 +663,19 @@ export default function SelectRecipientsScreen() {
         borderTopColor: theme.colors.inputBorder,
         backgroundColor: theme.colors.primary,
       }}>
+        {/* Info text for multiple groups */}
+        {Object.keys(selectedGroups).length > 1 && (
+          <Text style={{
+            fontSize: 12,
+            color: theme.colors.textSecondary,
+            textAlign: 'center',
+            marginBottom: 12,
+            fontStyle: 'italic'
+          }}>
+            Note: If the same user is in multiple selected groups, they will still receive only one invite. The count above may include duplicates.
+          </Text>
+        )}
+        
         <Button
           label={`Confirm Selection (${calculateTotalRecipients()} recipients)`}
           onPress={handleConfirmSelection}

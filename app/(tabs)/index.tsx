@@ -184,6 +184,13 @@ export default function Index() {
     });
   };
 
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
@@ -266,6 +273,7 @@ export default function Index() {
                     onPress={() => handleEventPress(event)}
                     onResponse={handleEventResponse}
                     formatDate={formatDate}
+                    formatTime={formatTime}
                   />
                 ))}
                 
@@ -327,11 +335,12 @@ export default function Index() {
 }
 
 // Event Card Component
-const EventCard = ({ event, onPress, onResponse, formatDate }: {
+const EventCard = ({ event, onPress, onResponse, formatDate, formatTime }: {
   event: HomeEvent;
   onPress: () => void;
   onResponse: (eventId: string, response: 'accepted' | 'declined' | 'maybe') => void;
   formatDate: (date: Date) => string;
+  formatTime: (date: Date) => string;
 }) => {
   const currentUser = getCurrentUser();
   const userResponse = currentUser ? event.responses[currentUser.uid]?.response : undefined;
@@ -344,15 +353,39 @@ const EventCard = ({ event, onPress, onResponse, formatDate }: {
           <Text style={styles.eventType}>{event.eventType}</Text>
         </View>
       </View>
-      
-      <Text style={styles.eventDescription} numberOfLines={2}>{event.description}</Text>
+
+      {/* Recipient Name */}
+      <View style={styles.recipientContainer}>
+        <Ionicons name="person-outline" size={14} color={theme.colors.secondary} />
+        <Text style={styles.recipientText}>Hey {event.recipientName}!</Text>
+      </View>
       
       <View style={styles.eventDetails}>
+        {/* Date */}
         <View style={styles.eventDetailRow}>
-          <Ionicons name="time-outline" size={16} color={theme.colors.textSecondary} />
+          <Ionicons name="calendar-outline" size={16} color={theme.colors.textSecondary} />
           <Text style={styles.eventDetailText}>{formatDate(event.startTime)}</Text>
         </View>
+
+        {/* Gathering Time (if available) */}
+        {event.gatheringTime && (
+          <View style={styles.eventDetailRow}>
+            <Ionicons name="people-outline" size={16} color={theme.colors.textSecondary} />
+            <Text style={styles.eventDetailText}>
+              Gather at {formatTime(event.gatheringTime)}
+            </Text>
+          </View>
+        )}
+
+        {/* Start Time - End Time */}
+        <View style={styles.eventDetailRow}>
+          <Ionicons name="time-outline" size={16} color={theme.colors.textSecondary} />
+          <Text style={styles.eventDetailText}>
+            {formatTime(event.startTime)} - {formatTime(event.endTime)}
+          </Text>
+        </View>
         
+        {/* Location */}
         <View style={styles.eventDetailRow}>
           <Ionicons name="location-outline" size={16} color={theme.colors.textSecondary} />
           <Text style={styles.eventDetailText}>{event.location || 'Location TBD'}</Text>
@@ -560,11 +593,18 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.medium,
     textTransform: 'capitalize',
   },
-  eventDescription: {
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.md,
-    lineHeight: 20,
+  recipientContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xs,
+  },
+  recipientText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.secondary,
+    fontWeight: theme.typography.fontWeight.medium,
+    marginLeft: theme.spacing.xs,
+    fontStyle: 'italic',
   },
   eventDetails: {
     marginBottom: theme.spacing.md,

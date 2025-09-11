@@ -156,6 +156,19 @@ export class EventService {
   private db = getFirestore();
 
   /**
+   * Utility to remove undefined values from an object before sending to Firestore
+   */
+  private removeUndefinedFields(obj: any): any {
+    const cleanObj = { ...obj };
+    Object.keys(cleanObj).forEach(key => {
+      if (cleanObj[key] === undefined) {
+        delete cleanObj[key];
+      }
+    });
+    return cleanObj;
+  }
+
+  /**
    * Create a new one-time event
    */
   async createEvent(
@@ -171,16 +184,15 @@ export class EventService {
       const groupIds = recipients.groups.map(group => group.groupId);
       console.log('EventService: Group IDs:', groupIds);
 
+      // Build event document, filtering out undefined values
       const eventDoc: Omit<Event, 'id'> = {
         type: 'one-time',
         title: eventData.title.trim(),
         description: eventData.description.trim(),
         startTime: eventData.startTime,
         endTime: eventData.endTime,
-        gatheringTime: eventData.gatheringTime,
         location: eventData.location.trim(),
         eventType: eventData.type,
-        capacity: eventData.capacity,
         responseDeadline: eventData.responseDeadline?.enabled && eventData.responseDeadline.date 
           ? eventData.responseDeadline.date 
           : eventData.startTime, // Default to start time
@@ -205,6 +217,15 @@ export class EventService {
           invitedCount: recipients.totalCount
         }
       };
+
+      // Add optional fields only if they have valid values
+      if (eventData.gatheringTime) {
+        (eventDoc as any).gatheringTime = eventData.gatheringTime;
+      }
+
+      if (eventData.capacity) {
+        (eventDoc as any).capacity = eventData.capacity;
+      }
 
       console.log('EventService: Final event document:', eventDoc);
       console.log('EventService: Attempting to write to Firestore...');
@@ -304,10 +325,8 @@ export class EventService {
           description: eventData.description,
           startTime: startDate,
           endTime: endTime,
-          gatheringTime: gatheringTime,
           location: eventData.location,
           eventType: eventData.type,
-          capacity: eventData.capacity,
           responseDeadline: responseDeadline,
           
           // Recurring event fields
@@ -336,6 +355,15 @@ export class EventService {
             invitedCount: recipients.totalCount
           }
         };
+
+        // Add optional fields only if they have valid values
+        if (gatheringTime) {
+          (eventDoc as any).gatheringTime = gatheringTime;
+        }
+
+        if (eventData.capacity) {
+          (eventDoc as any).capacity = eventData.capacity;
+        }
 
         console.log(`EventService: Creating event ${i + 1}/${occurrences.length}...`);
         const docRef = await addDoc(collection(this.db, 'events'), eventDoc);
