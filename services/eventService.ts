@@ -9,8 +9,17 @@ export interface EventData {
   description: string;
   startTime: Date;
   endTime: Date;
+  gatheringTime?: Date;
   location: string;
   type: 'practice' | 'game' | 'meeting' | 'other';
+  capacity?: {
+    enabled: boolean;
+    maxAttendees?: number;
+  };
+  responseDeadline?: {
+    enabled: boolean;
+    date?: Date;
+  };
 }
 
 export interface RecurringEventData {
@@ -30,6 +39,10 @@ export interface RecurringEventData {
   notification: {
     advanceTime: number; // Days/hours before event to send notification
     timeUnit: 'days' | 'hours'; // Unit for advance time
+  };
+  responseDeadline: {
+    enabled: boolean; // Whether custom deadline is enabled
+    date?: Date; // Custom deadline date (if enabled)
   };
   recurrence: {
     pattern: 'daily' | 'weekly' | 'monthly';
@@ -69,6 +82,10 @@ export interface RecurringEventMaster {
     advanceTime: number;
     timeUnit: 'days' | 'hours';
   };
+  responseDeadline: {
+    enabled: boolean;
+    date?: Date;
+  };
   recurrence: {
     pattern: 'daily' | 'weekly' | 'monthly';
     interval: number;
@@ -97,6 +114,7 @@ export interface Event {
     enabled: boolean;
     maxAttendees?: number;
   };
+  responseDeadline?: Date; // When members must respond by
   
   // Recurring event fields (for recurring instances)
   recurringEventId?: string;
@@ -157,8 +175,13 @@ export class EventService {
         description: eventData.description.trim(),
         startTime: eventData.startTime,
         endTime: eventData.endTime,
+        gatheringTime: eventData.gatheringTime,
         location: eventData.location.trim(),
         eventType: eventData.type,
+        capacity: eventData.capacity,
+        responseDeadline: eventData.responseDeadline?.enabled && eventData.responseDeadline.date 
+          ? eventData.responseDeadline.date 
+          : eventData.startTime, // Default to start time
         
         // Creation & Management
         createdBy,
@@ -227,6 +250,7 @@ export class EventService {
         originalGatheringTime: eventData.gatheringTime,
         capacity: eventData.capacity,
         notification: eventData.notification,
+        responseDeadline: eventData.responseDeadline,
         recurrence: eventData.recurrence,
         createdBy,
         createdAt: serverTimestamp(),
@@ -261,6 +285,17 @@ export class EventService {
           gatheringTime = new Date(startDate.getTime() + gatheringOffset);
         }
 
+        // Calculate response deadline
+        let responseDeadline: Date;
+        if (eventData.responseDeadline.enabled && eventData.responseDeadline.date) {
+          // Use custom deadline, but offset relative to this specific event occurrence
+          const deadlineOffset = eventData.responseDeadline.date.getTime() - eventData.startDate.getTime();
+          responseDeadline = new Date(startDate.getTime() + deadlineOffset);
+        } else {
+          // Default to event start date
+          responseDeadline = startDate;
+        }
+
         const eventDoc: Event = {
           type: 'recurring-instance',
           title: eventData.title,
@@ -271,6 +306,7 @@ export class EventService {
           location: eventData.location,
           eventType: eventData.type,
           capacity: eventData.capacity,
+          responseDeadline: responseDeadline,
           
           // Recurring event fields
           recurringEventId: masterId,

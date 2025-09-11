@@ -32,6 +32,10 @@ interface EventData {
     enabled: boolean;
     maxAttendees?: number;
   };
+  responseDeadline: {
+    enabled: boolean; // Whether custom deadline is enabled
+    date?: Date; // Custom deadline date (if enabled)
+  };
 }
 
 interface RecipientSelection {
@@ -77,6 +81,10 @@ export default function CreateEventScreen() {
     capacity: {
       enabled: false,
       maxAttendees: undefined
+    },
+    responseDeadline: {
+      enabled: false, // Default to using event start date as deadline
+      date: undefined
     }
   });
   
@@ -87,6 +95,7 @@ export default function CreateEventScreen() {
   const [showGatheringTimePicker, setShowGatheringTimePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showResponseDeadlinePicker, setShowResponseDeadlinePicker] = useState(false);
   const [modal, setModal] = useState<ModalState>({
     visible: false,
     title: '',
@@ -118,7 +127,11 @@ export default function CreateEventScreen() {
             startTime: new Date(savedEventData.startTime),
             gatheringTime: savedEventData.gatheringTime ? new Date(savedEventData.gatheringTime) : undefined,
             endDate: new Date(savedEventData.endDate),
-            endTime: new Date(savedEventData.endTime)
+            endTime: new Date(savedEventData.endTime),
+            responseDeadline: {
+              ...savedEventData.responseDeadline,
+              date: savedEventData.responseDeadline?.date ? new Date(savedEventData.responseDeadline.date) : undefined
+            }
           };
           
           setEventData(newEventData);
@@ -289,6 +302,10 @@ export default function CreateEventScreen() {
         capacity: {
           enabled: false,
           maxAttendees: undefined
+        },
+        responseDeadline: {
+          enabled: false, // Default to using event start date as deadline
+          date: undefined
         }
       });
       setRecipients(null);
@@ -788,6 +805,120 @@ export default function CreateEventScreen() {
             </View>
           )}
         </View>
+
+        {/* Response Deadline */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '600', 
+            color: theme.colors.text,
+            marginBottom: 8
+          }}>
+            Response Deadline
+          </Text>
+          <Text style={{ 
+            fontSize: 14, 
+            color: theme.colors.textSecondary,
+            marginBottom: 12
+          }}>
+            When should members respond by? Default is event start date.
+          </Text>
+          
+          {/* Enable/Disable Custom Deadline Toggle */}
+          <TouchableOpacity
+            onPress={() => setEventData(prev => ({ 
+              ...prev, 
+              responseDeadline: { 
+                ...prev.responseDeadline, 
+                enabled: !prev.responseDeadline.enabled,
+                date: !prev.responseDeadline.enabled ? (() => {
+                  // Default to 1 day before start date when enabling
+                  const deadline = new Date(prev.startDate);
+                  deadline.setDate(deadline.getDate() - 1);
+                  return deadline;
+                })() : undefined
+              } 
+            }))}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: theme.colors.inputBorder,
+              backgroundColor: theme.colors.inputBackground,
+              marginBottom: eventData.responseDeadline.enabled ? 12 : 0
+            }}
+          >
+            <View style={{
+              width: 20,
+              height: 20,
+              borderRadius: 4,
+              borderWidth: 2,
+              borderColor: eventData.responseDeadline.enabled ? theme.colors.secondary : theme.colors.inputBorder,
+              backgroundColor: eventData.responseDeadline.enabled ? theme.colors.secondary : 'transparent',
+              marginRight: 12,
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {eventData.responseDeadline.enabled && (
+                <FontAwesome name="check" size={12} color="white" />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ 
+                color: theme.colors.text, 
+                fontSize: 16,
+                fontWeight: '500'
+              }}>
+                Set custom response deadline
+              </Text>
+              <Text style={{ 
+                color: theme.colors.textSecondary, 
+                fontSize: 14,
+                marginTop: 2
+              }}>
+                {eventData.responseDeadline.enabled 
+                  ? `Deadline: ${eventData.responseDeadline.date ? eventData.responseDeadline.date.toLocaleDateString() : 'Select date'}`
+                  : 'Members can respond until event start date'
+                }
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Custom Deadline Date Picker */}
+          {eventData.responseDeadline.enabled && (
+            <View>
+              <Text style={{ 
+                fontSize: 14, 
+                fontWeight: '500', 
+                color: theme.colors.text,
+                marginBottom: 8
+              }}>
+                Deadline Date
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowResponseDeadlinePicker(true)}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  backgroundColor: theme.colors.inputBackground,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <Text style={{ color: theme.colors.text, fontSize: 16 }}>
+                  {eventData.responseDeadline.date ? eventData.responseDeadline.date.toLocaleDateString() : 'Select deadline date'}
+                </Text>
+                <FontAwesome name="calendar" size={16} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* Bottom Action */}
@@ -860,7 +991,7 @@ export default function CreateEventScreen() {
       </View>
 
       {/* Web Modal Overlay */}
-      {Platform.OS === 'web' && (showStartDatePicker || showStartTimePicker || showGatheringTimePicker || showEndDatePicker || showEndTimePicker) && (
+      {Platform.OS === 'web' && (showStartDatePicker || showStartTimePicker || showGatheringTimePicker || showEndDatePicker || showEndTimePicker || showResponseDeadlinePicker) && (
         <View style={{
           position: 'absolute',
           top: 0,
@@ -935,6 +1066,22 @@ export default function CreateEventScreen() {
         }}
         onCancel={() => setShowEndTimePicker(false)}
         title="Select End Time"
+      />
+
+      {/* Response Deadline Date Picker */}
+      <CustomDateTimePicker
+        value={eventData.responseDeadline.date || eventData.startDate}
+        mode="date"
+        isVisible={showResponseDeadlinePicker}
+        onConfirm={(date) => {
+          setEventData(prev => ({ 
+            ...prev, 
+            responseDeadline: { ...prev.responseDeadline, date } 
+          }));
+          setShowResponseDeadlinePicker(false);
+        }}
+        onCancel={() => setShowResponseDeadlinePicker(false)}
+        title="Select Response Deadline"
       />
 
       {/* Confirmation Modal */}
