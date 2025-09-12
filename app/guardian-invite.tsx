@@ -37,6 +37,7 @@ export default function GuardianInviteScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [relationship, setRelationship] = useState('parent');
 
   const fetchInvitationDetails = useCallback(async () => {
     if (!token) {
@@ -176,37 +177,47 @@ export default function GuardianInviteScreen() {
       }
 
       // Process the guardian invitation
+      console.log('Sending guardian invitation processing request:', {
+        invitationToken: token,
+        guardianEmail: authUser.email,
+        guardianName: authUser.displayName || fullName || authUser.email?.split('@')[0] || 'Guardian',
+        relationship: relationship
+      });
+      
       const response = await fetch('https://europe-north1-sportnizer.cloudfunctions.net/processGuardianInvitation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          token: token,
-          guardianId: authUser.uid,
+          invitationToken: token,
           guardianEmail: authUser.email,
-          guardianName: authUser.displayName || fullName || authUser.email
+          guardianName: authUser.displayName || fullName || authUser.email?.split('@')[0] || 'Guardian',
+          relationship: relationship
         })
       });
 
+      console.log('Guardian invitation response status:', response.status);
       const result = await response.json();
+      console.log('Guardian invitation response:', result);
 
       if (result.success) {
         Alert.alert(
           'Welcome!',
-          `You are now a guardian for ${invitationDetails.childName} in ${invitationDetails.groupName}.`,
+          `You are now a guardian for ${invitationDetails.childName} in ${invitationDetails.groupName}.\n\nYou can now manage your child's participation in group activities. The group should appear in your groups list.`,
           [
             {
-              text: 'Continue',
+              text: 'View Groups',
               onPress: () => {
-                // Navigate to the group or dashboard
+                // Navigate to the groups/dashboard page
                 router.replace('/');
               }
             }
           ]
         );
       } else {
-        Alert.alert('Error', result.error || 'Failed to accept invitation. Please try again.');
+        console.error('Guardian invitation failed:', result);
+        Alert.alert('Error', result.error || 'Failed to accept invitation. Please check the console and try again.');
       }
     } catch (error) {
       console.error('Error accepting invitation:', error);
@@ -378,6 +389,30 @@ export default function GuardianInviteScreen() {
                 secureTextEntry
               />
             )}
+            
+            {/* Relationship Selector */}
+            <View style={styles.relationshipSection}>
+              <Text style={styles.relationshipLabel}>Relationship to Child</Text>
+              <View style={styles.relationshipOptions}>
+                {['parent', 'guardian', 'relative', 'other'].map((rel) => (
+                  <TouchableOpacity
+                    key={rel}
+                    style={[
+                      styles.relationshipOption,
+                      relationship === rel && styles.relationshipOptionSelected
+                    ]}
+                    onPress={() => setRelationship(rel)}
+                  >
+                    <Text style={[
+                      styles.relationshipText,
+                      relationship === rel && styles.relationshipTextSelected
+                    ]}>
+                      {rel.charAt(0).toUpperCase() + rel.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </View>
         )}
 
@@ -560,6 +595,42 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.medium,
   },
   toggleTextActive: {
+    color: theme.colors.white,
+  },
+  relationshipSection: {
+    marginTop: 20,
+  },
+  relationshipLabel: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.text,
+    marginBottom: 12,
+  },
+  relationshipOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  relationshipOption: {
+    backgroundColor: theme.colors.inputBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  relationshipOptionSelected: {
+    backgroundColor: theme.colors.secondary,
+    borderColor: theme.colors.secondary,
+  },
+  relationshipText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  relationshipTextSelected: {
     color: theme.colors.white,
   },
   actions: {
