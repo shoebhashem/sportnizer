@@ -1,7 +1,6 @@
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 import { getCurrentUser } from './authService';
-
-const functions = getFunctions();
+import { functions } from './firebase';
 
 export interface GuardianInvitationRequest {
   groupId: string;

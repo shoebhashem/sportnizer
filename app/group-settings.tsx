@@ -57,10 +57,6 @@ export default function GroupSettingsScreen() {
   // Coach Management State
   const [showAddCoachModal, setShowAddCoachModal] = useState(false);
   
-  // Guardian Confirmation State
-  const [showGuardianConfirmModal, setShowGuardianConfirmModal] = useState(false);
-  const [sendingConfirmations, setSendingConfirmations] = useState(false);
-
   const fetchGroupData = useCallback(async () => {
     if (!groupId || !user?.uid) return;
     
@@ -375,12 +371,14 @@ export default function GroupSettingsScreen() {
     }
   };
 
-  const handleAddCoach = () => {
-    setShowAddCoachModal(true);
-  };
-
   const handleSendGuardianConfirmation = () => {
-    setShowGuardianConfirmModal(true);
+    router.push({
+      pathname: '/invite-guardians',
+      params: {
+        groupId: groupId as string,
+        groupName: group?.name || 'Group'
+      }
+    });
   };
 
   const isAdmin = userRole === 'admin';
@@ -522,7 +520,7 @@ export default function GroupSettingsScreen() {
           {canManage && group?.ageGroup === 1 && (
             <TouchableOpacity 
               style={styles.optionItem}
-              onPress={() => setShowGuardianConfirmModal(true)}
+              onPress={handleSendGuardianConfirmation}
             >
               <View style={styles.optionIcon}>
                 <Ionicons 
@@ -742,67 +740,6 @@ export default function GroupSettingsScreen() {
                   onPress={() => setShowAddCoachModal(false)}
                   theme="secondary"
                 />
-              </View>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
-
-      {/* Guardian Confirmation Modal */}
-      <Modal
-        visible={showGuardianConfirmModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowGuardianConfirmModal(false)}
-      >
-        <Pressable 
-          style={styles.modalOverlay} 
-          onPress={() => setShowGuardianConfirmModal(false)}
-        >
-          <View style={styles.modalContainer}>
-            <Pressable onPress={() => {}} style={styles.modal}>
-              <Text style={styles.modalTitle}>Invite Guardians</Text>
-              
-              <Text style={styles.modalDescription}>
-                Select children to send guardian invitation links:
-              </Text>
-              
-              <ScrollView style={styles.unconfirmedChildrenList}>
-                {group?.unconfirmedMembers?.map((member, index) => (
-                  <TouchableOpacity key={member.id} style={styles.childOption}>
-                    <View style={styles.childInfo}>
-                      <Text style={styles.childName}>{member.name}</Text>
-                      {member.birthDate && (
-                        <Text style={styles.childBirthDate}>Born: {member.birthDate}</Text>
-                      )}
-                    </View>
-                    <View style={styles.confirmationStatus}>
-                      {member.invitationToken ? (
-                        <Text style={styles.invitationSent}>✓ Invitation Sent</Text>
-                      ) : (
-                        <Text style={styles.invitationPending}>⏳ Pending Invitation</Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              
-              <View style={styles.modalButtons}>
-                <View style={styles.modalButton}>
-                  <Button
-                    label="Cancel"
-                    onPress={() => setShowGuardianConfirmModal(false)}
-                    theme="secondary"
-                  />
-                </View>
-                <View style={styles.modalButton}>
-                  <Button
-                    label={sendingConfirmations ? "Sending..." : "Send Selected"}
-                    onPress={() => {/* TODO: Implement send confirmations */}}
-                    theme="primary"
-                    disabled={sendingConfirmations}
-                  />
-                </View>
               </View>
             </Pressable>
           </View>
@@ -1032,5 +969,50 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.medium,
+  },
+  childOptionSelected: {
+    backgroundColor: theme.colors.inputBackground,
+    borderColor: theme.colors.secondary,
+    borderWidth: 1,
+  },
+  selectionIndicator: {
+    marginRight: 12,
+  },
+  memberDetails: {
+    flex: 1,
+  },
+  emailSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.inputBorder,
+  },
+  emailSectionTitle: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.medium,
+    marginBottom: 15,
+  },
+  emailInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  emailInput: {
+    flex: 1,
+    marginRight: 10,
+  },
+  removeEmailButton: {
+    padding: 5,
+  },
+  addEmailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  addEmailText: {
+    marginLeft: 8,
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.secondary,
   },
 });
