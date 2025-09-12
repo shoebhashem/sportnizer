@@ -888,3 +888,457 @@ export const verifyEmail = onRequest(
     }
   }
 );
+
+// Guardian Invitation System
+export const sendGuardianInvitations = onCall(
+  {
+    region: 'europe-north1',
+  },
+  async (request) => {
+    try {
+      const { groupId, selectedMemberIds, guardianEmails } = request.data;
+
+      if (!groupId || !selectedMemberIds || !Array.isArray(selectedMemberIds) || selectedMemberIds.length === 0) {
+        throw new HttpsError('invalid-argument', 'Group ID and selected member IDs are required');
+      }
+
+      if (!guardianEmails || !Array.isArray(guardianEmails) || guardianEmails.length === 0) {
+        throw new HttpsError('invalid-argument', 'Guardian emails are required');
+      }
+
+      // Verify the user is authenticated
+      if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be authenticated');
+      }
+
+      // Get group details
+      const groupDoc = await admin.firestore().collection('groups').doc(groupId).get();
+      if (!groupDoc.exists) {
+        throw new HttpsError('not-found', 'Group not found');
+      }
+
+      const groupData = groupDoc.data();
+      const groupName = groupData?.name || 'Unknown Group';
+
+      // Get inviter details
+      const inviterDoc = await admin.firestore().collection('users').doc(request.auth.uid).get();
+      const inviterName = inviterDoc.exists ? inviterDoc.data()?.name || 'Unknown' : 'Unknown';
+
+      const results = [];
+      const batch = admin.firestore().batch();
+
+      for (const memberId of selectedMemberIds) {
+        try {
+          // Get member details
+          const memberDoc = await admin.firestore()
+            .collection('groups')
+            .doc(groupId)
+            .collection('members')
+            .doc(memberId)
+            .get();
+
+          if (!memberDoc.exists) {
+            results.push({
+              memberId,
+              success: false,
+              error: 'Member not found',
+            });
+            continue;
+          }
+
+          const memberData = memberDoc.data();
+          const memberName = memberData?.name || 'Unknown Member';
+
+          // Generate unique invitation token
+          const invitationToken = admin.firestore().collection('guardianInvitations').doc().id;
+          
+          // Store invitation details in Firestore
+          const invitationData = {
+            groupId,
+            groupName,
+            memberId,
+            memberName,
+            memberBirthDate: memberData?.birthDate || null,
+            guardianEmails: guardianEmails.map((email: string) => email.trim().toLowerCase()),
+            inviterUid: request.auth.uid,
+            inviterName,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+            status: 'pending',
+            used: false,
+          };
+
+          await admin.firestore().collection('guardianInvitations').doc(invitationToken).set(invitationData);
+
+          // Update member with invitation token
+          batch.update(admin.firestore()
+            .collection('groups')
+            .doc(groupId)
+            .collection('members')
+            .doc(memberId), {
+            invitationToken,
+            guardianEmails: guardianEmails.map((email: string) => email.trim().toLowerCase()),
+          });
+
+          // Create invitation link
+          const baseUrl = process.env.BASE_URL || 'http://localhost:8081';
+          const invitationLink = `${baseUrl}/guardian-invite?token=${invitationToken}`;
+
+          // Send email to each guardian
+          for (const guardianEmail of guardianEmails) {
+            const mailOptions = {
+              from: 'noreply@sportnizer.com',
+              to: guardianEmail.trim(),
+              subject: `Confirm ${memberName}'s participation in ${groupName}`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+                  <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #007AFF; margin: 0; font-size: 28px;">Sportnizer</h1>
+                  </div>
+                  
+                  <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h2 style="color: #333; margin-bottom: 20px;">Guardian Confirmation Required</h2>
+                    
+                    <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                      <strong>${inviterName}</strong> has added <strong>${memberName}</strong> to the group <strong>${groupName}</strong> and needs your confirmation as their guardian.
+                    </p>
+                    
+                    <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 25px;">
+                      Sportnizer helps sports groups manage events, track attendance, and stay connected. As ${memberName}'s guardian, you'll be able to:
+                    </p>
+                    
+                    <ul style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 25px;">
+                      <li>Receive event invitations on behalf of ${memberName}</li>
+                      <li>Accept or decline participation in activities</li>
+                      <li>Stay updated with group announcements</li>
+                      <li>View ${memberName}'s schedule and activities</li>
+                    </ul>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${invitationLink}" style="background-color: #007AFF; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px;">
+                        Confirm ${memberName}'s Participation
+                      </a>
+                    </div>
+                    
+                    <p style="color: #999; font-size: 14px; margin-top: 25px;">
+                      If the button doesn't work, copy and paste this link into your browser:<br>
+                      <a href="${invitationLink}" style="color: #007AFF; word-break: break-all;">${invitationLink}</a>
+                    </p>
+                    
+                    <p style="color: #999; font-size: 12px; margin-top: 25px;">
+                      This invitation will expire in 14 days. If you don't recognize this group or child, you can safely ignore this email.
+                    </p>
+                  </div>
+                  
+                  <div style="text-align: center; margin-top: 20px;">
+                    <p style="color: #999; font-size: 12px;">© 2025 Sportnizer. All rights reserved.</p>
+                  </div>
+                </div>
+              `,
+            };
+
+            await transporter.sendMail(mailOptions);
+          }
+          
+          results.push({
+            memberId,
+            memberName,
+            success: true,
+            invitationToken,
+            guardianEmails,
+          });
+
+        } catch (error) {
+          console.error(`Error sending guardian invitation for member ${memberId}:`, error);
+          results.push({
+            memberId,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+
+      // Execute batch updates
+      await batch.commit();
+
+      return {
+        success: true,
+        results,
+      };
+
+    } catch (error) {
+      console.error('Error in sendGuardianInvitations:', error);
+      throw new HttpsError('internal', 'Failed to send guardian invitations');
+    }
+  }
+);
+
+export const processGuardianInvitation = onRequest(
+  {
+    region: 'europe-north1',
+    cors: true,
+  },
+  async (req, res) => {
+    // Set CORS headers
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.status(200).send('');
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      res.status(405).json({ success: false, error: 'Method not allowed' });
+      return;
+    }
+
+    try {
+      const { invitationToken, guardianEmail, guardianName, guardianPhone, relationship } = req.body;
+      console.log(`Processing guardian invitation - Token: ${invitationToken}, Email: ${guardianEmail}`);
+
+      if (!invitationToken || !guardianEmail || !guardianName || !relationship) {
+        console.log('Missing required parameters');
+        res.status(400).json({ 
+          success: false, 
+          error: 'Invitation token, guardian email, name, and relationship are required' 
+        });
+        return;
+      }
+
+      // Get invitation details
+      const invitationDoc = await admin.firestore()
+        .collection('guardianInvitations')
+        .doc(invitationToken)
+        .get();
+
+      if (!invitationDoc.exists) {
+        console.log('Guardian invitation not found');
+        res.status(404).json({ 
+          success: false, 
+          error: 'Invitation not found or expired' 
+        });
+        return;
+      }
+
+      const invitationData = invitationDoc.data();
+
+      if (!invitationData || invitationData.used || invitationData.status !== 'pending') {
+        console.log('Guardian invitation already processed');
+        res.status(400).json({ 
+          success: false, 
+          error: 'This invitation has already been processed' 
+        });
+        return;
+      }
+
+      // Check if invitation has expired
+      const now = new Date();
+      const expiresAt = invitationData.expiresAt?.toDate();
+      if (expiresAt && now > expiresAt) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'This invitation has expired' 
+        });
+        return;
+      }
+
+      // Find or create guardian user account
+      let guardianUser;
+      try {
+        guardianUser = await admin.auth().getUserByEmail(guardianEmail.toLowerCase());
+      } catch {
+        // User doesn't exist, create one
+        guardianUser = await admin.auth().createUser({
+          email: guardianEmail.toLowerCase(),
+          displayName: guardianName,
+        });
+
+        // Create user document in Firestore
+        await admin.firestore().collection('users').doc(guardianUser.uid).set({
+          name: guardianName,
+          email: guardianEmail.toLowerCase(),
+          emailVerified: false, // They'll need to verify their email
+          groupsJoined: [invitationData.groupId],
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      const batch = admin.firestore().batch();
+
+      // Update member to confirmed status
+      const memberRef = admin.firestore()
+        .collection('groups')
+        .doc(invitationData.groupId)
+        .collection('members')
+        .doc(invitationData.memberId);
+      
+      batch.update(memberRef, {
+        isConfirmed: true,
+        confirmedAt: admin.firestore.FieldValue.serverTimestamp(),
+        confirmedBy: guardianUser.uid,
+      });
+
+      // Add guardian to member's guardians subcollection
+      const guardianRef = admin.firestore()
+        .collection('groups')
+        .doc(invitationData.groupId)
+        .collection('members')
+        .doc(invitationData.memberId)
+        .collection('guardians')
+        .doc(guardianUser.uid);
+
+      batch.set(guardianRef, {
+        guardianUserId: guardianUser.uid,
+        relationship,
+        contactEmail: guardianEmail.toLowerCase(),
+        contactPhone: guardianPhone || '',
+        addedAt: admin.firestore.FieldValue.serverTimestamp(),
+        addedViaInvitation: invitationToken,
+      });
+
+      // Update guardian's user document with group membership
+      const guardianUserRef = admin.firestore().collection('users').doc(guardianUser.uid);
+      batch.update(guardianUserRef, {
+        groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
+      });
+
+      // Mark invitation as used
+      batch.update(invitationDoc.ref, {
+        used: true,
+        status: 'confirmed',
+        usedAt: admin.firestore.FieldValue.serverTimestamp(),
+        usedBy: guardianUser.uid,
+      });
+
+      // Execute all updates
+      await batch.commit();
+      console.log('Guardian confirmation completed successfully');
+
+      // Clean up invitation after successful processing
+      setTimeout(async () => {
+        try {
+          await invitationDoc.ref.delete();
+          console.log('Guardian invitation cleaned up');
+        } catch (cleanupError) {
+          console.error('Error cleaning up guardian invitation:', cleanupError);
+        }
+      }, 5000);
+
+      res.status(200).json({ 
+        success: true, 
+        message: `Successfully confirmed ${invitationData.memberName}'s participation in ${invitationData.groupName}`,
+        memberName: invitationData.memberName,
+        groupName: invitationData.groupName
+      });
+
+    } catch (error) {
+      console.error('Error processing guardian invitation:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Internal server error' 
+      });
+    }
+  }
+);
+
+export const getGuardianInvitationDetails = onRequest(
+  {
+    region: 'europe-north1',
+    cors: true,
+  },
+  async (req, res) => {
+    // Set CORS headers
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.status(200).send('');
+      return;
+    }
+
+    if (req.method !== 'GET') {
+      res.status(405).json({ success: false, error: 'Method not allowed' });
+      return;
+    }
+
+    try {
+      const invitationToken = req.query.token as string;
+      console.log(`Getting guardian invitation details for token: ${invitationToken}`);
+
+      if (!invitationToken) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Invitation token is required' 
+        });
+        return;
+      }
+
+      // Get invitation details
+      const invitationDoc = await admin.firestore()
+        .collection('guardianInvitations')
+        .doc(invitationToken)
+        .get();
+
+      if (!invitationDoc.exists) {
+        res.status(404).json({ 
+          success: false, 
+          error: 'Invitation not found or expired' 
+        });
+        return;
+      }
+
+      const invitationData = invitationDoc.data();
+
+      if (!invitationData) {
+        res.status(404).json({ 
+          success: false, 
+          error: 'Invalid invitation data' 
+        });
+        return;
+      }
+
+      // Check if invitation is still valid
+      if (invitationData.used || invitationData.status !== 'pending') {
+        res.status(400).json({ 
+          success: false, 
+          error: 'This invitation has already been processed' 
+        });
+        return;
+      }
+
+      // Check if expired
+      const now = new Date();
+      const expiresAt = invitationData.expiresAt?.toDate();
+      if (expiresAt && now > expiresAt) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'This invitation has expired' 
+        });
+        return;
+      }
+
+      res.status(200).json({ 
+        success: true, 
+        invitation: {
+          groupName: invitationData.groupName,
+          memberName: invitationData.memberName,
+          memberBirthDate: invitationData.memberBirthDate,
+          inviterName: invitationData.inviterName,
+          guardianEmails: invitationData.guardianEmails,
+          createdAt: invitationData.createdAt,
+          expiresAt: invitationData.expiresAt,
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting guardian invitation details:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Internal server error' 
+      });
+    }
+  }
+);

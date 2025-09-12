@@ -321,6 +321,11 @@ export const addUnconfirmedChild = async (
 
     const docRef = await addDoc(membersRef, memberData);
     
+    // Update group membersCount to reflect total enrolled children
+    await updateDoc(groupRef, {
+      membersCount: increment(1)
+    });
+    
     console.log('Member added successfully with ID:', docRef.id);
 
     return { success: true };

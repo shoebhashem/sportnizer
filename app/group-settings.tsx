@@ -16,7 +16,7 @@ interface Group {
   createdBy: string;
   ageGroup?: number; // 1=children, 2=adults, 3=mixed
   coaches?: Coach[];
-  unconfirmedChildren?: UnconfirmedChild[];
+  unconfirmedMembers?: UnconfirmedMember[]; // Updated from unconfirmedChildren
 }
 
 interface Coach {
@@ -29,11 +29,12 @@ interface Coach {
   isExternal: boolean;
 }
 
-interface UnconfirmedChild {
+interface UnconfirmedMember {
+  id: string; // Member document ID
   name: string;
   birthDate?: string;
-  confirmationSent: boolean;
-  invitationCode?: string;
+  guardianEmails?: string[]; // For invitation emails
+  invitationToken?: string; // Links to guardianInvitations collection
 }
 
 export default function GroupSettingsScreen() {
@@ -55,7 +56,6 @@ export default function GroupSettingsScreen() {
   
   // Coach Management State
   const [showAddCoachModal, setShowAddCoachModal] = useState(false);
-  const [addingCoach, setAddingCoach] = useState(false);
   
   // Guardian Confirmation State
   const [showGuardianConfirmModal, setShowGuardianConfirmModal] = useState(false);
@@ -76,7 +76,7 @@ export default function GroupSettingsScreen() {
           createdBy: groupDoc.data().createdBy,
           ageGroup: groupDoc.data().ageGroup,
           coaches: groupDoc.data().coaches || [],
-          unconfirmedChildren: groupDoc.data().unconfirmedChildren || []
+          unconfirmedMembers: [] // Will be populated from members subcollection
         });
       }
 
@@ -84,16 +84,36 @@ export default function GroupSettingsScreen() {
       const membersSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'members'));
       let userRole = 'member';
       let adminCount = 0;
+      const unconfirmedMembers: UnconfirmedMember[] = [];
       
-      membersSnapshot.forEach((doc) => {
-        const memberData = doc.data();
-        if (doc.id === user.uid) {
+      membersSnapshot.forEach((memberDoc) => {
+        const memberData = memberDoc.data();
+        if (memberDoc.id === user.uid) {
           userRole = memberData.role || 'member';
         }
         if (memberData.role === 'admin') {
           adminCount++;
         }
+        
+        // Collect unconfirmed members for guardian invitations
+        if (memberData.isConfirmed === false) {
+          unconfirmedMembers.push({
+            id: memberDoc.id,
+            name: memberData.name,
+            birthDate: memberData.birthDate,
+            guardianEmails: memberData.guardianEmails || [],
+            invitationToken: memberData.invitationToken
+          });
+        }
       });
+      
+      // Update group with unconfirmed members
+      if (groupDoc.exists()) {
+        setGroup(prevGroup => prevGroup ? {
+          ...prevGroup,
+          unconfirmedMembers
+        } : null);
+      }
       
       // If user is the group creator but not found in members, consider them as admin
       if (groupDoc.exists() && groupDoc.data().createdBy === user.uid && userRole === 'member') {
@@ -512,8 +532,8 @@ export default function GroupSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Send Confirmation Link to Guardians</Text>
-                <Text style={styles.optionDescription}>Send guardian confirmation links for unconfirmed children</Text>
+                <Text style={styles.optionTitle}>Invite Guardians</Text>
+                <Text style={styles.optionDescription}>Send guardian invitation links for unconfirmed children</Text>
               </View>
               <Ionicons 
                 name="chevron-forward" 
@@ -741,26 +761,26 @@ export default function GroupSettingsScreen() {
         >
           <View style={styles.modalContainer}>
             <Pressable onPress={() => {}} style={styles.modal}>
-              <Text style={styles.modalTitle}>Send Confirmation Links</Text>
+              <Text style={styles.modalTitle}>Invite Guardians</Text>
               
               <Text style={styles.modalDescription}>
-                Select children to send guardian confirmation links:
+                Select children to send guardian invitation links:
               </Text>
               
               <ScrollView style={styles.unconfirmedChildrenList}>
-                {group?.unconfirmedChildren?.map((child, index) => (
-                  <TouchableOpacity key={index} style={styles.childOption}>
+                {group?.unconfirmedMembers?.map((member, index) => (
+                  <TouchableOpacity key={member.id} style={styles.childOption}>
                     <View style={styles.childInfo}>
-                      <Text style={styles.childName}>{child.name}</Text>
-                      {child.birthDate && (
-                        <Text style={styles.childBirthDate}>Born: {child.birthDate}</Text>
+                      <Text style={styles.childName}>{member.name}</Text>
+                      {member.birthDate && (
+                        <Text style={styles.childBirthDate}>Born: {member.birthDate}</Text>
                       )}
                     </View>
                     <View style={styles.confirmationStatus}>
-                      {child.confirmationSent ? (
-                        <Text style={styles.sentStatus}>✓ Sent</Text>
+                      {member.invitationToken ? (
+                        <Text style={styles.invitationSent}>✓ Invitation Sent</Text>
                       ) : (
-                        <Text style={styles.pendingStatus}>Pending</Text>
+                        <Text style={styles.invitationPending}>⏳ Pending Invitation</Text>
                       )}
                     </View>
                   </TouchableOpacity>
@@ -1001,6 +1021,16 @@ const styles = StyleSheet.create({
   pendingStatus: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.error,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  invitationSent: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.success,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  invitationPending: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.medium,
   },
 });
