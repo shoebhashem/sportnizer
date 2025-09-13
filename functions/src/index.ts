@@ -1147,22 +1147,62 @@ export const processGuardianInvitation = onRequest(
       // Find or create guardian user account
       let guardianUser;
       try {
+        console.log('Looking up user by email:', guardianEmail.toLowerCase());
         guardianUser = await admin.auth().getUserByEmail(guardianEmail.toLowerCase());
-      } catch {
+        console.log('Found existing user:', guardianUser.uid);
+        
+        // Update existing user's groupsJoined array
+        const existingUserRef = admin.firestore().collection('users').doc(guardianUser.uid);
+        const existingUserDoc = await existingUserRef.get();
+        
+        if (existingUserDoc.exists) {
+          const existingUserData = existingUserDoc.data();
+          const currentGroups = existingUserData?.groupsJoined || [];
+          
+          if (!currentGroups.includes(invitationData.groupId)) {
+            await existingUserRef.update({
+              groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
+            });
+            console.log('Updated existing user with new group');
+          }
+        } else {
+          // User exists in Auth but not in Firestore, create the document
+          await admin.firestore().collection('users').doc(guardianUser.uid).set({
+            name: guardianName,
+            email: guardianEmail.toLowerCase(),
+            emailVerified: guardianUser.emailVerified || false,
+            groupsJoined: [invitationData.groupId],
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          console.log('Created Firestore document for existing Auth user');
+        }
+      } catch (authError: any) {
+        console.log('User not found in Auth, attempting to create:', authError?.message || authError);
         // User doesn't exist, create one
-        guardianUser = await admin.auth().createUser({
-          email: guardianEmail.toLowerCase(),
-          displayName: guardianName,
-        });
+        try {
+          guardianUser = await admin.auth().createUser({
+            email: guardianEmail.toLowerCase(),
+            displayName: guardianName,
+          });
+          console.log('Created new Auth user:', guardianUser.uid);
 
-        // Create user document in Firestore
-        await admin.firestore().collection('users').doc(guardianUser.uid).set({
-          name: guardianName,
-          email: guardianEmail.toLowerCase(),
-          emailVerified: false, // They'll need to verify their email
-          groupsJoined: [invitationData.groupId],
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+          // Create user document in Firestore
+          await admin.firestore().collection('users').doc(guardianUser.uid).set({
+            name: guardianName,
+            email: guardianEmail.toLowerCase(),
+            emailVerified: false, // They'll need to verify their email
+            groupsJoined: [invitationData.groupId],
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          console.log('Created Firestore document for new user');
+        } catch (createError: any) {
+          console.error('Error creating user:', createError);
+          res.status(500).json({ 
+            success: false, 
+            error: `Failed to create guardian account: ${createError?.message || createError}` 
+          });
+          return;
+        }
       }
 
       const batch = admin.firestore().batch();
@@ -1198,16 +1238,12 @@ export const processGuardianInvitation = onRequest(
         addedViaInvitation: invitationToken,
       });
 
-      // Update guardian's user document with group membership
-      const guardianUserRef = admin.firestore().collection('users').doc(guardianUser.uid);
-      batch.update(guardianUserRef, {
-        groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
-      });
+      // Note: Guardian user's groupsJoined was already updated above when creating/updating the user
 
       // Mark invitation as used
       batch.update(invitationDoc.ref, {
         used: true,
-        status: 'confirmed',
+        status: 'accepted',
         usedAt: admin.firestore.FieldValue.serverTimestamp(),
         usedBy: guardianUser.uid,
       });
@@ -1230,7 +1266,9 @@ export const processGuardianInvitation = onRequest(
         success: true, 
         message: `Successfully confirmed ${invitationData.memberName}'s participation in ${invitationData.groupName}`,
         memberName: invitationData.memberName,
-        groupName: invitationData.groupName
+        groupName: invitationData.groupName,
+        groupId: invitationData.groupId,
+        memberId: invitationData.memberId
       });
 
     } catch (error) {
@@ -1323,7 +1361,9 @@ export const getGuardianInvitationDetails = onRequest(
       res.status(200).json({ 
         success: true, 
         invitation: {
+          groupId: invitationData.groupId,
           groupName: invitationData.groupName,
+          memberId: invitationData.memberId,
           memberName: invitationData.memberName,
           memberBirthDate: invitationData.memberBirthDate,
           inviterName: invitationData.inviterName,

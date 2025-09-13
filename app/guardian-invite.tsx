@@ -1,4 +1,5 @@
 import Button from '@/components/Button';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface GuardianInvitationDetails {
@@ -30,6 +31,28 @@ export default function GuardianInviteScreen() {
   const [processing, setProcessing] = useState(false);
   const [invitationDetails, setInvitationDetails] = useState<GuardianInvitationDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalConfirmText, setModalConfirmText] = useState('OK');
+  const [modalCancelText, setModalCancelText] = useState('');
+  const [modalOnConfirm, setModalOnConfirm] = useState<() => void>(() => () => {});
+  
+  // Helper function to show modal
+  const showModal = (title: string, message: string, confirmText = 'OK', cancelText = '', onConfirm: () => void = () => {}) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalConfirmText(confirmText);
+    setModalCancelText(cancelText);
+    setModalOnConfirm(() => onConfirm);
+    setModalVisible(true);
+  };
+
+  const hideModal = () => {
+    setModalVisible(false);
+  };
   
   // Form state for new users
   const [isExistingUser, setIsExistingUser] = useState(true);
@@ -64,10 +87,10 @@ export default function GuardianInviteScreen() {
         // Transform the response to match our expected format
         const invitation = data.invitation;
         const transformedData: GuardianInvitationDetails = {
-          groupId: '', // We'll need this from somewhere else
+          groupId: invitation.groupId,
           groupName: invitation.groupName,
           childName: invitation.memberName,
-          childId: '', // We'll need this from somewhere else
+          childId: invitation.memberId,
           inviterName: invitation.inviterName,
           inviterEmail: invitation.guardianEmails?.[0] || '',
           token: token as string,
@@ -107,41 +130,68 @@ export default function GuardianInviteScreen() {
   };
 
   const validateForm = () => {
-    if (!isExistingUser) {
-      if (!fullName.trim()) {
-        Alert.alert('Error', 'Please enter your full name');
-        return false;
-      }
-      if (!email.trim()) {
-        Alert.alert('Error', 'Please enter your email address');
-        return false;
-      }
-      if (!password.trim()) {
-        Alert.alert('Error', 'Please enter a password');
-        return false;
-      }
-      if (password !== confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match');
-        return false;
-      }
-      if (password.length < 6) {
-        Alert.alert('Error', 'Password must be at least 6 characters long');
-        return false;
-      }
-    } else {
-      if (!email.trim()) {
-        Alert.alert('Error', 'Please enter your email address');
-        return false;
-      }
-      if (!password.trim()) {
-        Alert.alert('Error', 'Please enter your password');
-        return false;
-      }
+    console.log('🔍 Validating form:', {
+      user: !!user,
+      isExistingUser,
+      email,
+      password,
+      fullName,
+      relationship
+    });
+    
+    // If user is already logged in, no validation needed for auth fields
+    if (user) {
+      console.log('✅ User already logged in, skipping auth validation');
+      return true;
     }
+    
+    if (!isExistingUser) {
+        if (!fullName?.trim()) {
+          showModal('Error', 'Please enter your full name');
+          return false;
+        }
+        if (!email?.trim()) {
+          showModal('Error', 'Please enter your email address');
+          return false;
+        }
+        if (!password) {
+          showModal('Error', 'Please enter a password');
+          return false;
+        }
+        if (password !== confirmPassword) {
+          showModal('Error', 'Passwords do not match');
+          return false;
+        }
+        if (password.length < 6) {
+          showModal('Error', 'Password must be at least 6 characters long');
+          return false;
+        }
+      } else {
+        if (!email?.trim()) {
+          showModal('Error', 'Please enter your email address');
+          return false;
+        }
+        if (!password) {
+          showModal('Error', 'Please enter your password');
+          return false;
+        }
+      }
+    console.log('✅ Form validation passed');
     return true;
   };
 
   const handleAcceptInvitation = async () => {
+    console.log('🚀 Accept Invitation button clicked!');
+    console.log('Validation state:', {
+      validateForm: validateForm(),
+      invitationDetails: !!invitationDetails,
+      isExistingUser,
+      email,
+      password,
+      fullName,
+      relationship
+    });
+    
     if (!validateForm()) return;
     if (!invitationDetails) return;
 
@@ -202,26 +252,28 @@ export default function GuardianInviteScreen() {
       console.log('Guardian invitation response:', result);
 
       if (result.success) {
-        Alert.alert(
+        console.log('🎉 SUCCESS! Guardian invitation accepted successfully');
+        console.log('Member name:', result.memberName);
+        console.log('Group name:', result.groupName);
+        
+        showModal(
           'Welcome!',
           `You are now a guardian for ${invitationDetails.childName} in ${invitationDetails.groupName}.\n\nYou can now manage your child's participation in group activities. The group should appear in your groups list.`,
-          [
-            {
-              text: 'View Groups',
-              onPress: () => {
-                // Navigate to the groups/dashboard page
-                router.replace('/');
-              }
-            }
-          ]
+          'View Groups',
+          '',
+          () => {
+            hideModal();
+            // Navigate to the home tab
+            router.replace('/');
+          }
         );
       } else {
         console.error('Guardian invitation failed:', result);
-        Alert.alert('Error', result.error || 'Failed to accept invitation. Please check the console and try again.');
+        showModal('Error', result.error || 'Failed to accept invitation. Please check the console and try again.');
       }
     } catch (error) {
       console.error('Error accepting invitation:', error);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      showModal('Error', 'An unexpected error occurred. Please try again.');
     } finally {
       setProcessing(false);
     }
@@ -276,6 +328,7 @@ export default function GuardianInviteScreen() {
   const isWrongAccount = user && user.email !== invitationDetails.inviterEmail;
 
   return (
+    <>
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
@@ -419,7 +472,10 @@ export default function GuardianInviteScreen() {
         <View style={styles.actions}>
           <Button
             label={processing ? "Processing..." : user ? "Accept Invitation" : (isExistingUser ? "Sign In & Accept" : "Create Account & Accept")}
-            onPress={handleAcceptInvitation}
+            onPress={() => {
+              console.log('🎯 Button pressed! State:', { processing, user: !!user, isExistingUser });
+              handleAcceptInvitation();
+            }}
             theme="primary"
             disabled={processing}
           />
@@ -433,6 +489,22 @@ export default function GuardianInviteScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+    
+    <ConfirmationModal
+      visible={modalVisible}
+      title={modalTitle}
+      message={modalMessage}
+      confirmText={modalConfirmText}
+      cancelText={modalCancelText}
+      onConfirm={() => {
+        modalOnConfirm();
+        if (!modalCancelText) {
+          hideModal();
+        }
+      }}
+      onCancel={hideModal}
+    />
+    </>
   );
 }
 

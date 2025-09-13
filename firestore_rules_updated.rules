@@ -159,9 +159,11 @@ service cloud.firestore {
         match /guardians/{guardianId} {
           // Group admins and coaches can read guardian information
           // Guardians can read their own guardian records
+          // Group members can also read guardian information (needed for guardian relationship checking)
           allow read: if isSignedIn() && 
                      (canManageMembers() || 
-                      resource.data.guardianUserId == request.auth.uid);
+                      resource.data.guardianUserId == request.auth.uid ||
+                      isGroupMember());
           
           // Admin and coach can add guardians to children
           // Guardians can add themselves during registration process

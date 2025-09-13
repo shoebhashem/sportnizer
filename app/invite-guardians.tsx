@@ -1,4 +1,5 @@
 import Button from '@/components/Button';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { collection, getDocs, getFirestore } from 'firebase/firestore';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface UnconfirmedMember {
@@ -30,6 +31,28 @@ export default function InviteGuardiansScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [memberSelections, setMemberSelections] = useState<MemberSelection[]>([]);
+
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalConfirmText, setModalConfirmText] = useState('OK');
+  const [modalCancelText, setModalCancelText] = useState('');
+  const [modalOnConfirm, setModalOnConfirm] = useState<() => void>(() => () => {});
+
+  // Helper function to show modal
+  const showModal = (title: string, message: string, confirmText = 'OK', cancelText = '', onConfirm: () => void = () => {}) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalConfirmText(confirmText);
+    setModalCancelText(cancelText);
+    setModalOnConfirm(() => onConfirm);
+    setModalVisible(true);
+  };
+
+  const hideModal = () => {
+    setModalVisible(false);
+  };
 
   const fetchUnconfirmedMembers = useCallback(async () => {
     if (!groupId || !user?.uid) return;
@@ -65,7 +88,7 @@ export default function InviteGuardiansScreen() {
       setMemberSelections(selections);
     } catch (error) {
       console.error('Error fetching unconfirmed members:', error);
-      Alert.alert('Error', 'Failed to load members. Please try again.');
+      showModal('Error', 'Failed to load members. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -128,7 +151,7 @@ export default function InviteGuardiansScreen() {
     const selectedMembers = getSelectedMembers();
     
     if (selectedMembers.length === 0) {
-      Alert.alert('No Selection', 'Please select at least one member to send invitations to.');
+      showModal('No Selection', 'Please select at least one member to send invitations to.');
       return;
     }
 
@@ -165,21 +188,17 @@ export default function InviteGuardiansScreen() {
           message += `\n${failureCount} invitation(s) failed to send.`;
         }
         
-        Alert.alert('Invitations Sent', message, [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Refresh the data to show updated status
-              fetchUnconfirmedMembers();
-            }
-          }
-        ]);
+        showModal('Invitations Sent', message, 'OK', '', () => {
+          hideModal();
+          // Refresh the data to show updated status
+          fetchUnconfirmedMembers();
+        });
       } else {
-        Alert.alert('Error', 'Failed to send any invitations. Please try again.');
+        showModal('Error', 'Failed to send any invitations. Please try again.');
       }
     } catch (error) {
       console.error('Error sending guardian invitations:', error);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      showModal('Error', 'An unexpected error occurred. Please try again.');
     } finally {
       setSending(false);
     }
@@ -204,7 +223,8 @@ export default function InviteGuardiansScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <>
+      <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
@@ -324,6 +344,22 @@ export default function InviteGuardiansScreen() {
         </View>
       )}
     </SafeAreaView>
+    
+    <ConfirmationModal
+      visible={modalVisible}
+      title={modalTitle}
+      message={modalMessage}
+      confirmText={modalConfirmText}
+      cancelText={modalCancelText}
+      onConfirm={() => {
+        modalOnConfirm();
+        if (!modalCancelText) {
+          hideModal();
+        }
+      }}
+      onCancel={hideModal}
+    />
+    </>
   );
 }
 

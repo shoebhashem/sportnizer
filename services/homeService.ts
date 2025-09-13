@@ -160,6 +160,48 @@ class HomeService {
   }
 
   /**
+   * Get child name for a guardian user in a specific group
+   * Returns the child's name if the user's email is in the child's guardianEmails array
+   */
+  private async getChildNameForGuardian(guardianUserId: string, groupId: string): Promise<string | null> {
+    try {
+      console.log('HomeService: Checking if user is guardian for children in group:', guardianUserId, groupId);
+      
+      // Get the current user's email to match with guardianEmails
+      const userDoc = await getDoc(doc(this.db, 'users', guardianUserId));
+      const userData = userDoc.data();
+      const userEmail = userData?.email?.toLowerCase();
+      
+      if (!userEmail) {
+        console.log('HomeService: No email found for user');
+        return null;
+      }
+      
+      // Get all members in the group
+      const membersSnapshot = await getDocs(
+        collection(this.db, 'groups', groupId, 'members')
+      );
+      
+      for (const memberDoc of membersSnapshot.docs) {
+        const memberData = memberDoc.data();
+        const guardianEmails = memberData.guardianEmails || [];
+        
+        // Check if current user's email is in the guardianEmails array
+        if (guardianEmails.some((email: string) => email.toLowerCase() === userEmail)) {
+          console.log('HomeService: Found child for guardian:', memberData.name);
+          return memberData.name || 'Your child';
+        }
+      }
+      
+      console.log('HomeService: User is not a guardian for any children in this group');
+      return null;
+    } catch (error) {
+      console.error('Error checking guardian relationship:', error);
+      return null;
+    }
+  }
+
+  /**
    * Check if user is eligible for an event based on recipientSelection
    */
   private async isUserEligibleForEvent(eventData: any, userGroups: string[], userId: string): Promise<boolean> {
@@ -274,8 +316,14 @@ class HomeService {
           let recipientName = currentUser.displayName || currentUser.email || 'You';
           
           if (primaryGroupId) {
-            const displayName = await this.getUserDisplayName(currentUser.uid, primaryGroupId);
-            recipientName = displayName || recipientName;
+            // Check if this user is a guardian for any children in this group
+            const childName = await this.getChildNameForGuardian(currentUser.uid, primaryGroupId);
+            if (childName) {
+              recipientName = childName; // Show child's name instead of guardian's name
+            } else {
+              const displayName = await this.getUserDisplayName(currentUser.uid, primaryGroupId);
+              recipientName = displayName || recipientName;
+            }
           }
 
           // Add eligible event to list
