@@ -1,9 +1,7 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
 import {
-    Alert,
     Modal,
     Pressable,
     StyleSheet,
@@ -14,47 +12,52 @@ import {
 
 import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
-import { auth } from '../firebaseConfig.js';
+import { signOutUser } from '../services/authService';
 import Button from './Button';
+import ConfirmationModal from './ConfirmationModal';
 
 export default function UserAvatar() {
   const { user } = useAuth();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   if (!user) return null;
 
-  const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-              setModalVisible(false);
-              router.replace('/login' as any);
-            } catch (error) {
-              console.error('Error signing out:', error);
-              Alert.alert('Error', 'Failed to sign out. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+  const handleSignOutPress = () => {
+    setModalVisible(false); // Close profile modal first
+    setShowSignOutModal(true); // Show sign out confirmation
+  };
+
+  const handleSignOutConfirm = async () => {
+    setIsSigningOut(true);
+    setShowSignOutModal(false);
+    
+    try {
+      const result = await signOutUser();
+      if (result.success) {
+        router.replace('/login');
+      } else {
+        // Show error in a simple alert for now
+        alert('Failed to sign out. Please try again.');
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+      alert('An error occurred while signing out. Please try again.');
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  const handleSignOutCancel = () => {
+    setShowSignOutModal(false);
   };
 
   const handleEditProfile = () => {
     setModalVisible(false);
     // TODO: Navigate to edit profile screen
-    Alert.alert('Coming Soon', 'Edit profile feature will be available soon!');
+    alert('Coming soon: Edit profile feature will be available soon!');
   };
 
   const getInitials = (email: string) => {
@@ -144,16 +147,31 @@ export default function UserAvatar() {
               <View style={styles.signOutSection}>
                 <TouchableOpacity
                   style={styles.signOutButton}
-                  onPress={handleSignOut}
+                  onPress={handleSignOutPress}
+                  disabled={isSigningOut}
                 >
                   <FontAwesome name="sign-out" size={16} color={theme.colors.error} />
-                  <Text style={styles.signOutText}>Sign Out</Text>
+                  <Text style={styles.signOutText}>
+                    {isSigningOut ? 'Signing Out...' : 'Sign Out'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </Pressable>
           </View>
         </Pressable>
       </Modal>
+
+      {/* Sign Out Confirmation Modal */}
+      <ConfirmationModal
+        visible={showSignOutModal}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        onConfirm={handleSignOutConfirm}
+        onCancel={handleSignOutCancel}
+        confirmButtonTheme="primary"
+      />
     </>
   );
 }
