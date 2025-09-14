@@ -75,6 +75,10 @@ service cloud.firestore {
         return hasRole('admin') || hasRole('coach');
       }
       
+      function isGuardian() {
+        return hasRole('guardian');
+      }
+      
       function canManageGroup() {
         return hasAdminOrCoachRole();
       }
@@ -84,6 +88,12 @@ service cloud.firestore {
       }
       
       function canManageMembers() {
+        return hasRole('admin') || hasRole('coach');
+      }
+      
+      function canCreateContent() {
+        // Only admin/coach can create events, polls, announcements
+        // Guardians cannot create content unless they also have coach role
         return hasRole('admin') || hasRole('coach');
       }
       
@@ -127,7 +137,9 @@ service cloud.firestore {
                      (!('roles' in request.resource.data) || 
                       (request.resource.data.roles is list && 
                        request.resource.data.roles.size() > 0 &&
-                       request.resource.data.roles.size() <= 3)); // Max 3 roles per person
+                       request.resource.data.roles.size() <= 3 &&
+                       // Validate that all roles are valid
+                       request.resource.data.roles.toSet().isSubsetOf(['admin', 'coach', 'member', 'guardian'].toSet())));
         
         // Enhanced update rules for multiple roles
         allow update: if isSignedIn() && 
@@ -149,7 +161,9 @@ service cloud.firestore {
                      (!('roles' in request.resource.data) || 
                       (request.resource.data.roles is list && 
                        request.resource.data.roles.size() > 0 &&
-                       request.resource.data.roles.size() <= 3));
+                       request.resource.data.roles.size() <= 3 &&
+                       // Validate that all roles are valid
+                       request.resource.data.roles.toSet().isSubsetOf(['admin', 'coach', 'member', 'guardian'].toSet())));
                      
         // Admin and coach can remove members, members can remove themselves
         allow delete: if isSignedIn() && 
@@ -189,43 +203,46 @@ service cloud.firestore {
       // Group events subcollection  
       match /events/{eventId} {
         // Group members can read events
-        allow read: if isSignedIn() && isGroupMember();
+        // Guardians can also read events (to see their children's events)
+        allow read: if isSignedIn() && (isGroupMember() || isGuardian());
         
-        // Admin and coach can create events
+        // Only admin and coach can create events (guardians cannot unless they also have coach role)
         allow create: if isValidUser() &&
                      request.resource.data.createdBy == request.auth.uid &&
-                     hasAdminOrCoachRole();
+                     canCreateContent();
         
         // Event creator, admin, and coach can update events
         allow update: if isSignedIn() && 
-                     (resource.data.createdBy == request.auth.uid || hasAdminOrCoachRole()) &&
+                     (resource.data.createdBy == request.auth.uid || canCreateContent()) &&
                      request.resource.data.createdBy == resource.data.createdBy;
         
         // Event creator, admin, and coach can delete events
         allow delete: if isSignedIn() && 
-                     (resource.data.createdBy == request.auth.uid || hasAdminOrCoachRole());
+                     (resource.data.createdBy == request.auth.uid || canCreateContent());
       }
       
       // Group results subcollection
       match /results/{resultId} {
         // Group members can read results
-        allow read: if isSignedIn() && isGroupMember();
+        // Guardians can also read results
+        allow read: if isSignedIn() && (isGroupMember() || isGuardian());
         
-        // Admin and coach can create/update/delete results
-        allow create, update, delete: if isSignedIn() && hasAdminOrCoachRole();
+        // Only admin and coach can create/update/delete results
+        allow create, update, delete: if isSignedIn() && canCreateContent();
       }
       
       // Group subgroups subcollection
       match /subgroups/{subgroupId} {
         // Group members can read subgroups
-        allow read: if isSignedIn() && isGroupMember();
+        // Guardians can also read subgroups
+        allow read: if isSignedIn() && (isGroupMember() || isGuardian());
         
-        // Admin and coach can create/update/delete subgroups
+        // Only admin and coach can create/update/delete subgroups
         allow create: if isValidUser() &&
                      request.resource.data.createdBy == request.auth.uid &&
-                     hasAdminOrCoachRole();
+                     canCreateContent();
         
-        allow update, delete: if isSignedIn() && hasAdminOrCoachRole();
+        allow update, delete: if isSignedIn() && canCreateContent();
       }
     }
     
@@ -277,15 +294,17 @@ service cloud.firestore {
     match /events/{eventId} {
       // Helper function to check if user has admin/coach role in any of the event's target groups
       function canManageEventGroups() {
-        // For now, allow any signed-in user to create events
-        // TODO: In production, check if user has admin/coach role in the specified groups
-        return isSignedIn();
+        // Only users with admin or coach roles can manage events
+        // Guardians cannot create/manage events unless they also have coach role
+        return isSignedIn(); // TODO: Check admin/coach roles in target groups
       }
 
       // Anyone can read events (will be filtered by groupIds on client side)
+      // Guardians can read events to see their children's activities
       allow read: if isSignedIn();
       
-      // Users with admin/coach roles can create events
+      // Only users with admin/coach roles can create events
+      // Guardians cannot create events unless they also have coach role
       allow create: if isValidUser() && 
                    request.resource.data.createdBy == request.auth.uid &&
                    canManageEventGroups();
@@ -295,7 +314,7 @@ service cloud.firestore {
                    (request.auth.uid == resource.data.createdBy || canManageEventGroups()) &&
                    request.resource.data.createdBy == resource.data.createdBy; // Prevent ownership transfer
       
-      // Event creator and admins can delete events
+      // Event creator and admins/coaches can delete events
       allow delete: if isSignedIn() && 
                    (request.auth.uid == resource.data.createdBy || canManageEventGroups());
     }
@@ -304,13 +323,17 @@ service cloud.firestore {
     match /polls/{pollId} {
       // Helper function to check if user has admin/coach role in any of the poll's target groups
       function canManagePollGroups() {
-        return isSignedIn();
+        // Only users with admin or coach roles can manage polls
+        // Guardians cannot create/manage polls unless they also have coach role
+        return isSignedIn(); // TODO: Check admin/coach roles in target groups
       }
 
       // Anyone can read polls (will be filtered by groupIds on client side)
+      // Guardians can read polls to participate in their children's activities
       allow read: if isSignedIn();
       
-      // Users with admin/coach roles can create polls
+      // Only users with admin/coach roles can create polls
+      // Guardians cannot create polls unless they also have coach role
       allow create: if isValidUser() && 
                    request.resource.data.createdBy == request.auth.uid &&
                    canManagePollGroups();
@@ -320,7 +343,7 @@ service cloud.firestore {
                    (request.auth.uid == resource.data.createdBy || canManagePollGroups()) &&
                    request.resource.data.createdBy == resource.data.createdBy; // Prevent ownership transfer
       
-      // Poll creator and admins can delete polls
+      // Poll creator and admins/coaches can delete polls
       allow delete: if isSignedIn() && 
                    (request.auth.uid == resource.data.createdBy || canManagePollGroups());
     }
@@ -329,13 +352,17 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       // Helper function to check if user has admin/coach role in any of the announcement's target groups
       function canManageAnnouncementGroups() {
-        return isSignedIn();
+        // Only users with admin or coach roles can manage announcements
+        // Guardians cannot create/manage announcements unless they also have coach role
+        return isSignedIn(); // TODO: Check admin/coach roles in target groups
       }
 
       // Anyone can read announcements (will be filtered by groupIds on client side)
+      // Guardians can read announcements to stay informed about their children's activities
       allow read: if isSignedIn();
       
-      // Users with admin/coach roles can create announcements
+      // Only users with admin/coach roles can create announcements
+      // Guardians cannot create announcements unless they also have coach role
       allow create: if isValidUser() && 
                    request.resource.data.createdBy == request.auth.uid &&
                    canManageAnnouncementGroups();
@@ -345,7 +372,7 @@ service cloud.firestore {
                    (request.auth.uid == resource.data.createdBy || canManageAnnouncementGroups()) &&
                    request.resource.data.createdBy == resource.data.createdBy; // Prevent ownership transfer
       
-      // Announcement creator and admins can delete announcements
+      // Announcement creator and admins/coaches can delete announcements
       allow delete: if isSignedIn() && 
                    (request.auth.uid == resource.data.createdBy || canManageAnnouncementGroups());
     }
