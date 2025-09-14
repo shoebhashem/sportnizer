@@ -365,6 +365,19 @@ export const respondToInvitation = onRequest(
         return;
       }
 
+      // Check if invitation has expired (if expiration is set)
+      if (invitationData.expiresAt) {
+        const now = new Date();
+        const expiresAt = invitationData.expiresAt.toDate();
+        if (now > expiresAt) {
+          res.status(400).json({ 
+            success: false, 
+            error: 'This invitation has expired' 
+          });
+          return;
+        }
+      }
+
       // Verify email matches
       console.log(`Verifying email match - Invitation: ${invitationData.email}, User: ${userEmail.trim().toLowerCase()}`);
       if (invitationData.email !== userEmail.trim().toLowerCase()) {
@@ -378,8 +391,18 @@ export const respondToInvitation = onRequest(
 
       // Find user by email
       console.log(`Looking up user by email: ${userEmail}`);
-      const userRecord = await admin.auth().getUserByEmail(userEmail);
-      console.log(`User found: ${userRecord.uid}`);
+      let userRecord;
+      try {
+        userRecord = await admin.auth().getUserByEmail(userEmail);
+        console.log(`User found: ${userRecord.uid}`);
+      } catch (authError: any) {
+        console.log('User not found in Auth:', authError?.message || authError);
+        res.status(404).json({ 
+          success: false, 
+          error: 'User account not found. Please create an account first or sign in with the correct email address.' 
+        });
+        return;
+      }
 
       if (action === 'reject') {
         // Mark invitation as rejected and delete
@@ -433,14 +456,61 @@ export const respondToInvitation = onRequest(
         membersCount: admin.firestore.FieldValue.increment(1)
       });
 
-      // Add group to user's groups
-      console.log('Adding group to user profile');
+      // Add group to user's groups using new GroupMembership structure
+      console.log('Adding group to user profile with new schema');
       const userRef = admin.firestore().collection('users').doc(userRecord.uid);
-      batch.set(userRef, {
-        groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
-      }, { merge: true });
+      const userDoc = await userRef.get();
       
-      console.log(`Added group ${invitationData.groupId} to user ${userRecord.uid} groupsJoined array via respondToInvitation`);
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        const currentGroupsJoined = userData?.groupsJoined || [];
+        
+        // Check if it's old string array or new GroupMembership structure
+        if (currentGroupsJoined.length > 0 && typeof currentGroupsJoined[0] === 'object') {
+          // New GroupMembership structure - check if group already exists
+          const existingMembership = currentGroupsJoined.find((membership: any) => membership.groupId === invitationData.groupId);
+          if (!existingMembership) {
+            const newMembership = {
+              groupId: invitationData.groupId,
+              roles: ['member'],
+              joinedAt: new Date(),
+              status: 'active'
+            };
+            batch.update(userRef, {
+              groupsJoined: admin.firestore.FieldValue.arrayUnion(newMembership),
+            });
+          }
+        } else {
+          // Old string array structure or mixed - convert to new structure
+          const newMembership = {
+            groupId: invitationData.groupId,
+            roles: ['member'],
+            joinedAt: new Date(),
+            status: 'active'
+          };
+          batch.update(userRef, {
+            groupsJoined: admin.firestore.FieldValue.arrayUnion(newMembership),
+          });
+        }
+      } else {
+        // User exists in Auth but not in Firestore, create the document
+        batch.set(userRef, {
+          name: userRecord.displayName || userRecord.email?.split('@')[0] || 'User',
+          email: userRecord.email?.toLowerCase(),
+          emailVerified: userRecord.emailVerified || false,
+          groupsJoined: [{
+            groupId: invitationData.groupId,
+            roles: ['member'],
+            joinedAt: new Date(),
+            status: 'active'
+          }],
+          eventsInvited: [], // Initialize empty array for event tracking
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log('Created Firestore document for existing Auth user');
+      }
+      
+      console.log(`Added group ${invitationData.groupId} to user ${userRecord.uid} using new GroupMembership structure`);
 
       // Mark invitation as accepted
       console.log('Marking invitation as accepted');
@@ -1159,11 +1229,34 @@ export const processGuardianInvitation = onRequest(
           const existingUserData = existingUserDoc.data();
           const currentGroups = existingUserData?.groupsJoined || [];
           
-          if (!currentGroups.includes(invitationData.groupId)) {
+          // Check if it's old string array or new GroupMembership structure
+          if (currentGroups.length > 0 && typeof currentGroups[0] === 'object') {
+            // New GroupMembership structure - check if group already exists
+            const existingMembership = currentGroups.find((membership: any) => membership.groupId === invitationData.groupId);
+            if (!existingMembership) {
+              const newMembership = {
+                groupId: invitationData.groupId,
+                roles: ['guardian'],
+                joinedAt: new Date(),
+                status: 'active'
+              };
+              await existingUserRef.update({
+                groupsJoined: admin.firestore.FieldValue.arrayUnion(newMembership),
+              });
+              console.log('Updated existing user with new group using GroupMembership structure');
+            }
+          } else {
+            // Old string array structure - convert to new structure
+            const newMembership = {
+              groupId: invitationData.groupId,
+              roles: ['guardian'],
+              joinedAt: new Date(),
+              status: 'active'
+            };
             await existingUserRef.update({
-              groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
+              groupsJoined: admin.firestore.FieldValue.arrayUnion(newMembership),
             });
-            console.log('Updated existing user with new group');
+            console.log('Updated existing user with new GroupMembership structure');
           }
         } else {
           // User exists in Auth but not in Firestore, create the document
@@ -1171,10 +1264,16 @@ export const processGuardianInvitation = onRequest(
             name: guardianName,
             email: guardianEmail.toLowerCase(),
             emailVerified: guardianUser.emailVerified || false,
-            groupsJoined: [invitationData.groupId],
+            groupsJoined: [{
+              groupId: invitationData.groupId,
+              roles: ['guardian'],
+              joinedAt: new Date(),
+              status: 'active'
+            }],
+            eventsInvited: [], // Initialize empty array for event tracking
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
-          console.log('Created Firestore document for existing Auth user');
+          console.log('Created Firestore document for existing Auth user with new schema');
         }
       } catch (authError: any) {
         console.log('User not found in Auth, attempting to create:', authError?.message || authError);
@@ -1191,10 +1290,16 @@ export const processGuardianInvitation = onRequest(
             name: guardianName,
             email: guardianEmail.toLowerCase(),
             emailVerified: false, // They'll need to verify their email
-            groupsJoined: [invitationData.groupId],
+            groupsJoined: [{
+              groupId: invitationData.groupId,
+              roles: ['guardian'],
+              joinedAt: new Date(),
+              status: 'active'
+            }],
+            eventsInvited: [], // Initialize empty array for event tracking
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
-          console.log('Created Firestore document for new user');
+          console.log('Created Firestore document for new user with new schema');
         } catch (createError: any) {
           console.error('Error creating user:', createError);
           res.status(500).json({ 
