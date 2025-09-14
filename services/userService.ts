@@ -1,6 +1,21 @@
 import { User } from 'firebase/auth';
 import { doc, getDoc, getFirestore, setDoc, Timestamp } from 'firebase/firestore';
 
+// Enhanced group membership interface
+export interface GroupMembership {
+  groupId: string;
+  roles: string[]; // e.g., ['admin', 'coach', 'member', 'guardian']
+  joinedAt?: Date;
+}
+
+// Event invitation response interface
+export interface EventInvitation {
+  eventId: string;
+  response: 'not replied' | 'accepted' | 'declined';
+  invitedAt?: Date;
+  respondedAt?: Date;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -11,7 +26,9 @@ export interface UserProfile {
   ageGroup?: string; // Bucketed for privacy (18-24, 25-34, etc.)
   createdAt: Date;
   groupsCreated: number;
-  groupsJoined: string[];
+  groupsJoined: GroupMembership[]; // Enhanced structure with roles
+  eventsInvited: EventInvitation[]; // Track event invitation responses
+  profilePicture?: string; // URL to profile picture (default or uploaded)
 }
 
 // Calculate age from birthdate
@@ -65,7 +82,9 @@ export const createUserProfile = async (
       ageGroup: ageGroup,
       createdAt: new Date(),
       groupsCreated: 0,
-      groupsJoined: []
+      groupsJoined: [], // Initialize as empty GroupMembership array
+      eventsInvited: [], // Initialize as empty EventInvitation array
+      profilePicture: undefined // Will be set to default URL later
     };
 
     await setDoc(userRef, {
@@ -106,7 +125,9 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
         ageGroup: data.ageGroup,
         createdAt: data.createdAt.toDate(),
         groupsCreated: data.groupsCreated || 0,
-        groupsJoined: data.groupsJoined || []
+        groupsJoined: data.groupsJoined || [], // Now supports GroupMembership array
+        eventsInvited: data.eventsInvited || [], // Initialize if not present
+        profilePicture: data.profilePicture
       };
     }
     
@@ -141,4 +162,96 @@ export const updateUserAge = async (userId: string) => {
     console.error('Error updating user age:', error);
     return { success: false };
   }
+};
+
+// Utility functions for the new schema
+
+// Get user's roles in a specific group
+export const getUserRolesInGroup = (userProfile: UserProfile, groupId: string): string[] => {
+  const membership = userProfile.groupsJoined.find(group => group.groupId === groupId);
+  return membership ? membership.roles : [];
+};
+
+// Check if user has a specific role in a group
+export const userHasRoleInGroup = (userProfile: UserProfile, groupId: string, role: string): boolean => {
+  const roles = getUserRolesInGroup(userProfile, groupId);
+  return roles.includes(role);
+};
+
+// Add or update user's group membership
+export const updateUserGroupMembership = (
+  userProfile: UserProfile, 
+  groupId: string, 
+  roles: string[]
+): GroupMembership[] => {
+  const existingIndex = userProfile.groupsJoined.findIndex(group => group.groupId === groupId);
+  
+  if (existingIndex >= 0) {
+    // Update existing membership
+    const updated = [...userProfile.groupsJoined];
+    updated[existingIndex] = {
+      ...updated[existingIndex],
+      roles: roles
+    };
+    return updated;
+  } else {
+    // Add new membership
+    return [
+      ...userProfile.groupsJoined,
+      {
+        groupId: groupId,
+        roles: roles,
+        joinedAt: new Date()
+      }
+    ];
+  }
+};
+
+// Remove user from a group
+export const removeUserFromGroup = (userProfile: UserProfile, groupId: string): GroupMembership[] => {
+  return userProfile.groupsJoined.filter(group => group.groupId !== groupId);
+};
+
+// Update event invitation response
+export const updateEventResponse = (
+  userProfile: UserProfile,
+  eventId: string,
+  response: 'accepted' | 'declined'
+): EventInvitation[] => {
+  const existingIndex = userProfile.eventsInvited.findIndex(event => event.eventId === eventId);
+  
+  if (existingIndex >= 0) {
+    // Update existing response
+    const updated = [...userProfile.eventsInvited];
+    updated[existingIndex] = {
+      ...updated[existingIndex],
+      response: response,
+      respondedAt: new Date()
+    };
+    return updated;
+  } else {
+    // Add new event response
+    return [
+      ...userProfile.eventsInvited,
+      {
+        eventId: eventId,
+        response: response,
+        respondedAt: new Date()
+      }
+    ];
+  }
+};
+
+// Get all groups where user has admin or coach role
+export const getUserManagementGroups = (userProfile: UserProfile): GroupMembership[] => {
+  return userProfile.groupsJoined.filter(group => 
+    group.roles.some(role => ['admin', 'coach'].includes(role))
+  );
+};
+
+// Get all groups where user is a guardian
+export const getUserGuardianGroups = (userProfile: UserProfile): GroupMembership[] => {
+  return userProfile.groupsJoined.filter(group => 
+    group.roles.includes('guardian')
+  );
 };
