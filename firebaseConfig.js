@@ -1,10 +1,10 @@
 import { initializeApp } from 'firebase/app';
 
 // Optionally import the services that you want to use
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getReactNativePersistence, initializeAuth } from 'firebase/auth';
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 // import {...} from 'firebase/database';
 // import {...} from 'firebase/firestore';
 // import {...} from 'firebase/functions';
