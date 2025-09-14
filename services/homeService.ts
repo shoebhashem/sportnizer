@@ -91,17 +91,27 @@ class HomeService {
       console.log('HomeService: User groups field (groups):', userData?.groups);
       console.log('HomeService: User groupsJoined field:', userData?.groupsJoined);
       
-      // Check if user has groupsJoined array (new structure) or groups object (old structure)
+      // Check if user has new GroupMembership structure, old array structure, or legacy groups object
       let groupIds: string[] = [];
       
       if (userData?.groupsJoined && Array.isArray(userData.groupsJoined)) {
-        groupIds = userData.groupsJoined;
-        console.log('HomeService: Using groupsJoined array:', groupIds);
+        // Check if it's the new GroupMembership structure or old string array
+        if (userData.groupsJoined.length > 0 && typeof userData.groupsJoined[0] === 'object') {
+          // New GroupMembership structure
+          groupIds = userData.groupsJoined
+            .filter((membership: any) => membership.status === 'active')
+            .map((membership: any) => membership.groupId);
+          console.log('HomeService: Using new GroupMembership structure:', groupIds);
+        } else {
+          // Old string array structure
+          groupIds = userData.groupsJoined;
+          console.log('HomeService: Using old groupsJoined array:', groupIds);
+        }
       } else if (userData?.groups && typeof userData.groups === 'object') {
         groupIds = Object.keys(userData.groups);
         console.log('HomeService: Using groups object keys:', groupIds);
       } else {
-        console.log('HomeService: No user groups found in either groupsJoined or groups fields');
+        console.log('HomeService: No user groups found in any structure');
         return [];
       }
 

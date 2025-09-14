@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getFirestore, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getFirestore, increment, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 
 // Import Firebase app to ensure it's initialized
 import '../services/firebase';
@@ -140,15 +140,39 @@ export interface Event {
       status: 'accepted' | 'declined' | 'maybe';
       timestamp: any; // Firestore timestamp
       note?: string;
+      userRoles?: string[]; // Track user's roles when they responded
     };
   };
   
   responseStats: {
+    // Overall stats
     accepted: number;
     declined: number;
     maybe: number;
     total: number;
     invitedCount: number;
+    notReplied: number; // Track those who haven't responded yet
+    
+    // Role-based breakdown
+    coachAccepted: number;
+    coachDeclined: number;
+    coachMaybe: number;
+    coachNotReplied: number;
+    
+    guardianAccepted: number;
+    guardianDeclined: number;
+    guardianMaybe: number;
+    guardianNotReplied: number;
+    
+    memberAccepted: number;
+    memberDeclined: number;
+    memberMaybe: number;
+    memberNotReplied: number;
+    
+    adminAccepted: number;
+    adminDeclined: number;
+    adminMaybe: number;
+    adminNotReplied: number;
   };
 }
 
@@ -210,11 +234,34 @@ export class EventService {
         // Response tracking (initialize empty)
         responses: {},
         responseStats: {
+          // Overall stats
           accepted: 0,
           declined: 0,
           maybe: 0,
           total: 0,
-          invitedCount: recipients.totalCount
+          invitedCount: recipients.totalCount,
+          notReplied: recipients.totalCount, // Initially everyone is not replied
+          
+          // Role-based breakdown (initialize all to 0)
+          coachAccepted: 0,
+          coachDeclined: 0,
+          coachMaybe: 0,
+          coachNotReplied: 0, // Will be calculated based on actual coach invites
+          
+          guardianAccepted: 0,
+          guardianDeclined: 0,
+          guardianMaybe: 0,
+          guardianNotReplied: 0, // Will be calculated based on actual guardian invites
+          
+          memberAccepted: 0,
+          memberDeclined: 0,
+          memberMaybe: 0,
+          memberNotReplied: 0, // Will be calculated based on actual member invites
+          
+          adminAccepted: 0,
+          adminDeclined: 0,
+          adminMaybe: 0,
+          adminNotReplied: 0 // Will be calculated based on actual admin invites
         }
       };
 
@@ -348,11 +395,34 @@ export class EventService {
           // Response tracking (initialize empty)
           responses: {},
           responseStats: {
+            // Overall stats
             accepted: 0,
             declined: 0,
             maybe: 0,
             total: 0,
-            invitedCount: recipients.totalCount
+            invitedCount: recipients.totalCount,
+            notReplied: recipients.totalCount, // Initially everyone is not replied
+            
+            // Role-based breakdown (initialize all to 0)
+            coachAccepted: 0,
+            coachDeclined: 0,
+            coachMaybe: 0,
+            coachNotReplied: 0, // Will be calculated based on actual coach invites
+            
+            guardianAccepted: 0,
+            guardianDeclined: 0,
+            guardianMaybe: 0,
+            guardianNotReplied: 0, // Will be calculated based on actual guardian invites
+            
+            memberAccepted: 0,
+            memberDeclined: 0,
+            memberMaybe: 0,
+            memberNotReplied: 0, // Will be calculated based on actual member invites
+            
+            adminAccepted: 0,
+            adminDeclined: 0,
+            adminMaybe: 0,
+            adminNotReplied: 0 // Will be calculated based on actual admin invites
           }
         };
 
@@ -444,30 +514,115 @@ export class EventService {
   }
 
   /**
-   * Update user response to an event
+   * Update user response to an event (Enhanced with dual updates)
    */
   async respondToEvent(
     eventId: string,
     userId: string,
     response: 'accepted' | 'declined' | 'maybe',
+    userRoles: string[] = [], // User's roles in the event's groups
     note?: string
   ): Promise<void> {
     try {
-      const eventRef = doc(this.db, 'events', eventId);
+      const db = getFirestore();
+      const batch = writeBatch(db);
       
-      await updateDoc(eventRef, {
+      // 1. Update event document with response and role-based stats
+      const eventRef = doc(db, 'events', eventId);
+      
+      // Get current event to check if user already responded
+      const eventDoc = await getDoc(eventRef);
+      const eventData = eventDoc.data();
+      const previousResponse = eventData?.responses?.[userId]?.status;
+      
+      // Update event responses
+      batch.update(eventRef, {
         [`responses.${userId}`]: {
           status: response,
           timestamp: serverTimestamp(),
-          note: note || null
+          note: note || null,
+          userRoles: userRoles
         },
-        [`responseStats.${response}`]: 'increment(1)', // Will be replaced with actual increment
-        'responseStats.total': 'increment(1)', // Will be replaced with actual increment
         updatedAt: serverTimestamp()
       });
+      
+      // Calculate stat changes based on previous response
+      const statUpdates: any = {};
+      
+      // Overall stats
+      if (previousResponse) {
+        // User is changing their response
+        statUpdates[`responseStats.${previousResponse}`] = increment(-1);
+        statUpdates[`responseStats.total`] = increment(0); // No change in total
+      } else {
+        // New response
+        statUpdates[`responseStats.notReplied`] = increment(-1);
+        statUpdates[`responseStats.total`] = increment(1);
+      }
+      statUpdates[`responseStats.${response}`] = increment(1);
+      
+      // Role-based stats updates
+      for (const role of userRoles) {
+        const roleKey = role.toLowerCase();
+        if (['coach', 'guardian', 'member', 'admin'].includes(roleKey)) {
+          if (previousResponse) {
+            // Decrement previous role response
+            statUpdates[`responseStats.${roleKey}${previousResponse.charAt(0).toUpperCase() + previousResponse.slice(1)}`] = increment(-1);
+          } else {
+            // Decrement role not replied
+            statUpdates[`responseStats.${roleKey}NotReplied`] = increment(-1);
+          }
+          // Increment new role response
+          statUpdates[`responseStats.${roleKey}${response.charAt(0).toUpperCase() + response.slice(1)}`] = increment(1);
+        }
+      }
+      
+      // Apply stat updates to event
+      batch.update(eventRef, statUpdates);
+      
+      // 2. Update user document with event response
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+      const currentEventsInvited = userData?.eventsInvited || [];
+      
+      // Update or add event response in user's eventsInvited array
+      const existingEventIndex = currentEventsInvited.findIndex((event: any) => event.eventId === eventId);
+      let updatedEventsInvited;
+      
+      if (existingEventIndex >= 0) {
+        // Update existing response
+        updatedEventsInvited = [...currentEventsInvited];
+        updatedEventsInvited[existingEventIndex] = {
+          ...updatedEventsInvited[existingEventIndex],
+          response: response,
+          respondedAt: new Date()
+        };
+      } else {
+        // Add new event response
+        updatedEventsInvited = [
+          ...currentEventsInvited,
+          {
+            eventId: eventId,
+            response: response,
+            invitedAt: new Date(), // Could be set when event is created
+            respondedAt: new Date()
+          }
+        ];
+      }
+      
+      batch.update(userRef, {
+        eventsInvited: updatedEventsInvited
+      });
+      
+      // 3. Execute all updates atomically
+      await batch.commit();
+      
+      console.log(`Successfully updated event response: User ${userId} ${response} event ${eventId}`);
+      
     } catch (error) {
       console.error('Error updating event response:', error);
-      throw new Error('Failed to update response');
+      throw new Error(`Failed to update response: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -486,6 +641,88 @@ export class EventService {
       console.error('Error cancelling event:', error);
       throw new Error('Failed to cancel event');
     }
+  }
+
+  /**
+   * Get detailed event response information including user details and roles
+   */
+  async getEventResponseDetails(eventId: string) {
+    try {
+      const eventDoc = await getDoc(doc(this.db, 'events', eventId));
+      if (!eventDoc.exists()) {
+        throw new Error('Event not found');
+      }
+      
+      const eventData = eventDoc.data();
+      const responses = eventData.responses || {};
+      
+      const responseDetails = [];
+      
+      // Get user details for each respondent
+      for (const [userId, response] of Object.entries(responses)) {
+        const userDoc = await getDoc(doc(this.db, 'users', userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const userRoles = this.getUserRolesForEventGroups(userData.groupsJoined || [], eventData.groupIds || []);
+          
+          responseDetails.push({
+            userId,
+            name: userData.name || userData.email?.split('@')[0] || 'Unknown User',
+            email: userData.email,
+            roles: userRoles,
+            response: (response as any).status,
+            timestamp: (response as any).timestamp,
+            note: (response as any).note
+          });
+        }
+      }
+      
+      // Group responses by roles and status
+      return {
+        event: {
+          id: eventId,
+          title: eventData.title,
+          startTime: eventData.startTime,
+          responseStats: eventData.responseStats
+        },
+        responses: {
+          all: responseDetails,
+          byRole: {
+            coaches: responseDetails.filter(r => r.roles.includes('coach')),
+            admins: responseDetails.filter(r => r.roles.includes('admin')),
+            guardians: responseDetails.filter(r => r.roles.includes('guardian')),
+            members: responseDetails.filter(r => r.roles.includes('member'))
+          },
+          byStatus: {
+            accepted: responseDetails.filter(r => r.response === 'accepted'),
+            declined: responseDetails.filter(r => r.response === 'declined'),
+            maybe: responseDetails.filter(r => r.response === 'maybe')
+          }
+        }
+      };
+      
+    } catch (error) {
+      console.error('Error getting event response details:', error);
+      throw new Error('Failed to get response details');
+    }
+  }
+
+  /**
+   * Helper function to get user roles for specific event groups
+   */
+  private getUserRolesForEventGroups(userGroupsJoined: any[], eventGroupIds: string[]): string[] {
+    const roles = new Set<string>();
+    
+    for (const membership of userGroupsJoined) {
+      if (eventGroupIds.includes(membership.groupId)) {
+        // Add all roles user has in this group
+        if (membership.roles && Array.isArray(membership.roles)) {
+          membership.roles.forEach((role: string) => roles.add(role));
+        }
+      }
+    }
+    
+    return Array.from(roles);
   }
 }
 

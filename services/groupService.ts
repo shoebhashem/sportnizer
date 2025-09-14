@@ -89,15 +89,30 @@ export const createGroup = async (groupData: {
     if (userDoc.exists()) {
       const userData = userDoc.data();
       const currentGroupsJoined = userData.groupsJoined || [];
-      userUpdateData.groupsJoined = [...currentGroupsJoined, groupRef.id];
+      
+      // Add new group membership with admin role
+      const newMembership = {
+        groupId: groupRef.id,
+        roles: ['admin'],
+        joinedAt: new Date(),
+        status: 'active'
+      };
+      
+      userUpdateData.groupsJoined = [...currentGroupsJoined, newMembership];
       await updateDoc(userRef, userUpdateData);
     } else {
       // Create user document if it doesn't exist using setDoc
       const newUserData = {
         name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
         email: currentUser.email,
-        groupsJoined: [groupRef.id],
+        groupsJoined: [{
+          groupId: groupRef.id,
+          roles: ['admin'],
+          joinedAt: new Date(),
+          status: 'active'
+        }],
         groupsCreated: 1,
+        eventsInvited: [], // Initialize empty array for event tracking
         createdAt: serverTimestamp()
       };
       await setDoc(userRef, newUserData);
