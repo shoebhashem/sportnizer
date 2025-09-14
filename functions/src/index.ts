@@ -239,13 +239,45 @@ export const processInvitation = onRequest(
         membersCount: admin.firestore.FieldValue.increment(1)
       });
 
-      // Add group to user's profile
+      // Add group to user's profile using new GroupMembership structure
       const userRef = admin.firestore().collection('users').doc(userRecord.uid);
-      batch.set(userRef, {
-        groupsJoined: admin.firestore.FieldValue.arrayUnion(invitationData.groupId),
-      }, { merge: true });
+      const userDoc = await userRef.get();
       
-      console.log(`Added group ${invitationData.groupId} to user ${userRecord.uid} groupsJoined array`);
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        const currentGroupsJoined = userData?.groupsJoined || [];
+        
+        // Check if group already exists
+        const existingMembership = currentGroupsJoined.find((membership: any) => membership.groupId === invitationData.groupId);
+        if (!existingMembership) {
+          const newMembership = {
+            groupId: invitationData.groupId,
+            roles: ['member'],
+            joinedAt: new Date(),
+            status: 'active'
+          };
+          batch.update(userRef, {
+            groupsJoined: admin.firestore.FieldValue.arrayUnion(newMembership),
+          });
+        }
+      } else {
+        // Create user document with new schema
+        batch.set(userRef, {
+          name: userRecord.displayName || userRecord.email?.split('@')[0] || 'User',
+          email: userRecord.email?.toLowerCase(),
+          emailVerified: userRecord.emailVerified || false,
+          groupsJoined: [{
+            groupId: invitationData.groupId,
+            roles: ['member'],
+            joinedAt: new Date(),
+            status: 'active'
+          }],
+          eventsInvited: [],
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      
+      console.log(`Added group ${invitationData.groupId} to user ${userRecord.uid} using GroupMembership structure`);
 
       // Mark invitation as used
       batch.update(invitationDoc.ref, {
@@ -465,23 +497,9 @@ export const respondToInvitation = onRequest(
         const userData = userDoc.data();
         const currentGroupsJoined = userData?.groupsJoined || [];
         
-        // Check if it's old string array or new GroupMembership structure
-        if (currentGroupsJoined.length > 0 && typeof currentGroupsJoined[0] === 'object') {
-          // New GroupMembership structure - check if group already exists
-          const existingMembership = currentGroupsJoined.find((membership: any) => membership.groupId === invitationData.groupId);
-          if (!existingMembership) {
-            const newMembership = {
-              groupId: invitationData.groupId,
-              roles: ['member'],
-              joinedAt: new Date(),
-              status: 'active'
-            };
-            batch.update(userRef, {
-              groupsJoined: admin.firestore.FieldValue.arrayUnion(newMembership),
-            });
-          }
-        } else {
-          // Old string array structure or mixed - convert to new structure
+        // Check if group already exists
+        const existingMembership = currentGroupsJoined.find((membership: any) => membership.groupId === invitationData.groupId);
+        if (!existingMembership) {
           const newMembership = {
             groupId: invitationData.groupId,
             roles: ['member'],
@@ -1229,24 +1247,9 @@ export const processGuardianInvitation = onRequest(
           const existingUserData = existingUserDoc.data();
           const currentGroups = existingUserData?.groupsJoined || [];
           
-          // Check if it's old string array or new GroupMembership structure
-          if (currentGroups.length > 0 && typeof currentGroups[0] === 'object') {
-            // New GroupMembership structure - check if group already exists
-            const existingMembership = currentGroups.find((membership: any) => membership.groupId === invitationData.groupId);
-            if (!existingMembership) {
-              const newMembership = {
-                groupId: invitationData.groupId,
-                roles: ['guardian'],
-                joinedAt: new Date(),
-                status: 'active'
-              };
-              await existingUserRef.update({
-                groupsJoined: admin.firestore.FieldValue.arrayUnion(newMembership),
-              });
-              console.log('Updated existing user with new group using GroupMembership structure');
-            }
-          } else {
-            // Old string array structure - convert to new structure
+          // Check if group already exists
+          const existingMembership = currentGroups.find((membership: any) => membership.groupId === invitationData.groupId);
+          if (!existingMembership) {
             const newMembership = {
               groupId: invitationData.groupId,
               roles: ['guardian'],
@@ -1256,7 +1259,7 @@ export const processGuardianInvitation = onRequest(
             await existingUserRef.update({
               groupsJoined: admin.firestore.FieldValue.arrayUnion(newMembership),
             });
-            console.log('Updated existing user with new GroupMembership structure');
+            console.log('Updated existing user with new group using GroupMembership structure');
           }
         } else {
           // User exists in Auth but not in Firestore, create the document

@@ -88,30 +88,19 @@ class HomeService {
       
       console.log('HomeService: User data retrieved:', userData);
       console.log('HomeService: User data keys:', userData ? Object.keys(userData) : 'no userData');
-      console.log('HomeService: User groups field (groups):', userData?.groups);
       console.log('HomeService: User groupsJoined field:', userData?.groupsJoined);
       
-      // Check if user has new GroupMembership structure, old array structure, or legacy groups object
+      // Use new GroupMembership structure only
       let groupIds: string[] = [];
       
       if (userData?.groupsJoined && Array.isArray(userData.groupsJoined)) {
-        // Check if it's the new GroupMembership structure or old string array
-        if (userData.groupsJoined.length > 0 && typeof userData.groupsJoined[0] === 'object') {
-          // New GroupMembership structure
-          groupIds = userData.groupsJoined
-            .filter((membership: any) => membership.status === 'active')
-            .map((membership: any) => membership.groupId);
-          console.log('HomeService: Using new GroupMembership structure:', groupIds);
-        } else {
-          // Old string array structure
-          groupIds = userData.groupsJoined;
-          console.log('HomeService: Using old groupsJoined array:', groupIds);
-        }
-      } else if (userData?.groups && typeof userData.groups === 'object') {
-        groupIds = Object.keys(userData.groups);
-        console.log('HomeService: Using groups object keys:', groupIds);
+        // New GroupMembership structure - filter active memberships
+        groupIds = userData.groupsJoined
+          .filter((membership: any) => membership.status === 'active')
+          .map((membership: any) => membership.groupId);
+        console.log('HomeService: Using GroupMembership structure:', groupIds);
       } else {
-        console.log('HomeService: No user groups found in any structure');
+        console.log('HomeService: No active group memberships found');
         return [];
       }
 
