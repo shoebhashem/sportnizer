@@ -19,7 +19,8 @@ interface Group {
 
 interface Member {
   id: string;
-  role: string;
+  role?: string; // Legacy field for backward compatibility
+  roles?: string[]; // New field for multiple roles
   name: string;
   isConfirmed?: boolean; // For children in ageGroup 1, indicates guardian confirmation
   profileImageUrl?: string; // URL to profile image in Firebase Storage
@@ -52,7 +53,15 @@ export default function ManageGroupScreen() {
   // Check if user is admin or coach (can manage group/subgroups)
   const canManage = user && group && (
     group.createdBy === user.uid || 
-    members.some(member => member.id === user.uid && (member.role === 'admin' || member.role === 'coach'))
+    members.some(member => {
+      if (member.id !== user.uid) return false;
+      // Handle both old role field and new roles array
+      if (member.roles && Array.isArray(member.roles)) {
+        return member.roles.includes('admin') || member.roles.includes('coach');
+      }
+      // Fallback to old role field
+      return member.role === 'admin' || member.role === 'coach';
+    })
   );
 
   const fetchGroupData = useCallback(async () => {
@@ -81,7 +90,20 @@ export default function ManageGroupScreen() {
       for (const memberDoc of membersSnapshot.docs) {
         const memberId = memberDoc.id;
         const memberData = memberDoc.data();
-        const memberRole = memberData.role || 'member';
+        
+        // Handle both old role field and new roles array
+        let memberRole = 'member';
+        let memberRoles: string[] = [];
+        
+        if (memberData.roles && Array.isArray(memberData.roles)) {
+          // New schema: roles array
+          memberRoles = memberData.roles;
+          memberRole = memberRoles[0] || 'member'; // Use first role as primary for display
+        } else {
+          // Old schema: role string
+          memberRole = memberData.role || 'member';
+          memberRoles = [memberRole];
+        }
         
         // Check if name is stored in member document (for children) or fetch from users collection (for adults)
         let userName = 'Unknown User';
@@ -107,6 +129,7 @@ export default function ManageGroupScreen() {
         membersData.push({
           id: memberId,
           role: memberRole,
+          roles: memberRoles,
           name: userName,
           isConfirmed
         });

@@ -9,7 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Member {
   id: string;
-  role: string;
+  role?: string; // Legacy field for backward compatibility
+  roles?: string[]; // New field for multiple roles
   name: string;
   selected: boolean;
 }
@@ -34,28 +35,49 @@ export default function ManageSubgroupMembersScreen() {
       // For each member, fetch their user data to get their name
       for (const memberDoc of membersSnapshot.docs) {
         const memberId = memberDoc.id;
-        const memberRole = memberDoc.data().role || 'member';
+        const memberData = memberDoc.data();
+        
+        // Handle both old role field and new roles array
+        let memberRole = 'member';
+        let memberRoles: string[] = [];
+        
+        if (memberData.roles && Array.isArray(memberData.roles)) {
+          // New schema: roles array
+          memberRoles = memberData.roles;
+          memberRole = memberRoles[0] || 'member'; // Use first role as primary for display
+        } else {
+          // Old schema: role string
+          memberRole = memberData.role || 'member';
+          memberRoles = [memberRole];
+        }
         
         // Fetch user data to get the name
-        try {
-          const userDoc = await getDoc(doc(db, 'users', memberId));
-          const userName = userDoc.exists() ? userDoc.data().name || 'Unknown User' : 'Unknown User';
-          
-          allMembers.push({
-            id: memberId,
-            role: memberRole,
-            name: userName,
-            selected: false
-          });
-        } catch (error) {
-          console.error(`Error fetching user data for ${memberId}:`, error);
-          allMembers.push({
-            id: memberId,
-            role: memberRole,
-            name: 'Unknown User',
-            selected: false
-          });
+        let userName = 'Unknown User';
+        
+        // Check if name is stored in member document (for children) or fetch from users collection (for adults)
+        if (memberData.name) {
+          // Name stored in member document (children in ageGroup 1)
+          userName = memberData.name;
+        } else {
+          // Fetch user data from users collection (adults in ageGroup 2)
+          try {
+            const userDoc = await getDoc(doc(db, 'users', memberId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              userName = userData.name || userData.email?.split('@')[0] || 'Unknown User';
+            }
+          } catch (error) {
+            console.error(`Error fetching user data for ${memberId}:`, error);
+          }
         }
+        
+        allMembers.push({
+          id: memberId,
+          role: memberRole,
+          roles: memberRoles,
+          name: userName,
+          selected: false
+        });
       }
 
       // Fetch current subgroup to see which members are already selected

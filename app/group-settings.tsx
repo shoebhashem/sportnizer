@@ -5,7 +5,7 @@ import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { addDoc, arrayRemove, collection, doc, getDoc, getDocs, getFirestore, runTransaction, setDoc, writeBatch } from 'firebase/firestore';
+import { addDoc, arrayRemove, collection, doc, getDoc, getDocs, getFirestore, runTransaction, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -85,9 +85,28 @@ export default function GroupSettingsScreen() {
       membersSnapshot.forEach((memberDoc) => {
         const memberData = memberDoc.data();
         if (memberDoc.id === user.uid) {
-          userRole = memberData.role || 'member';
+          // Handle both old role field and new roles array
+          if (memberData.roles && Array.isArray(memberData.roles)) {
+            // New schema: roles array
+            if (memberData.roles.includes('admin')) {
+              userRole = 'admin';
+            } else if (memberData.roles.includes('coach')) {
+              userRole = 'coach';
+            } else {
+              userRole = 'member';
+            }
+          } else {
+            // Old schema: role string (fallback)
+            userRole = memberData.role || 'member';
+          }
         }
-        if (memberData.role === 'admin') {
+        
+        // Count admins - handle both old and new schema
+        if (memberData.roles && Array.isArray(memberData.roles)) {
+          if (memberData.roles.includes('admin')) {
+            adminCount++;
+          }
+        } else if (memberData.role === 'admin') {
           adminCount++;
         }
         
@@ -312,8 +331,8 @@ export default function GroupSettingsScreen() {
         if (!memberDoc.exists()) {
           console.log('Adding group creator as admin member');
           await setDoc(doc(db, 'groups', groupId as string, 'members', user.uid), {
-            role: 'admin',
-            joinedAt: new Date()
+            roles: ['admin'],
+            joinedAt: serverTimestamp()
           });
         }
       } else {
@@ -331,8 +350,11 @@ export default function GroupSettingsScreen() {
           return;
         }
         
-        const memberRole = memberDoc.data()?.role;
-        if (memberRole !== 'admin' && memberRole !== 'coach') {
+        const memberData = memberDoc.data();
+        const memberRoles = memberData?.roles || [];
+        const hasAdminOrCoach = memberRoles.includes('admin') || memberRoles.includes('coach');
+        
+        if (!hasAdminOrCoach) {
           setErrorMessage('You do not have permission to create subgroups. Only admins and coaches can create subgroups.');
           setShowErrorModal(true);
           setCreatingSubgroup(false);
@@ -344,14 +366,24 @@ export default function GroupSettingsScreen() {
         name: subgroupName.trim(),
         memberIds: [],
         createdBy: user.uid,
-        createdAt: new Date()
+        createdAt: serverTimestamp()
+      });
+      
+      // Debug: Check user's membership and roles before creating subgroup
+      const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', user.uid));
+      console.log('User membership before subgroup creation:', {
+        exists: memberDoc.exists(),
+        data: memberDoc.exists() ? memberDoc.data() : null,
+        roles: memberDoc.exists() ? memberDoc.data()?.roles : null,
+        userId: user.uid,
+        groupId: groupId
       });
       
       const docRef = await addDoc(collection(db, 'groups', groupId as string, 'subgroups'), {
         name: subgroupName.trim(),
         memberIds: [],
         createdBy: user.uid,
-        createdAt: new Date()
+        createdAt: serverTimestamp()
       });
 
       console.log('Subgroup created successfully with ID:', docRef.id);

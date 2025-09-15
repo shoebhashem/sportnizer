@@ -2,7 +2,8 @@ import { ImageSourcePropType } from 'react-native';
 
 interface Member {
   id: string;
-  role: string;
+  role?: string; // Legacy field for backward compatibility
+  roles?: string[]; // New field for multiple roles
   name: string;
   isConfirmed?: boolean;
   profileImageUrl?: string;
@@ -28,8 +29,18 @@ export const getAvatarSource = (member: Member, group: Group): ImageSourcePropTy
     return { uri: member.profileImageUrl };
   }
   
+  // Get member role - handle both old and new schema
+  let memberRole = 'member';
+  if (member.roles && Array.isArray(member.roles) && member.roles.length > 0) {
+    // New schema: use first role as primary
+    memberRole = member.roles[0];
+  } else if (member.role) {
+    // Old schema: use role field
+    memberRole = member.role;
+  }
+  
   // Default avatars based on age group and role
-  if (group.ageGroup === 1 && member.role === 'member') {
+  if (group.ageGroup === 1 && memberRole === 'member') {
     // Children in ageGroup 1 get child avatar
     return require('@/assets/images/avatars/child-default.png');
   } else {

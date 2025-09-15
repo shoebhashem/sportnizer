@@ -42,21 +42,15 @@ service cloud.firestore {
     match /groups/{groupId} {
       // Helper functions for role checking
       function getUserRoles() {
+        // Returns array of roles for the current user in this group
+        // Should return ['admin'], ['coach'], ['member'], ['guardian'], or combinations
         return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) ?
                get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.roles : [];
       }
       
-      function getUserRole() {
-        // Legacy support - returns primary role or first role in array
-        let roles = getUserRoles();
-        return roles is list ? (roles.size() > 0 ? roles[0] : 'member') : 
-               exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) ?
-               get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role : 'none';
-      }
-      
       function hasRole(role) {
         let roles = getUserRoles();
-        return roles is list ? role in roles : getUserRole() == role;
+        return roles is list && role in roles;
       }
       
       function isGroupMember() {
@@ -154,7 +148,6 @@ service cloud.firestore {
                        
                        // Members can update their own info but not roles
                        (memberId == request.auth.uid && 
-                        (!('role' in request.resource.data) || request.resource.data.role == resource.data.role) &&
                         (!('roles' in request.resource.data) || request.resource.data.roles == resource.data.roles))
                      ) &&
                      // Additional validation for roles array
@@ -238,9 +231,10 @@ service cloud.firestore {
         allow read: if isSignedIn() && (isGroupMember() || isGuardian());
         
         // Only admin and coach can create/update/delete subgroups
-        allow create: if isValidUser() &&
+        allow create: if isSignedIn() &&
                      request.resource.data.createdBy == request.auth.uid &&
-                     canCreateContent();
+                     (hasRole('admin') || 
+                      request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy);
         
         allow update, delete: if isSignedIn() && canCreateContent();
       }

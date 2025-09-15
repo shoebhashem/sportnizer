@@ -76,7 +76,7 @@ export const createGroup = async (groupData: {
 
     // Add creator as admin member in subcollection (with document ID as user ID)
     await setDoc(doc(db, 'groups', groupRef.id, 'members', currentUser.uid), {
-      role: 'admin',
+      roles: ['admin'], // Use new array-based roles
       joinedAt: serverTimestamp()
     });
 
