@@ -133,7 +133,6 @@ export default function GroupSettingsScreen() {
       // If user is the group creator but not found in members, consider them as admin
       if (groupDoc.exists() && groupDoc.data().createdBy === user.uid && userRole === 'member') {
         userRole = 'admin';
-        console.log('Group creator automatically granted admin permissions');
       }
       
       setUserRole(userRole);
@@ -305,15 +304,6 @@ export default function GroupSettingsScreen() {
       return;
     }
 
-    // Check if user has permission to create subgroups
-    console.log('Permission check:', {
-      userRole,
-      canManage,
-      isAdmin,
-      groupCreatedBy: group?.createdBy,
-      currentUserId: user.uid
-    });
-    
     if (!canManage) {
       setErrorMessage('You do not have permission to create subgroups in this group.');
       setShowErrorModal(true);
@@ -329,7 +319,6 @@ export default function GroupSettingsScreen() {
       if (isGroupCreator) {
         const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', user.uid));
         if (!memberDoc.exists()) {
-          console.log('Adding group creator as admin member');
           await setDoc(doc(db, 'groups', groupId as string, 'members', user.uid), {
             roles: ['admin'],
             joinedAt: serverTimestamp()
@@ -338,10 +327,6 @@ export default function GroupSettingsScreen() {
       } else {
         // For non-creators, verify membership and role
         const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', user.uid));
-        console.log('User membership check:', {
-          exists: memberDoc.exists(),
-          data: memberDoc.exists() ? memberDoc.data() : null
-        });
         
         if (!memberDoc.exists()) {
           setErrorMessage('You are not a member of this group. Please contact an admin.');
@@ -362,31 +347,12 @@ export default function GroupSettingsScreen() {
         }
       }
       
-      console.log('Creating subgroup with data:', {
+      await addDoc(collection(db, 'groups', groupId as string, 'subgroups'), {
         name: subgroupName.trim(),
         memberIds: [],
         createdBy: user.uid,
         createdAt: serverTimestamp()
       });
-      
-      // Debug: Check user's membership and roles before creating subgroup
-      const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', user.uid));
-      console.log('User membership before subgroup creation:', {
-        exists: memberDoc.exists(),
-        data: memberDoc.exists() ? memberDoc.data() : null,
-        roles: memberDoc.exists() ? memberDoc.data()?.roles : null,
-        userId: user.uid,
-        groupId: groupId
-      });
-      
-      const docRef = await addDoc(collection(db, 'groups', groupId as string, 'subgroups'), {
-        name: subgroupName.trim(),
-        memberIds: [],
-        createdBy: user.uid,
-        createdAt: serverTimestamp()
-      });
-
-      console.log('Subgroup created successfully with ID:', docRef.id);
 
       setShowCreateSubgroupModal(false);
       setSubgroupName('');
