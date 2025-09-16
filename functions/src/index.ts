@@ -15,6 +15,23 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Helper function to get default profile picture URL
+const getDefaultProfilePictureUrl = (userAge?: number): string => {
+  // Default to adult if age is unknown
+  const isChild = userAge !== undefined && userAge < 18;
+  
+  if (isChild) {
+    return 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fchild_profile_icon.png?alt=media';
+  } else {
+    return 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media';
+  }
+};
+
+// Helper function to get custom profile picture URL (resized version)
+const getCustomProfilePictureUrl = (userId: string): string => {
+  return `https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/customProfilePictures%2Fprofile_200x200.png?alt=media`;
+};
+
 export const sendGroupInvitation = onCall(
   {
     region: 'europe-north1',
@@ -266,6 +283,7 @@ export const processInvitation = onRequest(
           name: userRecord.displayName || userRecord.email?.split('@')[0] || 'User',
           email: userRecord.email?.toLowerCase(),
           emailVerified: userRecord.emailVerified || false,
+          profilePicture: getDefaultProfilePictureUrl(), // Add default profile picture
           groupsJoined: [{
             groupId: invitationData.groupId,
             roles: ['member'],
@@ -516,6 +534,7 @@ export const respondToInvitation = onRequest(
           name: userRecord.displayName || userRecord.email?.split('@')[0] || 'User',
           email: userRecord.email?.toLowerCase(),
           emailVerified: userRecord.emailVerified || false,
+          profilePicture: getDefaultProfilePictureUrl(), // Add default profile picture
           groupsJoined: [{
             groupId: invitationData.groupId,
             roles: ['member'],
@@ -1267,6 +1286,7 @@ export const processGuardianInvitation = onRequest(
             name: guardianName,
             email: guardianEmail.toLowerCase(),
             emailVerified: guardianUser.emailVerified || false,
+            profilePicture: getDefaultProfilePictureUrl(), // Add default profile picture
             groupsJoined: [{
               groupId: invitationData.groupId,
               roles: ['guardian'],
@@ -1293,6 +1313,7 @@ export const processGuardianInvitation = onRequest(
             name: guardianName,
             email: guardianEmail.toLowerCase(),
             emailVerified: false, // They'll need to verify their email
+            profilePicture: getDefaultProfilePictureUrl(), // Add default profile picture
             groupsJoined: [{
               groupId: invitationData.groupId,
               roles: ['guardian'],

@@ -23,8 +23,6 @@ export const createGroup = async (groupData: {
   name: string;
   sportType: string;
   ageGroup: string;
-  location: string;
-  customStats: string[];
 }) => {
   try {
     const currentUser = getCurrentUser();

@@ -52,8 +52,22 @@ export default function GroupsScreen() {
         
         console.log('User groupsJoined:', groupsJoined);
         
-        // Fetch each joined group (excluding ones user created to avoid duplicates)
-        for (const groupId of groupsJoined) {
+        // Handle both old and new schema
+        for (const groupItem of groupsJoined) {
+          let groupId: string;
+          
+          // Check if it's the new GroupMembership structure or old string format
+          if (typeof groupItem === 'string') {
+            // Old format: array of strings
+            groupId = groupItem;
+          } else if (groupItem && typeof groupItem === 'object' && groupItem.groupId) {
+            // New format: array of GroupMembership objects
+            groupId = groupItem.groupId;
+          } else {
+            console.warn('Invalid group data:', groupItem);
+            continue;
+          }
+          
           // Skip if this is a group the user created (already included above)
           if (userGroups.some(group => group.id === groupId)) {
             continue;
@@ -132,8 +146,22 @@ export default function GroupsScreen() {
             const userData = userDoc.data();
             const groupsJoined = userData.groupsJoined || [];
             
-            // Fetch each joined group (excluding ones user created to avoid duplicates)
-            for (const groupId of groupsJoined) {
+            // Handle both old and new schema for real-time updates
+            for (const groupItem of groupsJoined) {
+              let groupId: string;
+              
+              // Check if it's the new GroupMembership structure or old string format
+              if (typeof groupItem === 'string') {
+                // Old format: array of strings
+                groupId = groupItem;
+              } else if (groupItem && typeof groupItem === 'object' && groupItem.groupId) {
+                // New format: array of GroupMembership objects
+                groupId = groupItem.groupId;
+              } else {
+                console.warn('Invalid group data in real-time listener:', groupItem);
+                continue;
+              }
+              
               if (allGroups.some(group => group.id === groupId)) {
                 continue;
               }

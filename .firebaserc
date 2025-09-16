@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "sportnizer"
+  },
+  "targets": {},
+  "etags": {
+    "sportnizer": {
+      "extensionInstances": {
+        "storage-resize-images": "c3bb83a89930ef29a1b8ba868747f0b91ec8f8c63efb088ee1030d227175d71c"
+      }
+    }
   }
 }

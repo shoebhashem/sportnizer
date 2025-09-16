@@ -1,5 +1,7 @@
 import { User } from 'firebase/auth';
 import { doc, getDoc, getFirestore, setDoc, Timestamp } from 'firebase/firestore';
+import { getDownloadURL, ref } from 'firebase/storage';
+import { storage } from '../firebaseConfig';
 
 // Enhanced group membership interface
 export interface GroupMembership {
@@ -56,6 +58,20 @@ const calculateAgeGroup = (age: number): string => {
   return '65+';
 };
 
+// Get default profile picture URL based on age
+const getDefaultProfilePicture = async (age: number): Promise<string> => {
+  try {
+    const fileName = age < 18 ? 'defaults/child_profile_icon.png' : 'defaults/adult_profile_icon.png';
+    const storageRef = ref(storage, fileName);
+    const downloadURL = await getDownloadURL(storageRef);
+    return downloadURL;
+  } catch (error) {
+    console.error('Error getting default profile picture:', error);
+    // Fallback to a default URL or empty string
+    return '';
+  }
+};
+
 // Create user profile in Firestore after successful authentication
 export const createUserProfile = async (
   user: User, 
@@ -73,6 +89,9 @@ export const createUserProfile = async (
     const age = calculateAge(additionalData.birthdate);
     const ageGroup = calculateAgeGroup(age);
     
+    // Get default profile picture based on age
+    const defaultProfilePicture = await getDefaultProfilePicture(age);
+    
     const userProfile: Omit<UserProfile, 'id'> = {
       email: user.email || '',
       name: additionalData.name || user.email?.split('@')[0] || '',
@@ -84,7 +103,7 @@ export const createUserProfile = async (
       groupsCreated: 0,
       groupsJoined: [], // Initialize as empty GroupMembership array
       eventsInvited: [], // Initialize as empty EventInvitation array
-      profilePicture: undefined // Will be set to default URL later
+      profilePicture: defaultProfilePicture // Set default profile picture URL
     };
 
     await setDoc(userRef, {
