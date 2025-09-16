@@ -274,3 +274,56 @@ export const getUserGuardianGroups = (userProfile: UserProfile): GroupMembership
     group.roles.includes('guardian')
   );
 };
+
+
+// Update user profile with birthdate and recalculate age-dependent fields
+export const updateUserBirthdate = async (
+  userId: string, 
+  birthdate: Date, 
+  gender?: 'male' | 'female' | 'other' | 'prefer-not-to-say'
+) => {
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, 'users', userId);
+    
+    // Calculate age and age group
+    const age = calculateAge(birthdate);
+    const ageGroup = calculateAgeGroup(age);
+    
+    // Get appropriate profile picture based on age
+    const profilePicture = await getDefaultProfilePicture(age);
+    
+    const updateData: any = {
+      birthdate: Timestamp.fromDate(birthdate),
+      age: age,
+      ageGroup: ageGroup,
+      profilePicture: profilePicture, // Update to age-appropriate default
+    };
+    
+    // Include gender if provided
+    if (gender) {
+      updateData.gender = gender;
+    }
+    
+    await setDoc(userRef, updateData, { merge: true });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error updating user birthdate:', error);
+    return { 
+      success: false, 
+      error: {
+        code: error.code,
+        message: error.message
+      }
+    };
+  }
+};
+
+
+// Check if user profile is complete (has required fields filled)
+export const isUserProfileComplete = (userProfile: UserProfile): boolean => {
+  return userProfile.birthdate !== null && 
+         userProfile.birthdate !== undefined && 
+         userProfile.gender !== 'prefer-not-to-say';
+};

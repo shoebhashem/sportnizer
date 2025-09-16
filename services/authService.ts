@@ -48,13 +48,22 @@ export const signUpUser = async (email: string, password: string, fullName: stri
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    // Create user document in Firestore with the new structure
+    // Get default profile picture (assume adult for initial signup)
+    const defaultProfilePicture = 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media';
+
+    // Create complete user document in Firestore with template fields
     await setDoc(doc(db, 'users', user.uid), {
       name: fullName,
       email: email.toLowerCase(),
+      gender: 'prefer-not-to-say', // Default value, user can update later
+      birthdate: null, // Null until user sets it
+      age: null, // Will be calculated when birthdate is set
+      ageGroup: null, // Will be calculated when birthdate is set
       createdAt: serverTimestamp(),
       groupsCreated: 0,
-      groupsJoined: [], // Initialize empty array for joined groups
+      groupsJoined: [], // Initialize as empty GroupMembership array
+      eventsInvited: [], // Initialize as empty EventInvitation array
+      profilePicture: defaultProfilePicture, // Set default profile picture
       emailVerified: false, // Track verification status
     });
     

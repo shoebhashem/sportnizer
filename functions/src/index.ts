@@ -27,11 +27,6 @@ const getDefaultProfilePictureUrl = (userAge?: number): string => {
   }
 };
 
-// Helper function to get custom profile picture URL (resized version)
-const getCustomProfilePictureUrl = (userId: string): string => {
-  return `https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/customProfilePictures%2Fprofile_200x200.png?alt=media`;
-};
-
 export const sendGroupInvitation = onCall(
   {
     region: 'europe-north1',
