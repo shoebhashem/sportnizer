@@ -139,10 +139,10 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
         email: data.email,
         name: data.name,
         gender: data.gender,
-        birthdate: data.birthdate.toDate(),
+        birthdate: data.birthdate ? data.birthdate.toDate() : new Date(), // Handle null birthdate
         age: data.age,
         ageGroup: data.ageGroup,
-        createdAt: data.createdAt.toDate(),
+        createdAt: data.createdAt ? data.createdAt.toDate() : new Date(), // Handle null createdAt
         groupsCreated: data.groupsCreated || 0,
         groupsJoined: data.groupsJoined || [], // Now supports GroupMembership array
         eventsInvited: data.eventsInvited || [], // Initialize if not present

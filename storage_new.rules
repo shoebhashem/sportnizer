@@ -1,0 +1,113 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidUser() {
+      return isSignedIn();
+      // TODO: Enable email verification in production
+      // return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    
+    // Helper function to check if user has specific role in a group
+    function hasRoleInGroup(groupId, role) {
+      return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) &&
+             role in get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.roles;
+    }
+    
+    function isGroupAdmin(groupId) {
+      return hasRoleInGroup(groupId, 'admin');
+    }
+    
+    function isGroupCoach(groupId) {
+      return hasRoleInGroup(groupId, 'coach');
+    }
+    
+    function canManageGroup(groupId) {
+      return isGroupAdmin(groupId) || isGroupCoach(groupId);
+    }
+    
+    // Helper function to check if user is a guardian of a specific member
+    function isGuardianOfMember(groupId, memberId) {
+      return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(memberId)/guardians/$(request.auth.uid));
+    }
+
+    // DEFAULT PROFILE PICTURES - Public read access
+    match /defaults/{filename} {
+      allow read: if true; // Public read access for default profile pictures
+      allow write: if false; // Only admins can upload defaults via console
+    }
+
+    // USER PROFILE PICTURES - All files under users/{userId}/
+    match /users/{userId}/{filename} {
+      // Public read access for all profile pictures
+      allow read: if true;
+      
+      // Write access: Only the user themselves, and only for profile pictures
+      allow write: if isValidUser() && 
+                   request.auth.uid == userId &&
+                   // Only allow profile picture files
+                   (filename.matches('profile\\.(jpg|jpeg|png|webp)') || 
+                    filename.matches('profile_200x200\\.(jpg|jpeg|png|webp)')) &&
+                   // File size limit: 5MB for profile pictures
+                   request.resource.size < 5 * 1024 * 1024 &&
+                   // Only allow image files
+                   request.resource.contentType.matches('image/.*');
+    }
+
+    // GROUP MEMBER PROFILE PICTURES - All files under groups/{groupId}/members/{memberId}/
+    match /groups/{groupId}/members/{memberId}/{filename} {
+      // Public read access for all member profile pictures
+      allow read: if true;
+      
+      // Write access rules:
+      // 1. The member themselves (if they're an authenticated user)
+      // 2. Guardian of the member (for children)
+      // 3. Admin or coach in the group
+      allow write: if isValidUser() && 
+                   (
+                     request.auth.uid == memberId ||
+                     isGuardianOfMember(groupId, memberId) ||
+                     canManageGroup(groupId)
+                   ) &&
+                   // Only allow profile picture files
+                   (filename.matches('profile\\.(jpg|jpeg|png|webp)') || 
+                    filename.matches('profile_200x200\\.(jpg|jpeg|png|webp)')) &&
+                   // File size limit: 5MB
+                   request.resource.size < 5 * 1024 * 1024 &&
+                   // Only allow image files
+                   request.resource.contentType.matches('image/.*');
+    }
+
+    // TEMPORARY UPLOADS (for processing before moving to final location)
+    match /temp-uploads/{userId}/{filename} {
+      // Users can upload to their temp folder
+      allow read, write: if isValidUser() && 
+                         request.auth.uid == userId &&
+                         // File size limit: 10MB
+                         request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // GROUP CONTENT (Events, Announcements, etc.) - for future use
+    match /groups/{groupId}/content/{contentType}/{filename} {
+      // Group members can read group content
+      allow read: if isSignedIn();
+      
+      // Only admins and coaches can upload group content
+      allow write: if isValidUser() && 
+                   canManageGroup(groupId) &&
+                   // File size limit: 10MB for group content
+                   request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // DENY ALL OTHER PATHS
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

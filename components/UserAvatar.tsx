@@ -1,7 +1,8 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    Image,
     Modal,
     Pressable,
     StyleSheet,
@@ -13,8 +14,10 @@ import {
 import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { signOutUser } from '../services/authService';
+import { getUserProfile, UserProfile } from '../services/userService';
 import Button from './Button';
 import ConfirmationModal from './ConfirmationModal';
+import ProfilePictureUpload from './ProfilePictureUpload';
 
 export default function UserAvatar() {
   const { user } = useAuth();
@@ -22,8 +25,31 @@ export default function UserAvatar() {
   const [modalVisible, setModalVisible] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  // Fetch user profile to get profile picture
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user?.uid) {
+        console.log('Fetching user profile for:', user.uid);
+        const profile = await getUserProfile(user.uid);
+        console.log('User profile loaded:', profile);
+        setUserProfile(profile);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user?.uid]);
 
   if (!user) return null;
+
+  // Debug: Log the current state
+  console.log('UserAvatar Debug:', {
+    'user.photoURL': user.photoURL,
+    'userProfile': userProfile,
+    'userProfile?.profilePicture': userProfile?.profilePicture
+  });
 
   const handleSignOutPress = () => {
     setModalVisible(false); // Close profile modal first
@@ -56,8 +82,17 @@ export default function UserAvatar() {
 
   const handleEditProfile = () => {
     setModalVisible(false);
-    // TODO: Navigate to edit profile screen
-    alert('Coming soon: Edit profile feature will be available soon!');
+    setShowUploadModal(true);
+  };
+
+  const handleProfilePictureSuccess = (newImageUrl: string) => {
+    // Update the userProfile state with the new image URL
+    if (userProfile) {
+      setUserProfile({
+        ...userProfile,
+        profilePicture: newImageUrl
+      });
+    }
   };
 
   const getInitials = (email: string) => {
@@ -83,10 +118,20 @@ export default function UserAvatar() {
         activeOpacity={0.7}
       >
         <View style={styles.avatar}>
-          {user.photoURL ? (
-            // TODO: Implement Image component for profile pictures
-            <FontAwesome name="user" size={20} color={theme.colors.primary} />
+          {/* Always try to show an image first */}
+          {(user.photoURL || userProfile?.profilePicture) ? (
+            <Image 
+              source={{ uri: user.photoURL || userProfile?.profilePicture || '' }} 
+              style={styles.avatarImage}
+              onError={(error) => {
+                console.log('Failed to load profile image:', error);
+              }}
+              onLoad={() => {
+                console.log('Profile image loaded successfully');
+              }}
+            />
           ) : (
+            /* Show initials while loading or if no profile picture */
             <Text style={styles.avatarText}>
               {getInitials(user.email || 'U')}
             </Text>
@@ -110,8 +155,12 @@ export default function UserAvatar() {
               {/* Header */}
               <View style={styles.modalHeader}>
                 <View style={styles.modalAvatar}>
-                  {user.photoURL ? (
-                    <FontAwesome name="user" size={32} color={theme.colors.primary} />
+                  {user.photoURL || userProfile?.profilePicture ? (
+                    <Image 
+                      source={{ uri: user.photoURL || userProfile?.profilePicture || '' }} 
+                      style={styles.modalAvatarImage}
+                      defaultSource={require('@/assets/images/avatars/adult-default.png')}
+                    />
                   ) : (
                     <Text style={styles.modalAvatarText}>
                       {getInitials(user.email || 'U')}
@@ -172,6 +221,14 @@ export default function UserAvatar() {
         onCancel={handleSignOutCancel}
         confirmButtonTheme="primary"
       />
+
+      {/* Profile Picture Upload Modal */}
+      <ProfilePictureUpload
+        visible={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onSuccess={handleProfilePictureSuccess}
+        currentImageUrl={user.photoURL || userProfile?.profilePicture}
+      />
     </>
   );
 }
@@ -194,6 +251,11 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   modalOverlay: {
     flex: 1,
@@ -237,6 +299,11 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  modalAvatarImage: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
   },
   closeButton: {
     padding: 8,

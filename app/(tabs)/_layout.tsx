@@ -1,6 +1,7 @@
 import AdContainer from '@/components/AdContainer';
 import AuthGuard from '@/components/AuthGuard';
 import UserAvatar from '@/components/UserAvatar';
+import { theme } from '@/constants/theme';
 import { useEventPermissions } from '@/utils/roleUtils';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
@@ -14,15 +15,15 @@ export default function TabLayout() {
     <AuthGuard>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: '#ffd33d',
+          tabBarActiveTintColor: theme.colors.secondary,
           headerStyle: {
-            backgroundColor: '#25292e',
+            backgroundColor: theme.colors.primary,
           },
           headerShadowVisible: false,
-          headerTintColor: '#fff',
+          headerTintColor: theme.colors.white,
           headerRight: () => <UserAvatar />,
           tabBarStyle: {
-            backgroundColor: '#25292e',
+            backgroundColor: theme.colors.primary,
             marginBottom: adHeight, // Make room for the ad
           },
         }}
