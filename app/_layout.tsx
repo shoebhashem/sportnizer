@@ -1,13 +1,15 @@
 import { AuthProvider } from '@/contexts/AuthContext';
+import { UserProvider } from '@/contexts/UserContext';
 import { Stack } from 'expo-router';
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="signup" options={{ headerShown: false }} />
+    <UserProvider>
+      <AuthProvider>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="signup" options={{ headerShown: false }} />
         <Stack.Screen 
           name="create-group" 
           options={{ 
@@ -42,6 +44,7 @@ export default function RootLayout() {
           }} 
         />
       </Stack>
-    </AuthProvider>
+      </AuthProvider>
+    </UserProvider>
   );
 }
