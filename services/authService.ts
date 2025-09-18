@@ -55,6 +55,7 @@ export const signUpUser = async (email: string, password: string, fullName: stri
     await setDoc(doc(db, 'users', user.uid), {
       name: fullName,
       email: email.toLowerCase(),
+      clubs: [], // Initialize as empty array
       gender: 'prefer-not-to-say', // Default value, user can update later
       birthdate: null, // Null until user sets it
       age: null, // Will be calculated when birthdate is set
