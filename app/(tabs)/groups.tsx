@@ -1,295 +1,275 @@
 import Button from '@/components/Button';
+import CreateGroupModal from '@/components/CreateGroupModal';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { router, useFocusEffect } from 'expo-router';
-import { collection, doc, getDoc, getDocs, getFirestore, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { useUser } from '@/contexts/UserContext';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-interface Group {
-  id: string;
-  name: string;
-  ageGroup?: number; // 1=children, 2=adults, 3=mixed
-}
+import { ClubWithGroups, getUserAccessibleClubsAndGroups, GroupWithDetails } from '../../services/userGroupService';
 
 export default function GroupsScreen() {
   const { user } = useAuth();
-  const [groups, setGroups] = useState<Group[]>([]);
+  const { userProfile } = useUser();
+  const [clubsWithGroups, setClubsWithGroups] = useState<ClubWithGroups[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const fetchUserGroups = useCallback(async () => {
-    if (!user) return;
+  // Fetch clubs with their groups using efficient permission-based service
+  const fetchClubsAndGroups = useCallback(async () => {
+    if (!user || !userProfile) return;
 
     setLoading(true);
     try {
-      const db = getFirestore();
+      const result = await getUserAccessibleClubsAndGroups();
       
-      // Get user document to check groupsJoined array
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-      
-      const userGroups: Group[] = [];
-      
-      // Get groups where user is the creator
-      const createdGroupsQuery = query(
-        collection(db, 'groups'),
-        where('createdBy', '==', user.uid)
-      );
-      const createdGroupsSnapshot = await getDocs(createdGroupsQuery);
-      
-      createdGroupsSnapshot.forEach((doc) => {
-        userGroups.push({
-          id: doc.id,
-          name: doc.data().name
-        });
-      });
-
-      // Get groups where user is a member (from user's groupsJoined array)
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const groupsJoined = userData.groupsJoined || [];
+      if (result.success && result.data) {
+        setClubsWithGroups(result.data);
         
-        console.log('User groupsJoined:', groupsJoined);
-        
-        // Handle both old and new schema
-        for (const groupItem of groupsJoined) {
-          let groupId: string;
-          
-          // Check if it's the new GroupMembership structure or old string format
-          if (typeof groupItem === 'string') {
-            // Old format: array of strings
-            groupId = groupItem;
-          } else if (groupItem && typeof groupItem === 'object' && groupItem.groupId) {
-            // New format: array of GroupMembership objects
-            groupId = groupItem.groupId;
-          } else {
-            console.warn('Invalid group data:', groupItem);
-            continue;
-          }
-          
-          // Skip if this is a group the user created (already included above)
-          if (userGroups.some(group => group.id === groupId)) {
-            continue;
-          }
-          
-          try {
-            const groupDocRef = doc(db, 'groups', groupId);
-            const groupDoc = await getDoc(groupDocRef);
-            
-            if (groupDoc.exists()) {
-              userGroups.push({
-                id: groupDoc.id,
-                name: groupDoc.data().name
-              });
-            }
-          } catch (error) {
-            console.error(`Error fetching group ${groupId}:`, error);
-          }
+        // Auto-select first club if only one club, otherwise clear selection
+        if (result.data.length === 1) {
+          setSelectedClubId(result.data[0].id);
+        } else {
+          setSelectedClubId(null);
         }
       } else {
-        // If user document doesn't exist, create it with empty groupsJoined array
-        console.log('User document not found, creating one...');
-        const userDocRef = doc(db, 'users', user.uid);
-        await setDoc(userDocRef, {
-          name: user.displayName || user.email?.split('@')[0] || 'User',
-          email: user.email || '',
-          createdAt: serverTimestamp(),
-          groupsCreated: 0,
-          groupsJoined: [],
-          emailVerified: true, // Assume verified if they're logged in
-        });
+        console.error('Error fetching clubs and groups:', result.error);
+        setClubsWithGroups([]);
       }
-
-      console.log('Total groups found:', userGroups.length);
-      console.log('Groups data:', userGroups);
-      setGroups(userGroups);
     } catch (error) {
-      console.error('Error fetching groups:', error);
+      console.error('Error in fetchClubsAndGroups:', error);
+      setClubsWithGroups([]);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, userProfile]);
 
-  // Real-time listener for user's groups
+  // Initial data fetch
   useEffect(() => {
-    if (!user) return;
+    fetchClubsAndGroups();
+  }, [fetchClubsAndGroups]);
 
-    const db = getFirestore();
-    let unsubscribeCreatedGroups: (() => void) | null = null;
-    let unsubscribeUser: (() => void) | null = null;
-
-    const setupListeners = async () => {
-      // Listen to groups created by user
-      const createdGroupsQuery = query(
-        collection(db, 'groups'),
-        where('createdBy', '==', user.uid)
-      );
-      
-      unsubscribeCreatedGroups = onSnapshot(createdGroupsQuery, async (snapshot) => {
-        const createdGroups: Group[] = [];
-        snapshot.forEach((doc) => {
-          createdGroups.push({
-            id: doc.id,
-            name: doc.data().name
-          });
-        });
-        
-        // Fetch joined groups and combine with created groups
-        try {
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          const allGroups = [...createdGroups];
-          
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const groupsJoined = userData.groupsJoined || [];
-            
-            // Handle both old and new schema for real-time updates
-            for (const groupItem of groupsJoined) {
-              let groupId: string;
-              
-              // Check if it's the new GroupMembership structure or old string format
-              if (typeof groupItem === 'string') {
-                // Old format: array of strings
-                groupId = groupItem;
-              } else if (groupItem && typeof groupItem === 'object' && groupItem.groupId) {
-                // New format: array of GroupMembership objects
-                groupId = groupItem.groupId;
-              } else {
-                console.warn('Invalid group data in real-time listener:', groupItem);
-                continue;
-              }
-              
-              if (allGroups.some(group => group.id === groupId)) {
-                continue;
-              }
-              
-              try {
-                const groupDocRef = doc(db, 'groups', groupId);
-                const groupDoc = await getDoc(groupDocRef);
-                
-                if (groupDoc.exists()) {
-                  allGroups.push({
-                    id: groupDoc.id,
-                    name: groupDoc.data().name
-                  });
-                }
-              } catch (error) {
-                console.error(`Error fetching group ${groupId}:`, error);
-              }
-            }
-          }
-
-          setGroups(allGroups);
-          setLoading(false);
-        } catch (error) {
-          console.error('Error fetching joined groups:', error);
-          setLoading(false);
-        }
-      });
-
-      // Listen to user document changes (for groupsJoined array changes)
-      const userDocRef = doc(db, 'users', user.uid);
-      unsubscribeUser = onSnapshot(userDocRef, async (doc) => {
-        if (doc.exists()) {
-          // Re-trigger the created groups listener which will also fetch joined groups
-          console.log('User document changed, refreshing groups...');
-        }
-      });
-    };
-
-    setupListeners();
-
-    return () => {
-      unsubscribeCreatedGroups?.();
-      unsubscribeUser?.();
-    };
-  }, [user]);
-
-  // Refresh data when screen comes into focus (e.g., after creating/deleting groups)
+  // Refresh when coming back to this screen
   useFocusEffect(
     useCallback(() => {
       if (user) {
-        fetchUserGroups();
+        fetchClubsAndGroups();
       }
-    }, [user, fetchUserGroups])
+    }, [user, fetchClubsAndGroups])
   );
 
-  const handleCreateGroup = () => {
-    router.push('/create-group');
+  // Handle group creation success
+  const handleGroupCreated = () => {
+    setShowCreateModal(false);
+    fetchClubsAndGroups();
   };
 
-  const handleGroupPress = (groupId: string) => {
-    router.push(`/manage-group?groupId=${groupId}` as any);
-  };
+  // Filter groups for selected club
+  const selectedClub = selectedClubId ? clubsWithGroups.find(club => club.id === selectedClubId) : null;
+  const groupsToShow = selectedClub ? selectedClub.groups : [];
 
-  const renderGroupItem = ({ item }: { item: Group }) => (
-    <TouchableOpacity 
-      style={styles.groupItem}
-      onPress={() => handleGroupPress(item.id)}
+  // Render club selector card
+  const renderClubCard = ({ item }: { item: ClubWithGroups }) => (
+    <TouchableOpacity
+      style={[
+        styles.clubCard,
+        selectedClubId === item.id && styles.selectedClubCard
+      ]}
+      onPress={() => setSelectedClubId(selectedClubId === item.id ? null : item.id)}
     >
-      <Text style={styles.groupName}>{item.name}</Text>
-      <Text style={styles.groupArrow}>›</Text>
+      <View style={styles.clubHeader}>
+        <Text style={[
+          styles.clubName,
+          selectedClubId === item.id && styles.selectedClubName
+        ]}>
+          {item.name}
+        </Text>
+        {item.isUserAdmin && (
+          <View style={styles.adminBadge}>
+            <Text style={styles.adminBadgeText}>Admin</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.clubStats}>
+        <Text style={styles.clubStatsText}>
+          {item.groups.length} groups • {item.totalMembers} members
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>
-        Create your first group or join a group by link
+  // Render group card
+  const renderGroupCard = ({ item }: { item: GroupWithDetails }) => (
+    <TouchableOpacity
+      style={styles.groupCard}
+      onPress={() => {
+        // TODO: Navigate to group details page
+        console.log('Navigate to group:', item.id);
+      }}
+    >
+      <View style={styles.groupHeader}>
+        <Text style={styles.groupName}>{item.name}</Text>
+        <Text style={styles.groupSport}>{item.sportType}</Text>
+      </View>
+      
+      <View style={styles.groupStats}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{item.membersCount}</Text>
+          <Text style={styles.statLabel}>Members</Text>
+        </View>
+        
+        {item.userRoles.length > 0 && (
+          <View style={styles.rolesBadgeContainer}>
+            {item.userRoles.map((role) => (
+              <View 
+                key={role} 
+                style={[
+                  styles.roleBadge,
+                  role === 'admin' && styles.adminRoleBadge,
+                  role === 'coach' && styles.coachRoleBadge,
+                ]}
+              >
+                <Text style={[
+                  styles.roleBadgeText,
+                  role === 'admin' && styles.adminRoleText,
+                  role === 'coach' && styles.coachRoleText,
+                ]}>
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render empty state for no clubs
+  const renderEmptyClubs = () => (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyTitle}>No Clubs Yet</Text>
+      <Text style={styles.emptyDescription}>
+        You&apos;re not a member of any clubs yet. Create a group to automatically create your first club.
       </Text>
+      <Button
+        label="Create Your First Group"
+        onPress={() => setShowCreateModal(true)}
+      />
     </View>
   );
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading your groups...</Text>
-        </View>
-      );
-    }
+  // Render empty state for no groups in selected club
+  const renderEmptyGroups = () => (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyTitle}>No Groups Yet</Text>
+      <Text style={styles.emptyDescription}>
+        {selectedClub?.isUserAdmin 
+          ? "This club doesn't have any groups yet. Create the first one!"
+          : "You don't have access to any groups in this club yet."
+        }
+      </Text>
+      {selectedClub?.isUserAdmin && (
+        <Button
+          label="Create Group"
+          onPress={() => setShowCreateModal(true)}
+        />
+      )}
+    </View>
+  );
 
+  if (loading) {
     return (
-      <View style={styles.content}>
-        <View style={styles.groupsContainer}>
-          <Text style={styles.sectionTitle}>Your Groups</Text>
-          {groups.length > 0 ? (
-            <FlatList
-              data={groups}
-              renderItem={renderGroupItem}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              style={styles.groupsList}
-            />
-          ) : (
-            renderEmptyState()
-          )}
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Loading clubs and groups...</Text>
         </View>
-
-        <View style={styles.buttonContainer}>
-          <Button
-            label="Create New Group"
-            onPress={handleCreateGroup}
-            theme="primary"
-            icon="plus"
-          />
-        </View>
-      </View>
+      </SafeAreaView>
     );
-  };
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {renderContent()}
-      </ScrollView>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Groups</Text>
+        <Button
+          label="Create Group"
+          onPress={() => setShowCreateModal(true)}
+        />
+      </View>
+
+      {clubsWithGroups.length === 0 ? (
+        renderEmptyClubs()
+      ) : (
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Clubs Section */}
+          {clubsWithGroups.length > 1 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Your Clubs</Text>
+              <FlatList
+                data={clubsWithGroups}
+                renderItem={renderClubCard}
+                keyExtractor={(item) => item.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.clubsList}
+              />
+            </View>
+          )}
+
+          {/* Single Club Container */}
+          {clubsWithGroups.length === 1 && (
+            <View style={styles.singleClubContainer}>
+              <View style={styles.clubHeader}>
+                <Text style={styles.singleClubName}>{clubsWithGroups[0].name}</Text>
+                {clubsWithGroups[0].isUserAdmin && (
+                  <View style={styles.adminBadge}>
+                    <Text style={styles.adminBadgeText}>Admin</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.clubStatsText}>
+                {clubsWithGroups[0].groups.length} groups • {clubsWithGroups[0].totalMembers} members
+              </Text>
+            </View>
+          )}
+
+          {/* Groups Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {selectedClub ? `Groups in ${selectedClub.name}` : 'Groups'}
+            </Text>
+            
+            {groupsToShow.length === 0 ? (
+              renderEmptyGroups()
+            ) : (
+              <FlatList
+                data={groupsToShow}
+                renderItem={renderGroupCard}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.groupsList}
+              />
+            )}
+          </View>
+        </ScrollView>
+      )}
+
+      <CreateGroupModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false);
+          fetchClubsAndGroups(); // Refresh the list
+        }}
+        userClubs={clubsWithGroups.filter(club => club.isUserAdmin).map(club => ({
+          id: club.id,
+          name: club.name,
+          isAdmin: club.isUserAdmin
+        }))}
+      />
     </SafeAreaView>
   );
 }
@@ -299,89 +279,211 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.primary,
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: theme.layout.containerPadding,
-    paddingBottom: theme.spacing.xl,
-  },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
   },
-  title: {
-    fontSize: theme.typography.fontSize.xlarge,
-    color: theme.colors.secondary,
-    fontWeight: theme.typography.fontWeight.bold,
-    textAlign: 'center',
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.text,
   },
-  subtitle: {
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
-    lineHeight: 22,
+  headerButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 8,
   },
-  content: {
-    flex: 1,
-    width: '100%',
-  },
-  buttonContainer: {
-    width: '100%',
-    marginBottom: theme.spacing.xl,
+  headerButtonText: {
+    fontSize: 14,
+    color: theme.colors.white,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: theme.spacing.xl,
   },
   loadingText: {
-    fontSize: theme.typography.fontSize.medium,
+    marginTop: 12,
+    fontSize: 16,
     color: theme.colors.textSecondary,
-    marginTop: theme.spacing.md,
   },
-  groupsContainer: {
+  content: {
     flex: 1,
-    width: '100%',
+  },
+  section: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   sectionTitle: {
-    fontSize: theme.typography.fontSize.large,
+    fontSize: 18,
+    fontWeight: '600',
     color: theme.colors.text,
-    fontWeight: theme.typography.fontWeight.bold,
-    marginBottom: theme.spacing.md,
+    marginBottom: 12,
+  },
+  clubsList: {
+    paddingHorizontal: 4,
+  },
+  clubCard: {
+    backgroundColor: theme.colors.inputBackground,
+    padding: 16,
+    marginHorizontal: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    minWidth: 200,
+  },
+  selectedClubCard: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary + '10',
+  },
+  clubHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  clubName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    flex: 1,
+  },
+  selectedClubName: {
+    color: theme.colors.primary,
+  },
+  singleClubContainer: {
+    backgroundColor: theme.colors.inputBackground,
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  singleClubName: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: theme.colors.text,
+    flex: 1,
+  },
+  adminBadge: {
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  adminBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.white,
+  },
+  clubStats: {
+    marginTop: 4,
+  },
+  clubStatsText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
   },
   groupsList: {
-    flex: 1,
+    gap: 8,
   },
-  groupItem: {
+  groupCard: {
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  groupHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   groupName: {
-    fontSize: theme.typography.fontSize.medium,
+    fontSize: 16,
+    fontWeight: '600',
     color: theme.colors.text,
     flex: 1,
   },
-  groupArrow: {
-    fontSize: theme.typography.fontSize.large,
+  groupSport: {
+    fontSize: 14,
     color: theme.colors.textSecondary,
-    marginLeft: theme.spacing.sm,
+    fontWeight: '500',
   },
-  emptyContainer: {
-    padding: theme.spacing.xl,
+  groupStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  emptyText: {
-    fontSize: theme.typography.fontSize.medium,
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  rolesBadgeContainer: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  roleBadge: {
+    backgroundColor: theme.colors.inputBorder,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  adminRoleBadge: {
+    backgroundColor: theme.colors.success,
+  },
+  coachRoleBadge: {
+    backgroundColor: theme.colors.secondary,
+  },
+  roleBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.text,
+  },
+  adminRoleText: {
+    color: theme.colors.white,
+  },
+  coachRoleText: {
+    color: theme.colors.white,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  emptyDescription: {
+    fontSize: 16,
     color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+    marginBottom: 24,
+  },
+  createButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 8,
   },
 });

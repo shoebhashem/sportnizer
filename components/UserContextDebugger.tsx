@@ -21,7 +21,7 @@ export function UserContextDebugger() {
   renderCountRef.current += 1;
 
   React.useEffect(() => {
-    console.log(`🐛 UserContextDebugger render #${renderCountRef.current}`);
+    // console.log(`🐛 UserContextDebugger render #${renderCountRef.current}`);
   });
 
   return (

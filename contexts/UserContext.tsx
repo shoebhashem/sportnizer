@@ -12,9 +12,9 @@ export interface UserProfile {
   emailVerified: boolean;
   profilePicture?: string;
   age?: number;
-  ageGroup?: string;
   birthdate?: Date;
   gender?: string;
+  clubsJoined: ClubMembership[];
   groupsJoined: GroupMembership[];
   groupsCreated: number;
   eventsInvited: any[];
@@ -22,8 +22,19 @@ export interface UserProfile {
   verifiedAt?: Date;
 }
 
+export interface ClubMembership {
+  clubId: string;
+  clubName: string;
+  isAdmin: boolean;
+  joinedAt: Date;
+  role: 'admin' | 'member';
+  status: 'active' | 'inactive';
+}
+
 export interface GroupMembership {
   groupId: string;
+  groupName?: string;
+  clubId: string;
   roles: string[];
   joinedAt: Date;
   status: 'active' | 'inactive' | 'pending';
@@ -83,11 +94,20 @@ export function UserProvider({ children }: UserProviderProps) {
       emailVerified: data.emailVerified || false,
       profilePicture: data.profilePicture,
       age: data.age,
-      ageGroup: data.ageGroup,
       birthdate: data.birthdate?.toDate() || null,
       gender: data.gender,
+      clubsJoined: (data.clubsJoined || data.clubs)?.map((club: any) => ({
+        clubId: club.clubId,
+        clubName: club.clubName || 'Unknown Club',
+        isAdmin: club.isAdmin || false,
+        joinedAt: club.joinedAt?.toDate ? club.joinedAt.toDate() : new Date(club.joinedAt),
+        role: club.role || 'member',
+        status: club.status || 'active',
+      })) || [],
       groupsJoined: data.groupsJoined?.map((group: any) => ({
         groupId: group.groupId,
+        groupName: group.groupName,
+        clubId: group.clubId,
         roles: group.roles || [],
         joinedAt: group.joinedAt?.toDate ? group.joinedAt.toDate() : new Date(group.joinedAt),
         status: group.status || 'active',
@@ -376,4 +396,59 @@ export function useIsAuthenticated() {
 export function useUserGroups() {
   const { userProfile } = useUser();
   return userProfile?.groupsJoined || [];
+}
+
+// Helper function to get clubs user is admin of
+export function useUserAdminClubs() {
+  const { userProfile } = useUser();
+  return userProfile?.clubsJoined?.filter((club: ClubMembership) => club.isAdmin) || [];
+}
+
+// Helper function to get clubs user is member of
+export function useUserClubs() {
+  const { userProfile } = useUser();
+  return userProfile?.clubsJoined || [];
+}
+
+// Helper function to check if user is admin of a specific club
+export function useIsClubAdmin(clubId: string) {
+  const { userProfile } = useUser();
+  return userProfile?.clubsJoined?.some((club: ClubMembership) => club.clubId === clubId && club.isAdmin) || false;
+}
+
+// Helper function to get groups user has specific roles in
+export function useUserGroupsByRole(role: 'admin' | 'coach' | 'member' | 'guardian') {
+  const { userProfile } = useUser();
+  return userProfile?.groupsJoined?.filter(group => 
+    group.roles.includes(role) && group.status === 'active'
+  ) || [];
+}
+
+// Helper function to get user's role in a specific group
+export function useUserGroupRole(groupId: string) {
+  const { userProfile } = useUser();
+  const groupMembership = userProfile?.groupsJoined?.find(group => group.groupId === groupId);
+  return groupMembership?.roles || [];
+}
+
+// Helper function to check if user has a specific role in a group
+export function useHasGroupRole(groupId: string, role: 'admin' | 'coach' | 'member' | 'guardian') {
+  const { userProfile } = useUser();
+  const groupMembership = userProfile?.groupsJoined?.find(group => group.groupId === groupId);
+  return groupMembership?.roles.includes(role) || false;
+}
+
+// Helper function to check if user can manage a group (admin or coach)
+export function useCanManageGroup(groupId: string, clubId?: string) {
+  const { userProfile } = useUser();
+  
+  // Check if user is club admin (can manage all groups in club)
+  if (clubId) {
+    const isClubAdmin = userProfile?.clubsJoined?.some((club: ClubMembership) => club.clubId === clubId && club.isAdmin);
+    if (isClubAdmin) return true;
+  }
+  
+  // Check if user has admin or coach role in the group
+  const groupMembership = userProfile?.groupsJoined?.find(group => group.groupId === groupId);
+  return groupMembership?.roles.some(role => role === 'admin' || role === 'coach') || false;
 }
