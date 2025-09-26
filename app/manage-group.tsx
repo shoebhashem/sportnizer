@@ -34,7 +34,7 @@ interface Subgroup {
 }
 
 export default function ManageGroupScreen() {
-  const { groupId, tab } = useLocalSearchParams();
+  const { groupId, clubId, tab } = useLocalSearchParams();
   const { user } = useAuth();
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -65,14 +65,17 @@ export default function ManageGroupScreen() {
   );
 
   const fetchGroupData = useCallback(async () => {
-    if (!groupId || typeof groupId !== 'string') return;
+    if (!groupId || !clubId || typeof groupId !== 'string' || typeof clubId !== 'string') {
+      console.error('Missing groupId or clubId parameters');
+      return;
+    }
 
     setLoading(true);
     try {
       const db = getFirestore();
       
-      // Fetch group basic info
-      const groupDoc = await getDoc(doc(db, 'groups', groupId));
+      // Fetch group basic info from new path: clubs/{clubId}/groups/{groupId}
+      const groupDoc = await getDoc(doc(db, 'clubs', clubId, 'groups', groupId));
       if (groupDoc.exists()) {
         setGroup({
           id: groupDoc.id,
@@ -80,10 +83,13 @@ export default function ManageGroupScreen() {
           createdBy: groupDoc.data().createdBy,
           ageGroup: groupDoc.data().ageGroup
         });
+      } else {
+        console.error(`Group not found: clubs/${clubId}/groups/${groupId}`);
+        return;
       }
 
-      // Fetch members
-      const membersSnapshot = await getDocs(collection(db, 'groups', groupId, 'members'));
+      // Fetch members from new path: clubs/{clubId}/groups/{groupId}/members
+      const membersSnapshot = await getDocs(collection(db, 'clubs', clubId, 'groups', groupId, 'members'));
       const membersData: Member[] = [];
       
       // For each member, get their data
@@ -136,8 +142,8 @@ export default function ManageGroupScreen() {
       }
       setMembers(membersData);
 
-      // Fetch subgroups
-      const subgroupsSnapshot = await getDocs(collection(db, 'groups', groupId, 'subgroups'));
+      // Fetch subgroups from new path: clubs/{clubId}/groups/{groupId}/subgroups
+      const subgroupsSnapshot = await getDocs(collection(db, 'clubs', clubId, 'groups', groupId, 'subgroups'));
       const subgroupsData: Subgroup[] = [];
       subgroupsSnapshot.forEach((doc) => {
         subgroupsData.push({
@@ -155,7 +161,7 @@ export default function ManageGroupScreen() {
     } finally {
       setLoading(false);
     }
-  }, [groupId]);
+  }, [groupId, clubId]);
 
   useEffect(() => {
     fetchGroupData();
@@ -171,7 +177,7 @@ export default function ManageGroupScreen() {
   const handleManageSubgroupMembersFromKebab = (subgroupId: string) => {
     const subgroupName = subgroups.find(s => s.id === subgroupId)?.name || '';
     setOpenKebabMenuId(null); // Close kebab menu
-    router.push(`/manage-subgroup-members?groupId=${groupId}&subgroupId=${subgroupId}&subgroupName=${subgroupName}` as any);
+    router.push(`/manage-subgroup-members?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${subgroupName}` as any);
   };
 
   const handleDeleteSubgroupFromKebab = (subgroupId: string) => {
@@ -191,8 +197,8 @@ export default function ManageGroupScreen() {
     try {
       const db = getFirestore();
       
-      // Delete the subgroup from Firestore
-      await deleteDoc(doc(db, 'groups', groupId as string, 'subgroups', subgroupToDelete.id));
+      // Delete the subgroup from Firestore (new path)
+      await deleteDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'subgroups', subgroupToDelete.id));
       
       // Remove from local state
       setSubgroups(prev => prev.filter(s => s.id !== subgroupToDelete.id));
@@ -280,7 +286,7 @@ export default function ManageGroupScreen() {
                 style={styles.kebabMenuItem}
                 onPress={() => {
                   setOpenKebabMenuId(null);
-                  router.push(`/member-profile?groupId=${groupId}&memberId=${item.id}` as any);
+                  router.push(`/member-profile?groupId=${groupId}&clubId=${clubId}&memberId=${item.id}` as any);
                 }}
               >
                 <Ionicons name="person-outline" size={16} color={theme.colors.secondary} />

@@ -7,7 +7,7 @@ import {
     query,
     where
 } from 'firebase/firestore';
-import { getCurrentUser } from './authService';
+import { getCurrentUser } from './auth/authService';
 
 const db = getFirestore();
 
@@ -75,24 +75,8 @@ export const getUserAccessibleClubsAndGroups = async (): Promise<{
     }
 
     const userData = userDoc.data();
-    // Handle backward compatibility: use 'clubsJoined' if available, otherwise 'clubs'
-    const rawClubsData = userData.clubsJoined || userData.clubs || [];
-    const clubsJoined: ClubMembership[] = rawClubsData.map((club: any) => ({
-      clubId: club.clubId,
-      clubName: '', // Will be populated from club document
-      isAdmin: club.isAdmin || false,
-      joinedAt: club.joinedAt?.toDate ? club.joinedAt.toDate() : new Date(club.joinedAt),
-      status: club.status || 'active',
-    }));
-    
-    const groupsJoined: GroupMembership[] = (userData.groupsJoined || []).map((group: any) => ({
-      groupId: group.groupId,
-      groupName: group.groupName,
-      clubId: group.clubId,
-      roles: group.roles || [],
-      joinedAt: group.joinedAt?.toDate ? group.joinedAt.toDate() : new Date(group.joinedAt),
-      status: group.status || 'active',
-    }));
+    const clubsJoined: ClubMembership[] = userData.clubsJoined || [];
+    const groupsJoined: GroupMembership[] = userData.groupsJoined || [];
 
     if (clubsJoined.length === 0) {
       // User is not a member of any clubs
@@ -116,8 +100,8 @@ export const getUserAccessibleClubsAndGroups = async (): Promise<{
         const clubData = clubDoc.data();
         const isUserClubAdmin = clubMembership.isAdmin;
         
-        // Get club name from the club document (Firestore field is 'name', not 'clubName')
-        const clubName = clubData.name || 'Unknown Club';
+        // Update club name in case it's missing from user profile
+        const clubName = clubData.name || clubMembership.clubName || 'Unknown Club';
 
         let accessibleGroups: GroupWithDetails[] = [];
 

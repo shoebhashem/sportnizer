@@ -7,8 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../../components/Button';
 import ConfirmationModal from '../../components/ConfirmationModal';
-import { getCurrentUser } from '../../services/authService';
-import { HomeAnnouncement, HomeEvent, HomePoll, homeService, NewsFlowItem } from '../../services/homeService';
+import { getCurrentUser } from '../../services/auth/authService';
+import { homeService } from '../../services/core/homeService';
+import { HomeAnnouncement, HomeEvent, HomePoll, NewsFlowItem } from '../../services/types';
 
 interface ModalState {
   visible: boolean;

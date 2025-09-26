@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
-import { getCurrentUser } from '../services/authService';
+import { getCurrentUser } from '../services/auth/authService';
 
 // Data Interfaces
 interface GroupPermission {

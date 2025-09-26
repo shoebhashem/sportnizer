@@ -1,73 +1,123 @@
-import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, Unsubscribe } from 'firebase/firestore';
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-import { auth, db } from '../services/firebase';
-import { storage } from '../utils/CrossPlatformStorage';
+// /contexts/UserContext.tsx
 
-// User data interface - matches your Firestore user document structure
-export interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  emailVerified: boolean;
-  profilePicture?: string;
-  age?: number;
-  birthdate?: Date;
-  gender?: string;
-  clubsJoined: ClubMembership[];
-  groupsJoined: GroupMembership[];
-  groupsCreated: number;
-  eventsInvited: any[];
-  createdAt: Date;
-  verifiedAt?: Date;
-}
+import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
+import {
+    doc,
+    DocumentData,
+    FirestoreDataConverter,
+    onSnapshot,
+    QueryDocumentSnapshot,
+    SnapshotOptions,
+    Unsubscribe,
+} from "firebase/firestore";
+import React, {
+    createContext,
+    ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+import { auth, db } from "../services/core/firebase";
+import { storage } from "../utils/CrossPlatformStorage";
 
-export interface ClubMembership {
-  clubId: string;
-  clubName: string;
-  isAdmin: boolean;
-  joinedAt: Date;
-  role: 'admin' | 'member';
-  status: 'active' | 'inactive';
-}
-
-export interface GroupMembership {
-  groupId: string;
-  groupName?: string;
-  clubId: string;
-  roles: string[];
-  joinedAt: Date;
-  status: 'active' | 'inactive' | 'pending';
-}
+// Import domain types
+import { ClubMembership } from "@/services/types/club";
+import { GroupMembership } from "@/services/types/group";
+import { UserProfile } from "@/services/types/user";
 
 interface UserContextType {
-  // Auth state
   firebaseUser: FirebaseUser | null;
   userProfile: UserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  
-  // Cache management
+
   refreshUserProfile: () => Promise<void>;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
   clearUserData: () => Promise<void>;
-  
-  // Cache status
+
   isFromCache: boolean;
   lastCacheUpdate: Date | null;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-// Storage keys
-const STORAGE_KEYS = {
-  USER_PROFILE: 'user_profile',
-  CACHE_TIMESTAMP: 'user_cache_timestamp',
-  CACHE_VERSION: 'user_cache_version',
+// 🔹 Firestore converter (maps Firestore doc <-> domain model)
+const userProfileConverter: FirestoreDataConverter<UserProfile> = {
+  toFirestore(user: UserProfile): DocumentData {
+    return {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      phoneNumber: user.phoneNumber,
+      dateOfBirth: user.dateOfBirth ? user.dateOfBirth : null,
+      address: user.address || null,
+      clubMemberships: user.clubs || [],
+      groupMemberships: user.groups || [],
+      groupsCreated: user.groupsCreated ?? 0,
+      eventInvitations: user.eventInvitations || [],
+      verificationStatus: user.verificationStatus || "pending",
+      createdAt: user.createdAt || new Date(),
+      lastActive: user.lastActive || new Date(),
+    };
+  },
+
+  fromFirestore(
+    snapshot: QueryDocumentSnapshot,
+    options: SnapshotOptions
+  ): UserProfile {
+    const data = snapshot.data(options);
+    return {
+      uid: snapshot.id,
+      email: data.email,
+      displayName: data.displayName || data.name || "",
+      photoURL: data.photoURL || data.profilePicture,
+      phoneNumber: data.phoneNumber,
+      dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toDate() : undefined,
+      address: data.address,
+      clubs:
+        (data.clubMemberships || []).map((club: any): ClubMembership => ({
+          clubId: club.clubId,
+          clubName: club.clubName,
+          isAdmin: club.isAdmin,
+          joinedAt: club.joinedAt?.toDate
+            ? club.joinedAt.toDate()
+            : new Date(club.joinedAt),
+          lastModifiedAt: club.lastModifiedAt?.toDate
+            ? club.lastModifiedAt.toDate()
+            : new Date(club.lastModifiedAt),
+        })) || [],
+      groups:
+        (data.groupMemberships || []).map((group: any): GroupMembership => ({
+          groupId: group.groupId,
+          groupName: group.groupName,
+          roles: group.roles || [],
+          joinedAt: group.joinedAt?.toDate
+            ? group.joinedAt.toDate()
+            : new Date(group.joinedAt),
+          lastModifiedAt: group.lastModifiedAt?.toDate
+            ? group.lastModifiedAt.toDate()
+            : new Date(group.lastModifiedAt),
+        })) || [],
+      groupsCreated: data.groupsCreated ?? 0,
+      eventInvitations: data.eventInvitations || [],
+      verificationStatus: data.verificationStatus || "pending",
+      createdAt: data.createdAt?.toDate() || new Date(),
+      lastActive: data.lastActive?.toDate() || new Date(),
+    };
+  },
 };
 
-const CACHE_VERSION = '1.0'; // Increment this to invalidate all caches
-const CACHE_EXPIRY_HOURS = 24; // Cache expires after 24 hours
+// Storage keys for caching
+const STORAGE_KEYS = {
+  USER_PROFILE: "user_profile",
+  CACHE_TIMESTAMP: "user_cache_timestamp",
+  CACHE_VERSION: "user_cache_version",
+};
+
+const CACHE_VERSION = "2.0"; // bump when model changes
+const CACHE_EXPIRY_HOURS = 24;
 
 interface UserProviderProps {
   children: ReactNode;
@@ -79,194 +129,78 @@ export function UserProvider({ children }: UserProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isFromCache, setIsFromCache] = useState(false);
   const [lastCacheUpdate, setLastCacheUpdate] = useState<Date | null>(null);
-  
-  // Firestore listener unsubscriber
-  const [unsubscribeProfile, setUnsubscribeProfile] = useState<Unsubscribe | null>(null);
+  const [unsubscribeProfile, setUnsubscribeProfile] =
+    useState<Unsubscribe | null>(null);
 
   const isAuthenticated = !!firebaseUser && !!userProfile;
 
-  // Convert Firestore document to UserProfile
-  const convertFirestoreToProfile = useCallback((data: any, uid: string): UserProfile => {
-    return {
-      id: uid,
-      name: data.name || '',
-      email: data.email || '',
-      emailVerified: data.emailVerified || false,
-      profilePicture: data.profilePicture,
-      age: data.age,
-      birthdate: data.birthdate?.toDate() || null,
-      gender: data.gender,
-      clubsJoined: (data.clubsJoined || data.clubs)?.map((club: any) => ({
-        clubId: club.clubId,
-        clubName: club.clubName || 'Unknown Club',
-        isAdmin: club.isAdmin || false,
-        joinedAt: club.joinedAt?.toDate ? club.joinedAt.toDate() : new Date(club.joinedAt),
-        role: club.role || 'member',
-        status: club.status || 'active',
-      })) || [],
-      groupsJoined: data.groupsJoined?.map((group: any) => ({
-        groupId: group.groupId,
-        groupName: group.groupName,
-        clubId: group.clubId,
-        roles: group.roles || [],
-        joinedAt: group.joinedAt?.toDate ? group.joinedAt.toDate() : new Date(group.joinedAt),
-        status: group.status || 'active',
-      })) || [],
-      groupsCreated: data.groupsCreated || 0,
-      eventsInvited: data.eventsInvited || [],
-      createdAt: data.createdAt?.toDate() || new Date(),
-      verifiedAt: data.verifiedAt?.toDate() || null,
-    };
-  }, []);
-
-  // Clear cache
+  // Cache management
   const clearCache = useCallback(async () => {
-    try {
-      await storage.multiRemove([
-        STORAGE_KEYS.USER_PROFILE,
-        STORAGE_KEYS.CACHE_TIMESTAMP,
-        STORAGE_KEYS.CACHE_VERSION,
-      ]);
-      setIsFromCache(false);
-      setLastCacheUpdate(null);
-      console.log('🗑️ Cache cleared');
-    } catch (error) {
-      console.error('❌ Error clearing cache:', error);
-    }
+    await storage.multiRemove([
+      STORAGE_KEYS.USER_PROFILE,
+      STORAGE_KEYS.CACHE_TIMESTAMP,
+      STORAGE_KEYS.CACHE_VERSION,
+    ]);
+    setIsFromCache(false);
+    setLastCacheUpdate(null);
   }, []);
 
-  // Save user profile to cache
   const saveToCache = useCallback(async (profile: UserProfile) => {
-    try {
-      console.log('💾 Saving user profile to cache...');
-      
-      const now = new Date();
-      
-      await storage.multiSet([
-        [STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile)],
-        [STORAGE_KEYS.CACHE_TIMESTAMP, now.toISOString()],
-        [STORAGE_KEYS.CACHE_VERSION, CACHE_VERSION],
-      ]);
-      
-      setLastCacheUpdate(now);
-      setIsFromCache(false); // Data is fresh from Firestore
-      console.log('✅ User profile saved to cache');
-    } catch (error) {
-      console.error('❌ Error saving to cache:', error);
-    }
+    const now = new Date();
+    await storage.multiSet([
+      [STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile)],
+      [STORAGE_KEYS.CACHE_TIMESTAMP, now.toISOString()],
+      [STORAGE_KEYS.CACHE_VERSION, CACHE_VERSION],
+    ]);
+    setLastCacheUpdate(now);
+    setIsFromCache(false);
   }, []);
 
-  // Load user profile from cache
   const loadFromCache = useCallback(async (): Promise<UserProfile | null> => {
-    try {
-      console.log('🔍 Loading user profile from cache...');
-      
-      // Check cache version
-      const cachedVersion = await storage.getItem(STORAGE_KEYS.CACHE_VERSION);
-      if (cachedVersion !== CACHE_VERSION) {
-        console.log('📦 Cache version mismatch, clearing cache');
+    const cachedVersion = await storage.getItem(STORAGE_KEYS.CACHE_VERSION);
+    if (cachedVersion !== CACHE_VERSION) {
+      await clearCache();
+      return null;
+    }
+    const cacheTimestamp = await storage.getItem(STORAGE_KEYS.CACHE_TIMESTAMP);
+    if (cacheTimestamp) {
+      const cacheDate = new Date(cacheTimestamp);
+      const now = new Date();
+      const hoursDiff = (now.getTime() - cacheDate.getTime()) / 36e5;
+      if (hoursDiff > CACHE_EXPIRY_HOURS) {
         await clearCache();
         return null;
       }
-
-      // Check cache expiry
-      const cacheTimestamp = await storage.getItem(STORAGE_KEYS.CACHE_TIMESTAMP);
-      if (cacheTimestamp) {
-        const cacheDate = new Date(cacheTimestamp);
-        const now = new Date();
-        const hoursDiff = (now.getTime() - cacheDate.getTime()) / (1000 * 60 * 60);
-        
-        if (hoursDiff > CACHE_EXPIRY_HOURS) {
-          console.log('⏰ Cache expired, clearing cache');
-          await clearCache();
-          return null;
-        }
-        
-        setLastCacheUpdate(cacheDate);
-      }
-
-      // Load cached data
-      const cachedData = await storage.getItem(STORAGE_KEYS.USER_PROFILE);
-      if (cachedData) {
-        const parsed = JSON.parse(cachedData);
-        
-        // Convert date strings back to Date objects
-        const profile: UserProfile = {
-          ...parsed,
-          birthdate: parsed.birthdate ? new Date(parsed.birthdate) : undefined,
-          createdAt: new Date(parsed.createdAt),
-          verifiedAt: parsed.verifiedAt ? new Date(parsed.verifiedAt) : undefined,
-          groupsJoined: parsed.groupsJoined?.map((group: any) => ({
-            ...group,
-            joinedAt: new Date(group.joinedAt),
-          })) || [],
-        };
-
-        console.log('✅ User profile loaded from cache:', profile.name);
-        setIsFromCache(true);
-        return profile;
-      }
-    } catch (error) {
-      console.error('❌ Error loading from cache:', error);
-      await clearCache(); // Clear corrupted cache
+      setLastCacheUpdate(cacheDate);
     }
-    
-    return null;
+    const cachedData = await storage.getItem(STORAGE_KEYS.USER_PROFILE);
+    return cachedData ? (JSON.parse(cachedData) as UserProfile) : null;
   }, [clearCache]);
 
-  // Refresh user profile from Firestore (bypass cache)
+  // Refresh Firestore profile
   const refreshUserProfile = useCallback(async () => {
     if (!firebaseUser) return;
-    
-    console.log('🔄 Refreshing user profile from Firestore...');
     setIsLoading(true);
-    
     try {
-      // The listener will automatically update the profile
-      // We just need to ensure the listener is active
-      if (!unsubscribeProfile) {
-        console.log('No active listener, will be setup by auth state change');
-      }
-    } catch (error) {
-      console.error('❌ Error refreshing user profile:', error);
+      // Re-subscription handled by auth listener
     } finally {
       setIsLoading(false);
     }
-  }, [firebaseUser, unsubscribeProfile]);
+  }, [firebaseUser]);
 
-  // Update user profile (optimistic update + Firestore update)
-  const updateUserProfile = useCallback(async (updates: Partial<UserProfile>) => {
-    if (!userProfile || !firebaseUser) return;
+  // Update user profile (optimistic update)
+  const updateUserProfile = useCallback(
+    async (updates: Partial<UserProfile>) => {
+      if (!userProfile || !firebaseUser) return;
+      const updatedProfile = { ...userProfile, ...updates };
+      setUserProfile(updatedProfile);
+      await saveToCache(updatedProfile);
+    },
+    [userProfile, firebaseUser, saveToCache]
+  );
 
-    console.log('📝 Updating user profile...', updates);
-
-    // Optimistic update
-    const updatedProfile = { ...userProfile, ...updates };
-    setUserProfile(updatedProfile);
-    await saveToCache(updatedProfile);
-
-    try {
-      // Note: You should use your existing Firestore update functions here
-      // The listener will automatically sync changes back
-      console.log('✅ User profile updated optimistically');
-    } catch (error) {
-      console.error('❌ Error updating user profile:', error);
-      
-      // Revert optimistic update on error
-      setUserProfile(userProfile);
-      await saveToCache(userProfile);
-    }
-  }, [userProfile, firebaseUser, saveToCache]);
-
-  // Clear all user data (for manual sign out)
   const clearUserData = useCallback(async () => {
-    console.log('🗑️ Clearing all user data...');
-    
-    if (unsubscribeProfile) {
-      unsubscribeProfile();
-      setUnsubscribeProfile(null);
-    }
-    
+    if (unsubscribeProfile) unsubscribeProfile();
     setUserProfile(null);
     setFirebaseUser(null);
     setIsFromCache(false);
@@ -274,85 +208,53 @@ export function UserProvider({ children }: UserProviderProps) {
     await clearCache();
   }, [unsubscribeProfile, clearCache]);
 
-  // Auth state listener
+  // 🔹 Auth + Firestore listener
   useEffect(() => {
-    console.log('🔐 Setting up auth state listener...');
-    setIsLoading(true);
-
     let currentUnsubscribeProfile: Unsubscribe | null = null;
-
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      console.log('🔐 Auth state changed:', user ? user.email : 'No user');
       setFirebaseUser(user);
 
-      // Clean up existing profile listener
       if (currentUnsubscribeProfile) {
         currentUnsubscribeProfile();
         currentUnsubscribeProfile = null;
       }
 
       if (user) {
-        // User is signed in
-        console.log('👤 User signed in, loading profile...');
-        
-        // First, try to load from cache for immediate UI
-        try {
-          const cachedProfile = await loadFromCache();
-          if (cachedProfile && cachedProfile.id === user.uid) {
-            setUserProfile(cachedProfile);
-          }
-        } catch (error) {
-          console.error('Error loading from cache:', error);
+        const cached = await loadFromCache();
+        if (cached && cached.uid === user.uid) {
+          setUserProfile(cached);
         }
-        
-        // Then setup real-time listener for updates
-        console.log('👂 Setting up Firestore listener for user:', user.uid);
-        const userDocRef = doc(db, 'users', user.uid);
-        
+        const userDocRef = doc(db, "users", user.uid).withConverter(
+          userProfileConverter
+        );
         currentUnsubscribeProfile = onSnapshot(
           userDocRef,
           (docSnapshot) => {
             if (docSnapshot.exists()) {
-              const data = docSnapshot.data();
-              const profile = convertFirestoreToProfile(data, user.uid);
-              
-              console.log('🔄 User profile updated from Firestore:', profile.name);
+              const profile = docSnapshot.data();
               setUserProfile(profile);
               saveToCache(profile);
             } else {
-              console.log('❌ User document does not exist');
               setUserProfile(null);
               clearCache();
             }
           },
-          (error) => {
-            console.error('❌ Error listening to user profile:', error);
-          }
+          (err) => console.error("Error listening to user profile:", err)
         );
-
         setUnsubscribeProfile(() => currentUnsubscribeProfile);
-        
       } else {
-        // User is signed out
-        console.log('👋 User signed out, clearing data...');
         setUserProfile(null);
         setFirebaseUser(null);
-        setIsFromCache(false);
-        setLastCacheUpdate(null);
-        await clearCache();
+        clearCache();
       }
-      
       setIsLoading(false);
     });
 
     return () => {
-      console.log('🧹 Cleaning up auth listener...');
       unsubscribeAuth();
-      if (currentUnsubscribeProfile) {
-        currentUnsubscribeProfile();
-      }
+      if (currentUnsubscribeProfile) currentUnsubscribeProfile();
     };
-  }, [loadFromCache, saveToCache, clearCache, convertFirestoreToProfile]); // Include stable dependencies
+  }, [loadFromCache, saveToCache, clearCache]);
 
   const value: UserContextType = {
     firebaseUser,
@@ -367,88 +269,25 @@ export function UserProvider({ children }: UserProviderProps) {
   };
 
   return (
-    <UserContext.Provider value={value}>
-      {children}
-    </UserContext.Provider>
+    <UserContext.Provider value={value}>{children}</UserContext.Provider>
   );
 }
 
-// Custom hook to use the user context
+// Hooks
 export function useUser() {
-  const context = useContext(UserContext);
-  if (context === undefined) {
-    throw new Error('useUser must be used within a UserProvider');
-  }
-  return context;
+  const ctx = useContext(UserContext);
+  if (!ctx) throw new Error("useUser must be used within a UserProvider");
+  return ctx;
 }
-
-// Helper hooks for common use cases
 export function useUserProfile() {
   const { userProfile, isLoading } = useUser();
   return { userProfile, isLoading };
 }
-
-export function useIsAuthenticated() {
-  const { isAuthenticated, isLoading } = useUser();
-  return { isAuthenticated, isLoading };
-}
-
-export function useUserGroups() {
-  const { userProfile } = useUser();
-  return userProfile?.groupsJoined || [];
-}
-
-// Helper function to get clubs user is admin of
-export function useUserAdminClubs() {
-  const { userProfile } = useUser();
-  return userProfile?.clubsJoined?.filter((club: ClubMembership) => club.isAdmin) || [];
-}
-
-// Helper function to get clubs user is member of
 export function useUserClubs() {
   const { userProfile } = useUser();
-  return userProfile?.clubsJoined || [];
+  return userProfile?.clubs || [];
 }
-
-// Helper function to check if user is admin of a specific club
-export function useIsClubAdmin(clubId: string) {
+export function useUserGroups() {
   const { userProfile } = useUser();
-  return userProfile?.clubsJoined?.some((club: ClubMembership) => club.clubId === clubId && club.isAdmin) || false;
-}
-
-// Helper function to get groups user has specific roles in
-export function useUserGroupsByRole(role: 'admin' | 'coach' | 'member' | 'guardian') {
-  const { userProfile } = useUser();
-  return userProfile?.groupsJoined?.filter(group => 
-    group.roles.includes(role) && group.status === 'active'
-  ) || [];
-}
-
-// Helper function to get user's role in a specific group
-export function useUserGroupRole(groupId: string) {
-  const { userProfile } = useUser();
-  const groupMembership = userProfile?.groupsJoined?.find(group => group.groupId === groupId);
-  return groupMembership?.roles || [];
-}
-
-// Helper function to check if user has a specific role in a group
-export function useHasGroupRole(groupId: string, role: 'admin' | 'coach' | 'member' | 'guardian') {
-  const { userProfile } = useUser();
-  const groupMembership = userProfile?.groupsJoined?.find(group => group.groupId === groupId);
-  return groupMembership?.roles.includes(role) || false;
-}
-
-// Helper function to check if user can manage a group (admin or coach)
-export function useCanManageGroup(groupId: string, clubId?: string) {
-  const { userProfile } = useUser();
-  
-  // Check if user is club admin (can manage all groups in club)
-  if (clubId) {
-    const isClubAdmin = userProfile?.clubsJoined?.some((club: ClubMembership) => club.clubId === clubId && club.isAdmin);
-    if (isClubAdmin) return true;
-  }
-  
-  // Check if user has admin or coach role in the group
-  const groupMembership = userProfile?.groupsJoined?.find(group => group.groupId === groupId);
-  return groupMembership?.roles.some(role => role === 'admin' || role === 'coach') || false;
+  return userProfile?.groups || [];
 }

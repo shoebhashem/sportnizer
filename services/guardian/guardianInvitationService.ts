@@ -1,6 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
-import { getCurrentUser } from './authService';
-import { functions } from './firebase';
+import { getCurrentUser } from '../auth/authService';
+import { functions } from '../core/firebase';
 
 export interface GuardianInvitationRequest {
   groupId: string;

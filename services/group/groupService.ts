@@ -1,5 +1,5 @@
 import { addDoc, collection, doc, getDoc, getDocs, getFirestore, increment, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { getCurrentUser } from './authService';
+import { getCurrentUser } from '../auth/authService';
 
 const db = getFirestore();
 

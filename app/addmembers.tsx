@@ -2,20 +2,20 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import React, { useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
 import { functions } from '../firebaseConfig';
-import { addUnconfirmedChild } from '../services/groupService';
+import { addUnconfirmedChild } from '../services/group/groupService';
 
 export default function AddMembersScreen() {
   const { groupId, groupName, inviterName, ageGroup } = useLocalSearchParams<{ 

@@ -1,4 +1,4 @@
-import { setupAuthListener } from '@/services/authService';
+import { setupAuthListener } from '@/services/auth/authService';
 import { User } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 

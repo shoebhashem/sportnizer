@@ -1,7 +1,7 @@
 import { addDoc, collection, doc, getFirestore, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 // Import Firebase app to ensure it's initialized
-import '../services/firebase';
+import '../core/firebase';
 
 // Announcement interfaces
 export interface AnnouncementData {

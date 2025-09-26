@@ -3,11 +3,16 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+type DropdownOption = {
+  id: string;
+  name: string;
+};
+
 type Props = {
   label: string;
   value: string;
   onValueChange: (value: string) => void;
-  options: string[];
+  options: string[] | DropdownOption[];
   placeholder?: string;
   error?: string;
 };
@@ -22,12 +27,33 @@ export default function DropdownInput({
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Helper functions to handle both string[] and DropdownOption[]
+  const isOptionObject = (option: string | DropdownOption): option is DropdownOption => {
+    return typeof option === 'object' && 'id' in option && 'name' in option;
+  };
+
+  const getOptionId = (option: string | DropdownOption): string => {
+    return isOptionObject(option) ? option.id : option;
+  };
+
+  const getOptionName = (option: string | DropdownOption): string => {
+    return isOptionObject(option) ? option.name : option;
+  };
+
+  const getDisplayValue = (): string => {
+    if (!value) return placeholder;
+    
+    // Find the option that matches the current value
+    const matchingOption = options.find(option => getOptionId(option) === value);
+    return matchingOption ? getOptionName(matchingOption) : placeholder;
+  };
+
   const handleSelect = (selectedValue: string) => {
     onValueChange(selectedValue);
     setIsOpen(false);
   };
 
-  const displayValue = value || placeholder;
+  const displayValue = getDisplayValue();
   const isPlaceholder = !value;
 
   return (
@@ -74,30 +100,36 @@ export default function DropdownInput({
               </View>
               
               <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
-                {options.map((option, index) => (
-                  <Pressable
-                    key={index}
-                    style={[
-                      styles.option,
-                      option === value && styles.selectedOption
-                    ]}
-                    onPress={() => handleSelect(option)}
-                  >
-                    <Text style={[
-                      styles.optionText,
-                      option === value && styles.selectedOptionText
-                    ]}>
-                      {option}
-                    </Text>
-                    {option === value && (
-                      <Ionicons 
-                        name="checkmark" 
-                        size={20} 
-                        color={theme.colors.secondary} 
-                      />
-                    )}
-                  </Pressable>
-                ))}
+                {options.map((option, index) => {
+                  const optionId = getOptionId(option);
+                  const optionName = getOptionName(option);
+                  const isSelected = optionId === value;
+                  
+                  return (
+                    <Pressable
+                      key={index}
+                      style={[
+                        styles.option,
+                        isSelected && styles.selectedOption
+                      ]}
+                      onPress={() => handleSelect(optionId)}
+                    >
+                      <Text style={[
+                        styles.optionText,
+                        isSelected && styles.selectedOptionText
+                      ]}>
+                        {optionName}
+                      </Text>
+                      {isSelected && (
+                        <Ionicons 
+                          name="checkmark" 
+                          size={20} 
+                          color={theme.colors.secondary} 
+                        />
+                      )}
+                    </Pressable>
+                  )
+                })}
               </ScrollView>
             </Pressable>
           </View>

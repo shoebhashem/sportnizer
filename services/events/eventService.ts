@@ -1,7 +1,7 @@
 import { addDoc, collection, doc, getDoc, getFirestore, increment, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 
 // Import Firebase app to ensure it's initialized
-import '../services/firebase';
+import '../core/firebase';
 
 // Event interfaces
 export interface EventData {

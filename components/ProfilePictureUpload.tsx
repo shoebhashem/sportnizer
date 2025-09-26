@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { theme } from '../constants/theme';
-import { uploadMemberProfilePicture, uploadUserProfilePicture } from '../services/profilePictureService';
+import { uploadMemberProfilePicture, uploadUserProfilePicture } from '../services/user/profilePictureService';
 import Button from './Button';
 
 interface ProfilePictureUploadProps {

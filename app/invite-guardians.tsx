@@ -3,7 +3,7 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendGuardianInvitations } from '@/services/guardianInvitationService';
+import { sendGuardianInvitations } from '@/services/guardian/guardianInvitationService';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { collection, getDocs, getFirestore } from 'firebase/firestore';

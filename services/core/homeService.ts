@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, getDocs, getFirestore, limit, orderBy, query, Timestamp, updateDoc, where } from 'firebase/firestore';
 
 // Import Firebase app to ensure it's initialized
-import { getCurrentUser } from './authService';
+import { getCurrentUser } from '../auth/authService';
 import './firebase';
 
 // Data interfaces

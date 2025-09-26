@@ -2,13 +2,13 @@ import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
-import { functions } from '@/services/firebase';
+import { functions } from '@/services/core/firebase';
 import { router, useLocalSearchParams } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { signUpUser } from '../services/authService';
+import { signUpUser } from '../services/auth/authService';
 
 export default function SignupScreen() {
   const { invite, verified } = useLocalSearchParams<{ invite?: string; verified?: string }>();

@@ -1,7 +1,7 @@
 import { User } from 'firebase/auth';
 import { doc, getDoc, getFirestore, setDoc, Timestamp } from 'firebase/firestore';
 import { getDownloadURL, ref } from 'firebase/storage';
-import { storage } from '../firebaseConfig';
+import { storage } from '../../firebaseConfig';
 
 // Enhanced group membership interface
 export interface GroupMembership {

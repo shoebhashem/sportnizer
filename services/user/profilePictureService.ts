@@ -1,7 +1,7 @@
 import { getAuth } from 'firebase/auth';
 import { doc, getFirestore, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { storage } from '../firebaseConfig';
+import { storage } from '../../firebaseConfig';
 
 export interface ProfilePictureUploadResult {
   success: boolean;

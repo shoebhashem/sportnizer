@@ -13,8 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
-import { getCurrentUser } from '../services/authService';
-import { homeService } from '../services/homeService';
+import { getCurrentUser } from '../services/auth/authService';
+import { homeService } from '../services/core/homeService';
 
 interface EventDetails {
   id: string;

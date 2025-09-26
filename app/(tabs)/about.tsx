@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { signOutUser } from '../../services/authService';
+import { signOutUser } from '../../services/auth/authService';
 
 export default function AboutScreen() {
   const { user } = useAuth();

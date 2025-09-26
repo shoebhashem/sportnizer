@@ -15,8 +15,8 @@ import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomDateTimePicker from '../components/DateTimePicker';
 import { theme } from '../constants/theme';
-import { getCurrentUser } from '../services/authService';
-import { eventService } from '../services/eventService';
+import { getCurrentUser } from '../services/auth/authService';
+import { eventService } from '../services/events/eventService';
 
 interface RecurringEventData {
   mode: 'simple' | 'advanced'; // New mode selection

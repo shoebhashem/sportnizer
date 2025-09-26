@@ -13,8 +13,8 @@ import {
 
 import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
-import { signOutUser } from '../services/authService';
-import { getUserProfile, UserProfile } from '../services/userService';
+import { signOutUser } from '../services/auth/authService';
+import { getUserProfile, UserProfile } from '../services/user/userService';
 import Button from './Button';
 import ConfirmationModal from './ConfirmationModal';
 import ProfilePictureUpload from './ProfilePictureUpload';

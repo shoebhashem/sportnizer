@@ -1,223 +1,285 @@
-import AdContainer from '@/components/AdContainer';
-import Button from '@/components/Button';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import Input from '@/components/Input';
-import { theme } from '@/constants/theme';
-import { createGroup, SPORT_TYPES } from '@/services/groupService';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import DropdownInput from '../components/DropdownInput';
+import Button from "@/components/Button";
+import DropdownInput from "@/components/DropdownInput";
+import Input from "@/components/Input";
+import { theme } from "@/constants/theme";
+import { useUserClubs } from "@/contexts/UserContext";
+import { createClub } from "@/services/club/createClubService";
+import { SPORT_TYPES } from "@/services/constants";
+import { createGroup } from "@/services/group/createGroupService";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-// Age group options
-const AGE_GROUP_OPTIONS = [
-  'Children/Youth (0-17 years) - Requires guardian communication',
-  'Adults (18+ years)'
-];
+type CreateMode = "existing-club" | "new-club";
 
 export default function CreateGroupScreen() {
-  const [groupName, setGroupName] = useState('');
-  const [ageGroup, setAgeGroup] = useState('');
-  const [sportType, setSportType] = useState('');
+  const userClubs = useUserClubs();
   const [loading, setLoading] = useState(false);
-  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
 
-  // Error states
-  const [groupNameError, setGroupNameError] = useState('');
-  const [ageGroupError, setAgeGroupError] = useState('');
-  const [sportTypeError, setSportTypeError] = useState('');
+  // Step 1: Club selection
+  const [selectedClubId, setSelectedClubId] = useState<string>("");
+  const [createMode, setCreateMode] = useState<CreateMode>("existing-club");
 
-  // Modal states
-  const [successModalVisible, setSuccessModalVisible] = useState(false);
-  const [errorModalVisible, setErrorModalVisible] = useState(false);
-  const [modalMessage, setModalMessage] = useState('');
+  // Step 2/2.5: Club/Group name
+  const [clubName, setClubName] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [clubNameError, setClubNameError] = useState("");
+  const [groupNameError, setGroupNameError] = useState("");
 
-  const validateForm = () => {
+  // Step 4: Sport type
+  const [sportType, setSportType] = useState("");
+  const [sportTypeError, setSportTypeError] = useState("");
+
+  // Get admin clubs for dropdown
+  const adminClubs = userClubs.filter((club) => club.isAdmin);
+
+  // Prepare dropdown options with "Create New Club" option
+  const clubOptions = [
+    ...adminClubs.map((club) => ({
+      id: club.clubId,
+      name: club.clubName,
+    })),
+    {
+      id: "create-new-club",
+      name: "➕ Create New Club",
+    },
+  ];
+
+  // Set default selection on mount
+  useEffect(() => {
+    if (adminClubs.length > 0 && !selectedClubId) {
+      setSelectedClubId(adminClubs[0].clubId);
+      setCreateMode("existing-club");
+    } else if (adminClubs.length === 0) {
+      setSelectedClubId("create-new-club");
+      setCreateMode("new-club");
+    }
+  }, [adminClubs, selectedClubId]);
+
+  // Handle club selection change
+  const handleClubSelection = (value: string) => {
+    setSelectedClubId(value);
+    setCreateMode(value === "create-new-club" ? "new-club" : "existing-club");
+    
+    // Reset errors when changing selection
+    setClubNameError("");
+    setGroupNameError("");
+    setSportTypeError("");
+  };
+
+  // Validation functions
+  const validateInputs = () => {
     let isValid = true;
-
+    
     // Reset errors
-    setGroupNameError('');
-    setAgeGroupError('');
-    setSportTypeError('');
+    setClubNameError("");
+    setGroupNameError("");
+    setSportTypeError("");
 
-    // Validate group name
-    if (!groupName.trim()) {
-      setGroupNameError('Group name is required');
-      isValid = false;
-    } else if (groupName.trim().length < 3) {
-      setGroupNameError('Group name must be at least 3 characters');
-      isValid = false;
-    } else if (groupName.trim().length > 50) {
-      setGroupNameError('Group name must be less than 50 characters');
+    if (createMode === "new-club") {
+      if (!clubName.trim() || clubName.trim().length < 3) {
+        setClubNameError("Club name must be at least 3 characters");
+        isValid = false;
+      }
+    }
+
+    if (!groupName.trim() || groupName.trim().length < 3) {
+      setGroupNameError("Group name must be at least 3 characters");
       isValid = false;
     }
 
-    // Validate age group
-    if (!ageGroup) {
-      setAgeGroupError('Please select an age group');
-      isValid = false;
-    }
-
-    // Validate sport type
     if (!sportType) {
-      setSportTypeError('Please select a sport type');
+      setSportTypeError("Please select a sport type");
       isValid = false;
     }
 
     return isValid;
   };
 
-  const handleCreateGroup = async () => {
-    if (!validateForm()) return;
+  // Handle form submission
+  const handleSubmit = async () => {
+    if (!validateInputs()) {
+      return;
+    }
 
     setLoading(true);
 
     try {
-      const result = await createGroup({
-        name: groupName.trim(),
-        sportType,
-        ageGroup,
-        location: '', // Temporary placeholder
-        customStats: [] // Empty array for now
-      });
-
-      if (result.success && result.groupId) {
-        setCreatedGroupId(result.groupId);
-        setModalMessage(`Great! Your ${sportType} group "${groupName}" has been created successfully. You can now start inviting members and scheduling events.`);
-        setSuccessModalVisible(true);
-      } else {
-        let errorMessage = 'Failed to create group. Please try again.';
+      if (createMode === "new-club") {
+        // Step 1: Create new club
+        const clubResult = await createClub(clubName.trim());
         
-        switch (result.error?.code) {
-          case 'limit/max-groups-reached':
-            errorMessage = result.error.message;
-            break;
-          case 'auth/no-user':
-            errorMessage = 'You must be signed in to create a group.';
-            break;
-          default:
-            errorMessage = result.error?.message || errorMessage;
+        if (!clubResult.success || !clubResult.clubId) {
+          Alert.alert("Error", clubResult.error?.message || "Failed to create club");
+          setLoading(false);
+          return;
         }
-        
-        setModalMessage(errorMessage);
-        setErrorModalVisible(true);
+
+        // Step 2: Create group in the new club
+        const groupResult = await createGroup(
+          clubResult.clubId,
+          groupName.trim(),
+          sportType
+        );
+
+        if (!groupResult.success) {
+          Alert.alert("Error", groupResult.error?.message || "Failed to create group");
+          setLoading(false);
+          return;
+        }
+
+        Alert.alert(
+          "Success!",
+          `Club "${clubName.trim()}" and group "${groupName.trim()}" created successfully!`,
+          [{ text: "OK", onPress: () => router.back() }]
+        );
+      } else {
+        // Create group in existing club
+        const groupResult = await createGroup(
+          selectedClubId,
+          groupName.trim(),
+          sportType
+        );
+
+        if (!groupResult.success) {
+          Alert.alert("Error", groupResult.error?.message || "Failed to create group");
+          setLoading(false);
+          return;
+        }
+
+        Alert.alert(
+          "Success!",
+          `Group "${groupName.trim()}" created successfully!`,
+          [{ text: "OK", onPress: () => router.back() }]
+        );
       }
     } catch (error) {
-      console.error('Create group error:', error);
-      setModalMessage('An unexpected error occurred. Please try again.');
-      setErrorModalVisible(true);
+      console.error("Error in handleSubmit:", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSuccessModalConfirm = () => {
-    setSuccessModalVisible(false);
-    // Navigate to manage-group screen for the newly created group
-    if (createdGroupId) {
-      router.replace(`/manage-group?groupId=${createdGroupId}` as any);
-    } else {
-      // Fallback to groups screen
-      router.replace('/(tabs)/groups');
-    }
-  };
+  // Check if we should show step 2 (club/group name)
+  const showStep2 = selectedClubId !== "";
 
-  const handleErrorModalClose = () => {
-    setErrorModalVisible(false);
-    setModalMessage('');
-  };
-
-  const handleCancel = () => {
-    router.replace('/(tabs)');
-  };
+  // Check if we should show step 4 (sport type)
+  const showStep4 = showStep2 && (
+    (createMode === "new-club" && clubName.trim().length > 0 && groupName.trim().length > 0) ||
+    (createMode === "existing-club" && groupName.trim().length > 0)
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <Text style={styles.title}>Create New Group</Text>
-            <Text style={styles.subtitle}>Set up your sports group and start organizing events</Text>
-          </View>
+      <View style={styles.header}>
+        <Ionicons 
+          name="arrow-back" 
+          size={24} 
+          color={theme.colors.secondary}
+          onPress={() => router.back()}
+          style={styles.backButton}
+        />
+        <Text style={styles.title}>Create New Group</Text>
+      </View>
 
-          <View style={styles.form}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        {/* Step 1: Club Selection */}
+        <View style={styles.stepContainer}>
+          <Text style={styles.stepTitle}>Step 1: Select Club</Text>
+          <Text style={styles.stepDescription}>
+            Choose an existing club or create a new one
+          </Text>
+          
+          <DropdownInput
+            label="Club"
+            value={selectedClubId}
+            onValueChange={handleClubSelection}
+            options={clubOptions}
+            placeholder="Select a club..."
+          />
+        </View>
+
+        {/* Step 2/2.5: Club Name (if creating new) and Group Name */}
+        {showStep2 && (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>
+              {createMode === "new-club" ? "Step 2: Club & Group Details" : "Step 2: Group Details"}
+            </Text>
+            <Text style={styles.stepDescription}>
+              {createMode === "new-club" 
+                ? "Enter the name for your new club and group"
+                : "Enter the name for your new group"
+              }
+            </Text>
+
+            {createMode === "new-club" && (
+              <Input
+                label="Club Name"
+                value={clubName}
+                onChangeText={setClubName}
+                placeholder="Enter club name"
+                error={clubNameError}
+              />
+            )}
+
             <Input
-              label="Group Name *"
+              label="Group Name"
               value={groupName}
               onChangeText={setGroupName}
-              placeholder="e.g., Gais Pojkar 2016"
+              placeholder="Enter group name"
               error={groupNameError}
             />
+          </View>
+        )}
+
+        {/* Step 4: Sport Type */}
+        {showStep4 && (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Step 3: Sport Type</Text>
+            <Text style={styles.stepDescription}>
+              Select the sport type for this group
+            </Text>
 
             <DropdownInput
-              label="Age Group *"
-              value={ageGroup}
-              onValueChange={setAgeGroup}
-              options={AGE_GROUP_OPTIONS}
-              placeholder="Select age group"
-              error={ageGroupError}
-            />
-
-            <DropdownInput
-              label="Sport Type *"
+              label="Sport Type"
               value={sportType}
               onValueChange={setSportType}
               options={SPORT_TYPES}
-              placeholder="Select a sport"
+              placeholder="Select sport type"
               error={sportTypeError}
             />
-
-            <View style={styles.buttonContainer}>
-              <Button
-                label="Create Group"
-                onPress={handleCreateGroup}
-                theme="primary"
-                loading={loading}
-                disabled={loading}
-              />
-
-              <Button
-                label="Cancel"
-                onPress={handleCancel}
-                theme="secondary"
-                disabled={loading}
-              />
-            </View>
           </View>
-        </ScrollView>
-        
-        <AdContainer position="bottom" />
-      </KeyboardAvoidingView>
+        )}
 
-      <ConfirmationModal
-        visible={successModalVisible}
-        title="Group Created!"
-        message={modalMessage}
-        confirmText="Continue"
-        cancelText=""
-        onConfirm={handleSuccessModalConfirm}
-        onCancel={handleSuccessModalConfirm}
-        confirmButtonTheme="primary"
-      />
-
-      <ConfirmationModal
-        visible={errorModalVisible}
-        title="Error"
-        message={modalMessage}
-        confirmText="OK"
-        cancelText=""
-        onConfirm={handleErrorModalClose}
-        onCancel={handleErrorModalClose}
-        confirmButtonTheme="primary"
-      />
+        {/* Submit Button - only show when all steps are visible and filled */}
+        {showStep4 && (
+          <View style={styles.submitContainer}>
+            <Button
+              label={createMode === "new-club" ? "Create Club & Group" : "Create Group"}
+              theme="primary"
+              onPress={handleSubmit}
+              disabled={loading}
+            />
+            {loading && (
+              <ActivityIndicator 
+                size="small" 
+                color={theme.colors.secondary} 
+                style={styles.loadingIndicator}
+              />
+            )}
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -227,52 +289,59 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.primary,
   },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: theme.layout.containerPadding,
-    paddingBottom: theme.spacing.xl,
-  },
   header: {
-    alignItems: 'center',
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: theme.layout.containerPadding,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
+  },
+  backButton: {
+    marginRight: theme.spacing.md,
   },
   title: {
     fontSize: theme.typography.fontSize.xlarge,
+    fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.secondary,
-    fontWeight: theme.typography.fontWeight.bold,
-    textAlign: 'center',
   },
-  subtitle: {
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
-    lineHeight: 22,
+  content: {
+    flex: 1,
   },
-  form: {
-    width: '100%',
+  contentContainer: {
+    paddingHorizontal: theme.layout.containerPadding,
+    paddingBottom: theme.spacing.xl,
   },
-  customStatsSection: {
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+  stepContainer: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  sectionTitle: {
+  stepTitle: {
     fontSize: theme.typography.fontSize.large,
-    color: theme.colors.text,
     fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
     marginBottom: theme.spacing.sm,
   },
-  sectionSubtitle: {
+  stepDescription: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.lg,
     lineHeight: 20,
   },
-  buttonContainer: {
-    marginTop: theme.spacing.xl,
+  submitContainer: {
+    marginTop: theme.spacing.lg,
+    alignItems: "center",
+  },
+  loadingIndicator: {
+    marginTop: theme.spacing.md,
   },
 });
