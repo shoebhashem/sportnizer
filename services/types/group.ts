@@ -12,6 +12,7 @@ export interface GroupData {
 
 export interface GroupMembership {
   groupId: string;
+  clubId: string;
   groupName: string;
   roles: string[]; // e.g., ['admin', 'coach', 'member', 'guardian']
   joinedAt?: Date;

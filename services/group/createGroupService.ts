@@ -55,6 +55,7 @@ export const createGroup = async (
 
     // Build GroupMembership for the user document
     const membership: GroupMembership = {
+      clubId,
       groupId,
       groupName: groupName.trim(),
       roles: ["admin"],

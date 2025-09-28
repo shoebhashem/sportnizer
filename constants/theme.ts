@@ -11,6 +11,7 @@ export const theme = {
     inputBackground: '#3a3f44',
     inputBorder: '#555',
     inputBorderFocused: '#ffd33d',
+    accent: "#007bff", 
   },
   
   typography: {

@@ -3,11 +3,8 @@
 import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import {
     doc,
-    DocumentData,
-    FirestoreDataConverter,
     onSnapshot,
     QueryDocumentSnapshot,
-    SnapshotOptions,
     Unsubscribe,
 } from "firebase/firestore";
 import React, {
@@ -42,71 +39,48 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-// 🔹 Firestore converter (maps Firestore doc <-> domain model)
-const userProfileConverter: FirestoreDataConverter<UserProfile> = {
-  toFirestore(user: UserProfile): DocumentData {
-    return {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      photoURL: user.photoURL,
-      phoneNumber: user.phoneNumber,
-      dateOfBirth: user.dateOfBirth ? user.dateOfBirth : null,
-      address: user.address || null,
-      clubMemberships: user.clubs || [],
-      groupMemberships: user.groups || [],
-      groupsCreated: user.groupsCreated ?? 0,
-      eventInvitations: user.eventInvitations || [],
-      verificationStatus: user.verificationStatus || "pending",
-      createdAt: user.createdAt || new Date(),
-      lastActive: user.lastActive || new Date(),
-    };
-  },
-
-  fromFirestore(
-    snapshot: QueryDocumentSnapshot,
-    options: SnapshotOptions
-  ): UserProfile {
-    const data = snapshot.data(options);
-    return {
-      uid: snapshot.id,
-      email: data.email,
-      displayName: data.displayName || data.name || "",
-      photoURL: data.photoURL || data.profilePicture,
-      phoneNumber: data.phoneNumber,
-      dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toDate() : undefined,
-      address: data.address,
-      clubs:
-        (data.clubMemberships || []).map((club: any): ClubMembership => ({
-          clubId: club.clubId,
-          clubName: club.clubName,
-          isAdmin: club.isAdmin,
-          joinedAt: club.joinedAt?.toDate
-            ? club.joinedAt.toDate()
-            : new Date(club.joinedAt),
-          lastModifiedAt: club.lastModifiedAt?.toDate
-            ? club.lastModifiedAt.toDate()
-            : new Date(club.lastModifiedAt),
-        })) || [],
-      groups:
-        (data.groupMemberships || []).map((group: any): GroupMembership => ({
-          groupId: group.groupId,
-          groupName: group.groupName,
-          roles: group.roles || [],
-          joinedAt: group.joinedAt?.toDate
-            ? group.joinedAt.toDate()
-            : new Date(group.joinedAt),
-          lastModifiedAt: group.lastModifiedAt?.toDate
-            ? group.lastModifiedAt.toDate()
-            : new Date(group.lastModifiedAt),
-        })) || [],
-      groupsCreated: data.groupsCreated ?? 0,
-      eventInvitations: data.eventInvitations || [],
-      verificationStatus: data.verificationStatus || "pending",
-      createdAt: data.createdAt?.toDate() || new Date(),
-      lastActive: data.lastActive?.toDate() || new Date(),
-    };
-  },
+// Helper function to convert Firestore data to UserProfile
+const convertFirestoreDataToUserProfile = (snapshot: QueryDocumentSnapshot): UserProfile => {
+  const data = snapshot.data();
+  return {
+    uid: snapshot.id,
+    email: data.email,
+    displayName: data.displayName || data.name || "",
+    photoURL: data.photoURL || data.profilePicture,
+    phoneNumber: data.phoneNumber,
+    dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toDate() : undefined,
+    address: data.address,
+    clubs:
+      (data.clubs || []).map((club: any): ClubMembership => ({
+        clubId: club.clubId,
+        clubName: club.clubName,
+        isAdmin: club.isAdmin,
+        joinedAt: club.joinedAt?.toDate
+          ? club.joinedAt.toDate()
+          : new Date(club.joinedAt),
+        lastModifiedAt: club.lastModifiedAt?.toDate
+          ? club.lastModifiedAt.toDate()
+          : new Date(club.lastModifiedAt),
+      })) || [],
+    groups:
+      (data.groups || []).map((group: any): GroupMembership => ({
+        clubId: group.clubId,
+        groupId: group.groupId,
+        groupName: group.groupName,
+        roles: group.roles || [],
+        joinedAt: group.joinedAt?.toDate
+          ? group.joinedAt.toDate()
+          : new Date(group.joinedAt),
+        lastModifiedAt: group.lastModifiedAt?.toDate
+          ? group.lastModifiedAt.toDate()
+          : new Date(group.lastModifiedAt),
+      })) || [],
+    groupsCreated: data.groupsCreated ?? 0,
+    eventInvitations: data.eventInvitations || [],
+    verificationStatus: data.verificationStatus || "pending",
+    createdAt: data.createdAt?.toDate() || new Date(),
+    lastActive: data.lastActive?.toDate() || new Date(),
+  };
 };
 
 // Storage keys for caching
@@ -224,14 +198,12 @@ export function UserProvider({ children }: UserProviderProps) {
         if (cached && cached.uid === user.uid) {
           setUserProfile(cached);
         }
-        const userDocRef = doc(db, "users", user.uid).withConverter(
-          userProfileConverter
-        );
+        const userDocRef = doc(db, "users", user.uid);
         currentUnsubscribeProfile = onSnapshot(
           userDocRef,
           (docSnapshot) => {
             if (docSnapshot.exists()) {
-              const profile = docSnapshot.data();
+              const profile = convertFirestoreDataToUserProfile(docSnapshot);
               setUserProfile(profile);
               saveToCache(profile);
             } else {
