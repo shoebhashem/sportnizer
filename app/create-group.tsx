@@ -1,4 +1,5 @@
 import Button from "@/components/Button";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import DropdownInput from "@/components/DropdownInput";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
@@ -11,7 +12,6 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -38,6 +38,32 @@ export default function CreateGroupScreen() {
   // Step 4: Sport type
   const [sportType, setSportType] = useState("");
   const [sportTypeError, setSportTypeError] = useState("");
+
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalConfirmText, setModalConfirmText] = useState("OK");
+  const [modalOnConfirm, setModalOnConfirm] = useState<() => void>(() => {});
+  const [showCancelButton, setShowCancelButton] = useState(false);
+
+  // Helper function to show modal
+  const showModal = (title: string, message: string, confirmText: string = "OK", onConfirm: () => void = () => {}, isError: boolean = false) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalConfirmText(confirmText);
+    setModalOnConfirm(() => () => {
+      hideModal();
+      onConfirm();
+    });
+    setShowCancelButton(isError);
+    setModalVisible(true);
+  };
+
+  // Helper function to hide modal
+  const hideModal = () => {
+    setModalVisible(false);
+  };
 
   // Get admin clubs for dropdown
   const adminClubs = userClubs.filter((club) => club.isAdmin);
@@ -119,7 +145,7 @@ export default function CreateGroupScreen() {
         const clubResult = await createClub(clubName.trim());
         
         if (!clubResult.success || !clubResult.clubId) {
-          Alert.alert("Error", clubResult.error?.message || "Failed to create club");
+          showModal("Error", clubResult.error?.message || "Failed to create club", "OK", () => router.push('/(tabs)/groups'), true);
           setLoading(false);
           return;
         }
@@ -132,15 +158,16 @@ export default function CreateGroupScreen() {
         );
 
         if (!groupResult.success) {
-          Alert.alert("Error", groupResult.error?.message || "Failed to create group");
+          showModal("Error", groupResult.error?.message || "Failed to create group", "OK", () => router.push('/(tabs)/groups'), true);
           setLoading(false);
           return;
         }
 
-        Alert.alert(
+        showModal(
           "Success!",
           `Club "${clubName.trim()}" and group "${groupName.trim()}" created successfully!`,
-          [{ text: "OK", onPress: () => router.back() }]
+          "OK",
+          () => router.push('/(tabs)/groups')
         );
       } else {
         // Create group in existing club
@@ -151,20 +178,21 @@ export default function CreateGroupScreen() {
         );
 
         if (!groupResult.success) {
-          Alert.alert("Error", groupResult.error?.message || "Failed to create group");
+          showModal("Error", groupResult.error?.message || "Failed to create group", "OK", () => router.push('/(tabs)/groups'), true);
           setLoading(false);
           return;
         }
 
-        Alert.alert(
+        showModal(
           "Success!",
           `Group "${groupName.trim()}" created successfully!`,
-          [{ text: "OK", onPress: () => router.back() }]
+          "OK",
+          () => router.push('/(tabs)/groups')
         );
       }
     } catch (error) {
       console.error("Error in handleSubmit:", error);
-      Alert.alert("Error", "An unexpected error occurred. Please try again.");
+      showModal("Error", "An unexpected error occurred. Please try again.", "OK", () => router.push('/(tabs)/groups'), true);
     } finally {
       setLoading(false);
     }
@@ -280,6 +308,16 @@ export default function CreateGroupScreen() {
           </View>
         )}
       </ScrollView>
+      
+      <ConfirmationModal
+        visible={modalVisible}
+        title={modalTitle}
+        message={modalMessage}
+        confirmText={modalConfirmText}
+        onConfirm={modalOnConfirm}
+        onCancel={hideModal}
+        {...(showCancelButton && { cancelText: "Cancel" })}
+      />
     </SafeAreaView>
   );
 }
