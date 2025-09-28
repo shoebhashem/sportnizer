@@ -2,14 +2,21 @@ import AdContainer from '@/components/AdContainer';
 import AuthGuard from '@/components/AuthGuard';
 import UserAvatar from '@/components/UserAvatar';
 import { theme } from '@/constants/theme';
-import { useEventPermissions } from '@/utils/roleUtils';
+import { useUserGroups } from '@/contexts/UserContext';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 
 export default function TabLayout() {
   const adHeight = Platform.OS === 'web' ? 100 : 70;
-  const { canCreateEvents, loading } = useEventPermissions();
+  const userGroups = useUserGroups();
+  
+  // Check if user has admin or coach role in any group
+  const canManage = userGroups.some(group => 
+    group.roles?.some(role => 
+      role.toLowerCase() === 'admin' || role.toLowerCase() === 'coach'
+    )
+  );
   
   return (
     <AuthGuard>
@@ -38,7 +45,7 @@ export default function TabLayout() {
           }}
         />
         {/* Conditional Manage Tab - Only show for admins/coaches */}
-        {!loading && canCreateEvents && (
+        {canManage && (
           <Tabs.Screen
             name="manage"
             options={{
