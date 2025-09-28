@@ -1,4 +1,4 @@
-import AdContainer from "@/components/AdContainer";
+//import AdContainer from "@/components/AdContainer";
 import Button from "@/components/Button";
 import { theme } from "@/constants/theme";
 import { useUserClubs, useUserGroups, useUserProfile } from "@/contexts/UserContext";
@@ -114,7 +114,6 @@ return (
     )}
   </ScrollView>
 
-  <AdContainer position="bottom" />
 </SafeAreaView>
 
 
@@ -173,7 +172,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   clubNameSelected: {
-    color: theme.colors.white,
+    color: theme.colors.primary,
   },
   groupCount: {
     color: theme.colors.primary,

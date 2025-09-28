@@ -29,7 +29,7 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name="index"
+          name="home"
           options={{
             title: 'Home',
             tabBarIcon: ({ color, focused }) => (
@@ -37,14 +37,14 @@ export default function TabLayout() {
             ),
           }}
         />
-        {/* Conditional Calendar Tab - Only show for admins/coaches */}
+        {/* Conditional Manage Tab - Only show for admins/coaches */}
         {!loading && canCreateEvents && (
           <Tabs.Screen
-            name="events"
+            name="manage"
             options={{
-              title: 'Events',
+              title: 'Manage',
               tabBarIcon: ({ color, focused }) => (
-                <Ionicons name={focused ? 'calendar' : 'calendar-outline'} color={color} size={24} />
+                <Ionicons name={focused ? 'settings' : 'settings-outline'} color={color} size={24} />
               ),
             }}
           />
