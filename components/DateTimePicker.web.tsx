@@ -150,7 +150,8 @@ export default function CustomDateTimePicker({
               showTimeSelectOnly={mode === 'time'}
               timeIntervals={15}
               timeCaption="Time"
-              dateFormat={mode === 'date' ? "MMMM d, yyyy" : "h:mm aa"}
+              timeFormat="HH:mm"
+              dateFormat={mode === 'date' ? "MMMM d, yyyy" : "HH:mm"}
               inline
               calendarClassName="custom-datepicker"
             />
