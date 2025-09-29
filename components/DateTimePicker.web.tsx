@@ -57,20 +57,29 @@ export default function CustomDateTimePicker({
         .custom-datepicker .react-datepicker__day-name,
         .custom-datepicker .react-datepicker__day,
         .custom-datepicker .react-datepicker__time-name {
-          color: ${theme.colors.text};
+          color: #333 !important;
+          background-color: transparent;
+        }
+        .custom-datepicker .react-datepicker__day {
+          border: 1px solid #ddd !important;
+          margin: 0 !important;
+        }
+        .custom-datepicker .react-datepicker__month-container {
+          background-color: white !important;
         }
         .custom-datepicker .react-datepicker__day:hover {
-          background-color: ${theme.colors.secondary};
-          color: ${theme.colors.primary};
+          background-color: ${theme.colors.secondary} !important;
+          color: ${theme.colors.primary} !important;
         }
         .custom-datepicker .react-datepicker__day--selected,
         .custom-datepicker .react-datepicker__day--keyboard-selected {
-          background-color: ${theme.colors.secondary};
-          color: ${theme.colors.primary};
+          background-color: ${theme.colors.secondary} !important;
+          color: ${theme.colors.primary} !important;
         }
         .custom-datepicker .react-datepicker__day--today {
-          background-color: ${theme.colors.inputBorder};
-          color: ${theme.colors.text};
+          background-color: ${theme.colors.inputBorder} !important;
+          color: #333 !important;
+          font-weight: bold;
         }
         .custom-datepicker .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box {
           background-color: ${theme.colors.inputBackground};
