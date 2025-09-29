@@ -1,4 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useState } from 'react';
 import { Platform, Text, TouchableOpacity, View } from 'react-native';
 
 import { theme } from '../constants/theme';
@@ -20,9 +21,11 @@ export default function CustomDateTimePicker({
   onCancel,
   title
 }: DateTimePickerProps) {
+  const [selectedDate, setSelectedDate] = useState<Date>(value);
+  
   if (!isVisible) return null;
 
-  // Android - Direct picker
+  // Android - Direct picker (UNCHANGED - works correctly)
   if (Platform.OS === 'android') {
     return (
       <DateTimePicker
@@ -39,6 +42,16 @@ export default function CustomDateTimePicker({
       />
     );
   }
+
+  const handleDateChange = (event: any, selectedValue: any) => {
+    if (selectedValue) {
+      setSelectedDate(selectedValue); // Only update local state, don't call onConfirm
+    }
+  };
+
+  const handleConfirm = () => {
+    onConfirm(selectedDate);
+  };
 
   // iOS - Modal picker
   return (
@@ -72,15 +85,11 @@ export default function CustomDateTimePicker({
         </Text>
         
         <DateTimePicker
-          value={value}
+          value={selectedDate}
           mode={mode}
           display="spinner"
           textColor="white"
-          onChange={(event: any, selectedValue: any) => {
-            if (selectedValue) {
-              onConfirm(selectedValue);
-            }
-          }}
+          onChange={handleDateChange}
           style={{ backgroundColor: theme.colors.inputBackground }}
         />
         
@@ -98,7 +107,7 @@ export default function CustomDateTimePicker({
             <Text style={{ color: theme.colors.text }}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={onCancel}
+            onPress={handleConfirm}
             style={{
               flex: 1,
               padding: 12,

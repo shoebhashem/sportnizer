@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import ReactDatePicker from 'react-datepicker';
 import { Text, TouchableOpacity, View } from 'react-native';
 
@@ -23,12 +24,18 @@ export default function CustomDateTimePicker({
   onCancel,
   title
 }: DateTimePickerProps) {
+  const [selectedDate, setSelectedDate] = useState<Date>(value);
+  
   if (!isVisible) return null;
 
   const handleDateChange = (date: Date | null) => {
     if (date) {
-      onConfirm(date);
+      setSelectedDate(date); // Only update local state, don't call onConfirm
     }
+  };
+
+  const handleConfirm = () => {
+    onConfirm(selectedDate);
   };
 
   return (
@@ -137,7 +144,7 @@ export default function CustomDateTimePicker({
           
           <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
             <ReactDatePicker
-              selected={value}
+              selected={selectedDate}
               onChange={handleDateChange}
               showTimeSelect={mode === 'time'}
               showTimeSelectOnly={mode === 'time'}
@@ -163,7 +170,7 @@ export default function CustomDateTimePicker({
               <Text style={{ color: theme.colors.text }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={onCancel}
+              onPress={handleConfirm}
               style={{
                 flex: 1,
                 padding: 12,
