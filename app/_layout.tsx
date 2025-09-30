@@ -22,6 +22,34 @@ export default function RootLayout() {
           }} 
         />
         <Stack.Screen 
+          name="create-event" 
+          options={{ 
+            headerShown: false,
+            title: 'Create Event'
+          }} 
+        />
+        <Stack.Screen 
+          name="create-poll" 
+          options={{ 
+            headerShown: false,
+            title: 'Create Poll'
+          }} 
+        />
+        <Stack.Screen 
+          name="create-recurring-event" 
+          options={{ 
+            headerShown: false,
+            title: 'Create Recurring Event'
+          }} 
+        />
+        <Stack.Screen 
+          name="select-recipients" 
+          options={{ 
+            headerShown: false,
+            title: 'Select Recipients'
+          }} 
+        />
+        <Stack.Screen 
           name="manageteams" 
           options={{ 
             headerShown: true,
