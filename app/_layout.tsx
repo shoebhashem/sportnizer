@@ -71,6 +71,13 @@ export default function RootLayout() {
             headerTintColor: '#fff',
           }} 
         />
+        <Stack.Screen 
+          name="manage-group" 
+          options={{ 
+            headerShown: false,
+            title: 'Manage Group'
+          }} 
+        />
       </Stack>
       </AuthProvider>
     </UserProvider>

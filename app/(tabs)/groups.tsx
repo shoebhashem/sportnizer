@@ -5,12 +5,12 @@ import { useUserClubs, useUserGroups, useUserProfile } from "@/contexts/UserCont
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function GroupsScreen() {
@@ -25,10 +25,12 @@ const getGroupsForClub = (clubId: string) => {
 };
 
 const handleCreateGroup = () => {
-router.push("/create-group");
+  router.push("/create-group");
 };
 
-if (isLoading) {
+const handleGroupPress = (groupId: string, clubId: string) => {
+  router.push(`/manage-group?groupId=${groupId}&clubId=${clubId}`);
+};if (isLoading) {
 return (
 <SafeAreaView style={styles.container}>
 <Text style={styles.loadingText}>Loading clubs and groups...</Text>
@@ -90,12 +92,16 @@ return (
             {isSelected && clubGroups.length > 0 && (
               <View style={styles.groupsContainer}>
                 {clubGroups.map((group) => (
-                  <View key={group.groupId} style={styles.groupCard}>
+                  <TouchableOpacity 
+                    key={group.groupId} 
+                    style={styles.groupCard}
+                    onPress={() => handleGroupPress(group.groupId, club.clubId)}
+                  >
                     <Text style={styles.groupName}>{group.groupName}</Text>
                     <Text style={styles.groupRole}>
                       Role: {group.roles.join(', ')}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -190,6 +196,14 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     borderLeftWidth: 3,
     borderLeftColor: theme.colors.secondary,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   groupName: {
     fontSize: theme.typography.fontSize.medium,
