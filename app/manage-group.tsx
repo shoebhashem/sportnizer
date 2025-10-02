@@ -65,16 +65,13 @@ export default function ManageGroupScreen() {
   );
 
   const fetchGroupData = useCallback(async () => {
-    if (!groupId || !clubId || typeof groupId !== 'string' || typeof clubId !== 'string') {
-      console.error('Missing groupId or clubId parameters');
-      return;
-    }
+    if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string') return;
 
     setLoading(true);
     try {
       const db = getFirestore();
       
-      // Fetch group basic info from new path: clubs/{clubId}/groups/{groupId}
+      // Fetch group basic info from clubs/{clubId}/groups/{groupId}
       const groupDoc = await getDoc(doc(db, 'clubs', clubId, 'groups', groupId));
       if (groupDoc.exists()) {
         setGroup({
@@ -83,12 +80,9 @@ export default function ManageGroupScreen() {
           createdBy: groupDoc.data().createdBy,
           ageGroup: groupDoc.data().ageGroup
         });
-      } else {
-        console.error(`Group not found: clubs/${clubId}/groups/${groupId}`);
-        return;
       }
 
-      // Fetch members from new path: clubs/{clubId}/groups/{groupId}/members
+      // Fetch members from clubs/{clubId}/groups/{groupId}/members
       const membersSnapshot = await getDocs(collection(db, 'clubs', clubId, 'groups', groupId, 'members'));
       const membersData: Member[] = [];
       
@@ -142,7 +136,7 @@ export default function ManageGroupScreen() {
       }
       setMembers(membersData);
 
-      // Fetch subgroups from new path: clubs/{clubId}/groups/{groupId}/subgroups
+      // Fetch subgroups from clubs/{clubId}/groups/{groupId}/subgroups
       const subgroupsSnapshot = await getDocs(collection(db, 'clubs', clubId, 'groups', groupId, 'subgroups'));
       const subgroupsData: Subgroup[] = [];
       subgroupsSnapshot.forEach((doc) => {
@@ -177,7 +171,7 @@ export default function ManageGroupScreen() {
   const handleManageSubgroupMembersFromKebab = (subgroupId: string) => {
     const subgroupName = subgroups.find(s => s.id === subgroupId)?.name || '';
     setOpenKebabMenuId(null); // Close kebab menu
-    router.push(`/manage-subgroup-members?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${subgroupName}` as any);
+    router.push(`/manage-subgroup-members?groupId=${groupId}&subgroupId=${subgroupId}&subgroupName=${subgroupName}` as any);
   };
 
   const handleDeleteSubgroupFromKebab = (subgroupId: string) => {
@@ -197,7 +191,7 @@ export default function ManageGroupScreen() {
     try {
       const db = getFirestore();
       
-      // Delete the subgroup from Firestore (new path)
+      // Delete the subgroup from Firestore
       await deleteDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'subgroups', subgroupToDelete.id));
       
       // Remove from local state
@@ -286,7 +280,7 @@ export default function ManageGroupScreen() {
                 style={styles.kebabMenuItem}
                 onPress={() => {
                   setOpenKebabMenuId(null);
-                  router.push(`/member-profile?groupId=${groupId}&clubId=${clubId}&memberId=${item.id}` as any);
+                  router.push(`/member-profile?groupId=${groupId}&memberId=${item.id}` as any);
                 }}
               >
                 <Ionicons name="person-outline" size={16} color={theme.colors.secondary} />
@@ -464,7 +458,7 @@ export default function ManageGroupScreen() {
           <TouchableOpacity 
             style={styles.kebabMenuButton}
             onPress={() => {
-              router.push(`/group-settings?groupId=${groupId}` as any);
+              router.push(`/group-settings?groupId=${groupId}&clubId=${clubId}` as any);
             }}
           >
             <Ionicons 

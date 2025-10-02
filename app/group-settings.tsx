@@ -38,7 +38,7 @@ interface UnconfirmedMember {
 }
 
 export default function GroupSettingsScreen() {
-  const { groupId } = useLocalSearchParams();
+  const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
   const [group, setGroup] = useState<Group | null>(null);
   const [userRole, setUserRole] = useState<string>('member');
@@ -58,13 +58,13 @@ export default function GroupSettingsScreen() {
   const [showAddCoachModal, setShowAddCoachModal] = useState(false);
   
   const fetchGroupData = useCallback(async () => {
-    if (!groupId || !user?.uid) return;
+    if (!groupId || !clubId || !user?.uid) return;
     
     try {
       const db = getFirestore();
       
-      // Fetch group data
-      const groupDoc = await getDoc(doc(db, 'groups', groupId as string));
+      // Fetch group data from clubs/{clubId}/groups/{groupId}
+      const groupDoc = await getDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string));
       if (groupDoc.exists()) {
         setGroup({
           id: groupDoc.id,
@@ -76,8 +76,8 @@ export default function GroupSettingsScreen() {
         });
       }
 
-      // Fetch user's role in this group and count admins
-      const membersSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'members'));
+      // Fetch user's role in this group and count admins from clubs/{clubId}/groups/{groupId}/members
+      const membersSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'members'));
       let userRole = 'member';
       let adminCount = 0;
       const unconfirmedMembers: UnconfirmedMember[] = [];
@@ -144,7 +144,7 @@ export default function GroupSettingsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [groupId, user?.uid]);
+  }, [groupId, clubId, user?.uid]);
 
   useEffect(() => {
     fetchGroupData();
@@ -178,11 +178,11 @@ export default function GroupSettingsScreen() {
       
       await runTransaction(db, async (transaction) => {
         // Remove user from group members
-        const memberRef = doc(db, 'groups', groupId as string, 'members', user.uid);
+        const memberRef = doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'members', user.uid);
         transaction.delete(memberRef);
         
         // Update group member count
-        const groupRef = doc(db, 'groups', groupId as string);
+        const groupRef = doc(db, 'clubs', clubId as string, 'groups', groupId as string);
         const groupDoc = await transaction.get(groupRef);
         if (groupDoc.exists()) {
           const currentCount = groupDoc.data().membersCount || 0;
@@ -216,10 +216,10 @@ export default function GroupSettingsScreen() {
       const batch = writeBatch(db);
       
       // Get all subcollections first
-      const membersSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'members'));
-      const eventsSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'events'));
-      const subgroupsSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'subgroups'));
-      const resultsSnapshot = await getDocs(collection(db, 'groups', groupId as string, 'results'));
+      const membersSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'members'));
+      const eventsSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'events'));
+      const subgroupsSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'subgroups'));
+      const resultsSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'results'));
       
       // Remove group from all members' groupsJoined arrays
       membersSnapshot.forEach((memberDoc) => {
@@ -251,7 +251,7 @@ export default function GroupSettingsScreen() {
       });
       
       // Delete the group document
-      const groupRef = doc(db, 'groups', groupId as string);
+      const groupRef = doc(db, 'clubs', clubId as string, 'groups', groupId as string);
       batch.delete(groupRef);
       
       // Update creator's groupsCreated count
@@ -334,16 +334,16 @@ export default function GroupSettingsScreen() {
       
       // First, ensure group creator is added as admin member if not already present
       if (isGroupCreator) {
-        const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', user.uid));
+        const memberDoc = await getDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'members', user.uid));
         if (!memberDoc.exists()) {
-          await setDoc(doc(db, 'groups', groupId as string, 'members', user.uid), {
+          await setDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'members', user.uid), {
             roles: ['admin'],
             joinedAt: serverTimestamp()
           });
         }
       } else {
         // For non-creators, verify membership and role
-        const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', user.uid));
+        const memberDoc = await getDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'members', user.uid));
         
         if (!memberDoc.exists()) {
           setErrorMessage('You are not a member of this group. Please contact an admin.');
@@ -364,7 +364,7 @@ export default function GroupSettingsScreen() {
         }
       }
       
-      await addDoc(collection(db, 'groups', groupId as string, 'subgroups'), {
+      await addDoc(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'subgroups'), {
         name: subgroupName.trim(),
         memberIds: [],
         createdBy: user.uid,

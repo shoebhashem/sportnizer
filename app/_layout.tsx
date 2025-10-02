@@ -78,6 +78,13 @@ export default function RootLayout() {
             title: 'Manage Group'
           }} 
         />
+        <Stack.Screen 
+          name="group-settings" 
+          options={{ 
+            headerShown: false,
+            title: 'Group Settings'
+          }} 
+        />
       </Stack>
       </AuthProvider>
     </UserProvider>
