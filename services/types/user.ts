@@ -18,7 +18,8 @@ export interface UserProfile {
   clubs: ClubMembership[];
   groups: GroupMembership[];
   groupsCreated?: number;
-  eventInvitations: EventInvitation[];
+  events: EventInvitation[];
+  eventsResponses: EvenstResponses[];
   verificationStatus?: 'pending' | 'verified' | 'rejected';
   createdAt?: Date;
   lastActive?: Date;

@@ -12,7 +12,7 @@ import {
   where,
 } from "firebase/firestore";
 import { getCurrentUser } from "../auth/authService";
-import { ClubData, ClubMembership } from "../types/club";
+import { ClubData, ClubMemberData, ClubMembership } from "../types/club";
 
 /**
  * Creates a new club document in Firestore and updates the user's clubs array
@@ -62,13 +62,25 @@ export const createClub = async (clubName: string) => {
       createdBy: user.uid,
       createdAt: now,
       adminIds: [user.uid],
-      memberIds: [user.uid],
       totalCounts: 1,
       isActive: true,
     };
 
     // Save the new club document
     await setDoc(doc(clubsRef, clubId), clubData);
+
+    // Create allMembers subcollection and add the creator as the first member
+    const memberData: ClubMemberData = {
+      userId: user.uid,
+      roles: ["admin"], // Creator is an admin
+      joinedAt: now,
+      profilePictureUrl: user.photoURL || "", // Use user's photo URL if available
+      name: user.name || "User",
+      email: user.email || "",
+    };
+
+    // Add the creator to the allMembers subcollection
+    await setDoc(doc(db, "clubs", clubId, "allMembers", user.uid), memberData);
 
     // Build ClubMembership for user document
     const membership: ClubMembership = {

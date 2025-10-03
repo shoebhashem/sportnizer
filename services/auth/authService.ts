@@ -84,7 +84,7 @@ export const signUpUser = async (email: string, password: string, fullName: stri
     const newUser: UserProfile = {
       uid: user.uid,
       email: email.toLowerCase(),
-      fullName: fullName.trim(),
+      displayName: fullName.trim(),
       photoURL: defaultProfilePicture,
       phoneNumber: undefined,
       dateOfBirth: undefined,
