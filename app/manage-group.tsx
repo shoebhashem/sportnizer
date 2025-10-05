@@ -2,43 +2,25 @@ import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAvatarSource } from '@/utils/avatarUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { collection, deleteDoc, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
+import { deleteDoc, doc, getFirestore } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-interface Group {
-  id: string;
-  name: string;
-  createdBy: string;
-  ageGroup?: number; // 1=children, 2=adults, 3=mixed
-}
-
-interface Member {
-  id: string;
-  role?: string; // Legacy field for backward compatibility
-  roles?: string[]; // New field for multiple roles
-  name: string;
-  isConfirmed?: boolean; // For children in ageGroup 1, indicates guardian confirmation
-  profileImageUrl?: string; // URL to profile image in Firebase Storage
-  hasCustomImage?: boolean; // Track if using custom vs default image
-}
-
-interface Subgroup {
-  id: string;
-  name: string;
-  memberIds: string[];
-}
+// Import new services
+import { canUserManageGroup, fetchGroupData } from '@/services/group/fetchGroupDataService';
+import { fetchGroupMembers } from '@/services/group/fetchGroupMembersService';
+import { fetchSubGroups, SubGroup } from '@/services/group/fetchSubGroupsService';
+import { GroupData, GroupMemberData } from '@/services/types/group';
 
 export default function ManageGroupScreen() {
   const { groupId, clubId, tab } = useLocalSearchParams();
   const { user } = useAuth();
-  const [group, setGroup] = useState<Group | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
+  const [group, setGroup] = useState<GroupData | null>(null);
+  const [members, setMembers] = useState<GroupMemberData[]>([]);
+  const [subgroups, setSubgroups] = useState<SubGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'members' | 'subgroups'>(
     tab === 'subgroups' ? 'subgroups' : 'members'
@@ -49,129 +31,54 @@ export default function ManageGroupScreen() {
   const [subgroupToDelete, setSubgroupToDelete] = useState<{ id: string; name: string } | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [userRoles, setUserRoles] = useState<string[]>([]);
 
-  // Check if user is admin or coach (can manage group/subgroups)
-  const canManage = user && group && (
-    group.createdBy === user.uid || 
-    members.some(member => {
-      if (member.id !== user.uid) return false;
-      // Handle both old role field and new roles array
-      if (member.roles && Array.isArray(member.roles)) {
-        return member.roles.includes('admin') || member.roles.includes('coach');
-      }
-      // Fallback to old role field
-      return member.role === 'admin' || member.role === 'coach';
-    })
-  );
+  // Check if user can manage group (is admin, coach, or creator)
+  const canManage = group && user && canUserManageGroup(group, user.uid, userRoles);
 
-  const fetchGroupData = useCallback(async () => {
+  const fetchAllData = useCallback(async () => {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string') return;
 
     setLoading(true);
     try {
-      const db = getFirestore();
-      
-      // Fetch group basic info from clubs/{clubId}/groups/{groupId}
-      const groupDoc = await getDoc(doc(db, 'clubs', clubId, 'groups', groupId));
-      if (groupDoc.exists()) {
-        setGroup({
-          id: groupDoc.id,
-          name: groupDoc.data().name,
-          createdBy: groupDoc.data().createdBy,
-          ageGroup: groupDoc.data().ageGroup
-        });
-      }
+      // Fetch all data using services
+      const [groupData, membersData, subgroupsData] = await Promise.all([
+        fetchGroupData(clubId, groupId),
+        fetchGroupMembers(clubId, groupId),
+        fetchSubGroups(clubId, groupId)
+      ]);
 
-      // Fetch members from clubs/{clubId}/groups/{groupId}/members
-      const membersSnapshot = await getDocs(collection(db, 'clubs', clubId, 'groups', groupId, 'members'));
-      const membersData: Member[] = [];
-      
-      // For each member, get their data
-      for (const memberDoc of membersSnapshot.docs) {
-        const memberId = memberDoc.id;
-        const memberData = memberDoc.data();
-        
-        // Handle both old role field and new roles array
-        let memberRole = 'member';
-        let memberRoles: string[] = [];
-        
-        if (memberData.roles && Array.isArray(memberData.roles)) {
-          // New schema: roles array
-          memberRoles = memberData.roles;
-          memberRole = memberRoles[0] || 'member'; // Use first role as primary for display
-        } else {
-          // Old schema: role string
-          memberRole = memberData.role || 'member';
-          memberRoles = [memberRole];
-        }
-        
-        // Check if name is stored in member document (for children) or fetch from users collection (for adults)
-        let userName = 'Unknown User';
-        let isConfirmed = true; // Default confirmed for adults
-        
-        if (memberData.name) {
-          // Name stored in member document (children in ageGroup 1)
-          userName = memberData.name;
-          isConfirmed = memberData.isConfirmed === true; // Only true if explicitly set to true
-        } else {
-          // Fetch user data from users collection (adults in ageGroup 2)
-          try {
-            const userDoc = await getDoc(doc(db, 'users', memberId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              userName = userData.name || userData.email?.split('@')[0] || 'Unknown User';
-            }
-          } catch (error) {
-            console.error(`Error fetching user data for ${memberId}:`, error);
-          }
-        }
-        
-        membersData.push({
-          id: memberId,
-          role: memberRole,
-          roles: memberRoles,
-          name: userName,
-          isConfirmed
-        });
-      }
+      setGroup(groupData);
       setMembers(membersData);
-
-      // Fetch subgroups from clubs/{clubId}/groups/{groupId}/subgroups
-      const subgroupsSnapshot = await getDocs(collection(db, 'clubs', clubId, 'groups', groupId, 'subgroups'));
-      const subgroupsData: Subgroup[] = [];
-      subgroupsSnapshot.forEach((doc) => {
-        subgroupsData.push({
-          id: doc.id,
-          name: doc.data().name,
-          memberIds: doc.data().memberIds || []
-        });
-      });
       setSubgroups(subgroupsData);
-      
-      console.log('Subgroups fetched:', subgroupsData.length, subgroupsData.map(s => ({ id: s.id, name: s.name })));
 
+      // Get current user's roles
+      if (user && membersData) {
+        const currentUserMember = membersData.find(member => member.userId === user.uid);
+        setUserRoles(currentUserMember?.roles || []);
+      }
     } catch (error) {
       console.error('Error fetching group data:', error);
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId]);
+  }, [groupId, clubId, user]);
 
   useEffect(() => {
-    fetchGroupData();
-  }, [fetchGroupData]);
+    fetchAllData();
+  }, [fetchAllData]);
 
-  // Refresh data when screen comes into focus (e.g., returning from group-settings)
+  // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      fetchGroupData();
-    }, [fetchGroupData])
+      fetchAllData();
+    }, [fetchAllData])
   );
 
   const handleManageSubgroupMembersFromKebab = (subgroupId: string) => {
     const subgroupName = subgroups.find(s => s.id === subgroupId)?.name || '';
     setOpenKebabMenuId(null); // Close kebab menu
-    router.push(`/manage-subgroup-members?groupId=${groupId}&subgroupId=${subgroupId}&subgroupName=${subgroupName}` as any);
+    router.push(`/manage-subgroup?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(subgroupName)}` as any);
   };
 
   const handleDeleteSubgroupFromKebab = (subgroupId: string) => {
@@ -183,10 +90,8 @@ export default function ManageGroupScreen() {
     }
   };
 
-  const handleConfirmDeleteSubgroup = async () => {
-    if (!subgroupToDelete) return;
-
-    setShowDeleteSubgroupModal(false);
+  const confirmDeleteSubgroup = async () => {
+    if (!subgroupToDelete || !clubId || !groupId) return;
     
     try {
       const db = getFirestore();
@@ -198,21 +103,22 @@ export default function ManageGroupScreen() {
       setSubgroups(prev => prev.filter(s => s.id !== subgroupToDelete.id));
       
       // Show success message
-      setSuccessMessage(`"${subgroupToDelete.name}" has been deleted successfully`);
+      setSuccessMessage(`Subgroup "${subgroupToDelete.name}" has been deleted successfully.`);
       setShowSuccessModal(true);
       
-      // Clear the subgroup to delete
-      setSubgroupToDelete(null);
-      
-      // Refresh data to ensure consistency
-      fetchGroupData();
+      // Refresh data
+      fetchAllData();
     } catch (error) {
       console.error('Error deleting subgroup:', error);
-      // You might want to add error handling here
+    } finally {
+      setShowDeleteSubgroupModal(false);
+      setSubgroupToDelete(null);
     }
   };
 
   const toggleSubgroupExpansion = (subgroupId: string) => {
+    // Close any open kebab menu when expanding/collapsing
+    setOpenKebabMenuId(null);
     setExpandedSubgroups(prev => {
       const newSet = new Set(prev);
       if (newSet.has(subgroupId)) {
@@ -222,202 +128,132 @@ export default function ManageGroupScreen() {
       }
       return newSet;
     });
-    // Close any open kebab menu when expanding/collapsing
-    setOpenKebabMenuId(null);
   };
 
-  const renderMemberItem = ({ item }: { item: Member }) => {
-    // For ageGroup 1 (children), only show as confirmed if explicitly set to true
-    // For ageGroup 2 (adults), always show as confirmed (no guardian confirmation needed)
-    const isConfirmed = group?.ageGroup === 1 ? item.isConfirmed === true : true;
-    const memberOpacity = group?.ageGroup === 1 && !isConfirmed ? 0.5 : 1;
-    
-    return (
-      <View style={[
-        styles.memberItem,
-        { opacity: memberOpacity },
-        openKebabMenuId === item.id && { zIndex: 999999, position: 'relative' }
-      ]}>
-        {/* Member Avatar */}
-        <Image 
-          source={group ? getAvatarSource(item, group) : require('@/assets/images/avatars/adult-default.png')} 
-          style={styles.memberAvatar}
-        />
-        
-        <View style={styles.memberInfo}>
-          <View style={styles.memberNameContainer}>
-            <Text style={styles.memberText}>{item.name}</Text>
-            {/* Show confirmation icon for ageGroup 1 confirmed members only */}
-            {group?.ageGroup === 1 && isConfirmed && (
-              <Ionicons 
-                name="checkmark-circle" 
-                size={16} 
-                color={theme.colors.success} 
-                style={{ marginLeft: theme.spacing.xs }}
-              />
-            )}
-          </View>
-          <Text style={styles.memberRole}>{item.role}</Text>
-        </View>
-        
-        {/* Member Kebab Menu */}
-        <View style={styles.kebabContainer}>
-          <TouchableOpacity 
-            style={styles.kebabButton}
-            onPress={() => setOpenKebabMenuId(openKebabMenuId === item.id ? null : item.id)}
-          >
-            <Ionicons 
-              name="ellipsis-vertical" 
-              size={20} 
-              color={theme.colors.text} 
-            />
-          </TouchableOpacity>
+  const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
+    const getDefaultAvatar = () => {
+      return item.needsGuardian 
+        ? require('@/assets/images/avatars/child-default.png')
+        : require('@/assets/images/avatars/adult-default.png');
+    };
 
-          {/* Kebab Menu Content */}
-          {openKebabMenuId === item.id && (
-            <View style={styles.kebabMenu}>
-              <TouchableOpacity
-                style={styles.kebabMenuItem}
-                onPress={() => {
-                  setOpenKebabMenuId(null);
-                  router.push(`/member-profile?groupId=${groupId}&memberId=${item.id}` as any);
-                }}
-              >
-                <Ionicons name="person-outline" size={16} color={theme.colors.secondary} />
-                <Text style={styles.kebabMenuText}>View Profile</Text>
-              </TouchableOpacity>
-            </View>
+    return (
+      <View
+        style={[
+          styles.memberItem,
+          openKebabMenuId === item.userId && { zIndex: 999999, position: 'relative' }
+        ]}
+      >
+        <Image
+          style={styles.memberAvatar}
+          source={item.profilePictureUrl ? { uri: item.profilePictureUrl } : getDefaultAvatar()}
+        />
+        <View style={styles.memberInfo}>
+          <Text style={styles.memberName}>{item.name}</Text>
+          <Text style={styles.memberRole}>
+            {item.roles.join(', ')} {item.needsGuardian && '(Child/Youth)'}
+          </Text>
+          {item.belongtoSubGroups && item.belongtoSubGroups.length > 0 && (
+            <Text style={styles.memberSubgroups}>
+              Subgroups: {item.belongtoSubGroups.join(', ')}
+            </Text>
           )}
         </View>
       </View>
     );
   };
 
-  const renderSubgroupItem = ({ item }: { item: Subgroup }) => {
+  const renderSubgroupItem = ({ item }: { item: SubGroup }) => {
     const isExpanded = expandedSubgroups.has(item.id);
-    const subgroupMembers = members.filter(member => item.memberIds.includes(member.id));
-
-    console.log('Rendering subgroup:', item.id, item.name, 'canManage:', canManage);
+    const subgroupMembers = members.filter(member => 
+      member.belongtoSubGroups?.includes(item.name) || item.memberIds.includes(member.userId)
+    );
 
     return (
-      <View style={[
-        styles.subgroupContainer,
-        openKebabMenuId === item.id && { zIndex: 999999, position: 'relative' }
-      ]}>
+      <View
+        style={[
+          styles.subgroupItem,
+          openKebabMenuId === item.id && { zIndex: 999999, position: 'relative' }
+        ]}
+      >
         {/* Subgroup Header */}
-        <View style={styles.subgroupItem}>
-          <TouchableOpacity
-            style={styles.subgroupHeader}
-            onPress={() => toggleSubgroupExpansion(item.id)}
-          >
-            <View style={styles.subgroupInfo}>
-              <Text style={styles.subgroupName}>{item.name}</Text>
-              <Text style={styles.subgroupMemberCount}>
-                {item.memberIds.length} {item.memberIds.length === 1 ? 'member' : 'members'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-          
-          {/* Kebab Menu */}
-          {canManage && (
-            <View style={styles.kebabContainer}>
+        <TouchableOpacity
+          style={styles.subgroupHeader}
+          onPress={() => toggleSubgroupExpansion(item.id)}
+        >
+          <View style={styles.subgroupHeaderLeft}>
+            <Text style={styles.subgroupName}>{item.name}</Text>
+            <Text style={styles.subgroupCount}>
+              {subgroupMembers.length} member{subgroupMembers.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
+          <View style={styles.subgroupHeaderRight}>
+            {canManage && (
               <TouchableOpacity
-                style={styles.kebabButton}
+                style={styles.kebabMenuButton}
                 onPress={() => setOpenKebabMenuId(openKebabMenuId === item.id ? null : item.id)}
               >
                 <Ionicons 
                   name="ellipsis-vertical" 
                   size={20} 
-                  color={theme.colors.text} 
+                  color={theme.colors.textSecondary} 
                 />
               </TouchableOpacity>
-              
-              {openKebabMenuId === item.id && (
-                <View style={styles.kebabMenu}>
-                  <TouchableOpacity
-                    style={styles.kebabMenuItem}
-                    onPress={() => handleManageSubgroupMembersFromKebab(item.id)}
-                  >
-                    <Ionicons name="people" size={16} color={theme.colors.text} />
-                    <Text style={styles.kebabMenuText}>Manage Members</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={styles.kebabMenuItem}
-                    onPress={() => handleDeleteSubgroupFromKebab(item.id)}
-                  >
-                    <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
-                    <Text style={[styles.kebabMenuText, { color: theme.colors.error }]}>Delete Subgroup</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
+            )}
+            <Ionicons
+              name={isExpanded ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={theme.colors.textSecondary}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {/* Kebab Menu */}
+        {openKebabMenuId === item.id && (
+          <View style={styles.kebabMenu}>
+            <TouchableOpacity
+              style={styles.kebabMenuItem}
+              onPress={() => handleManageSubgroupMembersFromKebab(item.id)}
+            >
+              <Ionicons name="people-outline" size={16} color={theme.colors.text} />
+              <Text style={styles.kebabMenuText}>Manage Members</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.kebabMenuItem}
+              onPress={() => handleDeleteSubgroupFromKebab(item.id)}
+            >
+              <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+              <Text style={[styles.kebabMenuText, { color: theme.colors.error }]}>Delete Subgroup</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Expanded Members List */}
         {isExpanded && (
           <View style={styles.expandedMembersContainer}>
             {subgroupMembers.length > 0 ? (
               subgroupMembers.map((member) => (
-                <View key={member.id} style={styles.expandedMemberItem}>
-                  <Image 
-                    source={group ? getAvatarSource(member, group) : require('@/assets/images/avatars/adult-default.png')} 
+                <View key={member.userId} style={styles.expandedMemberItem}>
+                  <Image
                     style={styles.expandedMemberAvatar}
+                    source={member.profilePictureUrl ? { uri: member.profilePictureUrl } : 
+                      (member.needsGuardian 
+                        ? require('@/assets/images/avatars/child-default.png')
+                        : require('@/assets/images/avatars/adult-default.png')
+                      )
+                    }
                   />
                   <View style={styles.expandedMemberInfo}>
                     <Text style={styles.expandedMemberName}>{member.name}</Text>
-                    <Text style={styles.expandedMemberRole}>{member.role}</Text>
+                    <Text style={styles.expandedMemberRole}>
+                      {member.roles.join(', ')} {member.needsGuardian && '(Child/Youth)'}
+                    </Text>
                   </View>
                 </View>
               ))
             ) : (
-              <View style={styles.expandedEmptyState}>
-                <Text style={styles.expandedEmptyText}>No members assigned</Text>
-              </View>
+              <Text style={styles.noMembersText}>No members in this subgroup</Text>
             )}
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  const renderMembersTab = () => (
-    <View style={styles.tabContent}>
-      <Text style={styles.sectionTitle}>Members ({members.length})</Text>
-      
-      {members.length > 0 ? (
-        <FlatList
-          data={members}
-          renderItem={renderMemberItem}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false}
-          style={styles.membersList}
-        />
-      ) : (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No members added yet</Text>
-        </View>
-      )}
-    </View>
-  );
-
-  const renderSubgroupsTab = () => {
-    return (
-      <View style={styles.tabContent}>
-        <Text style={styles.sectionTitle}>Subgroups</Text>
-
-        {subgroups.length > 0 ? (
-          <View style={[styles.membersList, { overflow: 'visible' }]}>
-            {subgroups.map((subgroup) => (
-              <View key={subgroup.id} style={{ zIndex: openKebabMenuId === subgroup.id ? 999999 : 1 }}>
-                {renderSubgroupItem({ item: subgroup })}
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No subgroups created for this group yet</Text>
           </View>
         )}
       </View>
@@ -440,7 +276,11 @@ export default function ManageGroupScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Group not found</Text>
-          <Button label="Go Back" onPress={() => router.back()} theme="secondary" />
+          <Button
+            label="Go Back"
+            onPress={() => router.back()}
+            theme="secondary"
+          />
         </View>
       </SafeAreaView>
     );
@@ -453,59 +293,76 @@ export default function ManageGroupScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-        <View style={styles.header}>
-          <Text style={styles.title}>{group.name}</Text>
-          <TouchableOpacity 
-            style={styles.kebabMenuButton}
-            onPress={() => {
-              router.push(`/group-settings?groupId=${groupId}&clubId=${clubId}` as any);
-            }}
-          >
-            <Ionicons 
-              name="ellipsis-vertical" 
-              size={24} 
-              color={theme.colors.text} 
+          <View style={styles.header}>
+            <Text style={styles.title}>{group.name}</Text>
+            <TouchableOpacity 
+              style={styles.kebabMenuButton}
+              onPress={() => {
+                router.push(`/group-settings?groupId=${groupId}&clubId=${clubId}` as any);
+              }}
+            >
+              <Ionicons 
+                name="ellipsis-vertical" 
+                size={24} 
+                color={theme.colors.text} 
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'members' && styles.activeTab]}
+              onPress={() => setActiveTab('members')}
+            >
+              <Text style={[styles.tabText, activeTab === 'members' && styles.activeTabText]}>
+                Members ({members.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'subgroups' && styles.activeTab]}
+              onPress={() => setActiveTab('subgroups')}
+            >
+              <Text style={[styles.tabText, activeTab === 'subgroups' && styles.activeTabText]}>
+                Subgroups ({subgroups.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {activeTab === 'members' ? (
+            <FlatList
+              data={members}
+              renderItem={renderMemberItem}
+              keyExtractor={(item) => item.userId}
+              style={styles.membersList}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
             />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'members' && styles.activeTab]}
-            onPress={() => setActiveTab('members')}
-          >
-            <Text style={[styles.tabText, activeTab === 'members' && styles.activeTabText]}>
-              Members
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'subgroups' && styles.activeTab]}
-            onPress={() => setActiveTab('subgroups')}
-          >
-            <Text style={[styles.tabText, activeTab === 'subgroups' && styles.activeTabText]}>
-              Subgroups
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === 'members' ? renderMembersTab() : renderSubgroupsTab()}
-      </ScrollView>
+          ) : (
+            <FlatList
+              data={subgroups}
+              renderItem={renderSubgroupItem}
+              keyExtractor={(item) => item.id}
+              style={styles.subgroupsList}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </ScrollView>
       </Pressable>
 
       {/* Delete Subgroup Confirmation Modal */}
       <ConfirmationModal
         visible={showDeleteSubgroupModal}
         title="Delete Subgroup"
-        message={`Are you sure you want to delete "${subgroupToDelete?.name || 'this subgroup'}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete the subgroup "${subgroupToDelete?.name}"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
-        onConfirm={handleConfirmDeleteSubgroup}
+        onConfirm={confirmDeleteSubgroup}
         onCancel={() => {
           setShowDeleteSubgroupModal(false);
           setSubgroupToDelete(null);
         }}
-        confirmButtonTheme="secondary"
+        confirmButtonTheme="primary"
       />
 
       {/* Success Modal */}
@@ -516,7 +373,7 @@ export default function ManageGroupScreen() {
         confirmText="OK"
         onConfirm={() => setShowSuccessModal(false)}
         onCancel={() => setShowSuccessModal(false)}
-        confirmButtonTheme="primary"
+        confirmButtonTheme="secondary"
       />
     </SafeAreaView>
   );
@@ -532,215 +389,159 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.layout.containerPadding,
     paddingBottom: theme.spacing.xl,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.sm,
-  },
-  title: {
-    fontSize: theme.typography.fontSize.xlarge,
-    color: theme.colors.secondary,
-    fontWeight: theme.typography.fontWeight.bold,
-    flex: 1,
-  },
-  kebabMenuButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.small,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: theme.spacing.xl,
+    gap: theme.spacing.md,
   },
   loadingText: {
-    fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    marginTop: theme.spacing.md,
+    fontSize: theme.typography.fontSize.medium,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: theme.spacing.lg,
     paddingHorizontal: theme.layout.containerPadding,
   },
   errorText: {
-    fontSize: theme.typography.fontSize.large,
     color: theme.colors.error,
+    fontSize: theme.typography.fontSize.large,
     textAlign: 'center',
-    marginBottom: theme.spacing.xl,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+    marginBottom: theme.spacing.lg,
+  },
+  title: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    flex: 1,
+  },
+  kebabMenuButton: {
+    padding: theme.spacing.xs,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.xs,
     marginBottom: theme.spacing.lg,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.small,
+    padding: theme.spacing.xs,
   },
   tab: {
     flex: 1,
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.small,
     alignItems: 'center',
+    borderRadius: theme.borderRadius.small,
   },
   activeTab: {
     backgroundColor: theme.colors.secondary,
   },
   tabText: {
-    fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    fontWeight: theme.typography.fontWeight.medium,
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: '500',
   },
   activeTabText: {
     color: theme.colors.primary,
-    fontWeight: theme.typography.fontWeight.bold,
-  },
-  tabContent: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: theme.typography.fontSize.large,
-    color: theme.colors.text,
-    fontWeight: theme.typography.fontWeight.bold,
-    marginBottom: theme.spacing.md,
-  },
-  subSectionTitle: {
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.text,
-    fontWeight: theme.typography.fontWeight.medium,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    fontWeight: 'bold',
   },
   membersList: {
     flex: 1,
   },
   memberItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.small,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.xs,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
   },
   memberAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     marginRight: theme.spacing.md,
-    backgroundColor: theme.colors.inputBorder, // fallback background
   },
   memberInfo: {
     flex: 1,
   },
-  memberNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  confirmationBadge: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs / 2,
-    borderRadius: theme.borderRadius.small,
-    borderWidth: 1,
-  },
-  confirmedBadge: {
-    backgroundColor: theme.colors.success + '20',
-    borderColor: theme.colors.success,
-  },
-  unconfirmedBadge: {
-    backgroundColor: theme.colors.error + '20',
-    borderColor: theme.colors.error,
-  },
-  confirmationText: {
-    fontSize: theme.typography.fontSize.small,
-    fontWeight: theme.typography.fontWeight.medium,
-  },
-  confirmedText: {
-    color: theme.colors.success,
-  },
-  unconfirmedText: {
-    color: theme.colors.error,
-  },
-  memberText: {
+  memberName: {
     fontSize: theme.typography.fontSize.medium,
+    fontWeight: '600',
     color: theme.colors.text,
-    flex: 1,
+    marginBottom: 2,
   },
   memberRole: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
-    fontWeight: theme.typography.fontWeight.medium,
-    textTransform: 'capitalize',
   },
-  emptyState: {
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+  memberSubgroups: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.secondary,
+    marginTop: 2,
   },
-  emptyText: {
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  manageButtonContainer: {
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+  subgroupsList: {
+    flex: 1,
   },
   subgroupItem: {
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.small,
+    marginBottom: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    overflow: 'hidden',
+  },
+  subgroupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    position: 'relative',
-    zIndex: 1,
+    padding: theme.spacing.md,
   },
-  subgroupInfo: {
+  subgroupHeaderLeft: {
     flex: 1,
+  },
+  subgroupHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
   },
   subgroupName: {
     fontSize: theme.typography.fontSize.medium,
+    fontWeight: '600',
     color: theme.colors.text,
-    fontWeight: theme.typography.fontWeight.medium,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
   },
-  subgroupMemberCount: {
+  subgroupCount: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
   },
-  kebabContainer: {
-    position: 'relative',
-    zIndex: 999999,
-  },
-  kebabButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.small,
-  },
   kebabMenu: {
     position: 'absolute',
-    top: '100%',
-    right: 0,
+    top: 50,
+    right: theme.spacing.md,
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
+    borderRadius: theme.borderRadius.small,
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
-    minWidth: 150,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 20,
-    zIndex: 99999999,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+    minWidth: 180,
   },
   kebabMenuItem: {
     flexDirection: 'row',
@@ -752,80 +553,41 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.text,
   },
-  floatingKebabMenu: {
-    position: 'absolute',
-    top: 100,
-    right: 20,
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    minWidth: 150,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 20,
-    zIndex: 99999999,
-  },
-  subgroupContainer: {
-    marginBottom: theme.spacing.xs,
-    position: 'relative',
-    zIndex: 1,
-  },
-  subgroupHeader: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   expandedMembersContainer: {
-    marginTop: theme.spacing.sm,
-    marginLeft: theme.spacing.md,
-    marginRight: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.inputBorder,
   },
   expandedMemberItem: {
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.small,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.xs,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
   },
   expandedMemberAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
     marginRight: theme.spacing.sm,
-    backgroundColor: theme.colors.inputBorder, // fallback background
   },
   expandedMemberInfo: {
     flex: 1,
   },
   expandedMemberName: {
-    fontSize: theme.typography.fontSize.medium,
+    fontSize: theme.typography.fontSize.small,
+    fontWeight: '500',
     color: theme.colors.text,
-    flex: 1,
   },
   expandedMemberRole: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
-    fontWeight: theme.typography.fontWeight.medium,
-    textTransform: 'capitalize',
   },
-  expandedEmptyState: {
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.small,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.xs,
-    alignItems: 'center',
-  },
-  expandedEmptyText: {
-    fontSize: theme.typography.fontSize.medium,
+  noMembersText: {
+    textAlign: 'center',
     color: theme.colors.textSecondary,
-    fontStyle: 'italic',
+    fontSize: theme.typography.fontSize.medium,
+    paddingVertical: theme.spacing.lg,
   },
 });

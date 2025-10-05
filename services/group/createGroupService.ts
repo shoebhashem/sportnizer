@@ -11,7 +11,7 @@ import {
     updateDoc,
 } from "firebase/firestore";
 import { getCurrentUser } from "../auth/authService";
-import { GroupData, GroupMembership } from "../types/group";
+import { GroupData, GroupMemberData, GroupMembership } from "../types/group";
 
 /**
  * Creates a new group inside a club and updates the user's group memberships.
@@ -38,13 +38,14 @@ export const createGroup = async (
     // Firestore server timestamp for createdAt
     const now = serverTimestamp();
 
-    // Build the group data
+    // Build the group data (without participantsIds - using subcollection instead)
     const groupData: GroupData = {
+      id: groupId, // Add the ID to match new interface
       name: groupName.trim(),
       sportType: sportType.trim(),
       createdBy: user.uid,
       createdAt: now,
-      participantsIds: [user.uid],
+      // participantsIds: [user.uid], // Removed - using allMembers subcollection instead
       isActive: true,
       memberCount: 1,
       maxCount: 30,
@@ -52,6 +53,21 @@ export const createGroup = async (
 
     // Save the new group document
     await setDoc(doc(db, "clubs", clubId, "groups", groupId), groupData);
+
+    // Add the creator to the allMembers subcollection
+    const memberData: GroupMemberData = {
+      userId: user.uid,
+      roles: ["admin"], // Creator is an admin
+      joinedAt: now,
+      profilePictureUrl: user.photoURL || "",
+      name: user.displayName || user.email?.split('@')[0] || "User",
+      email: user.email || "",
+      needsGuardian: false, // Creator is assumed to be adult
+      belongtoSubGroups: []
+    };
+
+    // Add the creator to the allMembers subcollection
+    await setDoc(doc(db, "clubs", clubId, "groups", groupId, "allMembers", user.uid), memberData);
 
     // Build GroupMembership for the user document
     const membership: GroupMembership = {
@@ -63,10 +79,10 @@ export const createGroup = async (
       lastModifiedAt: Timestamp.now().toDate(),
     };
 
-    // Update the user's groups array
+    // Update the user's groupsJoined array (not groups)
     const userRef = doc(db, "users", user.uid);
     await updateDoc(userRef, {
-      groups: arrayUnion(membership),
+      groupsJoined: arrayUnion(membership),
     });
 
     return {

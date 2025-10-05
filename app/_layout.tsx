@@ -85,6 +85,13 @@ export default function RootLayout() {
             title: 'Group Settings'
           }} 
         />
+        <Stack.Screen 
+          name="add-member-type" 
+          options={{ 
+            headerShown: false,
+            title: 'Add Member Type'
+          }} 
+        />
       </Stack>
       </AuthProvider>
     </UserProvider>

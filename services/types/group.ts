@@ -1,13 +1,26 @@
 export interface GroupData {
+  id: string; // Added ID field
   name: string;
   sportType: string;
   description?: string;
   createdBy: string;
   createdAt: any;
-  participantsIds: string[];
+  //participantsIds?: string[]; // Made optional since we're moving to subcollection
   isActive: boolean;
   memberCount: number;
   maxCount?: number;
+  subGroups?: string[]; // name of the sugroups
+}
+
+export interface GroupMemberData {
+  userId: string;
+  roles: string[]; // e.g., ["admin"], ["member"], ["coach"]
+  joinedAt: any; // Firestore timestamp
+  profilePictureUrl: string;
+  name: string;
+  email: string;
+  needsGuardian: boolean; // true for child/youth members
+  belongtoSubGroups?: string[]; // IDs of subgroups the member belongs to
 }
 
 export interface GroupMembership {

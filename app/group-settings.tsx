@@ -280,28 +280,9 @@ export default function GroupSettingsScreen() {
   };
 
   const handleAddMember = async () => {
-    if (group && user) {
+    if (group && groupId && clubId) {
       const groupName = encodeURIComponent(group.name);
-      
-      // Fetch user's proper name from Firestore document
-      let userDisplayName = user.displayName || 'User';
-      try {
-        const db = getFirestore();
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          // Try different name fields in order of preference
-          userDisplayName = userData.name || userData.fullName || userData.displayName || userData.firstName || user.displayName || user.email?.split('@')[0] || 'User';
-        }
-      } catch (error) {
-        console.error('Error fetching user name for invitation:', error);
-        // Fallback to existing behavior
-        userDisplayName = user.displayName || user.email?.split('@')[0] || 'User';
-      }
-      
-      const inviterName = encodeURIComponent(userDisplayName);
-      const ageGroup = group.ageGroup || 2; // Default to adult group
-      router.push(`/addmembers?groupId=${groupId}&groupName=${groupName}&inviterName=${inviterName}&ageGroup=${ageGroup}` as any);
+      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}` as any);
     }
   };
 
