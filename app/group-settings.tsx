@@ -5,42 +5,29 @@ import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { addDoc, arrayRemove, collection, doc, getDoc, getDocs, getFirestore, runTransaction, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, getFirestore, runTransaction, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-interface Group {
-  id: string;
-  name: string;
-  createdBy: string;
-  ageGroup?: number; // 1=children, 2=adults, 3=mixed
-  coaches?: Coach[];
-  unconfirmedMembers?: UnconfirmedMember[]; // Updated from unconfirmedChildren
-}
+// Import new services and types
+import { fetchGroupData } from '@/services/group/fetchGroupDataService';
+import { fetchGroupMembers } from '@/services/group/fetchGroupMembersService';
+import { GroupData } from '@/services/types/group';
 
-interface Coach {
-  uid: string;
-  email: string;
-  name: string;
-  role: 'coach';
-  addedAt: any;
-  addedBy: string;
-  isExternal: boolean;
-}
-
-interface UnconfirmedMember {
-  id: string; // Member document ID
-  name: string;
-  birthDate?: string;
-  guardianEmails?: string[]; // For invitation emails
-  invitationToken?: string; // Links to guardianInvitations collection
-}
+// interface UnconfirmedMember {
+//   id: string; // Member document ID
+//   name: string;
+//   birthDate?: string;
+//   guardianEmails?: string[]; // For invitation emails
+//   invitationToken?: string; // Links to guardianInvitations collection
+// }
 
 export default function GroupSettingsScreen() {
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
-  const [group, setGroup] = useState<Group | null>(null);
+  const [group, setGroup] = useState<GroupData | null>(null);
+  // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
   const [userRole, setUserRole] = useState<string>('member');
   const [loading, setLoading] = useState(true);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -57,81 +44,57 @@ export default function GroupSettingsScreen() {
   // Coach Management State
   const [showAddCoachModal, setShowAddCoachModal] = useState(false);
   
-  const fetchGroupData = useCallback(async () => {
-    if (!groupId || !clubId || !user?.uid) return;
+  const fetchGroupDataFromServices = useCallback(async () => {
+    if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !user?.uid) return;
     
     try {
-      const db = getFirestore();
-      
-      // Fetch group data from clubs/{clubId}/groups/{groupId}
-      const groupDoc = await getDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string));
-      if (groupDoc.exists()) {
-        setGroup({
-          id: groupDoc.id,
-          name: groupDoc.data().name,
-          createdBy: groupDoc.data().createdBy,
-          ageGroup: groupDoc.data().ageGroup,
-          coaches: groupDoc.data().coaches || [],
-          unconfirmedMembers: [] // Will be populated from members subcollection
-        });
-      }
+      // Fetch group data and members using services
+      const [groupData, membersData] = await Promise.all([
+        fetchGroupData(clubId, groupId),
+        fetchGroupMembers(clubId, groupId)
+      ]);
 
-      // Fetch user's role in this group and count admins from clubs/{clubId}/groups/{groupId}/members
-      const membersSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'members'));
+      if (groupData) {
+        setGroup(groupData);
+      }
+      
+      // setMembers(membersData); // Commented out - not used in UI yet
+
+      // Find current user's role and count admins
       let userRole = 'member';
       let adminCount = 0;
-      const unconfirmedMembers: UnconfirmedMember[] = [];
+      // const unconfirmedMembers: UnconfirmedMember[] = []; // Commented out - not used yet
       
-      membersSnapshot.forEach((memberDoc) => {
-        const memberData = memberDoc.data();
-        if (memberDoc.id === user.uid) {
-          // Handle both old role field and new roles array
-          if (memberData.roles && Array.isArray(memberData.roles)) {
-            // New schema: roles array
-            if (memberData.roles.includes('admin')) {
-              userRole = 'admin';
-            } else if (memberData.roles.includes('coach')) {
-              userRole = 'coach';
-            } else {
-              userRole = 'member';
-            }
+      membersData.forEach((member) => {
+        if (member.userId === user.uid) {
+          // Check user's roles
+          if (member.roles.includes('admin')) {
+            userRole = 'admin';
+          } else if (member.roles.includes('coach')) {
+            userRole = 'coach';
           } else {
-            // Old schema: role string (fallback)
-            userRole = memberData.role || 'member';
+            userRole = 'member';
           }
         }
         
-        // Count admins - handle both old and new schema
-        if (memberData.roles && Array.isArray(memberData.roles)) {
-          if (memberData.roles.includes('admin')) {
-            adminCount++;
-          }
-        } else if (memberData.role === 'admin') {
+        // Count admins
+        if (member.roles.includes('admin')) {
           adminCount++;
         }
         
-        // Collect unconfirmed members for guardian invitations
-        if (memberData.isConfirmed === false) {
-          unconfirmedMembers.push({
-            id: memberDoc.id,
-            name: memberData.name,
-            birthDate: memberData.birthDate,
-            guardianEmails: memberData.guardianEmails || [],
-            invitationToken: memberData.invitationToken
-          });
-        }
+        // Collect unconfirmed members (if they have this property)
+        // Note: We may need to add this to GroupMemberData interface if needed
+        // if (member.isConfirmed === false) {
+        //   unconfirmedMembers.push({
+        //     id: member.userId,
+        //     name: member.name,
+        //     // ... other fields
+        //   });
+        // }
       });
       
-      // Update group with unconfirmed members
-      if (groupDoc.exists()) {
-        setGroup(prevGroup => prevGroup ? {
-          ...prevGroup,
-          unconfirmedMembers
-        } : null);
-      }
-      
       // If user is the group creator but not found in members, consider them as admin
-      if (groupDoc.exists() && groupDoc.data().createdBy === user.uid && userRole === 'member') {
+      if (groupData && groupData.createdBy === user.uid && userRole === 'member') {
         userRole = 'admin';
       }
       
@@ -147,14 +110,14 @@ export default function GroupSettingsScreen() {
   }, [groupId, clubId, user?.uid]);
 
   useEffect(() => {
-    fetchGroupData();
-  }, [fetchGroupData]);
+    fetchGroupDataFromServices();
+  }, [fetchGroupDataFromServices]);
 
   // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      fetchGroupData();
-    }, [fetchGroupData])
+      fetchGroupDataFromServices();
+    }, [fetchGroupDataFromServices])
   );
 
   const handleLeaveGroup = () => {
@@ -177,17 +140,17 @@ export default function GroupSettingsScreen() {
       const db = getFirestore();
       
       await runTransaction(db, async (transaction) => {
-        // Remove user from group members
-        const memberRef = doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'members', user.uid);
+        // Remove user from group allMembers (updated from members)
+        const memberRef = doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'allMembers', user.uid);
         transaction.delete(memberRef);
         
         // Update group member count
         const groupRef = doc(db, 'clubs', clubId as string, 'groups', groupId as string);
         const groupDoc = await transaction.get(groupRef);
         if (groupDoc.exists()) {
-          const currentCount = groupDoc.data().membersCount || 0;
+          const currentCount = groupDoc.data().memberCount || 0; // Updated field name from membersCount
           transaction.update(groupRef, {
-            membersCount: Math.max(0, currentCount - 1)
+            memberCount: Math.max(0, currentCount - 1) // Updated field name from membersCount
           });
         }
       });
@@ -215,20 +178,32 @@ export default function GroupSettingsScreen() {
       // Use batch operations to delete everything
       const batch = writeBatch(db);
       
-      // Get all subcollections first
-      const membersSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'members'));
+      // Get all subcollections first - updated to use allMembers
+      const membersSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'allMembers'));
       const eventsSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'events'));
       const subgroupsSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'subgroups'));
       const resultsSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'results'));
       
       // Remove group from all members' groupsJoined arrays
-      membersSnapshot.forEach((memberDoc) => {
+      // Note: groupsJoined is an array of objects, not strings, so we need to handle removal differently
+      for (const memberDoc of membersSnapshot.docs) {
         const userId = memberDoc.id;
         const userRef = doc(db, 'users', userId);
-        batch.update(userRef, {
-          groupsJoined: arrayRemove(groupId as string)
-        });
-      });
+        
+        // Get current user data to properly remove the group membership
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const currentGroupsJoined = userData.groupsJoined || [];
+          const updatedGroupsJoined = currentGroupsJoined.filter(
+            (membership: any) => membership.groupId !== groupId
+          );
+          
+          batch.update(userRef, {
+            groupsJoined: updatedGroupsJoined
+          });
+        }
+      }
 
       // Delete all members
       membersSnapshot.forEach((doc) => {

@@ -27,7 +27,8 @@ export const fetchGroupData = async (
         isActive: data.isActive !== false, // Default to true if not specified
         memberCount: data.memberCount || 0,
         maxCount: data.maxCount,
-        subGroups: data.subGroups || []
+        subGroups: data.subGroups || [],
+        ageGroup: data.ageGroup
       };
       
       return groupData;

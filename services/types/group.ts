@@ -10,6 +10,7 @@ export interface GroupData {
   memberCount: number;
   maxCount?: number;
   subGroups?: string[]; // name of the sugroups
+  ageGroup?: number; // 1=children, 2=adults, 3=mixed
 }
 
 export interface GroupMemberData {
