@@ -137,7 +137,7 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
       return {
         id: userSnap.id,
         email: data.email,
-        name: data.name,
+        name: data.displayName || data.name, // Read displayName first, then fall back to name
         gender: data.gender,
         birthdate: data.birthdate ? data.birthdate.toDate() : new Date(), // Handle null birthdate
         age: data.age,

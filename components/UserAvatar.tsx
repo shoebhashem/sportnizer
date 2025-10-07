@@ -48,8 +48,10 @@ export default function UserAvatar() {
   // Debug: Log the current state
   console.log('UserAvatar Debug:', {
     'user.photoURL': user.photoURL,
+    'user.displayName': user.displayName,
     'userProfile': userProfile,
-    'userProfile?.photoURL': userProfile?.photoURL
+    'userProfile?.photoURL': userProfile?.photoURL,
+    'userProfile?.name': userProfile?.name
   });
 
   const handleSignOutPress = () => {
@@ -100,13 +102,32 @@ export default function UserAvatar() {
   };
 
   const getUserDisplayName = () => {
+    // Prioritize userProfile name from Firestore (most up-to-date)
+    if (userProfile?.name) {
+      return userProfile.name;
+    }
+    // Fallback to Firebase Auth displayName (but clean it up if it looks like an email)
     if (user.displayName) {
+      // If displayName looks like an email format (contains dots/underscores), try to clean it up
+      if (user.displayName.includes('.') || user.displayName.includes('_')) {
+        // Convert "shoeb.hashem" or "shoeb_hashem" to "Shoeb Hashem"
+        return user.displayName
+          .replace(/[._]/g, ' ')
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+      }
       return user.displayName;
     }
-    // Extract name from email (part before @)
+    // Last resort: extract name from email (part before @)
     const emailName = user.email?.split('@')[0] || 'User';
     return emailName.charAt(0).toUpperCase() + emailName.slice(1).toLowerCase();
   };
+
+  // Debug: Log the display name result
+  console.log('UserAvatar Display Name Debug:', {
+    'Final display name': getUserDisplayName()
+  });
 
   return (
     <>

@@ -4,6 +4,7 @@ import {
     arrayUnion,
     collection,
     doc,
+    getDoc,
     getFirestore,
     serverTimestamp,
     setDoc,
@@ -55,13 +56,26 @@ export const createGroup = async (
     // Save the new group document
     await setDoc(doc(db, "clubs", clubId, "groups", groupId), groupData);
 
+    // Fetch the user's current profile to get up-to-date name
+    let userName = user.displayName || user.email?.split('@')[0] || "User";
+    try {
+      const userProfileDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userProfileDoc.exists()) {
+        const userProfileData = userProfileDoc.data();
+        // Prioritize displayName, then name, then fall back to Firebase Auth displayName
+        userName = userProfileData.displayName || userProfileData.name || user.displayName || user.email?.split('@')[0] || "User";
+      }
+    } catch {
+      console.log(`Could not fetch profile for user ${user.uid}, using Firebase Auth name`);
+    }
+
     // Add the creator to the allMembers subcollection
     const memberData: GroupMemberData = {
       userId: user.uid,
       roles: ["admin"], // Creator is an admin
       joinedAt: now,
       photoURL: user.photoURL || "",
-      name: user.displayName || user.email?.split('@')[0] || "User",
+      name: userName,
       email: user.email || "",
       needsGuardian: false, // Creator is assumed to be adult
       belongtoSubGroups: []

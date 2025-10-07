@@ -1,4 +1,4 @@
-import { collection, getDocs, getFirestore } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
 import { GroupMemberData } from '../types/group';
 
 /**
@@ -16,30 +16,45 @@ export const fetchGroupMembers = async (
       collection(db, 'clubs', clubId, 'groups', groupId, 'allMembers')
     );
     
-    const membersData: GroupMemberData[] = [];
-    
     // Handle case where subcollection doesn't exist (empty snapshot)
     if (membersSnapshot.empty) {
       console.log(`No members found in allMembers subcollection for group ${groupId}`);
       return [];
     }
     
-    membersSnapshot.forEach((memberDoc) => {
+    // Process all members with async operations
+    const memberPromises = membersSnapshot.docs.map(async (memberDoc) => {
       const data = memberDoc.data();
+      
+      // Fetch the user's current profile to get up-to-date name
+      let currentName = data.name || '';
+      try {
+        const userProfileDoc = await getDoc(doc(db, 'users', memberDoc.id));
+        if (userProfileDoc.exists()) {
+          const userProfileData = userProfileDoc.data();
+          // Prioritize displayName, then name, then fall back to stored name
+          currentName = userProfileData.displayName || userProfileData.name || data.displayName || data.name || '';
+        }
+      } catch {
+        console.log(`Could not fetch profile for user ${memberDoc.id}, using stored name`);
+        currentName = data.name || '';
+      }
       
       const member: GroupMemberData = {
         userId: memberDoc.id,
         roles: data.roles || ['member'],
         joinedAt: data.joinedAt,
         photoURL: data.photoURL || '',
-        name: data.name || '',
+        name: currentName,
         email: data.email || '',
         needsGuardian: data.needsGuardian || false,
         belongtoSubGroups: data.belongtoSubGroups || []
       };
       
-      membersData.push(member);
+      return member;
     });
+
+    const membersData = await Promise.all(memberPromises);
     
     return membersData;
   } catch (error) {
