@@ -11,6 +11,7 @@ import {
     View
 } from 'react-native';
 
+import { getDefaultProfilePicture } from '../constants/profilePictures';
 import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { signOutUser } from '../services/auth/authService';
@@ -48,7 +49,7 @@ export default function UserAvatar() {
   console.log('UserAvatar Debug:', {
     'user.photoURL': user.photoURL,
     'userProfile': userProfile,
-    'userProfile?.profilePicture': userProfile?.profilePicture
+    'userProfile?.photoURL': userProfile?.photoURL
   });
 
   const handleSignOutPress = () => {
@@ -87,12 +88,10 @@ export default function UserAvatar() {
 
   const handleProfilePictureSuccess = (newImageUrl: string) => {
     // Update the userProfile state with the new image URL
-    if (userProfile) {
-      setUserProfile({
-        ...userProfile,
-        profilePicture: newImageUrl
-      });
-    }
+    setUserProfile(prev => prev ? {
+      ...prev,
+      photoURL: newImageUrl
+    } : null);
   };
 
   const getInitials = (email: string) => {
@@ -119,9 +118,9 @@ export default function UserAvatar() {
       >
         <View style={styles.avatar}>
           {/* Always try to show an image first */}
-          {(user.photoURL || userProfile?.profilePicture) ? (
+          {(user.photoURL || userProfile?.photoURL) ? (
             <Image 
-              source={{ uri: user.photoURL || userProfile?.profilePicture || '' }} 
+              source={{ uri: user.photoURL || userProfile?.photoURL || getDefaultProfilePicture(false) }} 
               style={styles.avatarImage}
               onError={(error) => {
                 console.log('Failed to load profile image:', error);
@@ -155,11 +154,10 @@ export default function UserAvatar() {
               {/* Header */}
               <View style={styles.modalHeader}>
                 <View style={styles.modalAvatar}>
-                  {user.photoURL || userProfile?.profilePicture ? (
+                  {user.photoURL || userProfile?.photoURL ? (
                     <Image 
-                      source={{ uri: user.photoURL || userProfile?.profilePicture || '' }} 
+                      source={{ uri: user.photoURL || userProfile?.photoURL || getDefaultProfilePicture(false) }} 
                       style={styles.modalAvatarImage}
-                      defaultSource={require('@/assets/images/avatars/adult-default.png')}
                     />
                   ) : (
                     <Text style={styles.modalAvatarText}>
@@ -227,7 +225,7 @@ export default function UserAvatar() {
         visible={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         onSuccess={handleProfilePictureSuccess}
-        currentImageUrl={user.photoURL || userProfile?.profilePicture}
+        currentImageUrl={user.photoURL || userProfile?.photoURL}
       />
     </>
   );

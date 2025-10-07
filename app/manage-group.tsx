@@ -1,5 +1,6 @@
 import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import { getDefaultProfilePicture } from '@/constants/profilePictures';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -131,12 +132,6 @@ export default function ManageGroupScreen() {
   };
 
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
-    const getDefaultAvatar = () => {
-      return item.needsGuardian 
-        ? require('@/assets/images/avatars/child-default.png')
-        : require('@/assets/images/avatars/adult-default.png');
-    };
-
     return (
       <View
         style={[
@@ -146,7 +141,7 @@ export default function ManageGroupScreen() {
       >
         <Image
           style={styles.memberAvatar}
-          source={item.profilePictureUrl ? { uri: item.profilePictureUrl } : getDefaultAvatar()}
+          source={{ uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian) }}
         />
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{item.name}</Text>
@@ -236,12 +231,7 @@ export default function ManageGroupScreen() {
                 <View key={member.userId} style={styles.expandedMemberItem}>
                   <Image
                     style={styles.expandedMemberAvatar}
-                    source={member.profilePictureUrl ? { uri: member.profilePictureUrl } : 
-                      (member.needsGuardian 
-                        ? require('@/assets/images/avatars/child-default.png')
-                        : require('@/assets/images/avatars/adult-default.png')
-                      )
-                    }
+                    source={{ uri: member.photoURL || getDefaultProfilePicture(member.needsGuardian) }}
                   />
                   <View style={styles.expandedMemberInfo}>
                     <Text style={styles.expandedMemberName}>{member.name}</Text>

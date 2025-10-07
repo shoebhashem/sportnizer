@@ -1,3 +1,4 @@
+import { getDefaultProfilePicture } from '@/constants/profilePictures';
 import '@/firebaseConfig'; // Ensure Firebase is initialized
 import { functions } from '@/services/core/firebase';
 import {
@@ -46,19 +47,6 @@ export const signInUser = async (email: string, password: string) => {
 
     const userData = userDoc.data() as UserProfile;
 
-    // ✅ Use your custom emailVerified field instead of verificationStatus
-    if (!userData.emailVerified) {
-      await signOut(auth);
-      return {
-        success: false,
-        error: {
-          code: 'auth/email-not-verified',
-          message:
-            "Please verify your email address before signing in.\n\nCheck your email inbox and click the verification link to activate your account. If you don't see the email, check your spam folder.",
-        },
-      };
-    }
-
     return { success: true, user, profile: userData };
   } catch (error: any) {
     return {
@@ -77,23 +65,17 @@ export const signUpUser = async (email: string, password: string, fullName: stri
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    const defaultProfilePicture =
-      'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media';
-
     // Build typed UserProfile object
     const newUser: UserProfile = {
       uid: user.uid,
       email: email.toLowerCase(),
       displayName: fullName.trim(),
-      photoURL: defaultProfilePicture,
-      phoneNumber: null,
-      dateOfBirth: null,
-      address: null,
+      photoURL: getDefaultProfilePicture(false), // Use the default adult profile picture
       clubs: [],
-      groups: [],
+      groupsJoined: [],
       groupsCreated: 0,
-      eventInvitations: [],
-      emailVerified: false, // Keep using your custom field
+      events: [],
+      eventsResponses: [],
       createdAt: new Date(),
       lastActive: new Date(),
     };

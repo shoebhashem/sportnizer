@@ -60,7 +60,7 @@ export const createGroup = async (
       userId: user.uid,
       roles: ["admin"], // Creator is an admin
       joinedAt: now,
-      profilePictureUrl: user.photoURL || "",
+      photoURL: user.photoURL || "",
       name: user.displayName || user.email?.split('@')[0] || "User",
       email: user.email || "",
       needsGuardian: false, // Creator is assumed to be adult

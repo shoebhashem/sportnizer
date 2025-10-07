@@ -31,7 +31,7 @@ export const fetchGroupMembers = async (
         userId: memberDoc.id,
         roles: data.roles || ['member'],
         joinedAt: data.joinedAt,
-        profilePictureUrl: data.profilePictureUrl || '',
+        photoURL: data.photoURL || '',
         name: data.name || '',
         email: data.email || '',
         needsGuardian: data.needsGuardian || false,

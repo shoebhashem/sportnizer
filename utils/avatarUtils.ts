@@ -1,3 +1,4 @@
+import { getDefaultProfilePicture } from '@/constants/profilePictures';
 import { ImageSourcePropType } from 'react-native';
 
 interface Member {
@@ -6,7 +7,7 @@ interface Member {
   roles?: string[]; // New field for multiple roles
   name: string;
   isConfirmed?: boolean;
-  profileImageUrl?: string;
+  photoURL?: string; // Updated to match standardized name
   hasCustomImage?: boolean;
 }
 
@@ -25,8 +26,8 @@ interface Group {
  */
 export const getAvatarSource = (member: Member, group: Group): ImageSourcePropType => {
   // If member has a custom image, use it
-  if (member.profileImageUrl && member.hasCustomImage) {
-    return { uri: member.profileImageUrl };
+  if (member.photoURL && member.hasCustomImage) {
+    return { uri: member.photoURL };
   }
   
   // Get member role - handle both old and new schema
@@ -39,14 +40,9 @@ export const getAvatarSource = (member: Member, group: Group): ImageSourcePropTy
     memberRole = member.role;
   }
   
-  // Default avatars based on age group and role
-  if (group.ageGroup === 1 && memberRole === 'member') {
-    // Children in ageGroup 1 get child avatar
-    return require('@/assets/images/avatars/child-default.png');
-  } else {
-    // Everyone else gets adult avatar (coaches/admins in ageGroup 1, all members in ageGroup 2)
-    return require('@/assets/images/avatars/adult-default.png');
-  }
+  // Default avatars based on age group and role using Firebase Storage URLs
+  const needsChildAvatar = group.ageGroup === 1 && memberRole === 'member';
+  return { uri: getDefaultProfilePicture(needsChildAvatar) };
 };
 
 /**

@@ -17,21 +17,14 @@ export interface GroupMemberData {
   userId: string;
   roles: string[]; // e.g., ["admin"], ["member"], ["coach"]
   joinedAt: any; // Firestore timestamp
-  profilePictureUrl: string;
+  photoURL: string;
   name: string;
   email: string;
   needsGuardian: boolean; // true for child/youth members
   belongtoSubGroups?: string[]; // IDs of subgroups the member belongs to
 }
 
-export interface GroupMembership {
-  groupId: string;
-  clubId: string;
-  groupName: string;
-  roles: string[]; // e.g., ['admin', 'coach', 'member', 'guardian']
-  joinedAt?: Date;
-  lastModifiedAt: Date;
-}
+
 
 export interface GroupWithDetails {
   id: string;

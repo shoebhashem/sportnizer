@@ -30,7 +30,7 @@ export interface UserProfile {
   groupsCreated: number;
   groupsJoined: GroupMembership[]; // Enhanced structure with roles
   eventsInvited: EventInvitation[]; // Track event invitation responses
-  profilePicture?: string; // URL to profile picture (default or uploaded)
+  photoURL?: string; // URL to profile picture (default or uploaded) - standardized name
 }
 
 // Calculate age from birthdate
@@ -103,7 +103,7 @@ export const createUserProfile = async (
       groupsCreated: 0,
       groupsJoined: [], // Initialize as empty GroupMembership array
       eventsInvited: [], // Initialize as empty EventInvitation array
-      profilePicture: defaultProfilePicture // Set default profile picture URL
+      photoURL: defaultProfilePicture // Set default profile picture URL
     };
 
     await setDoc(userRef, {
@@ -146,7 +146,7 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
         groupsCreated: data.groupsCreated || 0,
         groupsJoined: data.groupsJoined || [], // Now supports GroupMembership array
         eventsInvited: data.eventsInvited || [], // Initialize if not present
-        profilePicture: data.profilePicture
+        photoURL: data.photoURL
       };
     }
     
@@ -297,7 +297,7 @@ export const updateUserBirthdate = async (
       birthdate: Timestamp.fromDate(birthdate),
       age: age,
       ageGroup: ageGroup,
-      profilePicture: profilePicture, // Update to age-appropriate default
+      photoURL: profilePicture, // Update to age-appropriate default
     };
     
     // Include gender if provided
