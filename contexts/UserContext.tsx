@@ -19,9 +19,7 @@ import { auth, db } from "../services/core/firebase";
 import { storage } from "../utils/CrossPlatformStorage";
 
 // Import domain types
-import { ClubMembership } from "@/services/types/club";
-import { GroupMembership } from "@/services/types/group";
-import { UserProfile } from "@/services/types/user";
+import { ClubMembership, GroupMembership, UserProfile } from "@/services/types/user";
 
 interface UserContextType {
   firebaseUser: FirebaseUser | null;
@@ -62,8 +60,8 @@ const convertFirestoreDataToUserProfile = (snapshot: QueryDocumentSnapshot): Use
           ? club.lastModifiedAt.toDate()
           : new Date(club.lastModifiedAt),
       })) || [],
-    groups:
-      (data.groups || []).map((group: any): GroupMembership => ({
+    groupsJoined:
+      (data.groupsJoined || []).map((group: any): GroupMembership => ({
         clubId: group.clubId,
         groupId: group.groupId,
         groupName: group.groupName,
@@ -261,5 +259,5 @@ export function useUserClubs() {
 }
 export function useUserGroups() {
   const { userProfile } = useUser();
-  return userProfile?.groups || [];
+  return userProfile?.groupsJoined || [];
 }

@@ -16,7 +16,7 @@ export interface UserProfile {
     country?: string;
   };
   clubs: ClubMembership[];
-  groups: GroupMembership[];
+  groupsJoined: GroupMembership[]; // Changed from 'groups' to match actual usage in codebase
   groupsCreated?: number;
   events: EventInvitation[];
   eventsResponses: EvenstResponses[];
@@ -24,6 +24,24 @@ export interface UserProfile {
   createdAt?: Date;
   lastActive?: Date;
 }
+
+export interface ClubMembership {
+  clubId: string;
+  clubName: string;
+  isAdmin: boolean;
+  joinedAt: Date;
+  lastModifiedAt: Date;
+}
+
+export interface GroupMembership {
+  groupId: string;
+  clubId: string;
+  groupName: string;
+  roles: string[]; // e.g., ['admin', 'coach', 'member', 'guardian']
+  joinedAt?: Date;
+  lastModifiedAt: Date;
+}
+
 
 export interface EventInvitation {
   eventId: string;

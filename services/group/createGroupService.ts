@@ -11,7 +11,8 @@ import {
     updateDoc,
 } from "firebase/firestore";
 import { getCurrentUser } from "../auth/authService";
-import { GroupData, GroupMemberData, GroupMembership } from "../types/group";
+import { GroupData, GroupMemberData } from "../types/group";
+import { GroupMembership } from "../types/user";
 
 /**
  * Creates a new group inside a club and updates the user's group memberships.
@@ -79,7 +80,7 @@ export const createGroup = async (
       lastModifiedAt: Timestamp.now().toDate(),
     };
 
-    // Update the user's groupsJoined array (not groups)
+    // Update the user's groupsJoined array
     const userRef = doc(db, "users", user.uid);
     await updateDoc(userRef, {
       groupsJoined: arrayUnion(membership),

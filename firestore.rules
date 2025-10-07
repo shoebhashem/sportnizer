@@ -3,229 +3,164 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // ---------------------------
     // Helper functions
+    // ---------------------------
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isValidUser() {
       return isSignedIn();
       // TODO: Enable email verification in production
       // return isSignedIn() && request.auth.token.email_verified == true;
     }
-    
+
     function isVerifiedUser() {
       return isSignedIn() && request.auth.token.email_verified == true;
     }
 
-    // Helper function to check if user has admin or coach role in any of the groups
-    function hasAdminOrCoachRole(groupIds) {
-      return isSignedIn() && (
-        // Check if user has admin/coach role in any of the specified groups
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        // This is a simplified check - in production, you'd want to verify against group membership
-        true
-      );
-    }
-    
-    // Users collection - for user profiles
-    match /users/{userId} {
-      // Users can read any user profile (for search and member lists)
-      allow read: if isSignedIn();
-      
-      // Users can only write their own profile
-      // Exception: admins can update user roles through group management
-      allow write: if isSignedIn() && request.auth.uid == userId;
-      
-      // Allow querying users by email for resend verification functionality
-      allow list: if isSignedIn();
+    function isClubAdmin(clubId) {
+      return isSignedIn() &&
+             (
+               // Case 1: userId is in club.adminIds
+               request.auth.uid in get(/databases/$(database)/documents/clubs/$(clubId)).data.adminIds ||
+
+               // Case 2: user's own document has clubs[].clubId == clubId && isAdmin == true
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clubs
+                 .where(c, c.clubId == clubId && c.isAdmin == true)
+                 .size() > 0
+             );
     }
 
-    // Groups collection (renamed from sportsGroups)
-    match /groups/{groupId} {
-      // Helper functions for role checking
-      function getUserRoles() {
-        return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) ?
-               get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.roles : [];
-      }
-      
-      function getUserRole() {
-        // Legacy support - returns primary role or first role in array
-        let roles = getUserRoles();
-        return roles is list ? (roles.size() > 0 ? roles[0] : 'member') : 
-               roles is string ? roles : 'member';
-      }
-      
-      function isAdmin() {
-        let roles = getUserRoles();
-        return roles is list ? ('admin' in roles) :
-               roles is string ? roles == 'admin' : false;
-      }
-      
-      function isCoach() {
-        let roles = getUserRoles();
-        return roles is list ? ('coach' in roles) :
-               roles is string ? roles == 'coach' : false;
-      }
-      
-      function isAdminOrCoach() {
-        return isAdmin() || isCoach();
-      }
-      
-      // Groups can be read by anyone (for browsing public groups)
-      allow read: if isSignedIn();
-      
-      // Only authenticated users can create groups
-      allow create: if isSignedIn();
-      
-      // Only admins can update group settings
-      allow update: if isSignedIn() && isAdmin();
-      
-      // Only admins can delete groups
-      allow delete: if isSignedIn() && isAdmin();
-
-      // Members subcollection
-      match /members/{memberId} {
-        // Group members can read member list
-        allow read: if isSignedIn() && (
-          getUserRole() in ['admin', 'coach', 'member'] ||
-          request.auth.uid == memberId
-        );
-        
-        // Admins and coaches can add/modify members
-        allow write: if isSignedIn() && isAdminOrCoach();
-        
-        // Users can join groups (create their own membership)
-        allow create: if isSignedIn() && request.auth.uid == memberId;
-        
-        // Members can leave groups (delete their own membership)
-        allow delete: if isSignedIn() && (
-          request.auth.uid == memberId || isAdminOrCoach()
-        );
-      }
-
-      // Subgroups subcollection
-      match /subgroups/{subgroupId} {
-        // Group members can read subgroups
-        allow read: if isSignedIn() && getUserRole() in ['admin', 'coach', 'member'];
-        
-        // Admin and coach can manage subgroups
-        allow write: if isSignedIn() && isAdminOrCoach();
-      }
+    function isGroupMember(clubId, groupId) {
+      return exists(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/$(request.auth.uid));
     }
 
-    // TOP-LEVEL EVENTS COLLECTION - NEW STRUCTURE
-    match /events/{eventId} {
-      // Helper function to check if user can manage events for the groups
-      function canManageEventGroups() {
-        // For now, allow any signed-in user to create events
-        // In production, you'd check if user has admin/coach role in the specified groups
-        return isSignedIn();
-      }
-
-      // Anyone in the target groups can read events
-      allow read: if isSignedIn();
-      
-      // Users with admin/coach roles can create events
-      allow create: if isSignedIn() && canManageEventGroups();
-      
-      // Event creator and users with admin/coach roles can update events
-      allow update: if isSignedIn() && (
-        request.auth.uid == resource.data.createdBy ||
-        canManageEventGroups()
-      );
-      
-      // Event creator and admins can delete events
-      allow delete: if isSignedIn() && (
-        request.auth.uid == resource.data.createdBy ||
-        canManageEventGroups()
-      );
+    function isGroupAdmin(clubId, groupId) {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/$(request.auth.uid)) &&
+             'admin' in get(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/$(request.auth.uid)).data.roles;
     }
 
-    // TOP-LEVEL POLLS COLLECTION
-    match /polls/{pollId} {
-      // Helper function to check if user can manage polls for the groups
-      function canManagePollGroups() {
-        return isSignedIn();
-      }
-
-      // Anyone in the target groups can read polls
-      allow read: if isSignedIn();
-      
-      // Users with admin/coach roles can create polls
-      allow create: if isSignedIn() && canManagePollGroups();
-      
-      // Poll creator and users with admin/coach roles can update polls
-      allow update: if isSignedIn() && (
-        request.auth.uid == resource.data.createdBy ||
-        canManagePollGroups()
-      );
-      
-      // Poll creator and admins can delete polls
-      allow delete: if isSignedIn() && (
-        request.auth.uid == resource.data.createdBy ||
-        canManagePollGroups()
-      );
+    function isGroupCoach(clubId, groupId) {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/$(request.auth.uid)) &&
+             'coach' in get(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/$(request.auth.uid)).data.roles;
     }
 
-    // TOP-LEVEL ANNOUNCEMENTS COLLECTION
-    match /announcements/{announcementId} {
-      // Helper function to check if user can manage announcements for the groups
-      function canManageAnnouncementGroups() {
-        return isSignedIn();
-      }
-
-      // Anyone in the target groups can read announcements
-      allow read: if isSignedIn();
-      
-      // Users with admin/coach roles can create announcements
-      allow create: if isSignedIn() && canManageAnnouncementGroups();
-      
-      // Announcement creator and users with admin/coach roles can update announcements
-      allow update: if isSignedIn() && (
-        request.auth.uid == resource.data.createdBy ||
-        canManageAnnouncementGroups()
-      );
-      
-      // Announcement creator and admins can delete announcements
-      allow delete: if isSignedIn() && (
-        request.auth.uid == resource.data.createdBy ||
-        canManageAnnouncementGroups()
-      );
+    function canManageGroup(clubId, groupId) {
+      return isClubAdmin(clubId) || isGroupAdmin(clubId, groupId) || isGroupCoach(clubId, groupId);
     }
 
-    // Email verification collection - for custom email verification
+    // ---------------------------
+    // Email verification collection
+    // ---------------------------
     match /emailVerifications/{tokenId} {
-      // Only Firebase Functions should access this collection
-      // However, we need some client access for error handling
-      allow read, write: if false; // Restrict client access - only functions should use this
+      allow read, write: if false;
     }
 
-    // Notifications collection - for user notifications
-    match /notifications/{notificationId} {
-      // Users can read their own notifications
-      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
-      
-      // Users can create notifications (via client or functions)
-      allow create: if isSignedIn();
-      
-      // Users can update their own notifications (mark as read, etc.)
-      allow update: if isSignedIn() && request.auth.uid == resource.data.userId;
-      
-      // Users can delete their own notifications
-      allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+    // ---------------------------
+    // Users collection
+    // ---------------------------
+    match /users/{userId} {
+      allow read: if isSignedIn();
+
+      // Listing users: club admins can list users in their club; group members can list users in their group
+      allow list: if isSignedIn() &&
+                  (request.query.where.clubId != null && isClubAdmin(request.query.where.clubId) ||
+                   request.query.where.groupId != null && isGroupMember(request.query.where.clubId, request.query.where.groupId));
+
+      // Users can create their own document
+      allow create: if request.auth.uid == userId;
+
+      // Users can update/delete their own document OR club-admin can update other users in same club
+      allow update, delete: if (request.auth.uid == userId) ||
+                             (
+                               isSignedIn() &&
+                               request.auth.uid != userId &&
+                               // Check target user is in a club where current user is admin
+                               get(/databases/$(database)/documents/users/$(userId)).data.clubs
+                                 .where(c, c.clubId in
+                                     get(/databases/$(database)/documents/users/$(request.auth.uid))
+                                       .data.clubs
+                                       .where(ca, ca.isAdmin == true)
+                                       .map(ca, ca.clubId)
+                                 ).size() > 0 &&
+                               // Club-admins can only update 'clubs' and 'groupsJoined' fields
+                               request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clubs', 'groupsJoined'])
+                             );
     }
-    
-    // Invitations collection - for email invitations
-    match /invitations/{invitationId} {
-      // Anyone can read invitations (needed for signup with invitation tokens)
-      allow read: if true;
-      
-      // Only authenticated users can create invitations (via Cloud Functions)
+
+    // ---------------------------
+    // Clubs collection
+    // ---------------------------
+    match /clubs/{clubId} {
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      
-      // Users can update invitations they were invited to
-      allow update: if isSignedIn();
+      allow update, delete: if isClubAdmin(clubId);
+
+      // AllMembers subcollection (club members)
+      match /allMembers/{userId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isClubAdmin(clubId) || request.auth.uid == userId;
+        allow delete: if isClubAdmin(clubId) || request.auth.uid == userId;
+      }
+
+      // Groups subcollection inside a club
+      match /groups/{groupId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn(); // Allow any signed-in user to create groups
+        allow update: if canManageGroup(clubId, groupId);
+        allow delete: if isClubAdmin(clubId) || isGroupAdmin(clubId, groupId);
+
+        // AllMembers subcollection (group members)
+        match /allMembers/{userId} {
+          allow read: if isSignedIn();
+          allow create: if isSignedIn(); // Allow joining groups
+          allow update: if canManageGroup(clubId, groupId) || request.auth.uid == userId;
+          allow delete: if canManageGroup(clubId, groupId) || request.auth.uid == userId;
+        }
+        
+        // Subgroups subcollection
+        match /subgroups/{subgroupId} {
+          allow read: if isSignedIn();
+          allow create, update, delete: if canManageGroup(clubId, groupId);
+        }
+
+        // Events subcollection (for future use)
+        match /events/{eventId} {
+          allow read: if isGroupMember(clubId, groupId);
+          allow create, update, delete: if canManageGroup(clubId, groupId);
+        }
+
+        // Results subcollection (for future use)
+        match /results/{resultId} {
+          allow read: if isGroupMember(clubId, groupId);
+          allow create, update, delete: if canManageGroup(clubId, groupId);
+        }
+      }
+    }
+
+    // ---------------------------
+    // Guardian Invitations collection (for future use)
+    // ---------------------------
+    match /guardianInvitations/{invitationId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && 
+                            (resource.data.createdBy == request.auth.uid || 
+                             resource.data.guardianEmail == request.auth.token.email);
+    }
+
+    // ---------------------------
+    // Global Events collection (for future use)
+    // ---------------------------
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
     }
   }
 }
