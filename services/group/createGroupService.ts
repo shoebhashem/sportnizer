@@ -1,22 +1,22 @@
 // services/group/createGroupService.ts
 
 import {
-    arrayUnion,
     collection,
     doc,
     getDoc,
     getFirestore,
     serverTimestamp,
     setDoc,
-    Timestamp,
-    updateDoc,
 } from "firebase/firestore";
 import { getCurrentUser } from "../auth/authService";
-import { GroupData, GroupMemberData } from "../types/group";
-import { GroupMembership } from "../types/user";
+import { ClubAllMembersDocument } from "../types/club";
+import { AllMembersDocument, GroupData } from "../types/group";
 
 /**
- * Creates a new group inside a club and updates the user's group memberships.
+ * Creates a new group inside a club.
+ * NOTE: Group creators are NOT automatically added to the group's allMembers.
+ * Only club admins can create groups.
+ * If the creator wants to be a member, they must be explicitly added after creation.
  */
 export const createGroup = async (
   clubId: string,
@@ -34,76 +34,74 @@ export const createGroup = async (
   const db = getFirestore();
 
   try {
+    // First, get the club document to check if user is the creator
+    const clubDoc = await getDoc(doc(db, "clubs", clubId));
+    if (!clubDoc.exists()) {
+      return {
+        success: false,
+        error: { code: "club/not-found", message: "Club not found." },
+      };
+    }
+
+    const clubData = clubDoc.data();
+    const isClubCreator = clubData.createdBy === user.uid;
+
+    // Check if user is club admin (skip this check if user is the club creator - for immediate group creation after club creation)
+    if (!isClubCreator) {
+      const clubMembersDoc = await getDoc(doc(db, "clubs", clubId, "allMembers", "members"));
+      if (!clubMembersDoc.exists()) {
+        return {
+          success: false,
+          error: { code: "club/not-found", message: "Club members not found." },
+        };
+      }
+
+      const clubMembersData = clubMembersDoc.data() as ClubAllMembersDocument;
+      const userMembership = clubMembersData.members.find(m => m.userId === user.uid);
+      
+      if (!userMembership || !userMembership.roles.includes("club-admin")) {
+        return {
+          success: false,
+          error: { code: "auth/insufficient-permissions", message: "Only club admins can create groups." },
+        };
+      }
+    }
+
     // Generate a new group ID inside the club's groups subcollection
     const groupId = doc(collection(db, "clubs", clubId, "groups")).id;
 
     // Firestore server timestamp for createdAt
     const now = serverTimestamp();
 
-    // Build the group data (without participantsIds - using subcollection instead)
+    // Build the group data
     const groupData: GroupData = {
-      id: groupId, // Add the ID to match new interface
+      id: groupId,
       name: groupName.trim(),
       sportType: sportType.trim(),
       createdBy: user.uid,
       createdAt: now,
-      // participantsIds: [user.uid], // Removed - using allMembers subcollection instead
       isActive: true,
-      memberCount: 1,
+      memberCount: 0, // Start with 0 members - creator is not auto-added
       maxCount: 30,
     };
 
     // Save the new group document
     await setDoc(doc(db, "clubs", clubId, "groups", groupId), groupData);
 
-    // Fetch the user's current profile to get up-to-date name
-    let userName = user.displayName || user.email?.split('@')[0] || "User";
-    try {
-      const userProfileDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userProfileDoc.exists()) {
-        const userProfileData = userProfileDoc.data();
-        // Prioritize displayName, then name, then fall back to Firebase Auth displayName
-        userName = userProfileData.displayName || userProfileData.name || user.displayName || user.email?.split('@')[0] || "User";
-      }
-    } catch {
-      console.log(`Could not fetch profile for user ${user.uid}, using Firebase Auth name`);
-    }
-
-    // Add the creator to the allMembers subcollection
-    const memberData: GroupMemberData = {
-      userId: user.uid,
-      roles: ["admin"], // Creator is an admin
-      joinedAt: now,
-      photoURL: user.photoURL || "",
-      name: userName,
-      email: user.email || "",
-      needsGuardian: false, // Creator is assumed to be adult
-      belongtoSubGroups: []
+    // Create empty allMembers document for the group
+    const allMembersDoc: AllMembersDocument = {
+      members: [], // Empty - creator is not auto-added
+      lastUpdated: now,
+      memberCount: 0
     };
 
-    // Add the creator to the allMembers subcollection
-    await setDoc(doc(db, "clubs", clubId, "groups", groupId, "allMembers", user.uid), memberData);
-
-    // Build GroupMembership for the user document
-    const membership: GroupMembership = {
-      clubId,
-      groupId,
-      groupName: groupName.trim(),
-      roles: ["admin"],
-      joinedAt: Timestamp.now().toDate(),
-      lastModifiedAt: Timestamp.now().toDate(),
-    };
-
-    // Update the user's groupsJoined array
-    const userRef = doc(db, "users", user.uid);
-    await updateDoc(userRef, {
-      groupsJoined: arrayUnion(membership),
-    });
+    // Add the empty allMembers document to the group
+    await setDoc(doc(db, "clubs", clubId, "groups", groupId, "allMembers", "members"), allMembersDoc);
 
     return {
       success: true,
       groupId,
-      message: "Group created successfully and added to your profile!",
+      message: "Group created successfully! You can now add members to the group.",
     };
   } catch (error: any) {
     console.error("Error creating group:", error);

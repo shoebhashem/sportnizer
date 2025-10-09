@@ -12,21 +12,24 @@ export interface ClubData {
   isActive: boolean;
 }
 
-export interface ClubMembership {
-  clubId: string;
-  clubName: string;
-  isAdmin: boolean;
-  joinedAt: Date;
-  lastModifiedAt: Date;
-}
 
 export interface ClubMemberData {
   userId: string;
-  roles: string[]; // e.g., ["admin"], ["member"], ["coach", "member"]
+  roles: ("club-admin" | "admin" | "coach" | "player" | "guardian")[]; // Updated role hierarchy
   photoURL: string;
   name: string;
   email: string;
   addedBy: string; // userId of who added this member
-  lastModifiedAt: Date;
+  joinedAt: any; // Firestore timestamp
+  lastModifiedAt: any; // Firestore timestamp
+  needsGuardian: boolean; // true for child/youth members
+  guardiansContacts: string[]; // userIds of the guardians (NEW)
+}
+
+// New interface for club's single allMembers document
+export interface ClubAllMembersDocument {
+  members: ClubMemberData[];
+  lastUpdated: any; // Firestore timestamp
+  memberCount: number;
 }
 

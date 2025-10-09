@@ -15,13 +15,21 @@ export interface GroupData {
 
 export interface GroupMemberData {
   userId: string;
-  roles: string[]; // e.g., ["admin"], ["member"], ["coach"]
+  roles: ("club-admin" | "admin" | "coach" | "player" | "guardian")[]; // Updated role hierarchy
   joinedAt: any; // Firestore timestamp
   photoURL: string;
   name: string;
   email: string;
   needsGuardian: boolean; // true for child/youth members
   belongtoSubGroups?: string[]; // IDs of subgroups the member belongs to
+  guardiansContacts: string[]; // userIds of the guardians (NEW)
+}
+
+// New interface for single document with members array
+export interface AllMembersDocument {
+  members: GroupMemberData[];
+  lastUpdated: any; // Firestore timestamp
+  memberCount: number;
 }
 
 

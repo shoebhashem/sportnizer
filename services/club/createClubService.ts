@@ -2,6 +2,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   getFirestore,
   query,
@@ -12,7 +13,8 @@ import {
   where,
 } from "firebase/firestore";
 import { getCurrentUser } from "../auth/authService";
-import { ClubData, ClubMemberData, ClubMembership } from "../types/club";
+import { ClubAllMembersDocument, ClubData, ClubMemberData } from "../types/club";
+import { ClubMembership } from "../types/user";
 
 /**
  * Creates a new club document in Firestore and updates the user's clubs array
@@ -69,18 +71,44 @@ export const createClub = async (clubName: string) => {
     // Save the new club document
     await setDoc(doc(clubsRef, clubId), clubData);
 
-    // Create allMembers subcollection and add the creator as the first member
+    // Fetch the user's current profile to get up-to-date name and photo
+    let userName = user.displayName || user.email?.split('@')[0] || "User";
+    let userPhotoURL = user.photoURL || "";
+    try {
+      const userProfileDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userProfileDoc.exists()) {
+        const userProfileData = userProfileDoc.data();
+        // Prioritize displayName, then name, then fall back to Firebase Auth displayName
+        userName = userProfileData.displayName || userProfileData.name || user.displayName || user.email?.split('@')[0] || "User";
+        userPhotoURL = userProfileData.photoURL || user.photoURL || "";
+      }
+    } catch {
+      console.log(`Could not fetch profile for user ${user.uid}, using Firebase Auth data`);
+    }
+
+    // Create allMembers document with the creator as the first member
     const memberData: ClubMemberData = {
       userId: user.uid,
-      roles: ["admin"], // Creator is an admin
-      joinedAt: now,
-      profilePictureUrl: user.photoURL || "", // Use user's photo URL if available
-      name: user.name || "User",
+      roles: ["club-admin"], // Creator is a club admin
+      photoURL: userPhotoURL,
+      name: userName,
       email: user.email || "",
+      addedBy: user.uid, // Self-added
+      joinedAt: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrays
+      lastModifiedAt: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrays
+      needsGuardian: false, // Creator is assumed to be adult
+      guardiansContacts: [] // No guardians for admin
     };
 
-    // Add the creator to the allMembers subcollection
-    await setDoc(doc(db, "clubs", clubId, "allMembers", user.uid), memberData);
+    // Create the allMembers document with the creator
+    const allMembersDoc: ClubAllMembersDocument = {
+      members: [memberData],
+      lastUpdated: Timestamp.now(), // Use Timestamp.now() since this goes in the document
+      memberCount: 1
+    };
+
+    // Add the allMembers document to the club
+    await setDoc(doc(db, "clubs", clubId, "allMembers", "members"), allMembersDoc);
 
     // Build ClubMembership for user document
     const membership: ClubMembership = {
