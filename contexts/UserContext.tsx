@@ -19,6 +19,7 @@ import { auth, db } from "../services/core/firebase";
 import { storage } from "../utils/CrossPlatformStorage";
 
 // Import domain types
+import { AccessibleGroupData, fetchAccessibleGroups } from "@/services/group/fetchAccessibleGroupsService";
 import { ClubMembership, GroupMembership, UserProfile } from "@/services/types/user";
 
 interface UserContextType {
@@ -74,7 +75,8 @@ const convertFirestoreDataToUserProfile = (snapshot: QueryDocumentSnapshot): Use
           : new Date(group.lastModifiedAt),
       })) || [],
     groupsCreated: data.groupsCreated ?? 0,
-    eventInvitations: data.eventInvitations || [],
+    events: data.events || [],
+    eventsResponses: data.eventsResponses || [],
     verificationStatus: data.verificationStatus || "pending",
     createdAt: data.createdAt?.toDate() || new Date(),
     lastActive: data.lastActive?.toDate() || new Date(),
@@ -260,4 +262,51 @@ export function useUserClubs() {
 export function useUserGroups() {
   const { userProfile } = useUser();
   return userProfile?.groupsJoined || [];
+}
+
+/**
+ * Hook that returns all groups accessible to the current user:
+ * - Groups where user is a member (from groupsJoined)
+ * - All groups in clubs where user is a club-admin
+ */
+export function useUserAccessibleGroups() {
+  const { userProfile, isLoading } = useUser();
+  const [accessibleGroups, setAccessibleGroups] = useState<AccessibleGroupData[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userProfile || isLoading) {
+      return;
+    }
+
+    const fetchGroups = async () => {
+      setIsLoadingGroups(true);
+      setError(null);
+
+      try {
+        const result = await fetchAccessibleGroups(userProfile);
+        if (result.success) {
+          setAccessibleGroups(result.groups);
+        } else {
+          setError(result.error?.message || "Failed to fetch groups");
+          setAccessibleGroups([]);
+        }
+      } catch (err) {
+        console.error("Error in useUserAccessibleGroups:", err);
+        setError("Failed to fetch groups");
+        setAccessibleGroups([]);
+      } finally {
+        setIsLoadingGroups(false);
+      }
+    };
+
+    fetchGroups();
+  }, [userProfile, isLoading]);
+
+  return {
+    groups: accessibleGroups,
+    isLoading: isLoadingGroups,
+    error,
+  };
 }

@@ -1,27 +1,27 @@
 //import AdContainer from "@/components/AdContainer";
 import Button from "@/components/Button";
 import { theme } from "@/constants/theme";
-import { useUserClubs, useUserGroups, useUserProfile } from "@/contexts/UserContext";
+import { useUserAccessibleGroups, useUserClubs, useUserProfile } from "@/contexts/UserContext";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function GroupsScreen() {
 const { isLoading } = useUserProfile();
 const clubs = useUserClubs();
-const groups = useUserGroups();
+const { groups: accessibleGroups, isLoading: isLoadingGroups, error: groupsError } = useUserAccessibleGroups();
 const [selectedClub, setSelectedClub] = useState<string | null>(null);
 
-// Helper function to get groups for a specific club
+// Helper function to get groups for a specific club from accessible groups
 const getGroupsForClub = (clubId: string) => {
-  return groups.filter(group => group.clubId === clubId);
+  return accessibleGroups.filter(group => group.clubId === clubId);
 };
 
 const handleCreateGroup = () => {
@@ -30,10 +30,20 @@ const handleCreateGroup = () => {
 
 const handleGroupPress = (groupId: string, clubId: string) => {
   router.push(`/manage-group?groupId=${groupId}&clubId=${clubId}`);
-};if (isLoading) {
+};
+
+if (isLoading || isLoadingGroups) {
 return (
 <SafeAreaView style={styles.container}>
 <Text style={styles.loadingText}>Loading clubs and groups...</Text>
+</SafeAreaView>
+);
+}
+
+if (groupsError) {
+return (
+<SafeAreaView style={styles.container}>
+<Text style={styles.loadingText}>Error loading groups: {groupsError}</Text>
 </SafeAreaView>
 );
 }
@@ -93,13 +103,15 @@ return (
               <View style={styles.groupsContainer}>
                 {clubGroups.map((group) => (
                   <TouchableOpacity 
-                    key={group.groupId} 
+                    key={group.id}
                     style={styles.groupCard}
-                    onPress={() => handleGroupPress(group.groupId, club.clubId)}
+                    onPress={() => handleGroupPress(group.id, club.clubId)}
                   >
-                    <Text style={styles.groupName}>{group.groupName}</Text>
+                    <Text style={styles.groupName}>{group.name}</Text>
                     <Text style={styles.groupRole}>
-                      Role: {group.roles.join(', ')}
+                      {group.accessReason === "member" 
+                        ? `Role: ${group.userRoles.join(', ')}`
+                        : "Access: Club Admin"}
                     </Text>
                   </TouchableOpacity>
                 ))}
