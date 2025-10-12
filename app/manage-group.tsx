@@ -284,6 +284,16 @@ export default function ManageGroupScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons 
+                name="arrow-back" 
+                size={24} 
+                color={theme.colors.text} 
+              />
+            </TouchableOpacity>
             <Text style={styles.title}>{group.name}</Text>
             <TouchableOpacity 
               style={styles.kebabMenuButton}
@@ -409,6 +419,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.inputBorder,
     marginBottom: theme.spacing.lg,
+  },
+  backButton: {
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
   },
   title: {
     fontSize: theme.typography.fontSize.large,
