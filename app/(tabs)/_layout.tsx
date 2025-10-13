@@ -1,39 +1,40 @@
-import AdContainer from '@/components/AdContainer';
 import AuthGuard from '@/components/AuthGuard';
 import UserAvatar from '@/components/UserAvatar';
 import { theme } from '@/constants/theme';
 import { useUserGroups } from '@/contexts/UserContext';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
-  const adHeight = Platform.OS === 'web' ? 100 : 70;
   const userGroups = useUserGroups();
   
   // Check if user has admin or coach role in any group
   const canManage = userGroups.some(group => 
-    group.roles?.some(role => 
+    group.roles?.some((role: string) => 
       role.toLowerCase() === 'admin' || role.toLowerCase() === 'coach'
     )
   );
   
   return (
     <AuthGuard>
-      <Tabs
-        screenOptions={{
-          tabBarActiveTintColor: theme.colors.secondary,
-          headerStyle: {
-            backgroundColor: theme.colors.primary,
-          },
-          headerShadowVisible: false,
-          headerTintColor: theme.colors.white,
-          headerRight: () => <UserAvatar />,
-          tabBarStyle: {
-            backgroundColor: theme.colors.primary,
-            marginBottom: adHeight, // Make room for the ad
-          },
-        }}
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.primary }}>
+        <Tabs
+          screenOptions={{
+            tabBarActiveTintColor: theme.colors.secondary,
+            headerStyle: {
+              backgroundColor: theme.colors.primary,
+            },
+            headerShadowVisible: false,
+            headerTintColor: theme.colors.white,
+
+            headerRight: () => <UserAvatar />,
+            tabBarStyle: {
+              backgroundColor: theme.colors.primary,
+              height: 50,
+              // Safe area automatically handled by SafeAreaView
+            },
+          }}
       >
         <Tabs.Screen
           name="index"
@@ -74,8 +75,8 @@ export default function TabLayout() {
             ),
           }}
         />
-      </Tabs>
-      <AdContainer position="bottom" />
+        </Tabs>
+      </SafeAreaView>
     </AuthGuard>
   );
 }

@@ -13,6 +13,11 @@ export default function AdContainer({
   style 
 }: AdContainerProps) {
   
+  // In development mode, return null to avoid grey placeholder covering system navigation
+  if (__DEV__) {
+    return null;
+  }
+  
   const getAdContainerStyle = () => {
     if (Platform.OS === 'web') {
       // Web: Reserve 100px height for AdSense responsive banners
@@ -38,11 +43,7 @@ export default function AdContainer({
     <View style={getAdContainerStyle()}>
       {children}
       {/* Placeholder for actual ad implementation */}
-      {__DEV__ && (
-        <View style={styles.placeholder}>
-          {/* Development placeholder - remove when implementing real ads */}
-        </View>
-      )}
+      {/* Removed development placeholder to avoid grey area covering system navigation */}
     </View>
   );
 }
