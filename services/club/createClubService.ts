@@ -1,16 +1,16 @@
 import {
-  arrayUnion,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  getFirestore,
-  query,
-  serverTimestamp,
-  setDoc,
-  Timestamp,
-  updateDoc,
-  where,
+    arrayUnion,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    getFirestore,
+    query,
+    serverTimestamp,
+    setDoc,
+    Timestamp,
+    updateDoc,
+    where,
 } from "firebase/firestore";
 import { getCurrentUser } from "../auth/authService";
 import { ClubAllMembersDocument, ClubData, ClubMemberData } from "../types/club";
@@ -97,7 +97,7 @@ export const createClub = async (clubName: string) => {
       joinedAt: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrays
       lastModifiedAt: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrays
       needsGuardian: false, // Creator is assumed to be adult
-      guardiansContacts: [] // No guardians for admin
+      guardiansContacts: [] // No guardians for admin (empty array of GuardianContact objects)
     };
 
     // Create the allMembers document with the creator

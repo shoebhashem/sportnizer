@@ -13,6 +13,12 @@ export interface GroupData {
   ageGroup?: number; // 1=children, 2=adults, 3=mixed
 }
 
+export interface GuardianContact {
+  userId: string;
+  name: string;
+  email: string;
+}
+
 export interface GroupMemberData {
   userId: string;
   roles: ("club-admin" | "admin" | "coach" | "player" | "guardian")[]; // Updated role hierarchy
@@ -22,7 +28,7 @@ export interface GroupMemberData {
   email: string;
   needsGuardian: boolean; // true for child/youth members
   belongtoSubGroups?: string[]; // IDs of subgroups the member belongs to
-  guardiansContacts: string[]; // userIds of the guardians (NEW)
+  guardiansContacts: GuardianContact[]; // Guardian contact details (UPDATED)
 }
 
 // New interface for single document with members array

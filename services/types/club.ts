@@ -1,3 +1,5 @@
+import { GuardianContact } from './group';
+
 export interface ClubData {
   name: string;
   description?: string;
@@ -23,7 +25,7 @@ export interface ClubMemberData {
   joinedAt: any; // Firestore timestamp
   lastModifiedAt: any; // Firestore timestamp
   needsGuardian: boolean; // true for child/youth members
-  guardiansContacts: string[]; // userIds of the guardians (NEW)
+  guardiansContacts: GuardianContact[]; // Guardian contact details (UPDATED)
 }
 
 // New interface for club's single allMembers document

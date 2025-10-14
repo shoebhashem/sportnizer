@@ -9,7 +9,7 @@ import {
     updateDoc,
 } from "firebase/firestore";
 import { ClubAllMembersDocument, ClubMemberData } from "../types/club";
-import { AllMembersDocument, GroupMemberData } from "../types/group";
+import { AllMembersDocument, GroupMemberData, GuardianContact } from '../types/group';
 import { GroupMembership } from "../types/user";
 
 /**
@@ -26,7 +26,7 @@ export const addMemberToGroup = async (
     name: string;
     email: string;
     needsGuardian: boolean;
-    guardiansContacts: string[];
+    guardiansContacts: GuardianContact[];
     belongtoSubGroups?: string[];
   },
   addedBy: string
@@ -205,7 +205,7 @@ export const addClubAdminToGroup = async (
         name: userData.displayName || userData.name || adminMembership.name || "Admin",
         email: userData.email || adminMembership.email || "",
         needsGuardian: false, // Admins don't need guardians
-        guardiansContacts: [],
+        guardiansContacts: [], // Empty array of GuardianContact objects
         belongtoSubGroups: []
       },
       addedBy
