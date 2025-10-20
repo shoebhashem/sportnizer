@@ -4,7 +4,7 @@ import { ProcessInvitationRequest } from '../types/interfaces';
 import { config } from '../utils/config';
 import { handleCorsOptions, setCorsHeaders, validateHttpMethod } from '../utils/cors';
 import { createOrUpdateUserWithGroup } from '../utils/userManagement';
-import { validateEmailMatch, validateInvitationStatus, validateRequiredFields } from '../utils/validation';
+import { validateEmailMatch, validateInvitationStatus, validateRequiredFields, validateShareableInvitationStatus } from '../utils/validation';
 
 export const processInvitation = onRequest(
   {
@@ -26,12 +26,25 @@ export const processInvitation = onRequest(
       // Validate required fields
       validateRequiredFields(req.body, ['invitationToken', 'userEmail']);
 
-      // Get invitation details
-      console.log(`Looking up invitation document: ${invitationToken}`);
-      const invitationDoc = await admin.firestore()
+      // Try to get from regular invitations first
+      let invitationDoc = await admin.firestore()
         .collection('invitations')
         .doc(invitationToken)
         .get();
+
+      let invitationType: 'email' | 'shareable' = 'email';
+      let invitationData = invitationDoc.data();
+
+      // If not found in regular invitations, try shareable invitations
+      if (!invitationDoc.exists) {
+        invitationDoc = await admin.firestore()
+          .collection('shareableInvites')
+          .doc(invitationToken)
+          .get();
+        
+        invitationType = 'shareable';
+        invitationData = invitationDoc.data();
+      }
 
       if (!invitationDoc.exists) {
         console.log('Invitation document not found');
@@ -41,26 +54,39 @@ export const processInvitation = onRequest(
         });
         return;
       }
-
-      const invitationData = invitationDoc.data();
       console.log('Invitation data found:', invitationData);
 
-      // Validate invitation status
-      validateInvitationStatus(invitationData);
+      // Validate invitation status based on type
+      if (invitationType === 'email') {
+        validateInvitationStatus(invitationData);
+        
+        // Check if invitation has already been used
+        if (invitationData!.used) {
+          console.log('Email invitation already used');
+          res.status(400).json({ 
+            success: false, 
+            error: 'This invitation has already been used' 
+          });
+          return;
+        }
 
-      // Check if invitation has already been used
-      if (invitationData!.used) {
-        console.log('Invitation already used');
-        res.status(400).json({ 
-          success: false, 
-          error: 'This invitation has already been used' 
-        });
-        return;
+        // Verify email matches for email invitations
+        console.log(`Verifying email match - Invitation: ${invitationData!.email}, User: ${userEmail.trim().toLowerCase()}`);
+        validateEmailMatch(invitationData!.email, userEmail);
+      } else {
+        // Validate shareable invitation
+        validateShareableInvitationStatus(invitationData);
+        
+        // For shareable invitations, check if user already used this invite
+        if (invitationData!.usedBy?.includes(userEmail.trim().toLowerCase())) {
+          console.log('User already used this shareable invitation');
+          res.status(400).json({ 
+            success: false, 
+            error: 'You have already used this invitation' 
+          });
+          return;
+        }
       }
-
-      // Verify email matches
-      console.log(`Verifying email match - Invitation: ${invitationData!.email}, User: ${userEmail.trim().toLowerCase()}`);
-      validateEmailMatch(invitationData!.email, userEmail);
 
       // Find user by email
       console.log(`Looking up user by email: ${userEmail}`);
@@ -109,27 +135,40 @@ export const processInvitation = onRequest(
       
       console.log(`Added group ${invitationData!.groupId} to user ${userRecord.uid} using GroupMembership structure`);
 
-      // Mark invitation as used
-      batch.update(invitationDoc.ref, {
-        used: true,
-        status: 'accepted',
-        usedAt: admin.firestore.FieldValue.serverTimestamp(),
-        usedBy: userRecord.uid,
-      });
+      // Update invitation based on type
+      if (invitationType === 'email') {
+        // Mark email invitation as used
+        batch.update(invitationDoc.ref, {
+          used: true,
+          status: 'accepted',
+          usedAt: admin.firestore.FieldValue.serverTimestamp(),
+          usedBy: userRecord.uid,
+        });
+      } else {
+        // Update shareable invitation usage
+        batch.update(invitationDoc.ref, {
+          currentUses: admin.firestore.FieldValue.increment(1),
+          usedBy: admin.firestore.FieldValue.arrayUnion(userRecord.uid),
+          lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastUsedBy: userRecord.uid,
+        });
+      }
 
       // Execute all updates
       await batch.commit();
       console.log('All updates completed successfully');
 
-      // Clean up invitation after successful processing
-      setTimeout(async () => {
-        try {
-          await invitationDoc.ref.delete();
-          console.log('Invitation cleaned up');
-        } catch (cleanupError) {
-          console.error('Error cleaning up invitation:', cleanupError);
-        }
-      }, 5000);
+      // Clean up email invitation after successful processing (shareable invites stay active)
+      if (invitationType === 'email') {
+        setTimeout(async () => {
+          try {
+            await invitationDoc.ref.delete();
+            console.log('Email invitation cleaned up');
+          } catch (cleanupError) {
+            console.error('Error cleaning up invitation:', cleanupError);
+          }
+        }, 5000);
+      }
 
       console.log(`Successfully added user to group: ${invitationData!.groupName}`);
       res.status(200).json({ 

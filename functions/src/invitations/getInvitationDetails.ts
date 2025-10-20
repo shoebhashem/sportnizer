@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 import { onRequest } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { handleCorsOptions, setCorsHeaders, validateHttpMethod } from '../utils/cors';
-import { validateInvitationStatus } from '../utils/validation';
+import { validateInvitationStatus, validateShareableInvitationStatus } from '../utils/validation';
 
 export const getInvitationDetails = onRequest(
   {
@@ -29,11 +29,25 @@ export const getInvitationDetails = onRequest(
         return;
       }
 
-      // Get invitation details
-      const invitationDoc = await admin.firestore()
+      // Try to get from regular invitations first
+      let invitationDoc = await admin.firestore()
         .collection('invitations')
         .doc(invitationToken)
         .get();
+
+      let invitationType: 'email' | 'shareable' = 'email';
+      let invitationData = invitationDoc.data();
+
+      // If not found in regular invitations, try shareable invitations
+      if (!invitationDoc.exists) {
+        invitationDoc = await admin.firestore()
+          .collection('shareableInvites')
+          .doc(invitationToken)
+          .get();
+        
+        invitationType = 'shareable';
+        invitationData = invitationDoc.data();
+      }
 
       if (!invitationDoc.exists) {
         res.status(404).json({ 
@@ -43,11 +57,14 @@ export const getInvitationDetails = onRequest(
         return;
       }
 
-      const invitationData = invitationDoc.data();
-
-      // Validate invitation status
+      // Validate invitation status based on type
       try {
-        validateInvitationStatus(invitationData);
+        if (invitationType === 'email') {
+          validateInvitationStatus(invitationData);
+        } else {
+          // Validate shareable invitation
+          validateShareableInvitationStatus(invitationData);
+        }
       } catch (error: any) {
         res.status(400).json({ 
           success: false, 
@@ -56,15 +73,50 @@ export const getInvitationDetails = onRequest(
         return;
       }
 
-      res.status(200).json({ 
-        success: true, 
+      // Get additional group information
+      const groupDoc = await admin.firestore()
+        .collection('groups')
+        .doc(invitationData!.groupId)
+        .get();
+
+      const groupData = groupDoc.exists ? groupDoc.data() : null;
+
+      // Return different response formats based on invitation type
+      const response = {
+        success: true,
         invitation: {
+          invitationType,
+          groupId: invitationData!.groupId,
           groupName: invitationData!.groupName,
           inviterName: invitationData!.inviterName,
-          email: invitationData!.email,
           createdAt: invitationData!.createdAt,
+          
+          // Email invitation specific fields
+          ...(invitationType === 'email' && {
+            email: invitationData!.email,
+          }),
+          
+          // Shareable invitation specific fields
+          ...(invitationType === 'shareable' && {
+            expiresAt: invitationData!.expiresAt,
+            maxUses: invitationData!.maxUses,
+            currentUses: invitationData!.currentUses,
+            invitationSubType: invitationData!.invitationType, // 'group-member', 'coach', etc.
+          }),
+          
+          // Additional group info (if available)
+          ...(groupData && {
+            groupInfo: {
+              sportType: groupData.sportType,
+              description: groupData.description,
+              memberCount: groupData.memberCount,
+              isActive: groupData.isActive,
+            }
+          })
         }
-      });
+      };
+
+      res.status(200).json(response);
 
     } catch (error) {
       console.error('Error getting invitation details:', error);

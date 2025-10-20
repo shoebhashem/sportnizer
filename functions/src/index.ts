@@ -4,6 +4,7 @@ import * as admin from 'firebase-admin';
 admin.initializeApp();
 
 // Group Invitation Functions
+export { generateShareableInvite } from './invitations/generateShareableInvite';
 export { getInvitationDetails } from './invitations/getInvitationDetails';
 export { processInvitation } from './invitations/processInvitation';
 export { respondToInvitation } from './invitations/respondToInvitation';

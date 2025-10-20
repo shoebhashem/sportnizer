@@ -85,6 +85,35 @@ export const validateInvitationStatus = (invitationData: any): void => {
 };
 
 /**
+ * Check if shareable invitation is still valid
+ */
+export const validateShareableInvitationStatus = (invitationData: any): void => {
+  if (!invitationData) {
+    throw new HttpsError('not-found', 'Invalid invitation data');
+  }
+  
+  if (!invitationData.isActive) {
+    throw new HttpsError(
+      'invalid-argument',
+      'This invitation is no longer active'
+    );
+  }
+  
+  if (isInvitationExpired(invitationData.expiresAt)) {
+    throw new HttpsError('invalid-argument', 'This invitation has expired');
+  }
+
+  // Check if max uses exceeded (if limit is set)
+  if (invitationData.maxUses !== null && 
+      invitationData.currentUses >= invitationData.maxUses) {
+    throw new HttpsError(
+      'invalid-argument',
+      'This invitation has reached its maximum number of uses'
+    );
+  }
+};
+
+/**
  * Validate email match with invitation
  */
 export const validateEmailMatch = (

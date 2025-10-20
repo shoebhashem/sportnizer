@@ -79,6 +79,44 @@ export interface SendGuardianInvitationsRequest {
   guardianEmails: string[];
 }
 
+// Shareable invitation interfaces
+export interface ShareableInvitationData {
+  inviteToken: string;
+  groupId: string;
+  groupName: string;
+  inviterName: string;
+  inviterUid: string;
+  invitationType: 'group-member' | 'coach' | 'admin';
+  createdAt: any;
+  expiresAt: any;
+  isActive: boolean;
+  maxUses: number | null; // null = unlimited
+  currentUses: number;
+  usedBy: string[]; // Array of user IDs
+  metadata: {
+    createdVia: string;
+    platform: string;
+  };
+}
+
+export interface GenerateShareableInviteRequest {
+  groupId: string;
+  groupName: string;
+  inviterName: string;
+  inviterUid: string;
+  expirationDays?: number;
+  maxUses?: number | null;
+  invitationType?: 'group-member' | 'coach' | 'admin';
+}
+
+export interface GenerateShareableInviteResponse {
+  success: boolean;
+  inviteToken?: string;
+  inviteLink?: string;
+  expiresAt?: string;
+  error?: string;
+}
+
 export interface ProcessGuardianInvitationRequest {
   invitationToken: string;
   guardianEmail: string;
