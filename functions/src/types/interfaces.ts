@@ -19,6 +19,7 @@ export interface GroupInvitationData {
 
 export interface GroupInvitationRequest {
   emails: string[];
+  clubId: string;
   groupId: string;
   groupName: string;
   inviterName: string;
@@ -100,6 +101,7 @@ export interface ShareableInvitationData {
 }
 
 export interface GenerateShareableInviteRequest {
+  clubId: string;
   groupId: string;
   groupName: string;
   inviterName: string;

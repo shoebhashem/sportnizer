@@ -1,25 +1,8 @@
 import * as admin from 'firebase-admin';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { GenerateShareableInviteRequest, GenerateShareableInviteResponse } from '../types/interfaces';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
-
-export interface GenerateShareableInviteRequest {
-  groupId: string;
-  groupName: string;
-  inviterName: string;
-  inviterUid: string;
-  expirationDays?: number; // Optional, defaults to 7 days
-  maxUses?: number | null; // Optional, defaults to unlimited (null)
-  invitationType?: 'group-member' | 'coach' | 'admin'; // Optional, defaults to 'group-member'
-}
-
-export interface GenerateShareableInviteResponse {
-  success: boolean;
-  inviteToken?: string;
-  inviteLink?: string;
-  expiresAt?: string;
-  error?: string;
-}
 
 export const generateShareableInvite = onCall(
   {
@@ -28,6 +11,7 @@ export const generateShareableInvite = onCall(
   async (request): Promise<GenerateShareableInviteResponse> => {
     try {
       const { 
+        clubId,
         groupId, 
         groupName, 
         inviterName,
@@ -37,7 +21,7 @@ export const generateShareableInvite = onCall(
       }: GenerateShareableInviteRequest = request.data;
 
       // Validate required fields
-      validateRequiredFields(request.data, ['groupId', 'groupName', 'inviterName']);
+      validateRequiredFields(request.data, ['clubId', 'groupId', 'groupName', 'inviterName']);
 
       // Verify the user is authenticated
       if (!request.auth) {
@@ -79,6 +63,7 @@ export const generateShareableInvite = onCall(
       // Create invitation document
       const shareableInviteData = {
         inviteToken,
+        clubId,
         groupId,
         groupName,
         inviterName,

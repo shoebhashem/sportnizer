@@ -3,10 +3,12 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { auth } from '@/services/core/firebase';
+import { auth, functions } from '@/services/core/firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { signUpUser } from '../services/auth/authService';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -202,23 +204,43 @@ export default function GroupInviteScreen() {
           );
           authUser = userCredential.user;
         } else {
-          // Create new user account
-          const userCredential = await createUserWithEmailAndPassword(
-            auth,
-            email,
-            password
-          );
-          authUser = userCredential.user;
+          // Create new user account using the same flow as signup.tsx
+          const result = await signUpUser(email.trim(), password, fullName.trim());
           
-          // Update user profile with full name
-          await updateProfile(authUser, {
-            displayName: fullName
+          if (!result.success) {
+            throw new Error(result.error?.message || 'Failed to create account');
+          }
+          
+          // Process invitation immediately after signup (before email verification)
+          console.log('Processing invitation for new user:', email.trim());
+          const processInvitationFunction = httpsCallable(functions, 'processInvitation');
+          const invitationResult = await processInvitationFunction({ 
+            invitationToken: token,
+            userEmail: email.trim()
           });
+          
+          if (!(invitationResult.data as any)?.success) {
+            console.error('Failed to process invitation:', invitationResult.data);
+            throw new Error('Failed to process invitation');
+          }
+          
+          // Show success message and redirect to login
+          showModal(
+            'Account Created!',
+            `Account created successfully! You have also been added to ${invitationDetails.groupName}.\n\nPlease check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.`,
+            'Go to Sign In',
+            '',
+            () => {
+              hideModal();
+              router.replace('/login');
+            }
+          );
+          return; // Exit early for new users
         }
       }
 
-      // Process the group invitation
-      console.log('Sending group invitation processing request:', {
+      // Process the group invitation for existing users only
+      console.log('Sending group invitation processing request for existing user:', {
         invitationToken: token,
         userEmail: authUser.email,
         action: 'accept'

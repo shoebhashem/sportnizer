@@ -93,11 +93,57 @@ export const processInvitation = onRequest(
       const userRecord = await admin.auth().getUserByEmail(userEmail);
       console.log(`User found: ${userRecord.uid}`);
 
-      // Check if group exists
-      console.log(`Adding user ${userRecord.uid} to group ${invitationData!.groupId}`);
-      const groupRef = admin.firestore().collection('groups').doc(invitationData!.groupId);
-      const groupDoc = await groupRef.get();
+      // Get club and group information from invitation data
+      const clubId = invitationData!.clubId;
+      const groupId = invitationData!.groupId;
 
+      if (!clubId) {
+        // Fallback: search for the group across all clubs (for backward compatibility)
+        console.log(`Finding group ${groupId} in clubs collection`);
+        
+        let groupDoc: any = null;
+        let foundClubId: string = '';
+
+        const clubsSnapshot = await admin.firestore().collection('clubs').get();
+        
+        for (const clubDoc of clubsSnapshot.docs) {
+          const tempGroupRef = admin.firestore()
+            .collection('clubs')
+            .doc(clubDoc.id)
+            .collection('groups')
+            .doc(groupId);
+          
+          const tempGroupDoc = await tempGroupRef.get();
+          if (tempGroupDoc.exists) {
+            groupDoc = tempGroupDoc;
+            foundClubId = clubDoc.id;
+            break;
+          }
+        }
+
+        if (!groupDoc || !groupDoc.exists) {
+          console.log('Group not found in any club');
+          res.status(404).json({ 
+            success: false, 
+            error: 'Group not found' 
+          });
+          return;
+        }
+
+        // Use found clubId for backward compatibility
+        invitationData!.clubId = foundClubId;
+      }
+
+      // Check if group exists in the specified club
+      console.log(`Checking group ${groupId} in club ${clubId}`);
+      const groupRef = admin.firestore()
+        .collection('clubs')
+        .doc(clubId)
+        .collection('groups')
+        .doc(groupId);
+      
+      const groupDoc = await groupRef.get();
+      
       if (!groupDoc.exists) {
         console.log('Group not found');
         res.status(404).json({ 
@@ -107,31 +153,124 @@ export const processInvitation = onRequest(
         return;
       }
 
-      // Add user to group members and update user profile
-      console.log('Updating group with new member and user profile');
+      // Add user to group and club members
+      console.log('Adding user to group and club allMembers documents');
       
       const batch = admin.firestore().batch();
+      const now = admin.firestore.FieldValue.serverTimestamp();
+      const timestampNow = admin.firestore.Timestamp.now();
 
-      // Add user to group members subcollection
-      const memberRef = admin.firestore()
-        .collection('groups')
-        .doc(invitationData!.groupId)
-        .collection('members')
-        .doc(userRecord.uid);
+      // Prepare member data
+      const memberData = {
+        userId: userRecord.uid,
+        roles: ['member'],
+        joinedAt: timestampNow,
+        photoURL: userRecord.photoURL || '',
+        name: userRecord.displayName || userRecord.email?.split('@')[0] || 'User',
+        email: userRecord.email || '',
+        needsGuardian: false,
+        guardiansContacts: [],
+        belongtoSubGroups: []
+      };
+
+      const clubMemberData = {
+        ...memberData,
+        addedBy: invitationData!.inviterUid,
+        lastModifiedAt: timestampNow
+      };
+
+      // Get current group allMembers document
+      const groupMembersRef = admin.firestore()
+        .doc(`clubs/${clubId}/groups/${invitationData!.groupId}/allMembers/members`);
       
-      batch.set(memberRef, {
-        role: 'member',
-        joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-        invitedBy: invitationData!.inviterUid,
-      });
+      const groupMembersDoc = await groupMembersRef.get();
+      
+      if (groupMembersDoc.exists) {
+        const groupMembersData = groupMembersDoc.data();
+        const existingMembers = groupMembersData?.members || [];
+        
+        // Check if user is already a member
+        const existingMember = existingMembers.find((m: any) => m.userId === userRecord.uid);
+        
+        if (!existingMember) {
+          // Add to group allMembers
+          batch.update(groupMembersRef, {
+            members: admin.firestore.FieldValue.arrayUnion(memberData),
+            lastUpdated: now,
+            memberCount: admin.firestore.FieldValue.increment(1)
+          });
+        }
+      }
 
-      // Update group member count
+      // Get current club allMembers document  
+      const clubMembersRef = admin.firestore().doc(`clubs/${clubId}/allMembers/members`);
+      const clubMembersDoc = await clubMembersRef.get();
+      
+      let isNewClubMember = true;
+      
+      if (clubMembersDoc.exists) {
+        const clubMembersData = clubMembersDoc.data();
+        const existingClubMembers = clubMembersData?.members || [];
+        
+        // Check if user is already a club member
+        const existingClubMember = existingClubMembers.find((m: any) => m.userId === userRecord.uid);
+        
+        if (!existingClubMember) {
+          // Add to club allMembers
+          batch.update(clubMembersRef, {
+            members: admin.firestore.FieldValue.arrayUnion(clubMemberData),
+            lastUpdated: now,
+            memberCount: admin.firestore.FieldValue.increment(1)
+          });
+        } else {
+          isNewClubMember = false;
+        }
+      }
+
+      // Update group memberCount
       batch.update(groupRef, {
-        membersCount: admin.firestore.FieldValue.increment(1)
+        memberCount: admin.firestore.FieldValue.increment(1)
       });
 
-      // Create or update user profile
-      await createOrUpdateUserWithGroup(userRecord, invitationData!.groupId, 'member');
+      // Update club totalCounts if user is new to club
+      if (isNewClubMember) {
+        const clubRef = admin.firestore().doc(`clubs/${clubId}`);
+        batch.update(clubRef, {
+          totalCounts: admin.firestore.FieldValue.increment(1)
+        });
+      }
+
+      // Update user's groupsJoined array
+      const userRef = admin.firestore().doc(`users/${userRecord.uid}`);
+      const userDoc = await userRef.get();
+      
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        const currentGroupsJoined = userData?.groupsJoined || [];
+        
+        // Check if group membership already exists
+        const existingMembership = currentGroupsJoined.find(
+          (membership: any) => membership.groupId === invitationData!.groupId
+        );
+        
+        if (!existingMembership) {
+          const groupMembership = {
+            clubId,
+            groupId: invitationData!.groupId,
+            groupName: invitationData!.groupName,
+            roles: ['member'],
+            joinedAt: new Date(),
+            lastModifiedAt: new Date()
+          };
+          
+          batch.update(userRef, {
+            groupsJoined: admin.firestore.FieldValue.arrayUnion(groupMembership)
+          });
+        }
+      } else {
+        // Create user document if it doesn't exist
+        await createOrUpdateUserWithGroup(userRecord, invitationData!.groupId, 'member');
+      }
       
       console.log(`Added group ${invitationData!.groupId} to user ${userRecord.uid} using GroupMembership structure`);
 
