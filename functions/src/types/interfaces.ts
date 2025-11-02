@@ -5,6 +5,8 @@
 // Group invitation interfaces
 export interface GroupInvitationData {
   email: string;
+  clubId: string;
+  clubName: string;
   groupId: string;
   groupName: string;
   inviterName: string;
@@ -20,6 +22,7 @@ export interface GroupInvitationData {
 export interface GroupInvitationRequest {
   emails: string[];
   clubId: string;
+  clubName: string;
   groupId: string;
   groupName: string;
   inviterName: string;
@@ -32,7 +35,7 @@ export interface ProcessInvitationRequest {
 
 export interface RespondToInvitationRequest {
   invitationToken: string;
-  userEmail: string;
+  uid: string;
   action: 'accept' | 'reject';
 }
 

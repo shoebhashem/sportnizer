@@ -3,6 +3,7 @@
 import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import {
     doc,
+    getDoc,
     onSnapshot,
     QueryDocumentSnapshot,
     Unsubscribe,
@@ -41,6 +42,13 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 // Helper function to convert Firestore data to UserProfile
 const convertFirestoreDataToUserProfile = (snapshot: QueryDocumentSnapshot): UserProfile => {
   const data = snapshot.data();
+  console.log('🔄 Converting Firestore data for user:', snapshot.id, {
+    hasClubs: !!data.clubs,
+    clubsCount: data.clubs?.length || 0,
+    hasGroupsJoined: !!data.groupsJoined,
+    groupsJoinedCount: data.groupsJoined?.length || 0
+  });
+  
   return {
     uid: snapshot.id,
     email: data.email,
@@ -156,11 +164,27 @@ export function UserProvider({ children }: UserProviderProps) {
     if (!firebaseUser) return;
     setIsLoading(true);
     try {
-      // Re-subscription handled by auth listener
+      // Force a fresh fetch from Firestore
+      const userDocRef = doc(db, "users", firebaseUser.uid);
+      const docSnapshot = await getDoc(userDocRef);
+      
+      if (docSnapshot.exists()) {
+        const profile = convertFirestoreDataToUserProfile(docSnapshot);
+        setUserProfile(profile);
+        await saveToCache(profile);
+        console.log('✅ User profile refreshed successfully');
+      } else {
+        console.warn('⚠️ User profile not found during refresh');
+        setUserProfile(null);
+        await clearCache();
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing user profile:', error);
+      throw error; // Re-throw so caller can handle
     } finally {
       setIsLoading(false);
     }
-  }, [firebaseUser]);
+  }, [firebaseUser, saveToCache, clearCache]);
 
   // Update user profile (optimistic update)
   const updateUserProfile = useCallback(
@@ -280,6 +304,12 @@ export function useUserAccessibleGroups() {
       return;
     }
 
+    console.log('🔄 useUserAccessibleGroups: User profile changed, refetching groups...', {
+      uid: userProfile.uid,
+      groupsJoinedCount: userProfile.groupsJoined?.length || 0,
+      clubs: userProfile.clubs?.length || 0
+    });
+
     const fetchGroups = async () => {
       setIsLoadingGroups(true);
       setError(null);
@@ -287,6 +317,7 @@ export function useUserAccessibleGroups() {
       try {
         const result = await fetchAccessibleGroups(userProfile);
         if (result.success) {
+          console.log('✅ Successfully fetched accessible groups:', result.groups.length);
           setAccessibleGroups(result.groups);
         } else {
           setError(result.error?.message || "Failed to fetch groups");

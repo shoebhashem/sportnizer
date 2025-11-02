@@ -11,10 +11,10 @@ export const sendGroupInvitation = onCall(
   },
   async (request) => {
     try {
-      const { emails, clubId, groupId, groupName, inviterName }: GroupInvitationRequest = request.data;
+      const { emails, clubId, clubName, groupId, groupName, inviterName }: GroupInvitationRequest = request.data;
 
       // Validate required fields
-      validateRequiredFields(request.data, ['emails', 'clubId', 'groupId', 'groupName', 'inviterName']);
+      validateRequiredFields(request.data, ['emails', 'clubId', 'clubName', 'groupId', 'groupName', 'inviterName']);
       validateArrayField(emails, 'emails');
 
       // Verify the user is authenticated
@@ -33,6 +33,7 @@ export const sendGroupInvitation = onCall(
           await admin.firestore().collection('invitations').doc(invitationToken).set({
             email: email.trim().toLowerCase(),
             clubId,
+            clubName,
             groupId,
             groupName,
             inviterName,

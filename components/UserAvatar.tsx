@@ -33,9 +33,9 @@ export default function UserAvatar() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user?.uid) {
-        console.log('Fetching user profile for:', user.uid);
+        // console.log('Fetching user profile for:', user.uid);
         const profile = await getUserProfile(user.uid);
-        console.log('User profile loaded:', profile);
+        // console.log('User profile loaded:', profile);
         setUserProfile(profile);
       }
     };

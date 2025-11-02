@@ -38,7 +38,7 @@ interface ShareableInviteResult {
 }
 
 export default function AddRegularMemberScreen() {
-  const { groupId, groupName, clubId } = useLocalSearchParams();
+  const { groupId, groupName, clubId, clubName } = useLocalSearchParams();
   const { user } = useAuth();
   
   // Debug logging
@@ -143,6 +143,7 @@ export default function AddRegularMemberScreen() {
       const result = await sendGroupInvitation({
         emails: validEmails,
         clubId: clubId as string,
+        clubName: clubName as string,
         groupId: groupId as string,
         groupName: groupName as string,
         inviterName: user.displayName || user.email || 'Unknown User',

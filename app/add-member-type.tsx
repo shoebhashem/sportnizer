@@ -11,16 +11,16 @@ import {
 } from 'react-native';
 
 export default function AddMemberTypeScreen() {
-  const { groupId, clubId, groupName } = useLocalSearchParams();
+  const { groupId, clubId, groupName, clubName } = useLocalSearchParams();
 
   const handleRegularMember = () => {
     // Navigate to regular member addition screen
-    router.push(`/add-regular-member?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}` as any);
+    router.push(`/add-regular-member?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}&clubName=${clubName}` as any);
   };
 
   const handleChildYouthMember = () => {
     // Navigate to child/youth member addition screen
-    router.push(`/add-child-member?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}` as any);
+    router.push(`/add-child-member?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}&clubName=${clubName}` as any);
   };
 
   const handleGoBack = () => {

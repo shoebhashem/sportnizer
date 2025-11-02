@@ -25,6 +25,8 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
       transparent={true}
       visible={visible}
       animationType="fade"
+      statusBarTranslucent={true}
+      presentationStyle="overFullScreen"
     >
       <View style={styles.overlay}>
         <View style={styles.modal}>
@@ -63,30 +65,31 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modal: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 25,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 20,
+    padding: 30,
     width: '100%',
     maxWidth: 400,
+    maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 8,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 25,
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: theme.colors.primary,
+    color: theme.colors.secondary,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -102,16 +105,17 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     textAlign: 'center',
     fontWeight: '500',
-    marginBottom: 25,
+    marginBottom: 30,
   },
   bold: {
     fontWeight: 'bold',
-    color: theme.colors.primary,
+    color: theme.colors.secondary,
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 15,
+    marginTop: 10,
   },
 });
 

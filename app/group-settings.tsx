@@ -3,6 +3,7 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/UserContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { addDoc, collection, doc, getDoc, getDocs, getFirestore, runTransaction, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
@@ -26,6 +27,7 @@ import { GroupData } from '@/services/types/group';
 export default function GroupSettingsScreen() {
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
+  const { userProfile } = useUser();
   const [group, setGroup] = useState<GroupData | null>(null);
   // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
   const [userRole, setUserRole] = useState<string>('member');
@@ -43,6 +45,10 @@ export default function GroupSettingsScreen() {
   
   // Coach Management State
   const [showAddCoachModal, setShowAddCoachModal] = useState(false);
+  
+  // Error Modal State
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
   
   const fetchGroupDataFromServices = useCallback(async () => {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !user?.uid) return;
@@ -256,8 +262,18 @@ export default function GroupSettingsScreen() {
 
   const handleAddMember = async () => {
     if (group && groupId && clubId) {
+      // Get the club name from userProfile
+      const clubName = userProfile?.clubs?.find(club => club.clubId === clubId)?.clubName;
+      
+      if (!clubName) {
+        setErrorModalMessage('Could not find club information');
+        setErrorModalVisible(true);
+        return;
+      }
+
       const groupName = encodeURIComponent(group.name);
-      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}` as any);
+      const encodedClubName = encodeURIComponent(clubName);
+      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}&clubName=${encodedClubName}` as any);
     }
   };
 
@@ -716,6 +732,17 @@ export default function GroupSettingsScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      <ConfirmationModal
+        visible={errorModalVisible}
+        title="Error"
+        message={errorModalMessage}
+        confirmText="OK"
+        cancelText=""
+        onConfirm={() => setErrorModalVisible(false)}
+        onCancel={() => setErrorModalVisible(false)}
+        confirmButtonTheme="primary"
+      />
 
     </SafeAreaView>
   );

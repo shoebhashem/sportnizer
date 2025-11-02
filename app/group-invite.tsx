@@ -2,16 +2,15 @@ import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { auth, functions } from '@/services/core/firebase';
+import { useUser } from '@/contexts/UserContext';
+import { auth } from '@/services/core/firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { httpsCallable } from 'firebase/functions';
-import { signUpUser } from '../services/auth/authService';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { signUpUser } from '../services/auth/authService';
 
 interface GroupInvitationDetails {
   groupId: string;
@@ -27,7 +26,7 @@ interface GroupInvitationDetails {
 
 export default function GroupInviteScreen() {
   const { token } = useLocalSearchParams();
-  const { user } = useAuth();
+  const { firebaseUser: user, refreshUserProfile } = useUser();
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [invitationDetails, setInvitationDetails] = useState<GroupInvitationDetails | null>(null);
@@ -72,11 +71,20 @@ export default function GroupInviteScreen() {
     try {
       setLoading(true);
       
-      // Call Firebase function to get invitation details
-      const response = await fetch(`https://europe-north1-sportnizer.cloudfunctions.net/getInvitationDetails?token=${token}`);
+      // Step 2: Call processInvitation function (READ-ONLY validation)
+      console.log('Step 2: Validating invitation token...');
+      const response = await fetch(`https://europe-north1-sportnizer.cloudfunctions.net/processInvitation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invitationToken: token
+        })
+      });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch invitation details');
+        throw new Error('Failed to validate invitation');
       }
       
       const data = await response.json();
@@ -92,9 +100,9 @@ export default function GroupInviteScreen() {
           inviterName: invitation.inviterName,
           inviterEmail: invitation.email,
           token: token as string,
-          isValid: true,
-          isExpired: invitation.expiresAt && new Date(invitation.expiresAt) < new Date(),
-          isUsed: invitation.used || false,
+          isValid: invitation.status === 'pending',
+          isExpired: false, // processInvitation already checks expiration
+          isUsed: invitation.status !== 'pending',
           email: invitation.email
         };
         
@@ -205,44 +213,54 @@ export default function GroupInviteScreen() {
           authUser = userCredential.user;
         } else {
           // Create new user account using the same flow as signup.tsx
+          console.log('🆕 Creating new user account for:', email);
           const result = await signUpUser(email.trim(), password, fullName.trim());
           
           if (!result.success) {
             throw new Error(result.error?.message || 'Failed to create account');
           }
           
-          // Process invitation immediately after signup (before email verification)
-          console.log('Processing invitation for new user:', email.trim());
-          const processInvitationFunction = httpsCallable(functions, 'processInvitation');
-          const invitationResult = await processInvitationFunction({ 
-            invitationToken: token,
-            userEmail: email.trim()
-          });
+          console.log('✅ New user created with email verification setup');
           
-          if (!(invitationResult.data as any)?.success) {
-            console.error('Failed to process invitation:', invitationResult.data);
-            throw new Error('Failed to process invitation');
-          }
-          
-          // Show success message and redirect to login
+          // Show account creation success and instruct to verify email
           showModal(
             'Account Created!',
-            `Account created successfully! You have also been added to ${invitationDetails.groupName}.\n\nPlease check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.`,
+            `Account created successfully!\n\nPlease check your email inbox and click the verification link to activate your account. After verifying your email, please sign in to accept the group invitation.`,
             'Go to Sign In',
             '',
             () => {
               hideModal();
-              router.replace('/login');
+              // Store invitation token in AsyncStorage for persistence through email verification
+              const tokenString = Array.isArray(token) ? token[0] : token;
+              
+              // Store the invitation token with expiration (24 hours) so it persists through email verification
+              import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) => {
+                const invitationData = {
+                  token: btoa(tokenString || ''), // Basic base64 encoding for light obfuscation
+                  expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
+                };
+                console.log('💾 Storing invitation in AsyncStorage:', {
+                  originalToken: tokenString?.substring(0, 10) + '...',
+                  encodedToken: invitationData.token.substring(0, 10) + '...',
+                  expiresAt: new Date(invitationData.expiresAt).toISOString()
+                });
+                AsyncStorage.setItem('pendingInvitation', JSON.stringify(invitationData))
+                  .then(() => console.log('✅ Successfully stored invitation'))
+                  .catch(error => console.error('❌ Failed to store invitation:', error));
+              });
+              
+              // Redirect to login with invitation token so modal appears after sign in
+              router.replace(`/login?invite=${encodeURIComponent(tokenString || '')}`);
             }
           );
-          return; // Exit early for new users
+          return; // Exit early - user needs to verify email first
         }
       }
 
-      // Process the group invitation for existing users only
-      console.log('Sending group invitation processing request for existing user:', {
+      // Process the group invitation for all users (existing and new)
+      console.log('Sending group invitation processing request:', {
         invitationToken: token,
-        userEmail: authUser.email,
+        uid: authUser?.uid,
         action: 'accept'
       });
       
@@ -253,7 +271,7 @@ export default function GroupInviteScreen() {
         },
         body: JSON.stringify({
           invitationToken: token,
-          userEmail: authUser.email,
+          uid: authUser?.uid,
           action: 'accept'
         })
       });
@@ -265,6 +283,7 @@ export default function GroupInviteScreen() {
       if (result.success) {
         console.log('🎉 SUCCESS! Group invitation accepted successfully');
         
+        // Show success modal immediately
         showModal(
           'Welcome!',
           `You have successfully joined ${invitationDetails.groupName}!\n\nYou can now participate in group activities. The group should appear in your groups list.`,
@@ -276,12 +295,40 @@ export default function GroupInviteScreen() {
             router.replace('/');
           }
         );
+
+        // Try to refresh user profile in the background (non-blocking)
+        setTimeout(async () => {
+          try {
+            await refreshUserProfile();
+            console.log('✅ User profile refreshed successfully');
+          } catch (refreshError) {
+            console.warn('User profile refresh failed, but invitation was successful:', refreshError);
+            // Don't show error modal since invitation was successful
+          }
+        }, 1500); // 1.5 second delay to allow Firestore to update
       } else {
         console.error('Group invitation failed:', result);
         showModal('Error', result.error || 'Failed to accept invitation. Please try again.');
       }
     } catch (error) {
       console.error('Error accepting invitation:', error);
+      
+      // Check if this is just a user refresh error after successful invitation
+      if (error instanceof Error && error.message.includes('refresh')) {
+        console.warn('Invitation succeeded but user refresh failed - showing success anyway');
+        showModal(
+          'Welcome!',
+          `You have successfully joined the group!\n\nYou can now participate in group activities. Please check your groups list.`,
+          'View Groups',
+          '',
+          () => {
+            hideModal();
+            router.replace('/');
+          }
+        );
+        return;
+      }
+      
       if (error instanceof Error && error.message.includes('auth/')) {
         // Firebase Auth error
         let errorMessage = 'Authentication failed. ';
@@ -294,7 +341,7 @@ export default function GroupInviteScreen() {
         } else {
           errorMessage += error.message;
         }
-        showModal('Authentication Error', errorMessage);
+        showModal('Sign In Error', errorMessage);
       } else {
         showModal('Error', 'An unexpected error occurred. Please try again.');
       }
@@ -317,7 +364,7 @@ export default function GroupInviteScreen() {
         },
         body: JSON.stringify({
           invitationToken: token,
-          userEmail: user.email,
+          uid: user.uid,
           action: 'reject'
         })
       });

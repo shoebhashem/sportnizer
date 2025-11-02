@@ -3,10 +3,8 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { RespondToInvitationRequest } from '../types/interfaces';
 import { config } from '../utils/config';
 import { handleCorsOptions, setCorsHeaders, validateHttpMethod } from '../utils/cors';
-import { createOrUpdateUserWithGroup } from '../utils/userManagement';
 import {
     isInvitationExpired,
-    validateEmailMatch,
     validateInvitationAction,
     validateInvitationStatus,
     validateRequiredFields
@@ -26,11 +24,11 @@ export const respondToInvitation = onRequest(
     if (!validateHttpMethod(req, res, ['POST'])) return;
 
     try {
-      const { invitationToken, userEmail, action }: RespondToInvitationRequest = req.body;
-      console.log(`Processing invitation response - Token: ${invitationToken}, Email: ${userEmail}, Action: ${action}`);
+      const { invitationToken, uid, action }: RespondToInvitationRequest = req.body;
+      console.log(`Processing invitation response - Token: ${invitationToken}, UID: ${uid}, Action: ${action}`);
 
       // Validate required fields
-      validateRequiredFields(req.body, ['invitationToken', 'userEmail', 'action']);
+      validateRequiredFields(req.body, ['invitationToken', 'uid', 'action']);
       validateInvitationAction(action);
 
       // Get invitation details
@@ -64,21 +62,29 @@ export const respondToInvitation = onRequest(
         return;
       }
 
-      // Verify email matches
-      console.log(`Verifying email match - Invitation: ${invitationData!.email}, User: ${userEmail.trim().toLowerCase()}`);
-      validateEmailMatch(invitationData!.email, userEmail);
-
-      // Find user by email
-      console.log(`Looking up user by email: ${userEmail}`);
-      let userRecord;
-      try {
-        userRecord = await admin.auth().getUserByEmail(userEmail);
-        console.log(`User found: ${userRecord.uid}`);
-      } catch (authError: any) {
-        console.log('User not found in Auth:', authError?.message || authError);
+      // Fetch user from Firestore
+      console.log(`Looking up user by UID: ${uid}`);
+      const userRef = admin.firestore().collection('users').doc(uid);
+      const userDoc = await userRef.get();
+      
+      if (!userDoc.exists) {
+        console.log('User document not found in Firestore');
         res.status(404).json({ 
           success: false, 
-          error: 'User account not found. Please create an account first or sign in with the correct email address.' 
+          error: 'User account not found. Please ensure you are signed in with the correct account.' 
+        });
+        return;
+      }
+
+      const userData = userDoc.data();
+      console.log(`User found: ${uid}, Email: ${userData?.email}`);
+
+      // Verify email matches the invitation
+      if (userData?.email !== invitationData!.email) {
+        console.log(`Email mismatch - Invitation: ${invitationData!.email}, User: ${userData?.email}`);
+        res.status(400).json({ 
+          success: false, 
+          error: 'Email mismatch. Please sign in with the email address that received the invitation.' 
         });
         return;
       }
@@ -90,7 +96,7 @@ export const respondToInvitation = onRequest(
           used: true,
           status: 'rejected',
           usedAt: admin.firestore.FieldValue.serverTimestamp(),
-          usedBy: userRecord.uid,
+          usedBy: uid,
         });
 
         // Delete the invitation after a short delay
@@ -106,8 +112,14 @@ export const respondToInvitation = onRequest(
       }
 
       // Handle accept action
-      console.log(`Adding user ${userRecord.uid} to group ${invitationData!.groupId}`);
-      const groupRef = admin.firestore().collection('groups').doc(invitationData!.groupId);
+      console.log(`Adding user ${uid} to group ${invitationData!.groupId} in club ${invitationData!.clubId}`);
+      
+      // Verify that the group exists
+      const groupRef = admin.firestore()
+        .collection('clubs')
+        .doc(invitationData!.clubId)
+        .collection('groups')
+        .doc(invitationData!.groupId);
       const groupDoc = await groupRef.get();
 
       if (!groupDoc.exists) {
@@ -120,42 +132,108 @@ export const respondToInvitation = onRequest(
       }
 
       const batch = admin.firestore().batch();
+      const timestamp = admin.firestore.FieldValue.serverTimestamp();
+      const currentDate = new Date(); // Use regular Date for array elements
 
-      // Add user to group members subcollection
-      console.log('Adding user to group members subcollection');
-      const memberRef = admin.firestore()
-        .collection('groups')
-        .doc(invitationData!.groupId)
-        .collection('members')
-        .doc(userRecord.uid);
+      // 1. Add user to /clubs/{clubId}/allMembers/members (append to array)
+      console.log('Adding user to club allMembers array');
+      const clubMemberRef = admin.firestore()
+        .collection('clubs')
+        .doc(invitationData!.clubId)
+        .collection('allMembers')
+        .doc('members');
       
-      batch.set(memberRef, {
-        role: 'member',
-        joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-        invitedBy: invitationData!.inviterUid,
+      const newClubMember = {
+        userId: uid,
+        roles: ['player'], // Default role for invited members
+        photoURL: userData?.photoURL || '',
+        name: userData?.displayName || userData?.email?.split('@')[0] || 'Unknown',
+        email: userData?.email || '',
+        addedBy: invitationData!.inviterUid,
+        joinedAt: currentDate, // Use regular Date for arrays
+        lastModifiedAt: currentDate,
+        needsGuardian: userData?.needsGuardian || false,
+        guardiansContacts: userData?.guardiansContacts || [],
+      };
+
+      batch.update(clubMemberRef, {
+        members: admin.firestore.FieldValue.arrayUnion(newClubMember)
       });
 
-      // Update group member count
+      // 2. Add user to /clubs/{clubId}/groups/{groupId}/allMembers/members (append to array)
+      console.log('Adding user to group allMembers array');
+      const groupMemberRef = admin.firestore()
+        .collection('clubs')
+        .doc(invitationData!.clubId)
+        .collection('groups')
+        .doc(invitationData!.groupId)
+        .collection('allMembers')
+        .doc('members');
+      
+      const newGroupMember = {
+        userId: uid,
+        roles: ['player'], // Default role for invited members
+        joinedAt: currentDate, // Use regular Date for arrays
+        photoURL: userData?.photoURL || '',
+        name: userData?.displayName || userData?.email?.split('@')[0] || 'Unknown',
+        email: userData?.email || '',
+        needsGuardian: userData?.needsGuardian || false,
+        belongtoSubGroups: userData?.belongtoSubGroups || [],
+        guardiansContacts: userData?.guardiansContacts || [],
+      };
+
+      batch.update(groupMemberRef, {
+        members: admin.firestore.FieldValue.arrayUnion(newGroupMember)
+      });
+
+      // 3. Update user document /users/{uid}
+      console.log('Updating user profile with club and group membership');
+      // We already have userRef, userDoc, and userData from above
+      
+      let clubs = userData?.clubs || [];
+      let groupsJoined = userData?.groupsJoined || [];
+
+      // Add club membership if not already exists
+      const existingClubIndex = clubs.findIndex((club: any) => club.clubId === invitationData!.clubId);
+      if (existingClubIndex === -1) {
+        clubs.push({
+          clubId: invitationData!.clubId,
+          clubName: invitationData!.clubName, // Use club name from invitation data
+          role: 'member',
+          joinedAt: currentDate, // Use regular Date for array elements
+        });
+      }
+
+      // Add group membership if not already exists
+      const existingGroupIndex = groupsJoined.findIndex((group: any) => group.groupId === invitationData!.groupId);
+      if (existingGroupIndex === -1) {
+        groupsJoined.push({
+          groupId: invitationData!.groupId,
+          groupName: invitationData!.groupName,
+          clubId: invitationData!.clubId,
+          role: 'member',
+          joinedAt: currentDate, // Use regular Date for array elements
+        });
+      }
+
+      batch.update(userRef, {
+        clubs: clubs,
+        groupsJoined: groupsJoined,
+      });
+
+      // 4. Update group member count
       batch.update(groupRef, {
         membersCount: admin.firestore.FieldValue.increment(1)
       });
 
-      // Create or update user profile
-      console.log('Adding group to user profile with new schema');
-      await createOrUpdateUserWithGroup(userRecord, invitationData!.groupId, 'member');
-      
-      console.log(`Added group ${invitationData!.groupId} to user ${userRecord.uid} using new GroupMembership structure`);
-
-      // Mark invitation as accepted
+      // 5. Mark invitation as accepted
       console.log('Marking invitation as accepted');
-      batch.update(invitationDoc.ref, {
-        used: true,
-        status: 'accepted',
-        usedAt: admin.firestore.FieldValue.serverTimestamp(),
-        usedBy: userRecord.uid,
-      });
-
-      // Execute all updates
+        batch.update(invitationDoc.ref, {
+          used: true,
+          status: 'accepted',
+          usedAt: timestamp,
+          usedBy: uid,
+        });      // Execute all updates
       await batch.commit();
       console.log('All updates completed successfully');
 
