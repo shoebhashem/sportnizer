@@ -31,7 +31,7 @@ export default function TabLayout() {
             headerRight: () => <UserAvatar />,
             tabBarStyle: {
               backgroundColor: theme.colors.primary,
-              height: 50,
+              height: 55,
               // Safe area automatically handled by SafeAreaView
             },
           }}

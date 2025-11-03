@@ -1,7 +1,12 @@
 import Button from '@/components/Button';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import { theme } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/UserContext';
+import { addClubAdminToGroup } from '@/services/group/addMemberService';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
     SafeAreaView,
     ScrollView,
@@ -12,6 +17,81 @@ import {
 
 export default function AddMemberTypeScreen() {
   const { groupId, clubId, groupName, clubName } = useLocalSearchParams();
+  const { user } = useAuth();
+  const { userProfile } = useUser();
+  
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalConfirmText, setModalConfirmText] = useState('OK');
+  const [modalOnConfirm, setModalOnConfirm] = useState<() => void>(() => {});
+  const [isJoiningGroup, setIsJoiningGroup] = useState(false);
+
+  // Check if current user is a club admin for this club
+  const isClubAdmin = userProfile?.clubs?.find(club => 
+    club.clubId === clubId && club.isAdmin
+  );
+
+  // Check if user is already a member of this group
+  const isGroupMember = userProfile?.groupsJoined?.find(group => 
+    group.groupId === groupId
+  );
+
+  // Show "Add me as a player" option if user is club admin but not group member
+  const showSelfJoinOption = isClubAdmin && !isGroupMember;
+
+  // Helper function to show modal
+  const showModal = (title: string, message: string, confirmText: string = "OK", onConfirm: () => void = () => {}) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalConfirmText(confirmText);
+    setModalOnConfirm(() => () => {
+      hideModal();
+      onConfirm();
+    });
+    setModalVisible(true);
+  };
+
+  // Helper function to hide modal
+  const hideModal = () => {
+    setModalVisible(false);
+  };
+
+  const handleJoinAsPlayer = async () => {
+    if (!user?.uid || !clubId || !groupId) {
+      showModal('Error', 'Missing required information. Please try again.');
+      return;
+    }
+
+    setIsJoiningGroup(true);
+
+    try {
+      const result = await addClubAdminToGroup(
+        clubId as string,
+        groupId as string,
+        user.uid,
+        ['player'], // Default to player role
+        user.uid // addedBy self
+      );
+
+      if (result.success) {
+        showModal(
+          'Success!',
+          `You have successfully joined ${groupName || 'the group'} as a player!`,
+          'OK',
+          () => router.back()
+        );
+      } else {
+        showModal('Error', result.error?.message || 'Failed to join group. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error joining group as player:', error);
+      showModal('Error', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsJoiningGroup(false);
+    }
+  };
 
   const handleRegularMember = () => {
     // Navigate to regular member addition screen
@@ -41,6 +121,25 @@ export default function AddMemberTypeScreen() {
         </View>
 
         <View style={styles.optionsContainer}>
+          {/* Add Me as Player Option - Only for club admins who aren't group members */}
+          {showSelfJoinOption && (
+            <View style={[styles.optionCard, styles.selfJoinCard]}>
+              <View style={styles.selfJoinHeader}>
+                <Ionicons name="person-add" size={24} color={theme.colors.secondary} />
+                <Text style={styles.optionTitle}>Add Me as Player</Text>
+              </View>
+              <Text style={styles.optionDescription}>
+                Join this group as a player. As a club admin, you can add yourself directly without an invitation.
+              </Text>
+              <Button
+                label={isJoiningGroup ? "Joining..." : "Join as Player"}
+                onPress={handleJoinAsPlayer}
+                theme="secondary"
+                disabled={isJoiningGroup}
+              />
+            </View>
+          )}
+
           {/* Regular Member Option */}
           <View style={styles.optionCard}>
             <Text style={styles.optionTitle}>Regular Member</Text>
@@ -76,6 +175,15 @@ export default function AddMemberTypeScreen() {
           />
         </View>
       </ScrollView>
+      
+      <ConfirmationModal
+        visible={modalVisible}
+        title={modalTitle}
+        message={modalMessage}
+        confirmText={modalConfirmText}
+        onConfirm={modalOnConfirm}
+        onCancel={hideModal}
+      />
     </SafeAreaView>
   );
 }
@@ -141,5 +249,16 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: theme.spacing.xl,
     paddingTop: theme.spacing.lg,
+  },
+  selfJoinCard: {
+    borderColor: theme.colors.secondary,
+    borderWidth: 2,
+    backgroundColor: theme.colors.inputBackground,
+  },
+  selfJoinHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+    gap: theme.spacing.sm,
   },
 });

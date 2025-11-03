@@ -44,7 +44,7 @@ export default function UserAvatar() {
   }, [user?.uid]);
 
   if (!user) return null;
-
+/*
   // Debug: Log the current state
   console.log('UserAvatar Debug:', {
     'user.photoURL': user.photoURL,
@@ -53,7 +53,7 @@ export default function UserAvatar() {
     'userProfile?.photoURL': userProfile?.photoURL,
     'userProfile?.name': userProfile?.name
   });
-
+*/
   const handleSignOutPress = () => {
     setModalVisible(false); // Close profile modal first
     setShowSignOutModal(true); // Show sign out confirmation
@@ -123,12 +123,12 @@ export default function UserAvatar() {
     const emailName = user.email?.split('@')[0] || 'User';
     return emailName.charAt(0).toUpperCase() + emailName.slice(1).toLowerCase();
   };
-
+/*
   // Debug: Log the display name result
   console.log('UserAvatar Display Name Debug:', {
     'Final display name': getUserDisplayName()
   });
-
+*/
   return (
     <>
       {/* Avatar Button */}

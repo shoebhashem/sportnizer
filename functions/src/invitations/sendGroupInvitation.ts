@@ -22,16 +22,63 @@ export const sendGroupInvitation = onCall(
         throw new HttpsError('unauthenticated', 'User must be authenticated');
       }
 
+      // Check if group exists and get current members
+      const groupMembersRef = admin.firestore()
+        .collection('clubs')
+        .doc(clubId)
+        .collection('groups')
+        .doc(groupId)
+        .collection('allMembers')
+        .doc('members');
+      
+      const groupMembersDoc = await groupMembersRef.get();
+      const currentMembers: any[] = groupMembersDoc.exists ? groupMembersDoc.data()?.members || [] : [];
+      
+      // Extract current member emails for comparison
+      const currentMemberEmails = currentMembers.map(member => member.email?.toLowerCase()).filter(Boolean);
+
       const results: InvitationResult[] = [];
 
       for (const email of emails) {
         try {
+          const normalizedEmail = email.trim().toLowerCase();
+          
+          // Check if email is already a member of the group
+          if (currentMemberEmails.includes(normalizedEmail)) {
+            console.log(`Email ${normalizedEmail} is already a member of group ${groupId}`);
+            results.push({
+              email,
+              success: false,
+              error: 'User is already a member of this group',
+            });
+            continue;
+          }
+
+          // Check for existing pending invitations
+          const existingInvitationQuery = await admin.firestore()
+            .collection('invitations')
+            .where('email', '==', normalizedEmail)
+            .where('groupId', '==', groupId)
+            .where('status', '==', 'pending')
+            .where('used', '==', false)
+            .get();
+
+          if (!existingInvitationQuery.empty) {
+            console.log(`Pending invitation already exists for ${normalizedEmail} in group ${groupId}`);
+            results.push({
+              email,
+              success: false,
+              error: 'Invitation already sent to this email address',
+            });
+            continue;
+          }
+
           // Generate a unique invitation token
           const invitationToken = admin.firestore().collection('invitations').doc().id;
           
           // Store invitation details in Firestore
           await admin.firestore().collection('invitations').doc(invitationToken).set({
-            email: email.trim().toLowerCase(),
+            email: normalizedEmail,
             clubId,
             clubName,
             groupId,
@@ -49,7 +96,7 @@ export const sendGroupInvitation = onCall(
           // Send email
           const mailOptions = {
             from: config.email.from,
-            to: email,
+            to: normalizedEmail,
             subject: `Invitation to join ${groupName} on Sportnizer`,
             html: groupInvitationTemplate(groupName, inviterName, invitationLink),
           };
