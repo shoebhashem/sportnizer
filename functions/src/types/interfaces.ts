@@ -146,3 +146,87 @@ export interface InvitationResult {
   invitationToken?: string;
   guardianEmails?: string[];
 }
+
+// Member management operation interfaces
+export interface ClubMemberData {
+  userId: string;
+  roles: string[];
+  photoURL: string;
+  name: string;
+  email: string;
+  addedBy: string;
+  joinedAt: Date;
+  lastModifiedAt: Date;
+  needsGuardian: boolean;
+  guardiansContacts: any[];
+}
+
+export interface GroupMemberData {
+  userId: string;
+  roles: string[];
+  joinedAt: Date;
+  photoURL: string;
+  name: string;
+  email: string;
+  needsGuardian: boolean;
+  belongtoSubGroups: string[];
+  guardiansContacts: any[];
+}
+
+export interface UserClubMembership {
+  clubId: string;
+  clubName: string;
+  isAdmin: boolean;
+  joinedAt: Date;
+  lastModifiedAt: Date;
+}
+
+export interface UserGroupMembership {
+  groupId: string;
+  groupName: string;
+  clubId: string;
+  roles: string[];
+  joinedAt: Date;
+  lastModifiedAt: Date;
+}
+
+export interface AddMemberToClubRequest {
+  clubId: string;
+  memberData: ClubMemberData;
+}
+
+export interface AddMemberToGroupRequest {
+  clubId: string;
+  groupId: string;
+  memberData: GroupMemberData;
+}
+
+export interface UpdateUserClubInfoRequest {
+  uid: string;
+  clubInfo: UserClubMembership;
+}
+
+export interface UpdateUserGroupInfoRequest {
+  uid: string;
+  groupInfo: UserGroupMembership;
+}
+
+// Orchestration interface
+export interface MembershipOperationRequest {
+  operations: ('addToClub' | 'addToGroup' | 'updateUserClub' | 'updateUserGroup')[];
+  clubId?: string;
+  groupId?: string;
+  uid: string;
+  clubMemberData?: ClubMemberData;
+  groupMemberData?: GroupMemberData;
+  userClubInfo?: UserClubMembership;
+  userGroupInfo?: UserGroupMembership;
+}
+
+export interface MembershipOperationResponse {
+  success: boolean;
+  completedOperations: string[];
+  failedOperations: string[];
+  error?: string;
+  message?: string;
+}

@@ -20,3 +20,10 @@ export { resendVerificationEmail } from './auth/resendVerificationEmail';
 export { sendEmailVerification } from './auth/sendEmailVerification';
 export { verifyEmail } from './auth/verifyEmail';
 
+// Member Management Functions
+export { addMemberToClub } from './members/addMemberToClub';
+export { addMemberToGroup } from './members/addMemberToGroup';
+export { orchestrateMembershipOperation } from './members/orchestrateMembershipOperation';
+export { updateUserClubInfo } from './members/updateUserClubInfo';
+export { updateUserGroupInfo } from './members/updateUserGroupInfo';
+
