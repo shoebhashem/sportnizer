@@ -20,7 +20,6 @@ Firestore updates occur consistently across:
 
 /users/{uid}/groupsJoined
 
-🧩 High-Level Flow
 sequenceDiagram
     participant Admin as Admin (Frontend)
     participant CF1 as sendGroupInvitation (Cloud Function)
@@ -28,34 +27,42 @@ sequenceDiagram
     participant User as Invited User (Frontend)
     participant CF2 as processInvitation (Cloud Function)
     participant Auth as Firebase Auth
+    participant Firestore as Firestore DB
     participant CF3 as respondToInvitation (Cloud Function)
-    participant DB as Firestore
 
     Admin->>CF1: Call sendGroupInvitation({emails[], clubId, groupId, ...})
-    CF1->>DB: Create /invitations/{token} doc (status: pending)
-    CF1->>Email: Send email with link (baseUrl/login?invite={token})
+    CF1->>Firestore: Create /invitations/{token} doc (status: pending)
+    CF1->>Email: Send email link (baseUrl/login?invite={token})
     Email->>User: Receives invitation email
 
     User->>User: Clicks link → opens app /login?invite={token}
     User->>CF2: POST /processInvitation({token})
-    CF2->>DB: Verify /invitations/{token}
+    CF2->>Firestore: Verify /invitations/{token}
     CF2-->>User: Return invitation info (groupName, inviterName, etc.)
 
     User->>Auth: Sign in / Sign up (Firebase Auth)
-    Auth-->>DB: Create /users/{uid} (on signup)
+    Auth-->>Firestore: Create /users/{uid} (on signup)
+    User->>CF3: POST /respondToInvitation({
+        invitationToken,
+        uid,
+        action: 'accept'
+    })
 
-    User->>CF3: POST /respondToInvitation({token, userEmail, action: 'accept'})
-    CF3->>DB: Validate token + user + invitation
-    CF3->>DB: Add user to:
+    CF3->>Firestore: Fetch /invitations/{token}
+    CF3->>Firestore: Fetch /users/{uid}
+    CF3->>Firestore: Validate invitation + user record
+
+    CF3->>Firestore: Add user to:
         - /clubs/{clubId}/allMembers/members
         - /clubs/{clubId}/groups/{groupId}/allMembers/members
-    CF3->>DB: Update /users/{uid}/
+    CF3->>Firestore: Update /users/{uid}/
         - clubs[] += {clubId, role, joinedAt, ...}
         - groupsJoined[] += {groupId, groupName, joinedAt, ...}
-    CF3->>DB: Update /invitations/{token} (status: accepted)
+    CF3->>Firestore: Update /invitations/{token} (status: accepted)
     CF3-->>User: Success message ("You’ve joined Group X!")
 
-    CF3-->>DB: Delete invitation doc after short delay
+    CF3-->>Firestore: Delete invitation doc after short delay
+
 
 🧭 Functional Breakdown
 1. sendGroupInvitation (Cloud Function — Callable)

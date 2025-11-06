@@ -3,11 +3,11 @@
 import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import {
     doc,
-    getDoc,
     onSnapshot,
     QueryDocumentSnapshot,
     Unsubscribe,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import React, {
     createContext,
     ReactNode,
@@ -16,12 +16,15 @@ import React, {
     useEffect,
     useState,
 } from "react";
-import { auth, db } from "../services/core/firebase";
+import { auth, db, functions } from "../services/core/firebase";
 import { storage } from "../utils/CrossPlatformStorage";
 
 // Import domain types
 import { AccessibleGroupData, fetchAccessibleGroups } from "@/services/group/fetchAccessibleGroupsService";
 import { ClubMembership, GroupMembership, UserProfile } from "@/services/types/user";
+
+// Import Firebase Function types
+import type { GetUserProfileRequest, GetUserProfileResponse } from "@/functions/src/types/interfaces";
 
 interface UserContextType {
   firebaseUser: FirebaseUser | null;
@@ -85,6 +88,7 @@ const convertFirestoreDataToUserProfile = (snapshot: QueryDocumentSnapshot): Use
     groupsCreated: data.groupsCreated ?? 0,
     events: data.events || [],
     eventsResponses: data.eventsResponses || [],
+    emailVerified: data.emailVerified ?? false,
     verificationStatus: data.verificationStatus || "pending",
     createdAt: data.createdAt?.toDate() || new Date(),
     lastActive: data.lastActive?.toDate() || new Date(),
@@ -159,20 +163,59 @@ export function UserProvider({ children }: UserProviderProps) {
     return cachedData ? (JSON.parse(cachedData) as UserProfile) : null;
   }, [clearCache]);
 
-  // Refresh Firestore profile
+  // Refresh user profile using Firebase Function
   const refreshUserProfile = useCallback(async () => {
     if (!firebaseUser) return;
     setIsLoading(true);
     try {
-      // Force a fresh fetch from Firestore
-      const userDocRef = doc(db, "users", firebaseUser.uid);
-      const docSnapshot = await getDoc(userDocRef);
+      // Use Firebase Function to fetch user profile
+      const getUserProfile = httpsCallable<GetUserProfileRequest, GetUserProfileResponse>(
+        functions,
+        'getUserProfile'
+      );
       
-      if (docSnapshot.exists()) {
-        const profile = convertFirestoreDataToUserProfile(docSnapshot);
+      const result = await getUserProfile({
+        uid: firebaseUser.uid
+      });
+      
+      if (result.data.success && result.data.userProfile) {
+        // Convert the raw Firestore data to UserProfile format
+        const rawData = result.data.userProfile;
+        const profile: UserProfile = {
+          uid: rawData.uid,
+          email: rawData.email,
+          displayName: rawData.displayName || rawData.name || "",
+          photoURL: rawData.photoURL || rawData.profilePicture,
+          phoneNumber: rawData.phoneNumber,
+          dateOfBirth: rawData.dateOfBirth ? new Date(rawData.dateOfBirth.seconds * 1000) : undefined,
+          address: rawData.address,
+          clubs: (rawData.clubs || []).map((club: any): ClubMembership => ({
+            clubId: club.clubId,
+            clubName: club.clubName,
+            isAdmin: club.isAdmin,
+            joinedAt: club.joinedAt ? new Date(club.joinedAt.seconds * 1000) : new Date(),
+            lastModifiedAt: club.lastModifiedAt ? new Date(club.lastModifiedAt.seconds * 1000) : new Date(),
+          })),
+          groupsJoined: (rawData.groupsJoined || []).map((group: any): GroupMembership => ({
+            clubId: group.clubId,
+            groupId: group.groupId,
+            groupName: group.groupName,
+            roles: group.roles || [],
+            joinedAt: group.joinedAt ? new Date(group.joinedAt.seconds * 1000) : new Date(),
+            lastModifiedAt: group.lastModifiedAt ? new Date(group.lastModifiedAt.seconds * 1000) : new Date(),
+          })),
+          groupsCreated: rawData.groupsCreated ?? 0,
+          events: rawData.events || [],
+          eventsResponses: rawData.eventsResponses || [],
+          emailVerified: rawData.emailVerified ?? false,
+          verificationStatus: rawData.verificationStatus || "pending",
+          createdAt: rawData.createdAt ? new Date(rawData.createdAt.seconds * 1000) : new Date(),
+          lastActive: rawData.lastActive ? new Date(rawData.lastActive.seconds * 1000) : new Date(),
+        };
+        
         setUserProfile(profile);
         await saveToCache(profile);
-        console.log('✅ User profile refreshed successfully');
+        console.log('✅ User profile refreshed successfully via Firebase Function');
       } else {
         console.warn('⚠️ User profile not found during refresh');
         setUserProfile(null);

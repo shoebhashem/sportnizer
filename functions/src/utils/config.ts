@@ -33,7 +33,7 @@ export const config = {
   
   // Cloud Function URLs
   cloudFunctionUrls: {
-    verifyEmail: 'https://europe-north1-sportnizer.cloudfunctions.net/verifyEmail',
+    verifyEmail: 'https://verifyemail-tvn74h2dqa-lz.a.run.app',
   },
 };
 

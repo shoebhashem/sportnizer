@@ -4,9 +4,9 @@ import DropdownInput from "@/components/DropdownInput";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useUserClubs } from "@/contexts/UserContext";
-import { createClub } from "@/services/club/createClubService";
+import { createClubAndGroup } from "@/services/club/createClubAndGroupService";
 import { SPORT_TYPES } from "@/services/constants";
-import { createGroup } from "@/services/group/createGroupService";
+import { createGroup } from "@/services/group/createGroupServiceNew";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -141,31 +141,22 @@ export default function CreateGroupScreen() {
 
     try {
       if (createMode === "new-club") {
-        // Step 1: Create new club
-        const clubResult = await createClub(clubName.trim());
-        
-        if (!clubResult.success || !clubResult.clubId) {
-          showModal("Error", clubResult.error?.message || "Failed to create club", "OK", () => router.push('/(tabs)/groups'), true);
-          setLoading(false);
-          return;
-        }
-
-        // Step 2: Create group in the new club
-        const groupResult = await createGroup(
-          clubResult.clubId,
+        // Use the combined service for creating both club and group
+        const result = await createClubAndGroup(
+          clubName.trim(),
           groupName.trim(),
           sportType
         );
 
-        if (!groupResult.success) {
-          showModal("Error", groupResult.error?.message || "Failed to create group", "OK", () => router.push('/(tabs)/groups'), true);
+        if (!result.success) {
+          showModal("Error", result.error?.message || "Failed to create club and group", "OK", () => router.push('/(tabs)/groups'), true);
           setLoading(false);
           return;
         }
 
         showModal(
           "Success!",
-          `Club "${clubName.trim()}" and group "${groupName.trim()}" created successfully!`,
+          result.message || `Club "${clubName.trim()}" and group "${groupName.trim()}" created successfully!`,
           "OK",
           () => router.push('/(tabs)/groups')
         );

@@ -49,14 +49,76 @@ export interface EmailVerificationData {
   verifiedAt?: any;
 }
 
+// Club and Group creation interfaces
+export interface CreateClubRequest {
+  clubName: string;
+  uid: string;
+}
+
+export interface CreateClubResponse {
+  success: boolean;
+  clubId?: string;
+  message?: string;
+  error?: string;
+}
+
+export interface CreateGroupRequest {
+  clubId: string;
+  groupName: string;
+  sportType: string;
+  uid: string;
+}
+
+export interface CreateGroupResponse {
+  success: boolean;
+  groupId?: string;
+  message?: string;
+  error?: string;
+}
+
 export interface SendEmailVerificationRequest {
   email: string;
   uid: string;
   fullName: string;
 }
 
+export interface SendEmailVerificationResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
 export interface ResendVerificationEmailRequest {
   email: string;
+}
+
+export interface ResendVerificationEmailResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+// Auth-related interfaces
+export interface CreateUserAccountRequest {
+  email: string;
+  fullName: string;
+  uid: string;
+}
+
+export interface CreateUserAccountResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface GetUserProfileRequest {
+  uid: string;
+}
+
+export interface GetUserProfileResponse {
+  success: boolean;
+  userProfile?: any;
+  error?: string;
 }
 
 // Guardian invitation interfaces

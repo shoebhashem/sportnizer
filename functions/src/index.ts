@@ -15,7 +15,9 @@ export { getGuardianInvitationDetails } from './invitations/getGuardianInvitatio
 export { processGuardianInvitation } from './invitations/processGuardianInvitation';
 export { sendGuardianInvitations } from './invitations/sendGuardianInvitations';
 
-// Email Verification Functions
+// Auth Functions
+export { createUserAccount } from './auth/createUserAccount';
+export { getUserProfile } from './auth/getUserProfile';
 export { resendVerificationEmail } from './auth/resendVerificationEmail';
 export { sendEmailVerification } from './auth/sendEmailVerification';
 export { verifyEmail } from './auth/verifyEmail';
@@ -26,4 +28,8 @@ export { addMemberToGroup } from './members/addMemberToGroup';
 export { orchestrateMembershipOperation } from './members/orchestrateMembershipOperation';
 export { updateUserClubInfo } from './members/updateUserClubInfo';
 export { updateUserGroupInfo } from './members/updateUserGroupInfo';
+
+// Club and Group Creation Functions
+export { createNewClub } from './clubs/createNewClub';
+export { createNewGroup } from './groups/createNewGroup';
 

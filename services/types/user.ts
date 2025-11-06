@@ -20,6 +20,7 @@ export interface UserProfile {
   groupsCreated?: number;
   events: EventInvitation[];
   eventsResponses: EvenstResponses[];
+  emailVerified?: boolean;
   verificationStatus?: 'pending' | 'verified' | 'rejected';
   createdAt?: Date;
   lastActive?: Date;

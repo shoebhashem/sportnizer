@@ -65,6 +65,7 @@ export const verifyEmail = onRequest(
         .doc(verificationData?.uid)
         .set({
           emailVerified: true,
+          verificationStatus: 'verified',
           verifiedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
 

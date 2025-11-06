@@ -33,7 +33,7 @@ export const resendVerificationEmail = onCall(
       const uid = userDoc.id;
 
       // Check if email is already verified
-      if (userData.emailVerified) {
+      if (userData.emailVerified || userData.verificationStatus === 'verified') {
         throw new HttpsError('already-exists', 'This email address is already verified');
       }
 
@@ -59,7 +59,7 @@ export const resendVerificationEmail = onCall(
         from: config.email.from,
         to: email,
         subject: 'Verify Your Sportnizer Account - Resent',
-        html: emailVerificationTemplate(userData.name || 'User', verificationLink, true),
+        html: emailVerificationTemplate(userData.displayName || userData.name || 'User', verificationLink, true),
       };
 
       await emailTransporter.sendMail(mailOptions);
