@@ -1,42 +1,67 @@
 import Button from '@/components/Button';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import { theme } from '@/constants/theme';
+import { functions } from '@/services/core/firebase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { collection, doc, getDoc, getDocs, getFirestore, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, getFirestore } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Member {
-  id: string;
+  userId: string;
   role?: string; // Legacy field for backward compatibility
   roles?: string[]; // New field for multiple roles
   name: string;
+  email: string;
+  belongsToSubGroups?: string[];
   selected: boolean;
+  originallySelected: boolean; // Track original state to determine what changed
 }
 
 export default function ManageSubgroupMembersScreen() {
-  const { groupId, subgroupId, subgroupName } = useLocalSearchParams();
+  const { groupId, clubId, subgroupName } = useLocalSearchParams();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [errorModal, setErrorModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: ''
+  });
+
+  const showError = (title: string, message: string) => {
+    setErrorModal({ visible: true, title, message });
+  };
 
   const fetchMembersAndSubgroup = useCallback(async () => {
-    if (!groupId || !subgroupId || typeof groupId !== 'string' || typeof subgroupId !== 'string') return;
+    if (!groupId || !clubId || !subgroupName || 
+        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupName !== 'string') return;
 
     setLoading(true);
+    console.log('Fetching members with params:', { groupId, clubId, subgroupName });
     try {
       const db = getFirestore();
       
-      // Fetch all group members
-      const membersSnapshot = await getDocs(collection(db, 'groups', groupId, 'members'));
-      const allMembers: Member[] = [];
+      // Fetch all group members from new architecture
+      const membersDoc = await getDocs(
+        collection(db, 'clubs', clubId, 'groups', groupId, 'allMembers')
+      );
       
-      // For each member, fetch their user data to get their name
-      for (const memberDoc of membersSnapshot.docs) {
-        const memberId = memberDoc.id;
-        const memberData = memberDoc.data();
-        
+      if (membersDoc.empty) {
+        console.log('No members document found');
+        setMembers([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get the members array from the document
+      const membersData = membersDoc.docs[0].data();
+      const allGroupMembers = membersData?.members || [];
+      
+      const processedMembers: Member[] = allGroupMembers.map((memberData: any) => {
         // Handle both old role field and new roles array
         let memberRole = 'member';
         let memberRoles: string[] = [];
@@ -50,81 +75,114 @@ export default function ManageSubgroupMembersScreen() {
           memberRole = memberData.role || 'member';
           memberRoles = [memberRole];
         }
+
+        // Get member name (could be from member data or need to be fetched)
+        const memberName = memberData.name || memberData.email?.split('@')[0] || 'Unknown User';
         
-        // Fetch user data to get the name
-        let userName = 'Unknown User';
-        
-        // Check if name is stored in member document (for children) or fetch from users collection (for adults)
-        if (memberData.name) {
-          // Name stored in member document (children in ageGroup 1)
-          userName = memberData.name;
-        } else {
-          // Fetch user data from users collection (adults in ageGroup 2)
-          try {
-            const userDoc = await getDoc(doc(db, 'users', memberId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              userName = userData.name || userData.email?.split('@')[0] || 'Unknown User';
-            }
-          } catch (error) {
-            console.error(`Error fetching user data for ${memberId}:`, error);
-          }
-        }
-        
-        allMembers.push({
-          id: memberId,
+        // Check if member is currently in this subgroup
+        const belongsToSubGroups = memberData.belongsToSubGroups || [];
+        const isInSubgroup = belongsToSubGroups.includes(subgroupName);
+
+        return {
+          userId: memberData.userId,
           role: memberRole,
           roles: memberRoles,
-          name: userName,
-          selected: false
-        });
-      }
+          name: memberName,
+          email: memberData.email || '',
+          belongsToSubGroups: belongsToSubGroups,
+          selected: isInSubgroup,
+          originallySelected: isInSubgroup
+        };
+      });
 
-      // Fetch current subgroup to see which members are already selected
-      const subgroupDoc = await getDoc(doc(db, 'groups', groupId, 'subgroups', subgroupId));
-      const currentMemberIds = subgroupDoc.exists() ? (subgroupDoc.data().memberIds || []) : [];
-
-      // Mark already selected members
-      const membersWithSelection = allMembers.map(member => ({
-        ...member,
-        selected: currentMemberIds.includes(member.id)
-      }));
-
-      setMembers(membersWithSelection);
+      setMembers(processedMembers);
     } catch (error) {
       console.error('Error fetching members:', error);
     } finally {
       setLoading(false);
     }
-  }, [groupId, subgroupId]);
+  }, [groupId, clubId, subgroupName]);
 
   useEffect(() => {
     fetchMembersAndSubgroup();
   }, [fetchMembersAndSubgroup]);
 
-  const toggleMemberSelection = (memberId: string) => {
+  const toggleMemberSelection = (userId: string) => {
     setMembers(prev => prev.map(member => 
-      member.id === memberId 
+      member.userId === userId 
         ? { ...member, selected: !member.selected }
         : member
     ));
   };
 
   const handleSave = async () => {
-    if (!groupId || !subgroupId || typeof groupId !== 'string' || typeof subgroupId !== 'string') return;
+    if (!groupId || !clubId || !subgroupName || 
+        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupName !== 'string') return;
 
     setSaving(true);
     try {
-      const db = getFirestore();
-      const selectedMemberIds = members.filter(m => m.selected).map(m => m.id);
+      const addMemberToSubGroup = httpsCallable(functions, 'addMemberToSubGroup');
+      const removeMemberFromSubGroup = httpsCallable(functions, 'removeMemberFromSubGroup');
       
-      await updateDoc(doc(db, 'groups', groupId, 'subgroups', subgroupId), {
-        memberIds: selectedMemberIds
-      });
+      // Find members whose selection changed
+      const membersToAdd = members.filter(m => m.selected && !m.originallySelected);
+      const membersToRemove = members.filter(m => !m.selected && m.originallySelected);
+      
+      // Process additions
+      for (const member of membersToAdd) {
+        try {
+          console.log('Adding member to subgroup:', {
+            clubId: clubId,
+            groupId: groupId,
+            subGroupName: subgroupName,
+            userId: member.userId,
+            memberName: member.name
+          });
+          
+          const result = await addMemberToSubGroup({
+            clubId: clubId,
+            groupId: groupId,
+            subGroupName: subgroupName,
+            userId: member.userId
+          });
+          
+          const response = result.data as any;
+          if (!response.success) {
+            console.error('Failed to add member:', response.error);
+            showError('Error', `Failed to add ${member.name}: ${response.error}`);
+          }
+        } catch (error) {
+          console.error('Error adding member to subgroup:', error);
+          console.error('Error details:', JSON.stringify(error, null, 2));
+          showError('Error', `Failed to add ${member.name} to subgroup`);
+        }
+      }
+      
+      // Process removals
+      for (const member of membersToRemove) {
+        try {
+          const result = await removeMemberFromSubGroup({
+            clubId: clubId,
+            groupId: groupId,
+            subGroupName: subgroupName,
+            userId: member.userId
+          });
+          
+          const response = result.data as any;
+          if (!response.success) {
+            console.error('Failed to remove member:', response.error);
+            showError('Error', `Failed to remove ${member.name}: ${response.error}`);
+          }
+        } catch (error) {
+          console.error('Error removing member from subgroup:', error);
+          showError('Error', `Failed to remove ${member.name} from subgroup`);
+        }
+      }
 
       router.back();
     } catch (error) {
       console.error('Error saving subgroup members:', error);
+      showError('Error', 'Failed to save subgroup members');
     } finally {
       setSaving(false);
     }
@@ -137,7 +195,7 @@ export default function ManageSubgroupMembersScreen() {
   const renderMemberItem = ({ item }: { item: Member }) => (
     <TouchableOpacity 
       style={styles.memberItem}
-      onPress={() => toggleMemberSelection(item.id)}
+      onPress={() => toggleMemberSelection(item.userId)}
     >
       <View style={styles.memberInfo}>
         <Text style={styles.memberText}>{item.name}</Text>
@@ -184,7 +242,7 @@ export default function ManageSubgroupMembersScreen() {
             <FlatList
               data={members}
               renderItem={renderMemberItem}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => item.userId}
               scrollEnabled={false}
               style={styles.membersList}
             />
@@ -212,6 +270,15 @@ export default function ManageSubgroupMembersScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <ConfirmationModal
+        visible={errorModal.visible}
+        title={errorModal.title}
+        message={errorModal.message}
+        confirmText="OK"
+        onConfirm={() => setErrorModal({ visible: false, title: '', message: '' })}
+        onCancel={() => setErrorModal({ visible: false, title: '', message: '' })}
+      />
     </SafeAreaView>
   );
 }

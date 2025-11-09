@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   subgroupHeader: {
     flexDirection: 'row',
@@ -552,8 +552,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 5,
-    zIndex: 1000,
+    elevation: 10,
+    zIndex: 99999,
     minWidth: 180,
   },
   kebabMenuItem: {

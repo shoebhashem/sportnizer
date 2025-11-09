@@ -270,7 +270,9 @@ export interface UpdateUserClubInfoRequest {
 
 export interface UpdateUserGroupInfoRequest {
   uid: string;
-  groupInfo: UserGroupMembership;
+  groupInfo?: UserGroupMembership; // Optional for remove operations
+  groupId?: string; // Required for remove operations
+  operation: 'add' | 'remove';
 }
 
 // Orchestration interface
@@ -320,5 +322,33 @@ export interface AddMemberToSubGroupResponse {
   success: boolean;
   message?: string;
   subGroupName?: string;
+  error?: string;
+}
+
+// Remove member from Subgroup interfaces
+export interface RemoveMemberFromSubGroupRequest {
+  clubId: string;
+  groupId: string;
+  subGroupName: string;
+  userId: string;
+}
+
+export interface RemoveMemberFromSubGroupResponse {
+  success: boolean;
+  message?: string;
+  subGroupName?: string;
+  error?: string;
+}
+
+// Remove member from Group interfaces
+export interface RemoveMemberFromGroupRequest {
+  clubId: string;
+  groupId: string;
+  userId: string;
+}
+
+export interface RemoveMemberFromGroupResponse {
+  success: boolean;
+  message?: string;
   error?: string;
 }

@@ -36,6 +36,8 @@ export { addMemberToClub } from './members/addMemberToClub';
 export { addMemberToGroup } from './members/addMemberToGroup';
 export { addMemberToSubGroup } from './members/addMemberToSubGroup';
 export { orchestrateMembershipOperation } from './members/orchestrateMembershipOperation';
+export { removeMemberFromGroup } from './members/removeMemberFromGroup';
+export { removeMemberFromSubGroup } from './members/removeMemberFromSubGroup';
 export { updateUserClubInfo } from './members/updateUserClubInfo';
 export { updateUserGroupInfo } from './members/updateUserGroupInfo';
 

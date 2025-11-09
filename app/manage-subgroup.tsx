@@ -30,7 +30,7 @@ interface Subgroup {
 }
 
 export default function ManageSubgroupScreen() {
-  const { groupId, subgroupId, subgroupName } = useLocalSearchParams();
+  const { groupId, subgroupName, clubId } = useLocalSearchParams();
   const { user } = useAuth();
   const [group, setGroup] = useState<Group | null>(null);
   const [subgroup, setSubgroup] = useState<Subgroup | null>(null);
@@ -53,105 +53,116 @@ export default function ManageSubgroupScreen() {
   );
 
   const fetchData = useCallback(async () => {
-    if (!groupId || !subgroupId || typeof groupId !== 'string' || typeof subgroupId !== 'string') return;
+    if (!groupId || !clubId || !subgroupName || 
+        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupName !== 'string') return;
 
     try {
       const db = getFirestore();
       
-      // Fetch group basic info
-      const groupDoc = await getDoc(doc(db, 'groups', groupId));
+      // Fetch group basic info from new architecture
+      const groupDoc = await getDoc(doc(db, 'clubs', clubId, 'groups', groupId));
       if (groupDoc.exists()) {
+        const groupData = groupDoc.data();
         setGroup({
           id: groupDoc.id,
-          name: groupDoc.data().name,
-          createdBy: groupDoc.data().createdBy
+          name: groupData.name,
+          createdBy: groupData.createdBy
         });
-      }
 
-      // Fetch subgroup info
-      const subgroupDoc = await getDoc(doc(db, 'groups', groupId, 'subgroups', subgroupId));
-      if (subgroupDoc.exists()) {
+        // Create subgroup object from name (no separate document in new architecture)
         setSubgroup({
-          id: subgroupDoc.id,
-          name: subgroupDoc.data().name,
-          memberIds: subgroupDoc.data().memberIds || [],
-          createdBy: subgroupDoc.data().createdBy
+          id: subgroupName, // Use name as ID since there's no separate document
+          name: subgroupName,
+          memberIds: [], // Will be populated from members' belongsToSubGroups
+          createdBy: groupData.createdBy // Assume same as group creator
         });
       }
 
-      // Fetch all group members
-      const membersSnapshot = await getDocs(collection(db, 'groups', groupId, 'members'));
-      const membersData: Member[] = [];
+      // Fetch all group members from new architecture
+      const membersDoc = await getDocs(
+        collection(db, 'clubs', clubId, 'groups', groupId, 'allMembers')
+      );
       
-      // For each member, fetch their user data to get their name
-      for (const memberDoc of membersSnapshot.docs) {
-        const memberId = memberDoc.id;
-        const memberData = memberDoc.data();
+      if (!membersDoc.empty) {
+        // Get the members array from the document
+        const membersDocData = membersDoc.docs[0].data();
+        const allGroupMembers = membersDocData?.members || [];
         
-        // Handle both old role field and new roles array
-        let memberRole = 'member';
-        let memberRoles: string[] = [];
-        
-        if (memberData.roles && Array.isArray(memberData.roles)) {
-          // New schema: roles array
-          memberRoles = memberData.roles;
-          memberRole = memberRoles[0] || 'member'; // Use first role as primary for display
-        } else {
-          // Old schema: role string
-          memberRole = memberData.role || 'member';
-          memberRoles = [memberRole];
-        }
-        
-        // Fetch user data to get the name
-        let userName = 'Unknown User';
-        
-        // Check if name is stored in member document (for children) or fetch from users collection (for adults)
-        if (memberData.name) {
-          // Name stored in member document (children in ageGroup 1)
-          userName = memberData.name;
-        } else {
-          // Fetch user data from users collection (adults in ageGroup 2)
-          try {
-            const userDoc = await getDoc(doc(db, 'users', memberId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              userName = userData.name || userData.email?.split('@')[0] || 'Unknown User';
-            }
-          } catch (error) {
-            console.error(`Error fetching user data for ${memberId}:`, error);
+        const processedMembers: Member[] = allGroupMembers.map((memberData: any) => {
+          // Handle both old role field and new roles array
+          let memberRole = 'member';
+          let memberRoles: string[] = [];
+          
+          if (memberData.roles && Array.isArray(memberData.roles)) {
+            // New schema: roles array
+            memberRoles = memberData.roles;
+            memberRole = memberRoles[0] || 'member'; // Use first role as primary for display
+          } else {
+            // Old schema: role string
+            memberRole = memberData.role || 'member';
+            memberRoles = [memberRole];
           }
-        }
-        
-        membersData.push({
-          id: memberId,
-          role: memberRole,
-          roles: memberRoles,
-          name: userName
+
+          // Get member name
+          const memberName = memberData.name || memberData.email?.split('@')[0] || 'Unknown User';
+          
+          return {
+            id: memberData.userId,
+            role: memberRole,
+            roles: memberRoles,
+            name: memberName
+          };
         });
-      }
-      
-      setMembers(membersData);
-      
-      // Filter subgroup members
-      if (subgroupDoc.exists()) {
-        const subgroupMemberIds = subgroupDoc.data().memberIds || [];
-        const subgroupMembersData = membersData.filter(member => subgroupMemberIds.includes(member.id));
+
+        setMembers(processedMembers);
+
+        // Filter subgroup members based on belongsToSubGroups
+        const subgroupMembersData = allGroupMembers
+          .filter((memberData: any) => {
+            const belongsToSubGroups = memberData.belongsToSubGroups || [];
+            return belongsToSubGroups.includes(subgroupName);
+          })
+          .map((memberData: any) => {
+            // Handle both old role field and new roles array
+            let memberRole = 'member';
+            let memberRoles: string[] = [];
+            
+            if (memberData.roles && Array.isArray(memberData.roles)) {
+              memberRoles = memberData.roles;
+              memberRole = memberRoles[0] || 'member';
+            } else {
+              memberRole = memberData.role || 'member';
+              memberRoles = [memberRole];
+            }
+
+            return {
+              id: memberData.userId,
+              role: memberRole,
+              roles: memberRoles,
+              name: memberData.name || memberData.email?.split('@')[0] || 'Unknown User'
+            };
+          });
+
         setSubgroupMembers(subgroupMembersData);
-      }
-      
-    } catch (error) {
+
+        // Update subgroup with actual member IDs
+        setSubgroup(prev => prev ? {
+          ...prev,
+          memberIds: subgroupMembersData.map((member: Member) => member.id)
+        } : null);
+      }    } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  }, [groupId, subgroupId]);
+  }, [groupId, clubId, subgroupName]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const handleManageMembers = () => {
-    router.push(`/manage-subgroup-members?groupId=${groupId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(subgroupName as string)}` as any);
+    router.push(`/manage-subgroup-members?groupId=${groupId}&clubId=${clubId}&subgroupName=${encodeURIComponent(subgroupName as string)}` as any);
   };
 
   const renderMemberItem = ({ item }: { item: Member }) => (
