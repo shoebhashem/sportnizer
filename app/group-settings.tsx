@@ -269,31 +269,48 @@ export default function GroupSettingsScreen() {
   };
 
   const handleConfirmCreateSubgroup = async () => {
+    console.log('🔥 handleConfirmCreateSubgroup called');
+    console.log('📝 subgroupName:', subgroupName);
+    console.log('🏠 clubId:', clubId);
+    console.log('👥 groupId:', groupId);
+    console.log('👤 user?.uid:', user?.uid);
+    
     if (!subgroupName.trim()) {
+      console.log('❌ Empty subgroup name, returning early');
       return;
     }
 
     if (!groupId || !user?.uid || !clubId) {
+      console.log('❌ Missing required data');
       setErrorMessage('Missing group ID, club ID, or user information. Please try again.');
       setShowErrorModal(true);
       return;
     }
 
     setCreatingSubgroup(true);
+    console.log('🚀 Starting subgroup creation...');
     
     try {
       // Call the Firebase Function
+      console.log('📞 Calling Firebase Function: createSubGroup');
       const createSubGroupFunction = httpsCallable(functions, 'createSubGroup');
-      const result = await createSubGroupFunction({
+      
+      const payload = {
         uid: user.uid,
         clubId: clubId as string,
         groupId: groupId as string,
         subGroupName: subgroupName.trim()
-      });
+      };
+      console.log('📦 Payload:', payload);
+      
+      const result = await createSubGroupFunction(payload);
+      console.log('✅ Firebase Function result:', result);
 
       const data = result.data as { success: boolean; message?: string; error?: string; subGroupName?: string };
+      console.log('📊 Response data:', data);
 
       if (data.success) {
+        console.log('🎉 Success! Closing modal and showing success message');
         setShowCreateSubgroupModal(false);
         setSubgroupName('');
         
@@ -304,15 +321,17 @@ export default function GroupSettingsScreen() {
         // Navigate to manage-group screen with subgroups tab active
         router.push(`/manage-group?groupId=${groupId}&tab=subgroups` as any);
       } else {
+        console.log('❌ Function returned error:', data.error);
         setErrorMessage(data.error || 'Failed to create subgroup');
         setShowErrorModal(true);
       }
     } catch (error) {
-      console.error('Error creating subgroup:', error);
+      console.error('💥 Error creating subgroup:', error);
       const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
       setErrorMessage(`Failed to create subgroup: ${errorMsg}`);
       setShowErrorModal(true);
     } finally {
+      console.log('🏁 Finished - setting creatingSubgroup to false');
       setCreatingSubgroup(false);
     }
   };

@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
-import { AddMemberToSubGroupRequest, FunctionResponse } from '../types/interfaces';
+import { AddMemberToGroupRequest, FunctionResponse } from '../types/interfaces';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
 
@@ -10,7 +10,7 @@ export const addMemberToGroup = onCall(
   },
   async (request): Promise<FunctionResponse> => {
     try {
-      const { clubId, groupId, subGroupName, memberData }: AddMemberToSubGroupRequest = request.data;
+      const { clubId, groupId, memberData }: AddMemberToGroupRequest = request.data;
 
       // Validate required fields
       validateRequiredFields(request.data, ['clubId', 'groupId', 'memberData']);

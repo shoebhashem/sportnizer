@@ -51,7 +51,16 @@ export default function ManageGroupScreen() {
 
       setGroup(groupData);
       setMembers(membersData);
-      setSubgroups(subgroupsData);
+      
+      // Populate memberIds for each subgroup based on members' belongsToSubGroups
+      const subgroupsWithMembers = subgroupsData.map(subgroup => ({
+        ...subgroup,
+        memberIds: membersData
+          .filter(member => member.belongsToSubGroups?.includes(subgroup.name))
+          .map(member => member.userId)
+      }));
+      
+      setSubgroups(subgroupsWithMembers);
 
       // Get current user's roles
       if (user && membersData) {
@@ -148,9 +157,9 @@ export default function ManageGroupScreen() {
           <Text style={styles.memberRole}>
             {item.roles.join(', ')} {item.needsGuardian && '(Child/Youth)'}
           </Text>
-          {item.belongtoSubGroups && item.belongtoSubGroups.length > 0 && (
+          {item.belongsToSubGroups && item.belongsToSubGroups.length > 0 && (
             <Text style={styles.memberSubgroups}>
-              Subgroups: {item.belongtoSubGroups.join(', ')}
+              Subgroups: {item.belongsToSubGroups.join(', ')}
             </Text>
           )}
         </View>
@@ -161,7 +170,7 @@ export default function ManageGroupScreen() {
   const renderSubgroupItem = ({ item }: { item: SubGroup }) => {
     const isExpanded = expandedSubgroups.has(item.id);
     const subgroupMembers = members.filter(member => 
-      member.belongtoSubGroups?.includes(item.name) || item.memberIds.includes(member.userId)
+      member.belongsToSubGroups?.includes(item.name) || item.memberIds.includes(member.userId)
     );
 
     return (

@@ -41,8 +41,8 @@ export const createSubGroup = onCall({
 
     const db = admin.firestore();
 
-    // Verify the group exists
-    const groupDoc = await db.collection('groups').doc(groupId).get();
+    // Verify the group exists (groups are stored as subcollections under clubs)
+    const groupDoc = await db.collection('clubs').doc(clubId).collection('groups').doc(groupId).get();
     if (!groupDoc.exists) {
       return {
         success: false,
@@ -68,26 +68,43 @@ export const createSubGroup = onCall({
     }
 
     // Check user permissions
-    const userClubMembershipDoc = await db
+    // Check if user is club member and their role
+    const clubMembersDoc = await db
       .collection('clubs')
       .doc(clubId)
-      .collection('members')
-      .doc(uid)
+      .collection('allMembers')
+      .doc('members')
       .get();
 
-    const userGroupMembershipDoc = await db
+    // Check if user is group member and their role  
+    const groupMembersDoc = await db
+      .collection('clubs')
+      .doc(clubId)
       .collection('groups')
       .doc(groupId)
-      .collection('members')
-      .doc(uid)
+      .collection('allMembers')
+      .doc('members')
       .get();
 
     const isClubCreator = groupData.createdBy === uid;
-    const isClubAdmin = userClubMembershipDoc.exists && 
-      userClubMembershipDoc.data()?.role === 'admin';
+    
+    // Check club membership
+    let isClubAdmin = false;
+    if (clubMembersDoc.exists) {
+      const clubMembers = clubMembersDoc.data()?.members || [];
+      const userClubMembership = clubMembers.find((member: any) => member.userId === uid);
+      isClubAdmin = userClubMembership?.roles?.includes('club-admin') || false;
+    }
+    
     const isGroupCreator = groupData.createdBy === uid;
-    const isGroupAdminOrCoach = userGroupMembershipDoc.exists && 
-      ['admin', 'coach'].includes(userGroupMembershipDoc.data()?.role);
+    
+    // Check group membership  
+    let isGroupAdminOrCoach = false;
+    if (groupMembersDoc.exists) {
+      const groupMembers = groupMembersDoc.data()?.members || [];
+      const userGroupMembership = groupMembers.find((member: any) => member.userId === uid);
+      isGroupAdminOrCoach = userGroupMembership?.roles?.some((role: string) => ['admin', 'coach'].includes(role)) || false;
+    }
 
     if (!isClubCreator && !isClubAdmin && !isGroupCreator && !isGroupAdminOrCoach) {
       return {
@@ -113,7 +130,7 @@ export const createSubGroup = onCall({
     const updatedSubGroups = [...currentSubGroups, trimmedSubGroupName];
 
     // Update the group document
-    await db.collection('groups').doc(groupId).update({
+    await db.collection('clubs').doc(clubId).collection('groups').doc(groupId).update({
       subGroups: updatedSubGroups,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });

@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
+import { doc, getDoc, getFirestore } from 'firebase/firestore';
 
 export interface SubGroup {
   id: string;
@@ -10,7 +10,7 @@ export interface SubGroup {
 }
 
 /**
- * Service to fetch subgroups from the subgroups subcollection
+ * Service to fetch subgroups from the group document subGroups array
  */
 export const fetchSubGroups = async (
   clubId: string,
@@ -19,38 +19,30 @@ export const fetchSubGroups = async (
   try {
     const db = getFirestore();
     
-    // Fetch subgroups from clubs/{clubId}/groups/{groupId}/subgroups
-    const subgroupsSnapshot = await getDocs(
-      collection(db, 'clubs', clubId, 'groups', groupId, 'subgroups')
-    );
+    // Fetch the main group document to get subGroups array
+    const groupDoc = await getDoc(doc(db, 'clubs', clubId, 'groups', groupId));
     
-    const subgroupsData: SubGroup[] = [];
-    
-    // Handle case where subcollection doesn't exist (empty snapshot)
-    if (subgroupsSnapshot.empty) {
-      console.log(`No subgroups found in subgroups subcollection for group ${groupId}`);
+    if (!groupDoc.exists()) {
+      console.log(`Group ${groupId} not found`);
       return [];
     }
     
-    subgroupsSnapshot.forEach((subgroupDoc) => {
-      const data = subgroupDoc.data();
-      
-      const subgroup: SubGroup = {
-        id: subgroupDoc.id,
-        name: data.name || '',
-        memberIds: data.memberIds || [],
-        createdBy: data.createdBy,
-        createdAt: data.createdAt,
-        description: data.description || ''
-      };
-      
-      subgroupsData.push(subgroup);
-    });
+    const data = groupDoc.data();
+    const subGroupNames = data.subGroups || [];
+    
+    // Convert string array to SubGroup objects
+    const subgroupsData: SubGroup[] = subGroupNames.map((name: string, index: number) => ({
+      id: `subgroup_${index}`, // Generate a simple ID
+      name: name,
+      memberIds: [], // We'll calculate this from members' belongsToSubGroups
+      createdBy: data.createdBy, // Use group creator as fallback
+      createdAt: data.createdAt,
+      description: ''
+    }));
     
     return subgroupsData;
   } catch (error) {
     console.error('Error fetching subgroups:', error);
-    // Return empty array instead of throwing error to gracefully handle missing subcollection
     return [];
   }
 };
@@ -82,20 +74,15 @@ export const getGroupSubGroupNames = async (
 
 /**
  * Get members belonging to a specific subgroup
+ * This now looks at member's belongsToSubGroups array instead of subgroup memberIds
  */
 export const getSubGroupMembers = async (
   clubId: string,
   groupId: string,
   subGroupName: string
 ): Promise<string[]> => {
-  try {
-    const subgroups = await fetchSubGroups(clubId, groupId);
-    const subgroup = subgroups.find(sg => sg.name === subGroupName);
-    return subgroup ? subgroup.memberIds : [];
-  } catch (error) {
-    console.error('Error fetching subgroup members:', error);
-    return [];
-  }
+  // memberIds are now calculated in the UI from members' belongsToSubGroups
+  return [];
 };
 
 /**

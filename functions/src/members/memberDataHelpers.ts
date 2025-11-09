@@ -41,7 +41,7 @@ export const createGroupMemberData = (
     name: userData?.displayName || userData?.email?.split('@')[0] || 'Unknown',
     email: userData?.email || '',
     needsGuardian: userData?.needsGuardian || false,
-    belongtoSubGroups: userData?.belongtoSubGroups || [],
+    belongsToSubGroups: userData?.belongsToSubGroups || [],
     guardiansContacts: userData?.guardiansContacts || [],
   };
 };

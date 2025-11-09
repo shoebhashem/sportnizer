@@ -27,7 +27,7 @@ export interface GroupMemberData {
   name: string;
   email: string;
   needsGuardian: boolean; // true for child/youth members
-  belongtoSubGroups?: string[]; // IDs of subgroups the member belongs to
+  belongsToSubGroups?: string[]; // Names of subgroups the member belongs to
   guardiansContacts: GuardianContact[]; // Guardian contact details (UPDATED)
 }
 
