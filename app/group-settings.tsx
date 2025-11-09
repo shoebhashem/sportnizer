@@ -3,15 +3,16 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUser } from '@/contexts/UserContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { addDoc, collection, doc, getDoc, getDocs, getFirestore, runTransaction, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, getFirestore, runTransaction, writeBatch } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import new services and types
+import { functions } from '@/services/core/firebase';
 import { fetchGroupData } from '@/services/group/fetchGroupDataService';
 import { fetchGroupMembers } from '@/services/group/fetchGroupMembersService';
 import { GroupData } from '@/services/types/group';
@@ -27,7 +28,6 @@ import { GroupData } from '@/services/types/group';
 export default function GroupSettingsScreen() {
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
-  const { userProfile } = useUser();
   const [group, setGroup] = useState<GroupData | null>(null);
   // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
   const [userRole, setUserRole] = useState<string>('member');
@@ -45,10 +45,6 @@ export default function GroupSettingsScreen() {
   
   // Coach Management State
   const [showAddCoachModal, setShowAddCoachModal] = useState(false);
-  
-  // Error Modal State
-  const [errorModalVisible, setErrorModalVisible] = useState(false);
-  const [errorModalMessage, setErrorModalMessage] = useState('');
   
   const fetchGroupDataFromServices = useCallback(async () => {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !user?.uid) return;
@@ -262,18 +258,8 @@ export default function GroupSettingsScreen() {
 
   const handleAddMember = async () => {
     if (group && groupId && clubId) {
-      // Get the club name from userProfile
-      const clubName = userProfile?.clubs?.find(club => club.clubId === clubId)?.clubName;
-      
-      if (!clubName) {
-        setErrorModalMessage('Could not find club information');
-        setErrorModalVisible(true);
-        return;
-      }
-
       const groupName = encodeURIComponent(group.name);
-      const encodedClubName = encodeURIComponent(clubName);
-      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}&clubName=${encodedClubName}` as any);
+      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}` as any);
     }
   };
 
@@ -287,14 +273,8 @@ export default function GroupSettingsScreen() {
       return;
     }
 
-    if (!groupId || !user?.uid) {
-      setErrorMessage('Missing group ID or user information. Please try again.');
-      setShowErrorModal(true);
-      return;
-    }
-
-    if (!canManage) {
-      setErrorMessage('You do not have permission to create subgroups in this group.');
+    if (!groupId || !user?.uid || !clubId) {
+      setErrorMessage('Missing group ID, club ID, or user information. Please try again.');
       setShowErrorModal(true);
       return;
     }
@@ -302,52 +282,31 @@ export default function GroupSettingsScreen() {
     setCreatingSubgroup(true);
     
     try {
-      const db = getFirestore();
-      
-      // First, ensure group creator is added as admin member if not already present
-      if (isGroupCreator) {
-        const memberDoc = await getDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'members', user.uid));
-        if (!memberDoc.exists()) {
-          await setDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'members', user.uid), {
-            roles: ['admin'],
-            joinedAt: serverTimestamp()
-          });
-        }
-      } else {
-        // For non-creators, verify membership and role
-        const memberDoc = await getDoc(doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'members', user.uid));
-        
-        if (!memberDoc.exists()) {
-          setErrorMessage('You are not a member of this group. Please contact an admin.');
-          setShowErrorModal(true);
-          setCreatingSubgroup(false);
-          return;
-        }
-        
-        const memberData = memberDoc.data();
-        const memberRoles = memberData?.roles || [];
-        const hasAdminOrCoach = memberRoles.includes('admin') || memberRoles.includes('coach');
-        
-        if (!hasAdminOrCoach) {
-          setErrorMessage('You do not have permission to create subgroups. Only admins and coaches can create subgroups.');
-          setShowErrorModal(true);
-          setCreatingSubgroup(false);
-          return;
-        }
-      }
-      
-      await addDoc(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'subgroups'), {
-        name: subgroupName.trim(),
-        memberIds: [],
-        createdBy: user.uid,
-        createdAt: serverTimestamp()
+      // Call the Firebase Function
+      const createSubGroupFunction = httpsCallable(functions, 'createSubGroup');
+      const result = await createSubGroupFunction({
+        uid: user.uid,
+        clubId: clubId as string,
+        groupId: groupId as string,
+        subGroupName: subgroupName.trim()
       });
 
-      setShowCreateSubgroupModal(false);
-      setSubgroupName('');
-      
-      // Navigate to manage-group screen with subgroups tab active
-      router.push(`/manage-group?groupId=${groupId}&tab=subgroups` as any);
+      const data = result.data as { success: boolean; message?: string; error?: string; subGroupName?: string };
+
+      if (data.success) {
+        setShowCreateSubgroupModal(false);
+        setSubgroupName('');
+        
+        // Show success message
+        setSuccessMessage(`Subgroup "${data.subGroupName || subgroupName.trim()}" created successfully!`);
+        setShowSuccessModal(true);
+        
+        // Navigate to manage-group screen with subgroups tab active
+        router.push(`/manage-group?groupId=${groupId}&tab=subgroups` as any);
+      } else {
+        setErrorMessage(data.error || 'Failed to create subgroup');
+        setShowErrorModal(true);
+      }
     } catch (error) {
       console.error('Error creating subgroup:', error);
       const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -732,17 +691,6 @@ export default function GroupSettingsScreen() {
           </View>
         </Pressable>
       </Modal>
-
-      <ConfirmationModal
-        visible={errorModalVisible}
-        title="Error"
-        message={errorModalMessage}
-        confirmText="OK"
-        cancelText=""
-        onConfirm={() => setErrorModalVisible(false)}
-        onCancel={() => setErrorModalVisible(false)}
-        confirmButtonTheme="primary"
-      />
 
     </SafeAreaView>
   );

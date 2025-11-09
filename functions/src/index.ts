@@ -15,21 +15,27 @@ export { getGuardianInvitationDetails } from './invitations/getGuardianInvitatio
 export { processGuardianInvitation } from './invitations/processGuardianInvitation';
 export { sendGuardianInvitations } from './invitations/sendGuardianInvitations';
 
-// Auth Functions
-export { createUserAccount } from './auth/createUserAccount';
-export { getUserProfile } from './auth/getUserProfile';
+// Email Verification Functions
 export { resendVerificationEmail } from './auth/resendVerificationEmail';
 export { sendEmailVerification } from './auth/sendEmailVerification';
 export { verifyEmail } from './auth/verifyEmail';
 
+// Authentication Functions
+export { createUserAccount } from './auth/createUserAccount';
+export { getUserProfile } from './auth/getUserProfile';
+
+// Club Management Functions
+export { createNewClub } from './clubs/createNewClub';
+
+// Group Management Functions
+export { createNewGroup } from './groups/createNewGroup';
+export { createSubGroup } from './groups/createSubGroup';
+
 // Member Management Functions
 export { addMemberToClub } from './members/addMemberToClub';
 export { addMemberToGroup } from './members/addMemberToGroup';
+export { addMemberToSubGroup } from './members/addMemberToSubGroup';
 export { orchestrateMembershipOperation } from './members/orchestrateMembershipOperation';
 export { updateUserClubInfo } from './members/updateUserClubInfo';
 export { updateUserGroupInfo } from './members/updateUserGroupInfo';
-
-// Club and Group Creation Functions
-export { createNewClub } from './clubs/createNewClub';
-export { createNewGroup } from './groups/createNewGroup';
 

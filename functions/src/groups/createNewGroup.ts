@@ -79,6 +79,7 @@ export const createNewGroup = onCall(
         isActive: true,
         memberCount: 0, // Start with 0 members - creator is not auto-added
         maxCount: 30,
+        subGroups: [], // Array to store the names of sub groups
       };
 
       // Create empty allMembers document for the group

@@ -63,7 +63,9 @@ export default function Input({
           </Pressable>
         )}
       </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && typeof error === 'string' && error.trim() && (
+        <Text style={styles.errorText}>{error}</Text>
+      )}
     </View>
   );
 }

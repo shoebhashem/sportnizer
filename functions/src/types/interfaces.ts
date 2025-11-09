@@ -231,7 +231,7 @@ export interface GroupMemberData {
   name: string;
   email: string;
   needsGuardian: boolean;
-  belongtoSubGroups: string[];
+  belongsToSubGroups: string[];
   guardiansContacts: any[];
 }
 
@@ -291,4 +291,34 @@ export interface MembershipOperationResponse {
   failedOperations: string[];
   error?: string;
   message?: string;
+}
+
+// Subgroup interfaces
+export interface CreateSubGroupRequest {
+  uid: string;
+  clubId: string;
+  groupId: string;
+  subGroupName: string;
+}
+
+export interface CreateSubGroupResponse {
+  success: boolean;
+  message?: string;
+  subGroupName?: string;
+  error?: string;
+}
+
+// add member to Subgroup interfaces
+export interface AddMemberToSubGroupRequest {
+  clubId: string;
+  groupId: string;
+  subGroupName: string;
+  userId: string;
+}
+
+export interface AddMemberToSubGroupResponse {
+  success: boolean;
+  message?: string;
+  subGroupName?: string;
+  error?: string;
 }
