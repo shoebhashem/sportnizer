@@ -41,3 +41,7 @@ export { removeMemberFromSubGroup } from './members/removeMemberFromSubGroup';
 export { updateUserClubInfo } from './members/updateUserClubInfo';
 export { updateUserGroupInfo } from './members/updateUserGroupInfo';
 
+// Event Management Functions
+export { createNewEvent } from './events/createNewEvent';
+export { updateUserEventsInfo } from './events/updateUserEventsInfo';
+

@@ -19,7 +19,7 @@ import { getCurrentUser } from '../services/auth/authService';
 interface GroupPermission {
   groupId: string;
   groupName: string;
-  role: 'admin' | 'coach';
+  role: 'admin-admin' | 'admin' | 'coach';
   memberCount: number;
   subgroups?: SubgroupInfo[];
 }

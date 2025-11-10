@@ -352,3 +352,66 @@ export interface RemoveMemberFromGroupResponse {
   message?: string;
   error?: string;
 }
+
+// Event-related interfaces
+export interface EventData {
+  title: string;
+  description: string;
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  gatheringTime?: string; // ISO string - optional
+  location: string;
+  eventType: 'practice' | 'game' | 'meeting' | 'other';
+  capacity?: {
+    enabled: boolean;
+    maxAttendees?: number;
+  };
+  responseDeadline?: {
+    enabled: boolean;
+    date?: string; // ISO string
+  };
+}
+
+export interface RecipientSelection {
+  type: 'selected-groups';
+  groups: {
+    groupId: string;
+    scope: 'entire' | 'subgroups' | 'members';
+    subgroupIds?: string[];
+    memberIds?: string[];
+  }[];
+  totalCount: number;
+}
+
+export interface CreateEventRequest {
+  clubId: string;
+  eventData: EventData;
+  recipients: RecipientSelection;
+}
+
+export interface CreateEventResponse {
+  success: boolean;
+  eventId?: string;
+  message?: string;
+  error?: string;
+}
+
+export interface UpdateUserEventsInfoRequest {
+  userIds: string[];
+  eventData: {
+    eventId: string;
+    clubId: string;
+    title: string;
+    startTime: string; // ISO string
+    eventType: 'practice' | 'game' | 'meeting' | 'other';
+  };
+  operation: 'add' | 'remove';
+}
+
+export interface UpdateUserEventsInfoResponse {
+  success: boolean;
+  updated: number;
+  failed: string[];
+  useBatchProcessing: boolean;
+  message: string;
+}
