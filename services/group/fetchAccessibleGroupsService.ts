@@ -7,7 +7,7 @@ import {
     getDocs,
     getFirestore,
 } from "firebase/firestore";
-import { getCurrentUser } from "../auth/authService";
+
 import { GroupData } from "../types/group";
 
 /**
@@ -32,14 +32,21 @@ export const fetchAccessibleGroups = async (
   groups: AccessibleGroupData[];
   error?: { code: string; message: string };
 }> => {
-  const user = getCurrentUser();
-  if (!user || !userProfile) {
+  if (!userProfile) {
     return {
       success: false,
       groups: [],
-      error: { code: "auth/no-user", message: "User not authenticated" },
+      error: { code: "auth/no-user", message: "User profile not available" },
     };
   }
+
+  console.log('🔍 fetchAccessibleGroups called with userProfile:', {
+    uid: userProfile.uid,
+    clubsCount: userProfile.clubs?.length || 0,
+    groupsJoinedCount: userProfile.groupsJoined?.length || 0,
+    clubs: userProfile.clubs,
+    groupsJoined: userProfile.groupsJoined
+  });
 
   const db = getFirestore();
 
@@ -79,12 +86,22 @@ export const fetchAccessibleGroups = async (
     // 2. Add all groups from clubs where user is admin (if not already added)
     const adminClubs = userProfile.clubs?.filter((club: any) => club.isAdmin) || [];
     
+    console.log('🔍 Club-admin check:', {
+      totalClubs: userProfile.clubs?.length || 0,
+      adminClubs: adminClubs.map(c => ({ clubId: c.clubId, clubName: c.clubName, isAdmin: c.isAdmin })),
+      adminClubsCount: adminClubs.length
+    });
+    
     for (const adminClub of adminClubs) {
       try {
+        console.log(`🔍 Fetching groups for admin club: ${adminClub.clubName} (${adminClub.clubId})`);
+        
         // Fetch all groups in this club
         const groupsSnapshot = await getDocs(
           collection(db, "clubs", adminClub.clubId, "groups")
         );
+
+        console.log(`🔍 Found ${groupsSnapshot.docs.length} groups in club ${adminClub.clubId}`);
 
         for (const groupDoc of groupsSnapshot.docs) {
           const groupId = groupDoc.id;
@@ -110,6 +127,18 @@ export const fetchAccessibleGroups = async (
         console.warn(`Failed to fetch groups for club ${adminClub.clubId}:`, error);
       }
     }
+
+    console.log('🔍 Final accessible groups result:', {
+      totalGroups: accessibleGroups.length,
+      groups: accessibleGroups.map(g => ({
+        id: g.id,
+        name: g.name,
+        clubId: g.clubId,
+        clubName: g.clubName,
+        accessReason: g.accessReason,
+        userRoles: g.userRoles
+      }))
+    });
 
     return {
       success: true,

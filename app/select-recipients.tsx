@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
+import { collection, getDocs, getFirestore } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
     ScrollView,
@@ -13,38 +13,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
-import { getCurrentUser } from '../services/auth/authService';
+import { useUserAccessibleGroups, useUserProfile } from '../contexts/UserContext';
+import { AccessibleGroupData } from '../services/group/fetchAccessibleGroupsService';
 
-// Data Interfaces
-interface GroupPermission {
-  groupId: string;
-  groupName: string;
-  role: 'admin-admin' | 'admin' | 'coach';
-  memberCount: number;
-  subgroups?: SubgroupInfo[];
-}
-
+// Data Interfaces - Updated to match new architecture
 interface SubgroupInfo {
   subgroupId: string;
   subgroupName: string;
   memberCount: number;
 }
 
-interface Member {
-  userId: string;
-  name: string;
-  role: 'admin' | 'coach' | 'member' | 'guardian';
-  groupId: string;
-  subgroupId?: string;
-}
+
 
 interface RecipientSelection {
-  type: 'all-groups' | 'selected-groups';
-  groups: {
+  type: 'entire-club' | 'selected-groups' | 'selected-subgroups';
+  clubId?: string; // For entire club selection
+  groups?: {
     groupId: string;
-    scope: 'entire' | 'subgroups' | 'members';
+    scope: 'entire' | 'subgroups';
     subgroupIds?: string[];
-    memberIds?: string[];
   }[];
   totalCount: number;
 }
@@ -55,165 +42,32 @@ interface ModalState {
   message: string;
 }
 
-// Cache Implementation
-class RecipientsCache {
-  private static permissions: GroupPermission[] | null = null;
-  private static groupMembers: Map<string, Member[]> = new Map();
-  private static lastPermissionsUpdate: number = 0;
-  private static CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  static async getUserPermissions(userId: string, forceRefresh = false): Promise<GroupPermission[]> {
-    const now = Date.now();
+
+// Helper function to get subgroups for a group
+const getGroupSubgroups = async (clubId: string, groupId: string): Promise<SubgroupInfo[]> => {
+  try {
+    const db = getFirestore();
+    const subgroupsSnapshot = await getDocs(
+      collection(db, 'clubs', clubId, 'groups', groupId, 'subgroups')
+    );
     
-    if (!forceRefresh && 
-        this.permissions && 
-        (now - this.lastPermissionsUpdate) < this.CACHE_DURATION) {
-      return this.permissions;
-    }
-
-    try {
-      const db = getFirestore();
-      const permissions: GroupPermission[] = [];
-
-      // Get user document to find all groups they belong to
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      const userData = userDoc.data();
-      const userGroupIds = userData?.groupsJoined || [];
-
-      // Get groups where user has admin or coach permissions
-      for (const groupId of userGroupIds) {
-        try {
-          // Get group info
-          const groupDoc = await getDoc(doc(db, 'groups', groupId));
-          if (!groupDoc.exists()) continue;
-
-          const groupData = groupDoc.data();
-
-          // Get user's role in this group
-          const memberDoc = await getDoc(doc(db, 'groups', groupId, 'members', userId));
-          if (!memberDoc.exists()) continue;
-
-          const memberData = memberDoc.data();
-          const userRole = memberData.role;
-
-          // Only include if user is admin or coach
-          if (userRole === 'admin' || userRole === 'coach') {
-            // Get subgroups for this group
-            const subgroupsSnapshot = await getDocs(collection(db, 'groups', groupId, 'subgroups'));
-            const subgroups: SubgroupInfo[] = [];
-            
-            subgroupsSnapshot.forEach((subgroupDoc) => {
-              const subgroupData = subgroupDoc.data();
-              subgroups.push({
-                subgroupId: subgroupDoc.id,
-                subgroupName: subgroupData.name || 'Unnamed Subgroup',
-                memberCount: subgroupData.memberCount || 0
-              });
-            });
-
-            permissions.push({
-              groupId: groupId,
-              groupName: groupData.name || 'Unnamed Group',
-              role: userRole as 'admin' | 'coach',
-              memberCount: groupData.membersCount || 0,
-              subgroups: subgroups
-            });
-          }
-        } catch (error) {
-          console.error(`Error loading group ${groupId}:`, error);
-          // Continue with other groups
-        }
-      }
-
-      this.permissions = permissions;
-      this.lastPermissionsUpdate = now;
-      return permissions;
-    } catch (error) {
-      console.error('Error loading user permissions:', error);
-      throw error;
-    }
-  }
-
-  static async getGroupMembers(groupId: string): Promise<Member[]> {
-    if (this.groupMembers.has(groupId)) {
-      return this.groupMembers.get(groupId)!;
-    }
-
-    try {
-      const db = getFirestore();
-      const members: Member[] = [];
-
-      // Get all members from the group's members subcollection
-      const membersSnapshot = await getDocs(collection(db, 'groups', groupId, 'members'));
-      
-      // Get all users data in batch for efficiency
-      const userIds: string[] = [];
-      const memberRoles: Map<string, string> = new Map();
-      
-      membersSnapshot.forEach((memberDoc) => {
-        const memberData = memberDoc.data();
-        userIds.push(memberDoc.id);
-        memberRoles.set(memberDoc.id, memberData.role || 'member');
+    const subgroups: SubgroupInfo[] = [];
+    subgroupsSnapshot.forEach((subgroupDoc) => {
+      const subgroupData = subgroupDoc.data();
+      subgroups.push({
+        subgroupId: subgroupDoc.id,
+        subgroupName: subgroupData.name || 'Unnamed Subgroup',
+        memberCount: subgroupData.memberCount || 0
       });
-
-      // Get member documents with names and user documents for names
-      for (const memberDoc of membersSnapshot.docs) {
-        const userId = memberDoc.id;
-        const memberData = memberDoc.data();
-        let userName = 'Unknown User';
-        
-        try {
-          // Check if name is stored in member document (for children) or fetch from users collection (for adults)
-          if (memberData.name) {
-            // Name stored in member document (children in ageGroup 1)
-            userName = memberData.name;
-          } else {
-            // Fetch user data from users collection (adults in ageGroup 2)
-            const userDoc = await getDoc(doc(db, 'users', userId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              userName = userData?.name || userData?.email?.split('@')[0] || 'Unknown User';
-            }
-          }
-          
-          members.push({
-            userId: userId,
-            name: userName,
-            role: memberRoles.get(userId) as 'admin' | 'coach' | 'member' | 'guardian',
-            groupId: groupId
-          });
-        } catch (error) {
-          console.error(`Error loading user ${userId}:`, error);
-          // Add with minimal info
-          members.push({
-            userId: userId,
-            name: 'Unknown User',
-            role: memberRoles.get(userId) as 'admin' | 'coach' | 'member' | 'guardian',
-            groupId: groupId
-          });
-        }
-      }
-
-      this.groupMembers.set(groupId, members);
-      return members;
-    } catch (error) {
-      console.error('Error loading group members:', error);
-      throw error;
-    }
+    });
+    
+    return subgroups;
+  } catch (error) {
+    console.error('Error loading subgroups:', error);
+    return [];
   }
-
-  // Clear cache when needed (e.g., on logout or when data might be stale)
-  static clearCache() {
-    this.permissions = null;
-    this.groupMembers.clear();
-    this.lastPermissionsUpdate = 0;
-  }
-
-  // Force refresh permissions
-  static async refreshPermissions(userId: string): Promise<GroupPermission[]> {
-    return this.getUserPermissions(userId, true);
-  }
-}
+};
 
 export default function SelectRecipientsScreen() {
   const router = useRouter();
@@ -221,16 +75,22 @@ export default function SelectRecipientsScreen() {
   
   // Parse navigation parameters
   const feature = params.feature as string;
+  const clubId = params.clubId as string; // Get club context from navigation
+  
+  // Debug: Check what parameters are being passed
+  console.log('🔍 Navigation params:', params);
 
-  // State
-  const [userPermissions, setUserPermissions] = useState<GroupPermission[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use UserContext hooks
+  const { userProfile, isLoading: userLoading } = useUserProfile();
+  const { groups: accessibleGroups, isLoading: groupsLoading, error: groupsError } = useUserAccessibleGroups();
+
+  // State for selection management
+  const [selectedClub, setSelectedClub] = useState<boolean>(false);
+  const [hasUserInteractedWithClubSelection, setHasUserInteractedWithClubSelection] = useState<boolean>(false);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [groupSelectionMode, setGroupSelectionMode] = useState<Map<string, 'entire' | 'subgroups' | 'members'>>(new Map());
   const [selectedSubgroups, setSelectedSubgroups] = useState<Map<string, Set<string>>>(new Map());
-  const [selectedMembers, setSelectedMembers] = useState<Map<string, Set<string>>>(new Map());
-  const [groupMembers, setGroupMembers] = useState<Map<string, Member[]>>(new Map());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [groupSubgroups, setGroupSubgroups] = useState<Map<string, SubgroupInfo[]>>(new Map());
   
   const [modal, setModal] = useState<ModalState>({
     visible: false,
@@ -238,79 +98,70 @@ export default function SelectRecipientsScreen() {
     message: ''
   });
 
-  // Load user permissions on mount
-  useEffect(() => {
-    loadUserPermissions();
-  }, []);
+  // Check if user is club admin for the specific club context
+  // Fallback: if no clubId provided, use the first admin club
+  const effectiveClubId = clubId || userProfile?.clubs?.find(club => club.isAdmin)?.clubId;
+  const currentClub = userProfile?.clubs?.find(club => club.clubId === effectiveClubId);
+  const isClubAdmin = currentClub?.isAdmin || false;
+  
+  // Debug logging
+  console.log('🔍 Select Recipients Debug:', {
+    originalClubId: clubId,
+    effectiveClubId,
+    userProfile: !!userProfile,
+    currentClub,
+    isClubAdmin,
+    accessibleGroups: accessibleGroups.length,
+    clubGroups: accessibleGroups.filter(g => g.clubId === effectiveClubId).length
+  });
 
-  // Auto-select all groups when permissions are loaded
+  // Auto-select entire club if user is club admin (only if user hasn't manually interacted)
   useEffect(() => {
-    if (userPermissions.length > 0) {
-      const allGroupIds = new Set(userPermissions.map(p => p.groupId));
-      setSelectedGroups(allGroupIds);
-      
-      // Set all groups to 'entire' mode by default
-      const allGroupsEntire = new Map();
-      userPermissions.forEach(p => {
-        allGroupsEntire.set(p.groupId, 'entire');
-      });
-      setGroupSelectionMode(allGroupsEntire);
+    if (isClubAdmin && currentClub && !selectedClub && !hasUserInteractedWithClubSelection) {
+      setSelectedClub(true);
     }
-  }, [userPermissions]);
+  }, [isClubAdmin, currentClub, selectedClub, hasUserInteractedWithClubSelection]);
 
-  const loadUserPermissions = async () => {
-    try {
-      setLoading(true);
-      
-      // Get current authenticated user
-      const currentUser = getCurrentUser();
-      if (!currentUser) {
-        setModal({
-          visible: true,
-          title: 'Authentication Error',
-          message: 'You must be logged in to select recipients.'
-        });
-        return;
-      }
+  // Handle errors from groups loading
+  useEffect(() => {
+    if (groupsError) {
+      setModal({
+        visible: true,
+        title: 'Error Loading Groups',
+        message: groupsError
+      });
+    }
+  }, [groupsError]);
 
-      const permissions = await RecipientsCache.getUserPermissions(currentUser.uid);
-      setUserPermissions(permissions);
-      
-      if (permissions.length === 0) {
+  // Check for no permissions in this specific club
+  useEffect(() => {
+    if (!groupsLoading && !userLoading && !groupsError && effectiveClubId) {
+      const clubGroups = accessibleGroups.filter(g => g.clubId === effectiveClubId);
+      if (clubGroups.length === 0 && !isClubAdmin) {
         setModal({
           visible: true,
           title: 'No Permissions',
           message: 'You do not have admin or coach permissions in any groups.'
         });
-        return;
       }
-      
-      // All groups will be auto-selected by the useEffect hook
-      // that runs when userPermissions change
-    } catch (error) {
-      console.error('Error loading permissions:', error);
-      setModal({
-        visible: true,
-        title: 'Error',
-        message: 'Failed to load your group permissions. Please try again.'
-      });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [accessibleGroups, groupsLoading, userLoading, groupsError, effectiveClubId, isClubAdmin]);
 
-  const loadGroupMembers = async (groupId: string) => {
-    if (groupMembers.has(groupId)) return;
+  const loadGroupSubgroups = async (groupId: string) => {
+    if (groupSubgroups.has(groupId)) return;
+
+    const group = accessibleGroups.find(g => g.id === groupId);
+    if (!group) return;
 
     try {
-      const members = await RecipientsCache.getGroupMembers(groupId);
-      setGroupMembers(prev => new Map(prev.set(groupId, members)));
+      const subgroups = await getGroupSubgroups(group.clubId, groupId);
+      setGroupSubgroups(prev => new Map(prev.set(groupId, subgroups)));
     } catch (error) {
-      console.error('Error loading group members:', error);
+      console.error('Error loading group subgroups:', error);
       setModal({
         visible: true,
         title: 'Error',
-        message: 'Failed to load group members. Please try again.'
+        message: 'Failed to load group subgroups. Please try again.'
       });
     }
   };
@@ -321,110 +172,87 @@ export default function SelectRecipientsScreen() {
       newExpanded.delete(groupId);
     } else {
       newExpanded.add(groupId);
-      // Load members when expanding for the first time
-      loadGroupMembers(groupId);
+      // Load subgroups when expanding for the first time
+      loadGroupSubgroups(groupId);
     }
     setExpandedGroups(newExpanded);
   };
 
+
+
+  // Group selection handlers
   const toggleGroupSelection = (groupId: string) => {
     const newSelected = new Set(selectedGroups);
     if (selectedGroups.has(groupId)) {
       newSelected.delete(groupId);
-      // Clear group's selection mode
-      const newMode = new Map(groupSelectionMode);
-      newMode.delete(groupId);
-      setGroupSelectionMode(newMode);
+      // Remove any selected subgroups for this group
+      const newSelectedSubgroups = new Map(selectedSubgroups);
+      newSelectedSubgroups.delete(groupId);
+      setSelectedSubgroups(newSelectedSubgroups);
     } else {
       newSelected.add(groupId);
-      // Set default to 'entire'
-      const newMode = new Map(groupSelectionMode);
-      newMode.set(groupId, 'entire');
-      setGroupSelectionMode(newMode);
+      // If selecting a group, deselect club
+      setSelectedClub(false);
     }
     setSelectedGroups(newSelected);
   };
 
-  const setGroupScope = (groupId: string, scope: 'entire' | 'subgroups' | 'members') => {
-    const newMode = new Map(groupSelectionMode);
-    newMode.set(groupId, scope);
-    setGroupSelectionMode(newMode);
-
-    // Clear previous selections when changing scope
-    if (scope !== 'subgroups') {
-      const newSubgroups = new Map(selectedSubgroups);
-      newSubgroups.delete(groupId);
-      setSelectedSubgroups(newSubgroups);
-    }
-    if (scope !== 'members') {
-      const newMembers = new Map(selectedMembers);
-      newMembers.delete(groupId);
-      setSelectedMembers(newMembers);
-    }
-
-    // Load members if switching to members mode
-    if (scope === 'members') {
-      loadGroupMembers(groupId);
-    }
-  };
-
+  // Subgroup selection handlers
   const toggleSubgroupSelection = (groupId: string, subgroupId: string) => {
-    const groupSubgroups = selectedSubgroups.get(groupId) || new Set();
-    const newSubgroups = new Set(groupSubgroups);
+    const groupSubgroupsSet = selectedSubgroups.get(groupId) || new Set();
+    const newSubgroups = new Set(groupSubgroupsSet);
     
-    if (groupSubgroups.has(subgroupId)) {
+    if (groupSubgroupsSet.has(subgroupId)) {
       newSubgroups.delete(subgroupId);
     } else {
       newSubgroups.add(subgroupId);
+      // If selecting a subgroup, deselect club and ensure group is not selected entirely
+      setSelectedClub(false);
+      const newSelectedGroups = new Set(selectedGroups);
+      newSelectedGroups.delete(groupId);
+      setSelectedGroups(newSelectedGroups);
     }
     
     const newSelectedSubgroups = new Map(selectedSubgroups);
-    newSelectedSubgroups.set(groupId, newSubgroups);
-    setSelectedSubgroups(newSelectedSubgroups);
-  };
-
-  const toggleMemberSelection = (groupId: string, memberId: string) => {
-    const groupMembers = selectedMembers.get(groupId) || new Set();
-    const newMembers = new Set(groupMembers);
-    
-    if (groupMembers.has(memberId)) {
-      newMembers.delete(memberId);
+    if (newSubgroups.size === 0) {
+      newSelectedSubgroups.delete(groupId);
     } else {
-      newMembers.add(memberId);
+      newSelectedSubgroups.set(groupId, newSubgroups);
     }
-    
-    const newSelectedMembers = new Map(selectedMembers);
-    newSelectedMembers.set(groupId, newMembers);
-    setSelectedMembers(newSelectedMembers);
+    setSelectedSubgroups(newSelectedSubgroups);
   };
 
   const calculateTotalRecipients = (): number => {
     let total = 0;
 
-    selectedGroups.forEach(groupId => {
-      const group = userPermissions.find(p => p.groupId === groupId);
-      if (!group) return;
+    // If entire club is selected
+    if (selectedClub && currentClub) {
+      // Count all members in all groups of the club
+      accessibleGroups
+        .filter(g => g.clubId === currentClub.clubId)
+        .forEach(group => {
+          total += group.memberCount || 0;
+        });
+      return total;
+    }
 
-      const scope = groupSelectionMode.get(groupId);
-      
-      switch (scope) {
-        case 'entire':
-          total += group.memberCount;
-          break;
-        case 'subgroups':
-          const selectedSubs = selectedSubgroups.get(groupId) || new Set();
-          selectedSubs.forEach(subgroupId => {
-            const subgroup = group.subgroups?.find(s => s.subgroupId === subgroupId);
-            if (subgroup) {
-              total += subgroup.memberCount;
-            }
-          });
-          break;
-        case 'members':
-          const selectedMems = selectedMembers.get(groupId) || new Set();
-          total += selectedMems.size;
-          break;
+    // Count selected groups (entire groups)
+    selectedGroups.forEach(groupId => {
+      const group = accessibleGroups.find(g => g.id === groupId);
+      if (group) {
+        total += group.memberCount || 0;
       }
+    });
+
+    // Count selected subgroups
+    selectedSubgroups.forEach((subgroupIds, groupId) => {
+      const subgroups = groupSubgroups.get(groupId) || [];
+      subgroupIds.forEach(subgroupId => {
+        const subgroup = subgroups.find(s => s.subgroupId === subgroupId);
+        if (subgroup) {
+          total += subgroup.memberCount;
+        }
+      });
     });
 
     return total;
@@ -450,6 +278,43 @@ export default function SelectRecipientsScreen() {
     }
   };
 
+  const buildRecipientSelection = (): RecipientSelection => {
+    if (selectedClub && currentClub) {
+      return {
+        type: 'entire-club',
+        clubId: currentClub.clubId,
+        totalCount: calculateTotalRecipients()
+      };
+    }
+
+    const groups: { groupId: string; scope: 'entire' | 'subgroups'; subgroupIds?: string[]; }[] = [];
+    
+    // Add selected entire groups
+    selectedGroups.forEach(groupId => {
+      groups.push({
+        groupId,
+        scope: 'entire',
+      });
+    });
+
+    // Add groups that have selected subgroups
+    selectedSubgroups.forEach((subgroupIds, groupId) => {
+      if (subgroupIds.size > 0) {
+        groups.push({
+          groupId,
+          scope: 'subgroups',
+          subgroupIds: Array.from(subgroupIds)
+        });
+      }
+    });
+
+    return {
+      type: groups.length > 0 ? 'selected-groups' : 'selected-subgroups',
+      groups,
+      totalCount: calculateTotalRecipients()
+    };
+  };
+
   const handleConfirmSelection = () => {
     const totalRecipients = calculateTotalRecipients();
     
@@ -463,16 +328,7 @@ export default function SelectRecipientsScreen() {
     }
 
     // Build selection data
-    const selection: RecipientSelection = {
-      type: 'selected-groups',
-      groups: Array.from(selectedGroups).map(groupId => ({
-        groupId,
-        scope: groupSelectionMode.get(groupId) || 'entire',
-        subgroupIds: Array.from(selectedSubgroups.get(groupId) || []),
-        memberIds: Array.from(selectedMembers.get(groupId) || [])
-      })),
-      totalCount: totalRecipients
-    };
+    const selection: RecipientSelection = buildRecipientSelection();
 
     // Navigate back with selection data
     console.log('Navigating back with selection:', selection);
@@ -547,7 +403,7 @@ export default function SelectRecipientsScreen() {
     setModal({ ...modal, visible: false });
   };
 
-  if (loading) {
+  if (userLoading || groupsLoading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.primary }}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -622,6 +478,100 @@ export default function SelectRecipientsScreen() {
           </Text>
         </View>
 
+        {/* Club Selection Section */}
+        {currentClub && (
+          <View style={{ marginBottom: theme.spacing.lg }}>
+            <Text style={{
+              color: theme.colors.text,
+              fontSize: theme.typography.fontSize.medium,
+              fontWeight: theme.typography.fontWeight.medium,
+              marginBottom: theme.spacing.md,
+            }}>
+              Club: {currentClub.clubName}
+            </Text>
+            
+            {isClubAdmin ? (
+              // Club Admin Options
+              <TouchableOpacity
+                onPress={() => {
+                  setHasUserInteractedWithClubSelection(true);
+                  setSelectedClub(!selectedClub);
+                  // If selecting club, deselect all groups and subgroups
+                  if (!selectedClub) {
+                    setSelectedGroups(new Set());
+                    setSelectedSubgroups(new Map());
+                  }
+                }}
+                style={{
+                  backgroundColor: theme.colors.inputBackground,
+                  borderRadius: theme.borderRadius.medium,
+                  padding: theme.spacing.md,
+                  marginBottom: theme.spacing.md,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+              >
+                <FontAwesome 
+                  name={selectedClub ? 'check-square' : 'square-o'} 
+                  size={20} 
+                  color={selectedClub ? theme.colors.secondary : theme.colors.textSecondary}
+                  style={{ marginRight: theme.spacing.md }}
+                />
+                
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    color: theme.colors.text,
+                    fontSize: theme.typography.fontSize.medium,
+                    fontWeight: theme.typography.fontWeight.medium,
+                  }}>
+                    Send to Entire Club
+                  </Text>
+                  <Text style={{
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSize.small,
+                    marginTop: theme.spacing.xs,
+                  }}>
+                    All members in all groups will receive the {feature}
+                  </Text>
+                </View>
+                
+                <View style={{
+                  backgroundColor: theme.colors.secondary,
+                  paddingHorizontal: theme.spacing.sm,
+                  paddingVertical: theme.spacing.xs,
+                  borderRadius: theme.borderRadius.small,
+                }}>
+                  <Text style={{
+                    color: theme.colors.primary,
+                    fontSize: theme.typography.fontSize.small,
+                    fontWeight: theme.typography.fontWeight.medium,
+                  }}>
+                    Club Admin
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              // Non-Club Admin Info
+              <View style={{
+                backgroundColor: theme.colors.inputBackground,
+                borderRadius: theme.borderRadius.medium,
+                padding: theme.spacing.md,
+                marginBottom: theme.spacing.md,
+              }}>
+                <Text style={{
+                  color: theme.colors.textSecondary,
+                  fontSize: theme.typography.fontSize.small,
+                  fontStyle: 'italic',
+                }}>
+                  You can only send to groups where you have admin or coach permissions. To send to the entire club, you need club admin privileges.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+
+
         {/* Groups List */}
         <View style={{ marginBottom: theme.spacing.xxl }}>
           <Text style={{
@@ -630,24 +580,31 @@ export default function SelectRecipientsScreen() {
             fontWeight: theme.typography.fontWeight.medium,
             marginBottom: theme.spacing.md,
           }}>
-            Groups ({userPermissions.length})
+            Groups ({accessibleGroups.filter(g => g.clubId === effectiveClubId).length})
           </Text>
+          
+          {selectedClub && (
+            <Text style={{
+              color: theme.colors.textSecondary,
+              fontSize: theme.typography.fontSize.small,
+              marginBottom: theme.spacing.md,
+              fontStyle: 'italic',
+            }}>
+              Individual group selection is disabled when entire club is selected.
+            </Text>
+          )}
 
-          {userPermissions.map((group) => (
+          {accessibleGroups.filter(g => g.clubId === effectiveClubId).map((group) => (
             <GroupCard
-              key={group.groupId}
+              key={group.id}
               group={group}
-              isSelected={selectedGroups.has(group.groupId)}
-              isExpanded={expandedGroups.has(group.groupId)}
-              selectionMode={groupSelectionMode.get(group.groupId)}
-              selectedSubgroups={selectedSubgroups.get(group.groupId) || new Set()}
-              selectedMembers={selectedMembers.get(group.groupId) || new Set()}
-              members={groupMembers.get(group.groupId) || []}
-              onToggleSelection={() => toggleGroupSelection(group.groupId)}
-              onToggleExpansion={() => toggleGroupExpansion(group.groupId)}
-              onSetScope={(scope) => setGroupScope(group.groupId, scope)}
-              onToggleSubgroup={(subgroupId) => toggleSubgroupSelection(group.groupId, subgroupId)}
-              onToggleMember={(memberId) => toggleMemberSelection(group.groupId, memberId)}
+              isSelected={selectedGroups.has(group.id)}
+              isExpanded={expandedGroups.has(group.id)}
+              selectedSubgroups={selectedSubgroups.get(group.id) || new Set()}
+              isDisabled={selectedClub}
+              onToggleSelection={() => !selectedClub && toggleGroupSelection(group.id)}
+              onToggleExpansion={() => toggleGroupExpansion(group.id)}
+              onToggleSubgroup={(subgroupId) => toggleSubgroupSelection(group.id, subgroupId)}
             />
           ))}
         </View>
@@ -700,33 +657,25 @@ export default function SelectRecipientsScreen() {
 
 // Group Card Component
 interface GroupCardProps {
-  group: GroupPermission;
+  group: AccessibleGroupData;
   isSelected: boolean;
   isExpanded: boolean;
-  selectionMode?: 'entire' | 'subgroups' | 'members';
   selectedSubgroups: Set<string>;
-  selectedMembers: Set<string>;
-  members: Member[];
+  isDisabled?: boolean;
   onToggleSelection: () => void;
   onToggleExpansion: () => void;
-  onSetScope: (scope: 'entire' | 'subgroups' | 'members') => void;
   onToggleSubgroup: (subgroupId: string) => void;
-  onToggleMember: (memberId: string) => void;
 }
 
 function GroupCard({
   group,
   isSelected,
   isExpanded,
-  selectionMode,
   selectedSubgroups,
-  selectedMembers,
-  members,
+  isDisabled = false,
   onToggleSelection,
   onToggleExpansion,
-  onSetScope,
-  onToggleSubgroup,
-  onToggleMember
+  onToggleSubgroup
 }: GroupCardProps) {
   const getSelectionIcon = () => {
     if (isSelected) {
@@ -742,16 +691,20 @@ function GroupCard({
     return theme.colors.textSecondary;
   };
 
+  const hasSubgroups = group.subGroups && group.subGroups.length > 0;
+
   return (
     <View style={{
-      backgroundColor: theme.colors.inputBackground,
+      backgroundColor: isDisabled ? theme.colors.inputBorder : theme.colors.inputBackground,
       borderRadius: theme.borderRadius.medium,
       marginBottom: theme.spacing.md,
       overflow: 'hidden',
+      opacity: isDisabled ? 0.5 : 1,
     }}>
       {/* Main Group Card */}
       <TouchableOpacity
-        onPress={onToggleSelection}
+        onPress={isDisabled ? undefined : onToggleSelection}
+        disabled={isDisabled}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -771,19 +724,19 @@ function GroupCard({
             fontSize: theme.typography.fontSize.medium,
             fontWeight: theme.typography.fontWeight.medium,
           }}>
-            {group.groupName}
+            {group.name}
           </Text>
           <Text style={{
             color: theme.colors.textSecondary,
             fontSize: theme.typography.fontSize.small,
             marginTop: theme.spacing.xs,
           }}>
-            {group.role} • {group.memberCount} members
-            {group.subgroups && group.subgroups.length > 0 && ` • ${group.subgroups.length} subgroups`}
+            {group.accessReason === 'club-admin' ? 'Club Admin' : `Roles: ${group.userRoles.join(', ')}`} • {group.memberCount || 0} members
+            {hasSubgroups && ` • ${group.subGroups?.length} subgroups`}
           </Text>
         </View>
 
-        {isSelected && (
+        {isSelected && hasSubgroups && !isDisabled && (
           <TouchableOpacity
             onPress={onToggleExpansion}
             style={{
@@ -804,51 +757,28 @@ function GroupCard({
         )}
       </TouchableOpacity>
 
-      {/* Expanded Options */}
-      {isExpanded && isSelected && (
+      {/* Expanded Subgroups Selection */}
+      {isExpanded && isSelected && hasSubgroups && !isDisabled && (
         <View style={{
           borderTopWidth: 1,
           borderTopColor: theme.colors.inputBorder,
           padding: theme.spacing.md,
         }}>
-          {/* Scope Selection */}
           <Text style={{
             color: theme.colors.text,
             fontSize: theme.typography.fontSize.small,
             fontWeight: theme.typography.fontWeight.medium,
             marginBottom: theme.spacing.sm,
           }}>
-            Send to:
+            Select Subgroups (optional):
           </Text>
 
-          {/* Entire Group Option */}
-          <TouchableOpacity
-            onPress={() => onSetScope('entire')}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: theme.spacing.sm,
-            }}
-          >
-            <FontAwesome 
-              name={selectionMode === 'entire' ? 'dot-circle-o' : 'circle-o'} 
-              size={16} 
-              color={selectionMode === 'entire' ? theme.colors.secondary : theme.colors.textSecondary}
-              style={{ marginRight: theme.spacing.sm }}
-            />
-            <Text style={{
-              color: theme.colors.text,
-              fontSize: theme.typography.fontSize.small,
-            }}>
-              Entire Group ({group.memberCount} members)
-            </Text>
-          </TouchableOpacity>
-
-          {/* Subgroups Option */}
-          {group.subgroups && group.subgroups.length > 0 && (
-            <>
+          {/* Subgroups List */}
+          <View style={{ marginTop: theme.spacing.sm }}>
+            {group.subGroups?.map((subgroupName) => (
               <TouchableOpacity
-                onPress={() => onSetScope('subgroups')}
+                key={subgroupName}
+                onPress={() => onToggleSubgroup(subgroupName)}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -856,111 +786,36 @@ function GroupCard({
                 }}
               >
                 <FontAwesome 
-                  name={selectionMode === 'subgroups' ? 'dot-circle-o' : 'circle-o'} 
+                  name={selectedSubgroups.has(subgroupName) ? 'check-square' : 'square-o'} 
                   size={16} 
-                  color={selectionMode === 'subgroups' ? theme.colors.secondary : theme.colors.textSecondary}
+                  color={selectedSubgroups.has(subgroupName) ? theme.colors.secondary : theme.colors.textSecondary}
                   style={{ marginRight: theme.spacing.sm }}
                 />
                 <Text style={{
                   color: theme.colors.text,
                   fontSize: theme.typography.fontSize.small,
+                  flex: 1,
                 }}>
-                  Select Subgroups ({group.subgroups.length} available)
+                  {subgroupName}
+                </Text>
+                <Text style={{
+                  color: theme.colors.textSecondary,
+                  fontSize: theme.typography.fontSize.small,
+                }}>
+                  (All members)
                 </Text>
               </TouchableOpacity>
-
-              {/* Subgroups List */}
-              {selectionMode === 'subgroups' && (
-                <View style={{ marginLeft: theme.spacing.lg, marginTop: theme.spacing.sm }}>
-                  {group.subgroups.map((subgroup) => (
-                    <TouchableOpacity
-                      key={subgroup.subgroupId}
-                      onPress={() => onToggleSubgroup(subgroup.subgroupId)}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingVertical: theme.spacing.xs,
-                      }}
-                    >
-                      <FontAwesome 
-                        name={selectedSubgroups.has(subgroup.subgroupId) ? 'check-square' : 'square-o'} 
-                        size={14} 
-                        color={selectedSubgroups.has(subgroup.subgroupId) ? theme.colors.secondary : theme.colors.textSecondary}
-                        style={{ marginRight: theme.spacing.sm }}
-                      />
-                      <Text style={{
-                        color: theme.colors.textSecondary,
-                        fontSize: theme.typography.fontSize.small,
-                      }}>
-                        {subgroup.subgroupName} ({subgroup.memberCount} members)
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </>
-          )}
-
-          {/* Individual Members Option */}
-          <TouchableOpacity
-            onPress={() => onSetScope('members')}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: theme.spacing.sm,
-            }}
-          >
-            <FontAwesome 
-              name={selectionMode === 'members' ? 'dot-circle-o' : 'circle-o'} 
-              size={16} 
-              color={selectionMode === 'members' ? theme.colors.secondary : theme.colors.textSecondary}
-              style={{ marginRight: theme.spacing.sm }}
-            />
-            <Text style={{
-              color: theme.colors.text,
-              fontSize: theme.typography.fontSize.small,
-            }}>
-              Select Individual Members
-            </Text>
-          </TouchableOpacity>
-
-          {/* Members List */}
-          {selectionMode === 'members' && members.length > 0 && (
-            <View style={{ marginLeft: theme.spacing.lg, marginTop: theme.spacing.sm }}>
-              {members.map((member) => (
-                <TouchableOpacity
-                  key={member.userId}
-                  onPress={() => onToggleMember(member.userId)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingVertical: theme.spacing.xs,
-                  }}
-                >
-                  <FontAwesome 
-                    name={selectedMembers.has(member.userId) ? 'check-square' : 'square-o'} 
-                    size={14} 
-                    color={selectedMembers.has(member.userId) ? theme.colors.secondary : theme.colors.textSecondary}
-                    style={{ marginRight: theme.spacing.sm }}
-                  />
-                  <Text style={{
-                    color: theme.colors.textSecondary,
-                    fontSize: theme.typography.fontSize.small,
-                    flex: 1,
-                  }}>
-                    {member.name}
-                  </Text>
-                  <Text style={{
-                    color: theme.colors.textSecondary,
-                    fontSize: theme.typography.fontSize.small,
-                    fontStyle: 'italic',
-                  }}>
-                    {member.role}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+            ))}
+          </View>
+          
+          <Text style={{
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.fontSize.small,
+            marginTop: theme.spacing.sm,
+            fontStyle: 'italic',
+          }}>
+            If no subgroups are selected, the entire group will receive the invitation.
+          </Text>
         </View>
       )}
     </View>
