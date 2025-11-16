@@ -79,6 +79,8 @@ export const createNewClub = onCall(
         adminIds: [uid],
         totalCounts: 1,
         isActive: true,
+        version: 1, // Initial version
+        lastModified: now,
       };
 
       // Create club member data for the creator
@@ -99,7 +101,9 @@ export const createNewClub = onCall(
       const allMembersDoc = {
         members: [memberData],
         lastUpdated: timestampNow,
-        memberCount: 1
+        memberCount: 1,
+        version: 1, // Initial version
+        lastModified: timestampNow,
       };
 
       // Build ClubMembership for user document

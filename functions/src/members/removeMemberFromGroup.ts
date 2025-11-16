@@ -67,12 +67,16 @@ export const removeMemberFromGroup = onCall(
       await groupMemberRef.update({
         members: updatedMembers,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        memberCount: admin.firestore.FieldValue.increment(-1)
+        memberCount: admin.firestore.FieldValue.increment(-1),
+        version: admin.firestore.FieldValue.increment(1), // Increment version
+        lastModified: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // Update group member count
       await groupRef.update({
-        membersCount: admin.firestore.FieldValue.increment(-1)
+        membersCount: admin.firestore.FieldValue.increment(-1),
+        version: admin.firestore.FieldValue.increment(1), // Increment version
+        lastModified: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       console.log(`Successfully removed member ${userId} from group ${groupId}`);

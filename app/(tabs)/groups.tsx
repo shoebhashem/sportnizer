@@ -1,23 +1,25 @@
 //import AdContainer from "@/components/AdContainer";
 import Button from "@/components/Button";
 import { theme } from "@/constants/theme";
-import { useUserAccessibleGroups, useUserClubs, useUserProfile } from "@/contexts/UserContext";
+import { useUserAccessibleGroups, useUserClubs, useUserProfile, useVersionedData } from "@/contexts/UserContext";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function GroupsScreen() {
 const { isLoading } = useUserProfile();
+const { refreshClubMemberships, refreshGroupMemberships } = useVersionedData();
 const clubs = useUserClubs();
 const { groups: accessibleGroups, isLoading: isLoadingGroups, error: groupsError } = useUserAccessibleGroups();
 const [selectedClub, setSelectedClub] = useState<string | null>(null);
+const [isRefreshing, setIsRefreshing] = useState(false);
 
 // Helper function to get groups for a specific club from accessible groups
 const getGroupsForClub = (clubId: string) => {
@@ -30,6 +32,21 @@ const handleCreateGroup = () => {
 
 const handleGroupPress = (groupId: string, clubId: string) => {
   router.push(`/manage-group?groupId=${groupId}&clubId=${clubId}`);
+};
+
+const handleRefresh = async () => {
+  setIsRefreshing(true);
+  try {
+    await Promise.all([
+      refreshClubMemberships(),
+      refreshGroupMemberships()
+    ]);
+    console.log('✅ Refreshed club and group data');
+  } catch (error) {
+    console.error('❌ Error refreshing data:', error);
+  } finally {
+    setIsRefreshing(false);
+  }
 };
 
 if (isLoading || isLoadingGroups) {
@@ -61,6 +78,15 @@ return (
       theme="primary"
       onPress={handleCreateGroup}
     />
+    <TouchableOpacity 
+      style={[styles.refreshButton, { opacity: isRefreshing ? 0.7 : 1 }]}
+      onPress={handleRefresh}
+      disabled={isRefreshing}
+    >
+      <Text style={styles.refreshButtonText}>
+        {isRefreshing ? "Refreshing..." : "🔄 Refresh Data"}
+      </Text>
+    </TouchableOpacity>
   </View>
 
   <ScrollView contentContainerStyle={styles.clubsContainer}>
@@ -247,5 +273,19 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.lg,
     color: theme.colors.textSecondary,
     fontSize: theme.typography.fontSize.medium,
+  },
+  refreshButton: {
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.sm,
+    borderRadius: 8,
+    marginTop: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.secondary,
+    alignItems: 'center',
+  },
+  refreshButtonText: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.fontSize.small,
+    fontWeight: '500',
   },
 });

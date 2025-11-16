@@ -97,14 +97,8 @@ export const createSubGroup = onCall({
     }
     
     const isGroupCreator = groupData.createdBy === uid;
-    
-    // Check group membership  
-    let isGroupAdminOrCoach = false;
-    if (groupMembersDoc.exists) {
-      const groupMembers = groupMembersDoc.data()?.members || [];
-      const userGroupMembership = groupMembers.find((member: any) => member.userId === uid);
-      isGroupAdminOrCoach = userGroupMembership?.roles?.some((role: string) => ['admin', 'coach'].includes(role)) || false;
-    }
+    const isGroupAdminOrCoach = userGroupMembershipDoc.exists && 
+      ['admin', 'coach'].includes(userGroupMembershipDoc.data()?.role);
 
     if (!isClubCreator && !isClubAdmin && !isGroupCreator && !isGroupAdminOrCoach) {
       return {
@@ -133,6 +127,8 @@ export const createSubGroup = onCall({
     await db.collection('clubs').doc(clubId).collection('groups').doc(groupId).update({
       subGroups: updatedSubGroups,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      version: admin.firestore.FieldValue.increment(1), // Increment version
+      lastModified: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     return {

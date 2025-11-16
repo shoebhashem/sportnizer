@@ -11,14 +11,15 @@ import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import new services
-import { canUserManageGroup, fetchGroupData } from '@/services/group/fetchGroupDataService';
-import { fetchGroupMembers } from '@/services/group/fetchGroupMembersService';
+import { useVersionedData } from '@/contexts/UserContext';
+import { canUserManageGroup } from '@/services/group/fetchGroupDataService';
 import { fetchSubGroups, SubGroup } from '@/services/group/fetchSubGroupsService';
 import { GroupData, GroupMemberData } from '@/services/types/group';
 
 export default function ManageGroupScreen() {
   const { groupId, clubId, tab } = useLocalSearchParams();
   const { user } = useAuth();
+  const { fetchGroupData, fetchGroupMembers } = useVersionedData();
   const [group, setGroup] = useState<GroupData | null>(null);
   const [members, setMembers] = useState<GroupMemberData[]>([]);
   const [subgroups, setSubgroups] = useState<SubGroup[]>([]);
@@ -42,29 +43,35 @@ export default function ManageGroupScreen() {
 
     setLoading(true);
     try {
-      // Fetch all data using services
-      const [groupData, membersData, subgroupsData] = await Promise.all([
+      // Fetch all data using versioned UserContext services
+      const [groupResult, membersResult, subgroupsData] = await Promise.all([
         fetchGroupData(clubId, groupId),
         fetchGroupMembers(clubId, groupId),
         fetchSubGroups(clubId, groupId)
       ]);
 
-      setGroup(groupData);
+      // Process group data
+      if (groupResult.success && groupResult.data) {
+        setGroup(groupResult.data);
+      }
+
+      // Process members data
+      const membersData = membersResult.success ? membersResult.data?.members || [] : [];
       setMembers(membersData);
       
       // Populate memberIds for each subgroup based on members' belongsToSubGroups
-      const subgroupsWithMembers = subgroupsData.map(subgroup => ({
+      const subgroupsWithMembers = subgroupsData.map((subgroup: any) => ({
         ...subgroup,
         memberIds: membersData
-          .filter(member => member.belongsToSubGroups?.includes(subgroup.name))
-          .map(member => member.userId)
+          .filter((member: any) => member.belongsToSubGroups?.includes(subgroup.name))
+          .map((member: any) => member.userId)
       }));
       
       setSubgroups(subgroupsWithMembers);
 
       // Get current user's roles
       if (user && membersData) {
-        const currentUserMember = membersData.find(member => member.userId === user.uid);
+        const currentUserMember = membersData.find((member: any) => member.userId === user.uid);
         setUserRoles(currentUserMember?.roles || []);
       }
     } catch (error) {
@@ -72,7 +79,7 @@ export default function ManageGroupScreen() {
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, user]);
+  }, [groupId, clubId, user, fetchGroupData, fetchGroupMembers]);
 
   useEffect(() => {
     fetchAllData();

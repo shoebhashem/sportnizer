@@ -1,10 +1,10 @@
 import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { theme } from '@/constants/theme';
+import { useVersionedData } from '@/contexts/UserContext';
 import { functions } from '@/services/core/firebase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { collection, getDocs, getFirestore } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -23,6 +23,7 @@ interface Member {
 
 export default function ManageSubgroupMembersScreen() {
   const { groupId, clubId, subgroupName } = useLocalSearchParams();
+  const { fetchGroupMembers } = useVersionedData();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,23 +44,16 @@ export default function ManageSubgroupMembersScreen() {
     setLoading(true);
     console.log('Fetching members with params:', { groupId, clubId, subgroupName });
     try {
-      const db = getFirestore();
+      // Fetch group members using versioned UserContext service
+      const membersResult = await fetchGroupMembers(clubId, groupId);
+      const allGroupMembers = membersResult.success ? membersResult.data?.members || [] : [];
       
-      // Fetch all group members from new architecture
-      const membersDoc = await getDocs(
-        collection(db, 'clubs', clubId, 'groups', groupId, 'allMembers')
-      );
-      
-      if (membersDoc.empty) {
-        console.log('No members document found');
+      if (allGroupMembers.length === 0) {
+        console.log('No members found');
         setMembers([]);
         setLoading(false);
         return;
       }
-
-      // Get the members array from the document
-      const membersData = membersDoc.docs[0].data();
-      const allGroupMembers = membersData?.members || [];
       
       const processedMembers: Member[] = allGroupMembers.map((memberData: any) => {
         // Handle both old role field and new roles array
@@ -101,7 +95,7 @@ export default function ManageSubgroupMembersScreen() {
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, subgroupName]);
+  }, [groupId, clubId, subgroupName, fetchGroupMembers]);
 
   useEffect(() => {
     fetchMembersAndSubgroup();

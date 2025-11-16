@@ -111,7 +111,11 @@ export const createNewEvent = onCall(
           maybe: 0,
           notReplied: recipientUserIds.length,
           total: 0
-        }
+        },
+
+        // Versioning fields
+        version: 1,
+        lastModified: FieldValue.serverTimestamp()
       };
 
       console.log(`Creating event document in /clubs/${clubId}/events/${eventId}`);

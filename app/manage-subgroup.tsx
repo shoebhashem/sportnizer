@@ -1,9 +1,9 @@
 import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVersionedData } from '@/contexts/UserContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +32,7 @@ interface Subgroup {
 export default function ManageSubgroupScreen() {
   const { groupId, subgroupName, clubId } = useLocalSearchParams();
   const { user } = useAuth();
+  const { fetchGroupData, fetchGroupMembers } = useVersionedData();
   const [group, setGroup] = useState<Group | null>(null);
   const [subgroup, setSubgroup] = useState<Subgroup | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -57,14 +58,17 @@ export default function ManageSubgroupScreen() {
         typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupName !== 'string') return;
 
     try {
-      const db = getFirestore();
-      
-      // Fetch group basic info from new architecture
-      const groupDoc = await getDoc(doc(db, 'clubs', clubId, 'groups', groupId));
-      if (groupDoc.exists()) {
-        const groupData = groupDoc.data();
+      // Fetch group data using versioned UserContext services
+      const [groupResult, membersResult] = await Promise.all([
+        fetchGroupData(clubId, groupId),
+        fetchGroupMembers(clubId, groupId)
+      ]);
+
+      // Process group data
+      if (groupResult.success && groupResult.data) {
+        const groupData = groupResult.data;
         setGroup({
-          id: groupDoc.id,
+          id: groupId,
           name: groupData.name,
           createdBy: groupData.createdBy
         });
@@ -78,15 +82,8 @@ export default function ManageSubgroupScreen() {
         });
       }
 
-      // Fetch all group members from new architecture
-      const membersDoc = await getDocs(
-        collection(db, 'clubs', clubId, 'groups', groupId, 'allMembers')
-      );
-      
-      if (!membersDoc.empty) {
-        // Get the members array from the document
-        const membersDocData = membersDoc.docs[0].data();
-        const allGroupMembers = membersDocData?.members || [];
+      // Process members data
+      const allGroupMembers = membersResult.success ? membersResult.data?.members || [] : [];
         
         const processedMembers: Member[] = allGroupMembers.map((memberData: any) => {
           // Handle both old role field and new roles array
@@ -150,12 +147,13 @@ export default function ManageSubgroupScreen() {
           ...prev,
           memberIds: subgroupMembersData.map((member: Member) => member.id)
         } : null);
-      }    } catch (error) {
+
+    } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, subgroupName]);
+  }, [groupId, clubId, subgroupName, fetchGroupData, fetchGroupMembers]);
 
   useEffect(() => {
     fetchData();

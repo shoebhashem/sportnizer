@@ -3,11 +3,11 @@
 import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import {
     doc,
+    getDoc,
     onSnapshot,
     QueryDocumentSnapshot,
     Unsubscribe,
 } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
 import React, {
     createContext,
     ReactNode,
@@ -16,15 +16,30 @@ import React, {
     useEffect,
     useState,
 } from "react";
-import { auth, db, functions } from "../services/core/firebase";
+import { auth, db } from "../services/core/firebase";
 import { storage } from "../utils/CrossPlatformStorage";
 
 // Import domain types
 import { AccessibleGroupData, fetchAccessibleGroups } from "@/services/group/fetchAccessibleGroupsService";
 import { ClubMembership, GroupMembership, UserProfile } from "@/services/types/user";
 
-// Import Firebase Function types
-import type { GetUserProfileRequest, GetUserProfileResponse } from "@/functions/src/types/interfaces";
+// Import versioning services
+import {
+    fetchClubDataWithVersioning,
+    fetchClubMembersWithVersioning,
+    fetchUserClubMembershipsWithVersioning
+} from "@/services/versioning/clubDataService";
+import {
+    fetchClubEventsWithVersioning,
+    fetchEventDataWithVersioning,
+    fetchUserEventsWithVersioning
+} from "@/services/versioning/eventDataService";
+import {
+    fetchGroupDataWithVersioning,
+    fetchGroupMembersWithVersioning,
+    fetchUserGroupMembershipsWithVersioning
+} from "@/services/versioning/groupDataService";
+import { clearAllVersionCache } from "@/services/versioning/versionCheckService";
 
 interface UserContextType {
   firebaseUser: FirebaseUser | null;
@@ -38,6 +53,18 @@ interface UserContextType {
 
   isFromCache: boolean;
   lastCacheUpdate: Date | null;
+
+  // Versioned data fetching methods
+  fetchClubData: (clubId: string) => Promise<any>;
+  fetchClubMembers: (clubId: string) => Promise<any>;
+  fetchGroupData: (clubId: string, groupId: string) => Promise<any>;
+  fetchGroupMembers: (clubId: string, groupId: string) => Promise<any>;
+  fetchEventData: (clubId: string, eventId: string) => Promise<any>;
+  fetchClubEvents: (clubId: string) => Promise<any>;
+  fetchUserEvents: () => Promise<any>;
+  refreshClubMemberships: () => Promise<void>;
+  refreshGroupMemberships: () => Promise<void>;
+  clearVersionCache: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -88,7 +115,6 @@ const convertFirestoreDataToUserProfile = (snapshot: QueryDocumentSnapshot): Use
     groupsCreated: data.groupsCreated ?? 0,
     events: data.events || [],
     eventsResponses: data.eventsResponses || [],
-    emailVerified: data.emailVerified ?? false,
     verificationStatus: data.verificationStatus || "pending",
     createdAt: data.createdAt?.toDate() || new Date(),
     lastActive: data.lastActive?.toDate() || new Date(),
@@ -163,59 +189,20 @@ export function UserProvider({ children }: UserProviderProps) {
     return cachedData ? (JSON.parse(cachedData) as UserProfile) : null;
   }, [clearCache]);
 
-  // Refresh user profile using Firebase Function
+  // Refresh Firestore profile
   const refreshUserProfile = useCallback(async () => {
     if (!firebaseUser) return;
     setIsLoading(true);
     try {
-      // Use Firebase Function to fetch user profile
-      const getUserProfile = httpsCallable<GetUserProfileRequest, GetUserProfileResponse>(
-        functions,
-        'getUserProfile'
-      );
+      // Force a fresh fetch from Firestore
+      const userDocRef = doc(db, "users", firebaseUser.uid);
+      const docSnapshot = await getDoc(userDocRef);
       
-      const result = await getUserProfile({
-        uid: firebaseUser.uid
-      });
-      
-      if (result.data.success && result.data.userProfile) {
-        // Convert the raw Firestore data to UserProfile format
-        const rawData = result.data.userProfile;
-        const profile: UserProfile = {
-          uid: rawData.uid,
-          email: rawData.email,
-          displayName: rawData.displayName || rawData.name || "",
-          photoURL: rawData.photoURL || rawData.profilePicture,
-          phoneNumber: rawData.phoneNumber,
-          dateOfBirth: rawData.dateOfBirth ? new Date(rawData.dateOfBirth.seconds * 1000) : undefined,
-          address: rawData.address,
-          clubs: (rawData.clubs || []).map((club: any): ClubMembership => ({
-            clubId: club.clubId,
-            clubName: club.clubName,
-            isAdmin: club.isAdmin,
-            joinedAt: club.joinedAt ? new Date(club.joinedAt.seconds * 1000) : new Date(),
-            lastModifiedAt: club.lastModifiedAt ? new Date(club.lastModifiedAt.seconds * 1000) : new Date(),
-          })),
-          groupsJoined: (rawData.groupsJoined || []).map((group: any): GroupMembership => ({
-            clubId: group.clubId,
-            groupId: group.groupId,
-            groupName: group.groupName,
-            roles: group.roles || [],
-            joinedAt: group.joinedAt ? new Date(group.joinedAt.seconds * 1000) : new Date(),
-            lastModifiedAt: group.lastModifiedAt ? new Date(group.lastModifiedAt.seconds * 1000) : new Date(),
-          })),
-          groupsCreated: rawData.groupsCreated ?? 0,
-          events: rawData.events || [],
-          eventsResponses: rawData.eventsResponses || [],
-          emailVerified: rawData.emailVerified ?? false,
-          verificationStatus: rawData.verificationStatus || "pending",
-          createdAt: rawData.createdAt ? new Date(rawData.createdAt.seconds * 1000) : new Date(),
-          lastActive: rawData.lastActive ? new Date(rawData.lastActive.seconds * 1000) : new Date(),
-        };
-        
+      if (docSnapshot.exists()) {
+        const profile = convertFirestoreDataToUserProfile(docSnapshot);
         setUserProfile(profile);
         await saveToCache(profile);
-        console.log('✅ User profile refreshed successfully via Firebase Function');
+        console.log('✅ User profile refreshed successfully');
       } else {
         console.warn('⚠️ User profile not found during refresh');
         setUserProfile(null);
@@ -248,6 +235,81 @@ export function UserProvider({ children }: UserProviderProps) {
     setLastCacheUpdate(null);
     await clearCache();
   }, [unsubscribeProfile, clearCache]);
+
+  // Versioned data fetching methods
+  const fetchClubData = useCallback(async (clubId: string) => {
+    return await fetchClubDataWithVersioning(clubId);
+  }, []);
+
+  const fetchClubMembers = useCallback(async (clubId: string) => {
+    return await fetchClubMembersWithVersioning(clubId);
+  }, []);
+
+  const fetchGroupData = useCallback(async (clubId: string, groupId: string) => {
+    return await fetchGroupDataWithVersioning(clubId, groupId);
+  }, []);
+
+  const fetchGroupMembers = useCallback(async (clubId: string, groupId: string) => {
+    return await fetchGroupMembersWithVersioning(clubId, groupId);
+  }, []);
+
+  const fetchEventData = useCallback(async (clubId: string, eventId: string) => {
+    return await fetchEventDataWithVersioning(clubId, eventId);
+  }, []);
+
+  const fetchClubEvents = useCallback(async (clubId: string) => {
+    return await fetchClubEventsWithVersioning(clubId);
+  }, []);
+
+  const fetchUserEvents = useCallback(async () => {
+    // Get accessible club IDs based on user's memberships and permissions
+    if (!userProfile?.clubs || userProfile.clubs.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    const accessibleClubIds = userProfile.clubs.map(club => club.clubId);
+    return await fetchUserEventsWithVersioning(accessibleClubIds);
+  }, [userProfile]);
+
+  const refreshClubMemberships = useCallback(async () => {
+    if (!userProfile?.clubs || userProfile.clubs.length === 0) return;
+
+    console.log('🔄 Refreshing club memberships with versioning...');
+    const result = await fetchUserClubMembershipsWithVersioning(userProfile.clubs);
+    
+    if (result.success && result.data) {
+      const updatedProfile = {
+        ...userProfile,
+        clubs: result.data,
+      };
+      setUserProfile(updatedProfile);
+      await saveToCache(updatedProfile);
+      console.log('✅ Club memberships refreshed successfully');
+    }
+  }, [userProfile, saveToCache]);
+
+  const refreshGroupMemberships = useCallback(async () => {
+    if (!userProfile?.groupsJoined || userProfile.groupsJoined.length === 0) return;
+
+    console.log('🔄 Refreshing group memberships with versioning...');
+    const result = await fetchUserGroupMembershipsWithVersioning(userProfile.groupsJoined);
+    
+    if (result.success && result.data) {
+      const updatedProfile = {
+        ...userProfile,
+        groupsJoined: result.data,
+      };
+      setUserProfile(updatedProfile);
+      await saveToCache(updatedProfile);
+      console.log('✅ Group memberships refreshed successfully');
+    }
+  }, [userProfile, saveToCache]);
+
+  const clearVersionCache = useCallback(async () => {
+    console.log('🗑️ Clearing version cache...');
+    await clearAllVersionCache();
+    console.log('✅ Version cache cleared');
+  }, []);
 
   // 🔹 Auth + Firestore listener
   useEffect(() => {
@@ -305,6 +367,17 @@ export function UserProvider({ children }: UserProviderProps) {
     clearUserData,
     isFromCache,
     lastCacheUpdate,
+    // Versioned data fetching methods
+    fetchClubData,
+    fetchClubMembers,
+    fetchGroupData,
+    fetchGroupMembers,
+    fetchEventData,
+    fetchClubEvents,
+    fetchUserEvents,
+    refreshClubMemberships,
+    refreshGroupMemberships,
+    clearVersionCache,
   };
 
   return (
@@ -382,5 +455,36 @@ export function useUserAccessibleGroups() {
     groups: accessibleGroups,
     isLoading: isLoadingGroups,
     error,
+  };
+}
+
+/**
+ * Hook for versioned data fetching from UserContext
+ */
+export function useVersionedData() {
+  const { 
+    fetchClubData, 
+    fetchClubMembers, 
+    fetchGroupData, 
+    fetchGroupMembers,
+    fetchEventData,
+    fetchClubEvents,
+    fetchUserEvents,
+    refreshClubMemberships,
+    refreshGroupMemberships,
+    clearVersionCache 
+  } = useUser();
+
+  return {
+    fetchClubData,
+    fetchClubMembers,
+    fetchGroupData,
+    fetchGroupMembers,
+    fetchEventData,
+    fetchClubEvents,
+    fetchUserEvents,
+    refreshClubMemberships,
+    refreshGroupMemberships,
+    clearVersionCache,
   };
 }

@@ -38,7 +38,7 @@ interface ShareableInviteResult {
 }
 
 export default function AddRegularMemberScreen() {
-  const { groupId, groupName, clubId, clubName } = useLocalSearchParams();
+  const { groupId, groupName, clubId } = useLocalSearchParams();
   const { user } = useAuth();
   
   // Debug logging
@@ -143,34 +143,77 @@ export default function AddRegularMemberScreen() {
       const result = await sendGroupInvitation({
         emails: validEmails,
         clubId: clubId as string,
-        clubName: clubName as string,
         groupId: groupId as string,
         groupName: groupName as string,
         inviterName: user.displayName || user.email || 'Unknown User',
       });
 
+      console.log('📧 Email invitation result:', result.data);
+
       if (result.data.success) {
         const successCount = result.data.results?.filter(r => r.success).length || 0;
         const failureCount = result.data.results?.filter(r => !r.success).length || 0;
+        const failedResults = result.data.results?.filter(r => !r.success) || [];
+        
+        console.log('📊 Invitation stats:', { successCount, failureCount, failedResults });
         
         let message = `Successfully sent ${successCount} invitation(s)`;
         if (failureCount > 0) {
           message += `\n${failureCount} invitation(s) failed to send`;
+          
+          // Add specific error details for failed invitations
+          if (failedResults.length > 0) {
+            message += '\n\nErrors:';
+            failedResults.forEach((failed, index) => {
+              const errorMsg = failed.error || 'Unknown error';
+              message += `\n• ${failed.email}: ${errorMsg}`;
+            });
+          }
         }
         
-        showModal('Invitations Sent', message, 'OK', '', () => {
+        const title = failureCount > 0 ? 'Invitations Partially Sent' : 'Invitations Sent';
+        
+        showModal(title, message, 'OK', '', () => {
           hideModal();
           router.back();
         });
         
-        // Clear email fields on success
-        setEmailAddresses(['']);
+        // Clear email fields only if all succeeded
+        if (failureCount === 0) {
+          setEmailAddresses(['']);
+        }
       } else {
+        console.error('❌ Failed to send invitations:', result.data.error);
         showModal('Error', result.data.error || 'Failed to send invitations');
       }
     } catch (error: any) {
-      console.error('Error sending email invitations:', error);
-      showModal('Error', 'Failed to send invitations. Please try again.');
+      console.error('❌ Error sending email invitations:', error);
+      
+      let errorMessage = 'Failed to send invitations. Please try again.';
+      
+      // Check for specific error types
+      if (error.code) {
+        switch (error.code) {
+          case 'functions/unauthenticated':
+            errorMessage = 'Authentication error. Please sign out and sign back in.';
+            break;
+          case 'functions/permission-denied':
+            errorMessage = 'You do not have permission to send invitations to this group.';
+            break;
+          case 'functions/unavailable':
+            errorMessage = 'Invitation service is currently unavailable. Please try again later.';
+            break;
+          case 'functions/deadline-exceeded':
+            errorMessage = 'Request timed out. Please check your internet connection and try again.';
+            break;
+          default:
+            errorMessage = `Error: ${error.message || error.code}`;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showModal('Error', errorMessage);
     } finally {
       setSendingEmails(false);
     }

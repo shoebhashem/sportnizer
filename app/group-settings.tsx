@@ -12,9 +12,8 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, Touc
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import new services and types
+import { useVersionedData } from '@/contexts/UserContext';
 import { functions } from '@/services/core/firebase';
-import { fetchGroupData } from '@/services/group/fetchGroupDataService';
-import { fetchGroupMembers } from '@/services/group/fetchGroupMembersService';
 import { GroupData } from '@/services/types/group';
 
 // interface UnconfirmedMember {
@@ -28,6 +27,7 @@ import { GroupData } from '@/services/types/group';
 export default function GroupSettingsScreen() {
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
+  const { fetchGroupData, fetchGroupMembers } = useVersionedData();
   const [group, setGroup] = useState<GroupData | null>(null);
   // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
   const [userRole, setUserRole] = useState<string>('member');
@@ -50,16 +50,18 @@ export default function GroupSettingsScreen() {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !user?.uid) return;
     
     try {
-      // Fetch group data and members using services
-      const [groupData, membersData] = await Promise.all([
+      // Fetch group data and members using versioned UserContext services
+      const [groupResult, membersResult] = await Promise.all([
         fetchGroupData(clubId, groupId),
         fetchGroupMembers(clubId, groupId)
       ]);
 
-      if (groupData) {
-        setGroup(groupData);
+      if (groupResult.success && groupResult.data) {
+        setGroup(groupResult.data);
       }
       
+      // Process members data
+      const membersData = membersResult.success ? membersResult.data?.members || [] : [];
       // setMembers(membersData); // Commented out - not used in UI yet
 
       // Find current user's role and count admins
@@ -67,7 +69,7 @@ export default function GroupSettingsScreen() {
       let adminCount = 0;
       // const unconfirmedMembers: UnconfirmedMember[] = []; // Commented out - not used yet
       
-      membersData.forEach((member) => {
+      membersData.forEach((member: any) => {
         if (member.userId === user.uid) {
           // Check user's roles
           if (member.roles.includes('admin')) {
@@ -96,7 +98,7 @@ export default function GroupSettingsScreen() {
       });
       
       // If user is the group creator but not found in members, consider them as admin
-      if (groupData && groupData.createdBy === user.uid && userRole === 'member') {
+      if (groupResult.success && groupResult.data && groupResult.data.createdBy === user.uid && userRole === 'member') {
         userRole = 'admin';
       }
       
@@ -109,7 +111,7 @@ export default function GroupSettingsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, user?.uid]);
+  }, [groupId, clubId, user?.uid, fetchGroupData, fetchGroupMembers]);
 
   useEffect(() => {
     fetchGroupDataFromServices();

@@ -81,7 +81,9 @@ export const addMemberToSubGroup = onCall(
       // Update the document with the new members array
       await groupMemberRef.update({
         members: updatedMembers,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        version: admin.firestore.FieldValue.increment(1), // Increment version
+        lastModified: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       console.log(`Successfully added user ${userId} to subgroup ${subGroupName}`);

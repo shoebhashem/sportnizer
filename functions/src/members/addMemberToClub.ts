@@ -51,12 +51,16 @@ export const addMemberToClub = onCall(
       await clubMemberRef.update({
         members: admin.firestore.FieldValue.arrayUnion(memberData),
         lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        memberCount: admin.firestore.FieldValue.increment(1)
+        memberCount: admin.firestore.FieldValue.increment(1),
+        version: admin.firestore.FieldValue.increment(1), // Increment version
+        lastModified: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // Update club total count
       await admin.firestore().collection('clubs').doc(clubId).update({
-        totalCounts: admin.firestore.FieldValue.increment(1)
+        totalCounts: admin.firestore.FieldValue.increment(1),
+        version: admin.firestore.FieldValue.increment(1), // Increment version
+        lastModified: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       console.log(`Successfully added member ${memberData.userId} to club ${clubId}`);

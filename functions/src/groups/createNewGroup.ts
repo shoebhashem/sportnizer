@@ -80,13 +80,17 @@ export const createNewGroup = onCall(
         memberCount: 0, // Start with 0 members - creator is not auto-added
         maxCount: 30,
         subGroups: [], // Array to store the names of sub groups
+        version: 1, // Initial version
+        lastModified: now,
       };
 
       // Create empty allMembers document for the group
       const allMembersDoc = {
         members: [], // Empty - creator is not auto-added
         lastUpdated: now,
-        memberCount: 0
+        memberCount: 0,
+        version: 1, // Initial version
+        lastModified: now,
       };
 
       // Use a batch for atomicity
