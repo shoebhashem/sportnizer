@@ -145,3 +145,48 @@ export function useUserEvents() {
     refreshUserEvents,
   };
 }
+
+/**
+ * Hook for managing user invited events (events where user is specifically invited)
+ */
+export function useUserInvitedEvents() {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const { fetchUserInvitedEvents } = useVersionedData();
+
+  const loadUserInvitedEvents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await fetchUserInvitedEvents();
+      
+      if (result.success) {
+        setEvents(result.data || []);
+      } else {
+        setError(result.error || 'Failed to fetch user invited events');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchUserInvitedEvents]);
+
+  const refreshUserInvitedEvents = useCallback(() => {
+    loadUserInvitedEvents();
+  }, [loadUserInvitedEvents]);
+
+  useEffect(() => {
+    loadUserInvitedEvents();
+  }, [loadUserInvitedEvents]);
+
+  return {
+    events,
+    loading,
+    error,
+    refreshUserInvitedEvents,
+  };
+}

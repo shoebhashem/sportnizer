@@ -1,6 +1,7 @@
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import {
+    CreateEventRequestV2,
     CreateEventResponse,
     RecipientSelection
 } from '../types/interfaces';
@@ -12,141 +13,23 @@ export const createNewEvent = onCall(
     enforceAppCheck: true,
   },
   async (request): Promise<CreateEventResponse> => {
-    const { clubId, eventData, recipients } = request.data;
+    const requestData = request.data;
     const { auth } = request;
 
-    console.log(`createNewEvent called for club: ${clubId}`);
-    console.log(`Event: ${eventData.title}, Recipients: ${recipients.totalCount} users`);
-
-    // Validate authentication
-    if (!auth?.uid) {
-      console.error('createNewEvent: No authenticated user');
-      throw new HttpsError('unauthenticated', 'Authentication required');
-    }
-
-    const userId = auth.uid;
-
-    // Validate input
-    if (!clubId || !eventData || !recipients) {
-      throw new HttpsError('invalid-argument', 'clubId, eventData, and recipients are required');
-    }
-
-    if (!eventData.title?.trim() || !eventData.location?.trim()) {
-      throw new HttpsError('invalid-argument', 'Event title and location are required');
-    }
-
-    if (!eventData.startTime || !eventData.endTime) {
-      throw new HttpsError('invalid-argument', 'Event start time and end time are required');
-    }
-
-    const db = getFirestore();
-
-    try {
-      // 1. Validate club exists and user has permission
-      const clubRef = db.collection('clubs').doc(clubId);
-      const clubDoc = await clubRef.get();
-
-      if (!clubDoc.exists) {
-        throw new HttpsError('not-found', 'Club not found');
-      }
-
-      const clubData = clubDoc.data();
-      console.log(`Club found: ${clubData?.name}`);
-
-      // 2. Check user permissions - must be club admin or coach/admin in at least one target group
-      const userPermissions = await validateUserEventPermissions(db, userId, clubId, recipients);
-      
-      if (!userPermissions.canCreateEvent) {
-        throw new HttpsError('permission-denied', userPermissions.reason || 'Insufficient permissions to create events');
-      }
-
-      console.log(`User ${userId} has permission to create event: ${userPermissions.permissionLevel}`);
-
-      // 3. Get all recipient user IDs from the specified groups
-      const recipientUserIds = await getRecipientUserIds(db, clubId, recipients);
-      
-      if (recipientUserIds.length === 0) {
-        throw new HttpsError('invalid-argument', 'No valid recipients found for the selected groups');
-      }
-
-      console.log(`Found ${recipientUserIds.length} recipient users`);
-
-      // 4. Create the event document in club-based structure
-      const eventRef = db.collection('clubs').doc(clubId).collection('events').doc();
-      const eventId = eventRef.id;
-
-      const eventDocument = {
-        // Basic event info
-        title: eventData.title.trim(),
-        description: eventData.description?.trim() || '',
-        startTime: new Date(eventData.startTime),
-        endTime: new Date(eventData.endTime),
-        location: eventData.location.trim(),
-        eventType: eventData.eventType,
-        
-        // Optional fields
-        ...(eventData.gatheringTime && { gatheringTime: new Date(eventData.gatheringTime) }),
-        ...(eventData.capacity && { capacity: eventData.capacity }),
-        
-        // Response deadline - default to start time if not specified
-        responseDeadline: eventData.responseDeadline?.enabled && eventData.responseDeadline.date
-          ? new Date(eventData.responseDeadline.date)
-          : new Date(eventData.startTime),
-        
-        // Creation metadata
-        createdBy: userId,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        status: 'active',
-        
-        // Recipients info
-        recipientSelection: recipients,
-        invitedUserIds: recipientUserIds,
-        invitedCount: recipientUserIds.length,
-        
-        // Initialize response tracking
-        responseStats: {
-          accepted: 0,
-          declined: 0,
-          maybe: 0,
-          notReplied: recipientUserIds.length,
-          total: 0
-        },
-
-        // Versioning fields
-        version: 1,
-        lastModified: FieldValue.serverTimestamp()
-      };
-
-      console.log(`Creating event document in /clubs/${clubId}/events/${eventId}`);
-      await eventRef.set(eventDocument);
-
-      console.log(`Event ${eventId} created successfully`);
-
-      // 5. Create subcollections for recipients and stats
-      await createEventSubcollections(db, clubId, eventId, recipientUserIds);
-
-      // 6. User notifications will be handled separately via updateUserEventsInfo function
-      console.log(`Event created successfully. Use updateUserEventsInfo function to notify ${recipientUserIds.length} users.`);
-
-      const response: CreateEventResponse = {
-        success: true,
-        eventId: eventId,
-        message: `Event "${eventData.title}" created successfully with ${recipientUserIds.length} recipients`
-      };
-
-      console.log('createNewEvent completed successfully:', response);
-      return response;
-
-    } catch (error) {
-      console.error('createNewEvent error:', error);
-      
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new HttpsError('internal', `Failed to create event: ${errorMessage}`);
+    // Support both new level-based and legacy recipient-based approaches
+    const isLevelBased = 'level' in requestData;
+    
+    if (isLevelBased) {
+      const { clubId, level, targetId, subgroupId, eventData } = requestData as CreateEventRequestV2;
+      console.log(`createNewEvent (v2) called for club: ${clubId}, level: ${level}`);
+      console.log(`Event: ${eventData.title}, Level: ${level}, TargetId: ${targetId}, SubgroupId: ${subgroupId}`);
+      return await handleLevelBasedEventCreation(auth, clubId, level, eventData, targetId, subgroupId);
+    } else {
+      // Legacy approach
+      const { clubId, eventData, recipients } = requestData;
+      console.log(`createNewEvent (legacy) called for club: ${clubId}`);
+      console.log(`Event: ${eventData.title}, Recipients: ${recipients?.totalCount} users`);
+      return await handleLegacyEventCreation(auth, clubId, eventData, recipients);
     }
   }
 );
@@ -340,5 +223,522 @@ async function createEventSubcollections(
   } catch (error) {
     console.error('Error creating event subcollections:', error);
     throw error;
+  }
+}
+
+/**
+ * Handle level-based event creation (new v2 approach)
+ */
+async function handleLevelBasedEventCreation(
+  auth: any,
+  clubId: string,
+  level: 'club' | 'group' | 'subgroup',
+  eventData: any,
+  targetId?: string,
+  subgroupId?: string
+): Promise<CreateEventResponse> {
+  
+  // Validate authentication
+  if (!auth?.uid) {
+    console.error('handleLevelBasedEventCreation: No authenticated user');
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const userId = auth.uid;
+
+  // Validate input
+  if (!clubId || !eventData) {
+    throw new HttpsError('invalid-argument', 'clubId and eventData are required');
+  }
+
+  if (!eventData.title?.trim() || !eventData.location?.trim()) {
+    throw new HttpsError('invalid-argument', 'Event title and location are required');
+  }
+
+  if (!eventData.startTime || !eventData.endTime) {
+    throw new HttpsError('invalid-argument', 'Event start time and end time are required');
+  }
+
+  // Validate level-specific requirements
+  if ((level === 'group' || level === 'subgroup') && !targetId) {
+    throw new HttpsError('invalid-argument', `targetId (groupId) is required for ${level} level events`);
+  }
+
+  if (level === 'subgroup' && !subgroupId) {
+    throw new HttpsError('invalid-argument', 'subgroupId is required for subgroup level events');
+  }
+
+  const db = getFirestore();
+
+  try {
+    // 1. Validate club exists
+    const clubRef = db.collection('clubs').doc(clubId);
+    const clubDoc = await clubRef.get();
+
+    if (!clubDoc.exists) {
+      throw new HttpsError('not-found', 'Club not found');
+    }
+
+    const clubData = clubDoc.data();
+    console.log(`Club found: ${clubData?.name}`);
+
+    // 2. Check user permissions based on level
+    const userPermissions = await validateLevelBasedEventPermissions(db, userId, clubId, level, targetId);
+    
+    if (!userPermissions.canCreateEvent) {
+      throw new HttpsError('permission-denied', userPermissions.reason || 'Insufficient permissions to create events');
+    }
+
+    console.log(`User ${userId} has permission to create ${level} level event: ${userPermissions.permissionLevel}`);
+
+    // 3. Get recipient user IDs based on level
+    const recipientUserIds = await getLevelBasedRecipients(db, clubId, level, targetId, subgroupId);
+    
+    if (recipientUserIds.length === 0) {
+      throw new HttpsError('invalid-argument', `No valid recipients found for ${level} level event`);
+    }
+
+    console.log(`Found ${recipientUserIds.length} recipient users for ${level} level event`);
+
+    // 4. Create the event document
+    const eventRef = db.collection('clubs').doc(clubId).collection('events').doc();
+    const eventId = eventRef.id;
+
+    const eventDocument = {
+      // Basic event info
+      title: eventData.title.trim(),
+      description: eventData.description?.trim() || '',
+      startTime: new Date(eventData.startTime),
+      endTime: new Date(eventData.endTime),
+      location: eventData.location.trim(),
+      eventType: eventData.eventType,
+      
+      // Optional fields
+      ...(eventData.gatheringTime && { gatheringTime: new Date(eventData.gatheringTime) }),
+      ...(eventData.capacity && { capacity: eventData.capacity }),
+      
+      // Response deadline - default to start time if not specified
+      responseDeadline: eventData.responseDeadline?.enabled && eventData.responseDeadline.date
+        ? new Date(eventData.responseDeadline.date)
+        : new Date(eventData.startTime),
+      
+      // Creation metadata
+      createdBy: userId,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      status: 'active',
+      
+      // Event scope metadata (new v2 approach)
+      scope: {
+        level: level,
+        ...(targetId && { targetId: targetId }),
+        ...(subgroupId && { subgroupId: subgroupId }),
+      },
+      
+      // Recipients info
+      invitedUserIds: recipientUserIds,
+      invitedCount: recipientUserIds.length,
+      
+      // Initialize response tracking
+      responseStats: {
+        accepted: 0,
+        declined: 0,
+        maybe: 0,
+        notReplied: recipientUserIds.length,
+        total: 0
+      },
+
+      // Versioning fields
+      version: 1,
+      lastModified: FieldValue.serverTimestamp()
+    };
+
+    console.log(`Creating ${level} level event document in /clubs/${clubId}/events/${eventId}`);
+    await eventRef.set(eventDocument);
+
+    console.log(`Event ${eventId} created successfully`);
+
+    // 5. Create subcollections for recipients and stats
+    await createEventSubcollections(db, clubId, eventId, recipientUserIds);
+
+    // 6. User notifications will be handled separately via updateUserEventsInfo function
+    console.log(`${level} level event created successfully. Use updateUserEventsInfo function to notify ${recipientUserIds.length} users.`);
+
+    const response: CreateEventResponse = {
+      success: true,
+      eventId: eventId,
+      message: `Event "${eventData.title}" created successfully for ${level} with ${recipientUserIds.length} recipients`
+    };
+
+    console.log('handleLevelBasedEventCreation completed successfully:', response);
+    return response;
+
+  } catch (error) {
+    console.error('handleLevelBasedEventCreation error:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new HttpsError('internal', `Failed to create ${level} level event: ${errorMessage}`);
+  }
+}
+
+/**
+ * Handle legacy event creation (backward compatibility)
+ */
+async function handleLegacyEventCreation(
+  auth: any,
+  clubId: string,
+  eventData: any,
+  recipients: RecipientSelection
+): Promise<CreateEventResponse> {
+  
+  // Validate authentication
+  if (!auth?.uid) {
+    console.error('handleLegacyEventCreation: No authenticated user');
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const userId = auth.uid;
+
+  // Validate input
+  if (!clubId || !eventData || !recipients) {
+    throw new HttpsError('invalid-argument', 'clubId, eventData, and recipients are required');
+  }
+
+  if (!eventData.title?.trim() || !eventData.location?.trim()) {
+    throw new HttpsError('invalid-argument', 'Event title and location are required');
+  }
+
+  if (!eventData.startTime || !eventData.endTime) {
+    throw new HttpsError('invalid-argument', 'Event start time and end time are required');
+  }
+
+  const db = getFirestore();
+
+  try {
+    // 1. Validate club exists and user has permission
+    const clubRef = db.collection('clubs').doc(clubId);
+    const clubDoc = await clubRef.get();
+
+    if (!clubDoc.exists) {
+      throw new HttpsError('not-found', 'Club not found');
+    }
+
+    const clubData = clubDoc.data();
+    console.log(`Club found: ${clubData?.name}`);
+
+    // 2. Check user permissions - must be club admin or coach/admin in at least one target group
+    const userPermissions = await validateUserEventPermissions(db, userId, clubId, recipients);
+    
+    if (!userPermissions.canCreateEvent) {
+      throw new HttpsError('permission-denied', userPermissions.reason || 'Insufficient permissions to create events');
+    }
+
+    console.log(`User ${userId} has permission to create event: ${userPermissions.permissionLevel}`);
+
+    // 3. Get all recipient user IDs from the specified groups
+    const recipientUserIds = await getRecipientUserIds(db, clubId, recipients);
+    
+    if (recipientUserIds.length === 0) {
+      throw new HttpsError('invalid-argument', 'No valid recipients found for the selected groups');
+    }
+
+    console.log(`Found ${recipientUserIds.length} recipient users`);
+
+    // 4. Create the event document in club-based structure
+    const eventRef = db.collection('clubs').doc(clubId).collection('events').doc();
+    const eventId = eventRef.id;
+
+    const eventDocument = {
+      // Basic event info
+      title: eventData.title.trim(),
+      description: eventData.description?.trim() || '',
+      startTime: new Date(eventData.startTime),
+      endTime: new Date(eventData.endTime),
+      location: eventData.location.trim(),
+      eventType: eventData.eventType,
+      
+      // Optional fields
+      ...(eventData.gatheringTime && { gatheringTime: new Date(eventData.gatheringTime) }),
+      ...(eventData.capacity && { capacity: eventData.capacity }),
+      
+      // Response deadline - default to start time if not specified
+      responseDeadline: eventData.responseDeadline?.enabled && eventData.responseDeadline.date
+        ? new Date(eventData.responseDeadline.date)
+        : new Date(eventData.startTime),
+      
+      // Creation metadata
+      createdBy: userId,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      status: 'active',
+      
+      // Recipients info (legacy format)
+      recipientSelection: recipients,
+      invitedUserIds: recipientUserIds,
+      invitedCount: recipientUserIds.length,
+      
+      // Initialize response tracking
+      responseStats: {
+        accepted: 0,
+        declined: 0,
+        maybe: 0,
+        notReplied: recipientUserIds.length,
+        total: 0
+      },
+
+      // Versioning fields
+      version: 1,
+      lastModified: FieldValue.serverTimestamp()
+    };
+
+    console.log(`Creating event document in /clubs/${clubId}/events/${eventId}`);
+    await eventRef.set(eventDocument);
+
+    console.log(`Event ${eventId} created successfully`);
+
+    // 5. Create subcollections for recipients and stats
+    await createEventSubcollections(db, clubId, eventId, recipientUserIds);
+
+    // 6. User notifications will be handled separately via updateUserEventsInfo function
+    console.log(`Event created successfully. Use updateUserEventsInfo function to notify ${recipientUserIds.length} users.`);
+
+    const response: CreateEventResponse = {
+      success: true,
+      eventId: eventId,
+      message: `Event "${eventData.title}" created successfully with ${recipientUserIds.length} recipients`
+    };
+
+    console.log('handleLegacyEventCreation completed successfully:', response);
+    return response;
+
+  } catch (error) {
+    console.error('handleLegacyEventCreation error:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new HttpsError('internal', `Failed to create event: ${errorMessage}`);
+  }
+}
+
+/**
+ * Validate if user has permission to create events at the specified level
+ */
+async function validateLevelBasedEventPermissions(
+  db: FirebaseFirestore.Firestore, 
+  userId: string, 
+  clubId: string, 
+  level: 'club' | 'group' | 'subgroup',
+  targetId?: string
+): Promise<{ canCreateEvent: boolean; permissionLevel?: string; reason?: string }> {
+  
+  try {
+    // Check if user is club admin first - they can create events at any level
+    const clubMemberRef = db.collection('clubs').doc(clubId).collection('members').doc(userId);
+    const clubMemberDoc = await clubMemberRef.get();
+    
+    if (clubMemberDoc.exists) {
+      const memberData = clubMemberDoc.data();
+      const roles = memberData?.roles || [];
+      
+      if (roles.includes('admin')) {
+        return { canCreateEvent: true, permissionLevel: 'club-admin' };
+      }
+    }
+
+    // For club level events, only club admins can create them
+    if (level === 'club') {
+      return { 
+        canCreateEvent: false, 
+        reason: 'Only club admins can create club-level events' 
+      };
+    }
+
+    // For group/subgroup level events, check if user has coach/admin role in the target group
+    if ((level === 'group' || level === 'subgroup') && targetId) {
+      const groupMemberRef = db.collection('clubs').doc(clubId)
+        .collection('groups').doc(targetId)
+        .collection('allMembers').doc('members');
+      
+      const groupMemberDoc = await groupMemberRef.get();
+      
+      if (groupMemberDoc.exists) {
+        const membersData = groupMemberDoc.data();
+        const userMembership = membersData?.members?.find((member: any) => member.uid === userId);
+        
+        if (userMembership) {
+          const userRoles = userMembership.roles || [];
+          
+          if (userRoles.some((role: string) => ['coach', 'admin'].includes(role))) {
+            return { canCreateEvent: true, permissionLevel: 'group-coach-admin' };
+          }
+        }
+      }
+    }
+
+    return { 
+      canCreateEvent: false, 
+      reason: `User must be club admin or have coach/admin role in the target group for ${level} level events` 
+    };
+    
+  } catch (error) {
+    console.error('Error validating level-based permissions:', error);
+    return { 
+      canCreateEvent: false, 
+      reason: 'Error validating permissions' 
+    };
+  }
+}
+
+/**
+ * Get recipient user IDs based on event level
+ */
+async function getLevelBasedRecipients(
+  db: FirebaseFirestore.Firestore,
+  clubId: string,
+  level: 'club' | 'group' | 'subgroup',
+  targetId?: string,
+  subgroupId?: string
+): Promise<string[]> {
+  
+  try {
+    switch (level) {
+      case 'club':
+        return await getClubLevelRecipients(db, clubId);
+        
+      case 'group':
+        if (!targetId) throw new Error('targetId required for group level');
+        return await getGroupLevelRecipients(db, clubId, targetId);
+        
+      case 'subgroup':
+        if (!targetId || !subgroupId) throw new Error('targetId and subgroupId required for subgroup level');
+        return await getSubgroupLevelRecipients(db, clubId, targetId, subgroupId);
+        
+      default:
+        throw new Error(`Invalid level: ${level}`);
+    }
+  } catch (error) {
+    console.error(`Error getting ${level} level recipients:`, error);
+    return [];
+  }
+}
+
+/**
+ * Get all club members as recipients
+ */
+async function getClubLevelRecipients(
+  db: FirebaseFirestore.Firestore,
+  clubId: string
+): Promise<string[]> {
+  
+  try {
+    const clubMembersRef = db.collection('clubs').doc(clubId)
+      .collection('allMembers').doc('members');
+    
+    const clubMembersDoc = await clubMembersRef.get();
+    
+    if (!clubMembersDoc.exists) {
+      console.warn(`Club ${clubId} members not found`);
+      return [];
+    }
+
+    const membersData = clubMembersDoc.data();
+    const allMembers = membersData?.members || [];
+
+    const userIds = allMembers
+      .filter((member: any) => member.uid)
+      .map((member: any) => member.uid);
+
+    console.log(`Found ${userIds.length} club members for club ${clubId}`);
+    return userIds;
+    
+  } catch (error) {
+    console.error('Error getting club level recipients:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all group members as recipients
+ */
+async function getGroupLevelRecipients(
+  db: FirebaseFirestore.Firestore,
+  clubId: string,
+  groupId: string
+): Promise<string[]> {
+  
+  try {
+    const groupMembersRef = db.collection('clubs').doc(clubId)
+      .collection('groups').doc(groupId)
+      .collection('allMembers').doc('members');
+    
+    const groupMembersDoc = await groupMembersRef.get();
+    
+    if (!groupMembersDoc.exists) {
+      console.warn(`Group ${groupId} members not found`);
+      return [];
+    }
+
+    const membersData = groupMembersDoc.data();
+    const allMembers = membersData?.members || [];
+
+    const userIds = allMembers
+      .filter((member: any) => member.uid)
+      .map((member: any) => member.uid);
+
+    console.log(`Found ${userIds.length} group members for group ${groupId}`);
+    return userIds;
+    
+  } catch (error) {
+    console.error('Error getting group level recipients:', error);
+    return [];
+  }
+}
+
+/**
+ * Get subgroup members as recipients
+ */
+async function getSubgroupLevelRecipients(
+  db: FirebaseFirestore.Firestore,
+  clubId: string,
+  groupId: string,
+  subgroupId: string
+): Promise<string[]> {
+  
+  try {
+    const groupMembersRef = db.collection('clubs').doc(clubId)
+      .collection('groups').doc(groupId)
+      .collection('allMembers').doc('members');
+    
+    const groupMembersDoc = await groupMembersRef.get();
+    
+    if (!groupMembersDoc.exists) {
+      console.warn(`Group ${groupId} members not found for subgroup filtering`);
+      return [];
+    }
+
+    const membersData = groupMembersDoc.data();
+    const allMembers = membersData?.members || [];
+
+    // Filter members who belong to the specific subgroup
+    const subgroupMembers = allMembers.filter((member: any) => {
+      const memberSubgroups = member.belongsToSubGroups || [];
+      return memberSubgroups.includes(subgroupId) && member.uid;
+    });
+
+    const userIds = subgroupMembers.map((member: any) => member.uid);
+
+    console.log(`Found ${userIds.length} subgroup members for subgroup ${subgroupId} in group ${groupId}`);
+    return userIds;
+    
+  } catch (error) {
+    console.error('Error getting subgroup level recipients:', error);
+    return [];
   }
 }

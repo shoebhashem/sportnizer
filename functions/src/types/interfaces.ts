@@ -372,6 +372,7 @@ export interface EventData {
   };
 }
 
+// Legacy interface - keep for backward compatibility
 export interface RecipientSelection {
   type: 'selected-groups';
   groups: {
@@ -383,6 +384,16 @@ export interface RecipientSelection {
   totalCount: number;
 }
 
+// New level-based event creation interface
+export interface CreateEventRequestV2 {
+  clubId: string;
+  level: 'club' | 'group' | 'subgroup';
+  targetId?: string; // groupId when level is 'group' or 'subgroup'
+  subgroupId?: string; // subgroupId when level is 'subgroup'
+  eventData: EventData;
+}
+
+// Legacy interface - keep for backward compatibility
 export interface CreateEventRequest {
   clubId: string;
   eventData: EventData;

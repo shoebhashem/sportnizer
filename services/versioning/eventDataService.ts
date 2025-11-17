@@ -157,3 +157,63 @@ export async function fetchUserEventsWithVersioning(
     };
   }
 }
+
+/**
+ * Fetch user's invited events with version checking
+ * This fetches only events where the specific user is invited
+ */
+export async function fetchUserInvitedEventsWithVersioning(
+  userId: string,
+  accessibleClubIds: string[]
+): Promise<FetchResult<any[]>> {
+  try {
+    console.log(`👤 Fetching user invited events for: ${userId} across ${accessibleClubIds.length} clubs`);
+
+    const cacheKey = CACHE_KEYS.USER_INVITED_EVENTS(userId);
+    
+    // For user invited events, we'll collect from multiple clubs
+    const userInvitedEvents: any[] = [];
+    let maxVersion = 1;
+    
+    for (const clubId of accessibleClubIds) {
+      // Fetch all events from this club
+      const clubEventsResult = await fetchClubEventsWithVersioning(clubId);
+      
+      if (clubEventsResult.success && clubEventsResult.data) {
+        // Filter events where user is invited
+        const userEvents = clubEventsResult.data.filter((event: any) => {
+          return event.invitedUserIds && event.invitedUserIds.includes(userId);
+        });
+        
+        userInvitedEvents.push(...userEvents);
+        
+        if (clubEventsResult.version && clubEventsResult.version > maxVersion) {
+          maxVersion = clubEventsResult.version;
+        }
+      }
+    }
+
+    // Sort all events by start time (newest first)
+    userInvitedEvents.sort((a, b) => {
+      const aTime = a.startTime?.toDate ? a.startTime.toDate() : new Date(a.startTime);
+      const bTime = b.startTime?.toDate ? b.startTime.toDate() : new Date(b.startTime);
+      return bTime.getTime() - aTime.getTime();
+    });
+
+    // Cache the result
+    await saveToCacheWithVersion(cacheKey, userInvitedEvents, maxVersion);
+
+    console.log(`✅ User invited events fetched: ${userInvitedEvents.length} events for user ${userId}`);
+    return {
+      success: true,
+      data: userInvitedEvents,
+      version: maxVersion,
+    };
+  } catch (error) {
+    console.error(`❌ Error fetching user invited events:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}

@@ -32,7 +32,8 @@ import {
 import {
     fetchClubEventsWithVersioning,
     fetchEventDataWithVersioning,
-    fetchUserEventsWithVersioning
+    fetchUserEventsWithVersioning,
+    fetchUserInvitedEventsWithVersioning
 } from "@/services/versioning/eventDataService";
 import {
     fetchGroupDataWithVersioning,
@@ -62,6 +63,7 @@ interface UserContextType {
   fetchEventData: (clubId: string, eventId: string) => Promise<any>;
   fetchClubEvents: (clubId: string) => Promise<any>;
   fetchUserEvents: () => Promise<any>;
+  fetchUserInvitedEvents: () => Promise<any>;
   refreshClubMemberships: () => Promise<void>;
   refreshGroupMemberships: () => Promise<void>;
   clearVersionCache: () => Promise<void>;
@@ -271,6 +273,16 @@ export function UserProvider({ children }: UserProviderProps) {
     return await fetchUserEventsWithVersioning(accessibleClubIds);
   }, [userProfile]);
 
+  const fetchUserInvitedEvents = useCallback(async () => {
+    // Get user's invited events (events where they are specifically invited)
+    if (!userProfile?.uid || !userProfile?.clubs || userProfile.clubs.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    const accessibleClubIds = userProfile.clubs.map(club => club.clubId);
+    return await fetchUserInvitedEventsWithVersioning(userProfile.uid, accessibleClubIds);
+  }, [userProfile]);
+
   const refreshClubMemberships = useCallback(async () => {
     if (!userProfile?.clubs || userProfile.clubs.length === 0) return;
 
@@ -375,6 +387,7 @@ export function UserProvider({ children }: UserProviderProps) {
     fetchEventData,
     fetchClubEvents,
     fetchUserEvents,
+    fetchUserInvitedEvents,
     refreshClubMemberships,
     refreshGroupMemberships,
     clearVersionCache,
@@ -470,6 +483,7 @@ export function useVersionedData() {
     fetchEventData,
     fetchClubEvents,
     fetchUserEvents,
+    fetchUserInvitedEvents,
     refreshClubMemberships,
     refreshGroupMemberships,
     clearVersionCache 
@@ -483,6 +497,7 @@ export function useVersionedData() {
     fetchEventData,
     fetchClubEvents,
     fetchUserEvents,
+    fetchUserInvitedEvents,
     refreshClubMemberships,
     refreshGroupMemberships,
     clearVersionCache,

@@ -56,6 +56,7 @@ export const CACHE_KEYS = {
   GROUP_MEMBERS: (groupId: string) => `group_members_${groupId}`,
   EVENT_DATA: (eventId: string) => `event_data_${eventId}`,
   CLUB_EVENTS: (clubId: string) => `club_events_${clubId}`,
+  USER_INVITED_EVENTS: (userId: string) => `user_invited_events_${userId}`,
   VERSION_METADATA: 'version_metadata',
 } as const;
 
