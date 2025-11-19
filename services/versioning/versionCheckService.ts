@@ -18,21 +18,37 @@ export async function checkDocumentVersion<T>(
   try {
     console.log(`🔄 Checking version for: ${documentPath}`);
 
-    // Get remote version
-    const docRef = doc(db, documentPath);
-    const docSnap = await getDoc(docRef);
+    let remoteVersion = 0;
+    let isOffline = false;
 
-    if (!docSnap.exists()) {
-      console.warn(`⚠️ Document not found: ${documentPath}`);
-      return {
-        needsUpdate: false,
-        localVersion: 0,
-        remoteVersion: 0,
-      };
+    try {
+      // Get remote version
+      const docRef = doc(db, documentPath);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        console.warn(`⚠️ Document not found: ${documentPath}`);
+        return {
+          needsUpdate: false,
+          localVersion: 0,
+          remoteVersion: 0,
+        };
+      }
+
+      const docData = docSnap.data();
+      remoteVersion = docData.version || 1;
+    } catch (firebaseError: any) {
+      // Handle offline scenarios
+      if (firebaseError.code === 'unavailable' || 
+          firebaseError.message?.includes('offline') || 
+          firebaseError.message?.includes('Failed to get document because the client is offline')) {
+        console.warn(`📱 Offline mode detected for ${documentPath}, using cached data only`);
+        isOffline = true;
+        remoteVersion = 0; // Will fallback to cache
+      } else {
+        throw firebaseError; // Re-throw non-offline errors
+      }
     }
-
-    const docData = docSnap.data();
-    const remoteVersion = docData.version || 1;
 
     console.log(`📄 Remote version for ${documentPath}: ${remoteVersion}`);
 
@@ -47,13 +63,15 @@ export async function checkDocumentVersion<T>(
         localVersion = parsedCache.version || 0;
         cachedData = parsedCache.data;
         
-        // Check if cache is expired
-        const lastFetched = new Date(parsedCache.lastFetched);
-        const hoursSinceCache = (Date.now() - lastFetched.getTime()) / (1000 * 60 * 60);
-        
-        if (hoursSinceCache > VERSION_CONFIG.CACHE_EXPIRY_HOURS) {
-          console.log(`⏰ Cache expired for ${documentPath}, forcing refresh`);
-          localVersion = 0; // Force update
+        // Check if cache is expired (only if we're online)
+        if (!isOffline) {
+          const lastFetched = new Date(parsedCache.lastFetched);
+          const hoursSinceCache = (Date.now() - lastFetched.getTime()) / (1000 * 60 * 60);
+          
+          if (hoursSinceCache > VERSION_CONFIG.CACHE_EXPIRY_HOURS) {
+            console.log(`⏰ Cache expired for ${documentPath}, forcing refresh`);
+            localVersion = 0; // Force update
+          }
         }
       } catch (error) {
         console.error(`❌ Error parsing cached data for ${documentPath}:`, error);
@@ -63,6 +81,29 @@ export async function checkDocumentVersion<T>(
 
     console.log(`💾 Local version for ${documentPath}: ${localVersion}`);
 
+    // If offline and we have cached data, use it regardless of version
+    if (isOffline && cachedData) {
+      console.log(`📱 Using cached data for ${documentPath} (offline mode)`);
+      return {
+        needsUpdate: false,
+        localVersion,
+        remoteVersion: localVersion, // Treat as up-to-date when offline
+        data: cachedData,
+      };
+    }
+
+    // If offline but no cached data, return empty result
+    if (isOffline && !cachedData) {
+      console.warn(`📱 No cached data available for ${documentPath} (offline mode)`);
+      return {
+        needsUpdate: false,
+        localVersion: 0,
+        remoteVersion: 0,
+        data: undefined,
+      };
+    }
+
+    // Normal online behavior
     const needsUpdate = remoteVersion > localVersion;
 
     return {

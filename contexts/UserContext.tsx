@@ -4,9 +4,7 @@ import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import {
     doc,
     getDoc,
-    onSnapshot,
     QueryDocumentSnapshot,
-    Unsubscribe,
 } from "firebase/firestore";
 import React, {
     createContext,
@@ -21,30 +19,50 @@ import { storage } from "../utils/CrossPlatformStorage";
 
 // Import domain types
 import { AccessibleGroupData, fetchAccessibleGroups } from "@/services/group/fetchAccessibleGroupsService";
-import { ClubMembership, GroupMembership, UserProfile } from "@/services/types/user";
+import { UserProfile } from "@/services/types/user";
 
 // Import versioning services
 import {
     fetchClubDataWithVersioning,
-    fetchClubMembersWithVersioning,
-    fetchUserClubMembershipsWithVersioning
+    fetchClubMembersWithVersioning
 } from "@/services/versioning/clubDataService";
 import {
     fetchClubEventsWithVersioning,
-    fetchEventDataWithVersioning,
-    fetchUserEventsWithVersioning,
-    fetchUserInvitedEventsWithVersioning
+    fetchEventDataWithVersioning
 } from "@/services/versioning/eventDataService";
 import {
     fetchGroupDataWithVersioning,
-    fetchGroupMembersWithVersioning,
-    fetchUserGroupMembershipsWithVersioning
+    fetchGroupMembersWithVersioning
 } from "@/services/versioning/groupDataService";
 import { clearAllVersionCache } from "@/services/versioning/versionCheckService";
+
+// Types for UserContext master document (enriched with full data)
+interface UserClubMembership {
+  clubId: string;
+  clubName: string;
+  role: string; // User's role in club
+  joinedAt: Date;
+  lastModifiedAt: Date;
+  // Enriched data from club document
+  clubData?: any; // Full club document data
+}
+
+interface UserGroupMembership {
+  clubId: string;
+  groupId: string;
+  groupName: string;
+  roles: string[]; // User's roles in group
+  joinedAt: Date;
+  lastModifiedAt: Date;
+  // Enriched data from group document  
+  groupData?: any; // Full group document data
+}
 
 interface UserContextType {
   firebaseUser: FirebaseUser | null;
   userProfile: UserProfile | null;
+  userClubs: UserClubMembership[];
+  userGroups: UserGroupMembership[];
   isLoading: boolean;
   isAuthenticated: boolean;
 
@@ -64,8 +82,9 @@ interface UserContextType {
   fetchClubEvents: (clubId: string) => Promise<any>;
   fetchUserEvents: () => Promise<any>;
   fetchUserInvitedEvents: () => Promise<any>;
-  refreshClubMemberships: () => Promise<void>;
-  refreshGroupMemberships: () => Promise<void>;
+  refreshUserMemberships: () => Promise<void>;
+  buildUserClubsFromAccess: () => Promise<void>;
+  buildUserGroupsFromAccess: () => Promise<void>;
   clearVersionCache: () => Promise<void>;
 }
 
@@ -89,31 +108,22 @@ const convertFirestoreDataToUserProfile = (snapshot: QueryDocumentSnapshot): Use
     phoneNumber: data.phoneNumber,
     dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toDate() : undefined,
     address: data.address,
-    clubs:
-      (data.clubs || []).map((club: any): ClubMembership => ({
-        clubId: club.clubId,
-        clubName: club.clubName,
-        isAdmin: club.isAdmin,
-        joinedAt: club.joinedAt?.toDate
-          ? club.joinedAt.toDate()
-          : new Date(club.joinedAt),
-        lastModifiedAt: club.lastModifiedAt?.toDate
-          ? club.lastModifiedAt.toDate()
-          : new Date(club.lastModifiedAt),
-      })) || [],
-    groupsJoined:
-      (data.groupsJoined || []).map((group: any): GroupMembership => ({
-        clubId: group.clubId,
-        groupId: group.groupId,
-        groupName: group.groupName,
-        roles: group.roles || [],
-        joinedAt: group.joinedAt?.toDate
-          ? group.joinedAt.toDate()
-          : new Date(group.joinedAt),
-        lastModifiedAt: group.lastModifiedAt?.toDate
-          ? group.lastModifiedAt.toDate()
-          : new Date(group.lastModifiedAt),
-      })) || [],
+    // New access-based structure - supports backward compatibility
+    clubAccess: (data.clubAccess || data.clubs || []).map((club: any) => ({
+      clubId: club.clubId,
+      clubName: club.clubName,
+      role: club.role || (club.isAdmin ? 'club-admin' : 'member'),
+      joinedAt: club.joinedAt?.toDate ? club.joinedAt.toDate() : new Date(club.joinedAt),
+      lastModifiedAt: club.lastModifiedAt?.toDate ? club.lastModifiedAt.toDate() : new Date(club.lastModifiedAt),
+    })),
+    groupAccess: (data.groupAccess || data.groupsJoined || []).map((group: any) => ({
+      groupId: group.groupId,
+      groupName: group.groupName,
+      clubId: group.clubId,
+      roles: group.roles || [],
+      joinedAt: group.joinedAt?.toDate ? group.joinedAt.toDate() : new Date(group.joinedAt),
+      lastModifiedAt: group.lastModifiedAt?.toDate ? group.lastModifiedAt.toDate() : new Date(group.lastModifiedAt),
+    })),
     groupsCreated: data.groupsCreated ?? 0,
     events: data.events || [],
     eventsResponses: data.eventsResponses || [],
@@ -140,11 +150,12 @@ interface UserProviderProps {
 export function UserProvider({ children }: UserProviderProps) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userClubs, setUserClubs] = useState<UserClubMembership[]>([]);
+  const [userGroups, setUserGroups] = useState<UserGroupMembership[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFromCache, setIsFromCache] = useState(false);
   const [lastCacheUpdate, setLastCacheUpdate] = useState<Date | null>(null);
-  const [unsubscribeProfile, setUnsubscribeProfile] =
-    useState<Unsubscribe | null>(null);
+  // Removed unsubscribeProfile - no longer using real-time listeners
 
   const isAuthenticated = !!firebaseUser && !!userProfile;
 
@@ -230,13 +241,15 @@ export function UserProvider({ children }: UserProviderProps) {
   );
 
   const clearUserData = useCallback(async () => {
-    if (unsubscribeProfile) unsubscribeProfile();
+    // No longer need to handle unsubscribeProfile
     setUserProfile(null);
+    setUserClubs([]);
+    setUserGroups([]);
     setFirebaseUser(null);
     setIsFromCache(false);
     setLastCacheUpdate(null);
     await clearCache();
-  }, [unsubscribeProfile, clearCache]);
+  }, [clearCache]);
 
   // Versioned data fetching methods
   const fetchClubData = useCallback(async (clubId: string) => {
@@ -264,58 +277,151 @@ export function UserProvider({ children }: UserProviderProps) {
   }, []);
 
   const fetchUserEvents = useCallback(async () => {
-    // Get accessible club IDs based on user's memberships and permissions
-    if (!userProfile?.clubs || userProfile.clubs.length === 0) {
-      return { success: true, data: [] };
-    }
-
-    const accessibleClubIds = userProfile.clubs.map(club => club.clubId);
-    return await fetchUserEventsWithVersioning(accessibleClubIds);
-  }, [userProfile]);
+    // TODO: Implement with userClubs state instead of userProfile.clubs
+    return { success: true, data: [] };
+  }, []);
 
   const fetchUserInvitedEvents = useCallback(async () => {
-    // Get user's invited events (events where they are specifically invited)
-    if (!userProfile?.uid || !userProfile?.clubs || userProfile.clubs.length === 0) {
-      return { success: true, data: [] };
+    // TODO: Implement with userClubs state instead of userProfile.clubs
+    return { success: true, data: [] };
+  }, []);
+
+  // Build master document: Fetch and enrich user's club access with full club data
+  const buildUserClubsFromAccess = useCallback(async () => {
+    if (!userProfile?.clubAccess || userProfile.clubAccess.length === 0) {
+      setUserClubs([]);
+      return;
     }
 
-    const accessibleClubIds = userProfile.clubs.map(club => club.clubId);
-    return await fetchUserInvitedEventsWithVersioning(userProfile.uid, accessibleClubIds);
+    console.log('🏢 Building user clubs from clubAccess...');
+    
+    try {
+      const enrichedClubs: UserClubMembership[] = [];
+      
+      for (const clubAccess of userProfile.clubAccess) {
+        try {
+          // Fetch club data with versioning
+          const clubDataResult = await fetchClubDataWithVersioning(clubAccess.clubId);
+          
+          enrichedClubs.push({
+            clubId: clubAccess.clubId,
+            clubName: clubAccess.clubName,
+            role: clubAccess.role,
+            joinedAt: clubAccess.joinedAt,
+            lastModifiedAt: clubAccess.lastModifiedAt,
+            clubData: clubDataResult.success ? clubDataResult.data : null,
+          });
+        } catch (clubError) {
+          console.warn(`⚠️ Failed to fetch club ${clubAccess.clubId}, adding basic info only:`, clubError);
+          
+          // Add basic club info even if fetch fails (e.g., offline mode)
+          enrichedClubs.push({
+            clubId: clubAccess.clubId,
+            clubName: clubAccess.clubName,
+            role: clubAccess.role,
+            joinedAt: clubAccess.joinedAt,
+            lastModifiedAt: clubAccess.lastModifiedAt,
+            clubData: null, // No enriched data available
+          });
+        }
+      }
+      
+      setUserClubs(enrichedClubs);
+      console.log(`✅ Built ${enrichedClubs.length} user clubs from access`);
+      
+    } catch (error) {
+      console.error('❌ Error building user clubs:', error);
+      // Even if there's an error, try to set basic clubs from access without enriched data
+      const basicClubs = userProfile.clubAccess.map(clubAccess => ({
+        clubId: clubAccess.clubId,
+        clubName: clubAccess.clubName,
+        role: clubAccess.role,
+        joinedAt: clubAccess.joinedAt,
+        lastModifiedAt: clubAccess.lastModifiedAt,
+        clubData: null,
+      }));
+      setUserClubs(basicClubs);
+      console.log(`⚠️ Set ${basicClubs.length} basic clubs after error`);
+    }
+  }, [userProfile?.clubAccess]);
+
+  // Build master document: Fetch and enrich user's group access + club-admin group access
+  const buildUserGroupsFromAccess = useCallback(async () => {
+    if (!userProfile) {
+      setUserGroups([]);
+      return;
+    }
+
+    console.log('👥 Building user groups from access...');
+    
+    try {
+      const enrichedGroups: UserGroupMembership[] = [];
+      const processedGroupIds = new Set<string>();
+
+      // 1. Add groups from direct groupAccess
+      for (const groupAccess of userProfile.groupAccess || []) {
+        if (!processedGroupIds.has(groupAccess.groupId)) {
+          try {
+            const groupDataResult = await fetchGroupDataWithVersioning(groupAccess.clubId, groupAccess.groupId);
+            
+            enrichedGroups.push({
+              clubId: groupAccess.clubId,
+              groupId: groupAccess.groupId,
+              groupName: groupAccess.groupName,
+              roles: groupAccess.roles,
+              joinedAt: groupAccess.joinedAt,
+              lastModifiedAt: groupAccess.lastModifiedAt,
+              groupData: groupDataResult.success ? groupDataResult.data : null,
+            });
+            
+            processedGroupIds.add(groupAccess.groupId);
+          } catch (groupError) {
+            console.warn(`⚠️ Failed to fetch group ${groupAccess.groupId}, adding basic info only:`, groupError);
+            
+            // Add basic group info even if fetch fails (e.g., offline mode)
+            enrichedGroups.push({
+              clubId: groupAccess.clubId,
+              groupId: groupAccess.groupId,
+              groupName: groupAccess.groupName,
+              roles: groupAccess.roles,
+              joinedAt: groupAccess.joinedAt,
+              lastModifiedAt: groupAccess.lastModifiedAt,
+              groupData: null, // No enriched data available
+            });
+            
+            processedGroupIds.add(groupAccess.groupId);
+          }
+        }
+      }
+
+      // 2. Add ALL groups from clubs where user is club-admin
+      for (const clubAccess of userProfile.clubAccess || []) {
+        if (clubAccess.role === 'club-admin') {
+          console.log(`� User is club-admin of ${clubAccess.clubName}, fetching all groups...`);
+          
+          // TODO: Implement fetchAllGroupsInClub with versioning
+          // This should fetch all groups in the club and add them with club-admin privileges
+          // For now, this is a placeholder
+        }
+      }
+
+      setUserGroups(enrichedGroups);
+      console.log(`✅ Built ${enrichedGroups.length} user groups from access`);
+      
+    } catch (error) {
+      console.error('❌ Error building user groups:', error);
+    }
   }, [userProfile]);
 
-  const refreshClubMemberships = useCallback(async () => {
-    if (!userProfile?.clubs || userProfile.clubs.length === 0) return;
-
-    console.log('🔄 Refreshing club memberships with versioning...');
-    const result = await fetchUserClubMembershipsWithVersioning(userProfile.clubs);
-    
-    if (result.success && result.data) {
-      const updatedProfile = {
-        ...userProfile,
-        clubs: result.data,
-      };
-      setUserProfile(updatedProfile);
-      await saveToCache(updatedProfile);
-      console.log('✅ Club memberships refreshed successfully');
-    }
-  }, [userProfile, saveToCache]);
-
-  const refreshGroupMemberships = useCallback(async () => {
-    if (!userProfile?.groupsJoined || userProfile.groupsJoined.length === 0) return;
-
-    console.log('🔄 Refreshing group memberships with versioning...');
-    const result = await fetchUserGroupMembershipsWithVersioning(userProfile.groupsJoined);
-    
-    if (result.success && result.data) {
-      const updatedProfile = {
-        ...userProfile,
-        groupsJoined: result.data,
-      };
-      setUserProfile(updatedProfile);
-      await saveToCache(updatedProfile);
-      console.log('✅ Group memberships refreshed successfully');
-    }
-  }, [userProfile, saveToCache]);
+  // Refresh both clubs and groups (master document refresh)
+  const refreshUserMemberships = useCallback(async () => {
+    console.log('🔄 Refreshing user memberships (master document)...');
+    await Promise.all([
+      buildUserClubsFromAccess(),
+      buildUserGroupsFromAccess(),
+    ]);
+    console.log('✅ Master document refresh completed');
+  }, [buildUserClubsFromAccess, buildUserGroupsFromAccess]);
 
   const clearVersionCache = useCallback(async () => {
     console.log('🗑️ Clearing version cache...');
@@ -323,40 +429,41 @@ export function UserProvider({ children }: UserProviderProps) {
     console.log('✅ Version cache cleared');
   }, []);
 
-  // 🔹 Auth + Firestore listener
+  // Trigger master document build when userProfile changes
   useEffect(() => {
-    let currentUnsubscribeProfile: Unsubscribe | null = null;
+    if (userProfile && (userProfile.clubAccess?.length > 0 || userProfile.groupAccess?.length > 0)) {
+      console.log('🔄 UserProfile updated, rebuilding master document...');
+      refreshUserMemberships();
+    }
+  }, [userProfile, refreshUserMemberships]);
+
+  // 🔹 Auth + Manual Profile Fetching (No Real-time Listener)
+  useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
 
-      if (currentUnsubscribeProfile) {
-        currentUnsubscribeProfile();
-        currentUnsubscribeProfile = null;
-      }
-
       if (user) {
+        // Load cached user profile first
         const cached = await loadFromCache();
         if (cached && cached.uid === user.uid) {
           setUserProfile(cached);
         }
-        const userDocRef = doc(db, "users", user.uid);
-        currentUnsubscribeProfile = onSnapshot(
-          userDocRef,
-          (docSnapshot) => {
-            if (docSnapshot.exists()) {
-              const profile = convertFirestoreDataToUserProfile(docSnapshot);
-              setUserProfile(profile);
-              saveToCache(profile);
-            } else {
-              setUserProfile(null);
-              clearCache();
-            }
-          },
-          (err) => console.error("Error listening to user profile:", err)
-        );
-        setUnsubscribeProfile(() => currentUnsubscribeProfile);
+        
+        // Manually fetch fresh profile data with version checking
+        // This replaces the real-time listener approach
+        try {
+          await refreshUserProfile();
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          // If fresh fetch fails, keep cached data if available
+          if (!cached) {
+            setUserProfile(null);
+          }
+        }
       } else {
         setUserProfile(null);
+        setUserClubs([]);
+        setUserGroups([]);
         setFirebaseUser(null);
         clearCache();
       }
@@ -365,13 +472,14 @@ export function UserProvider({ children }: UserProviderProps) {
 
     return () => {
       unsubscribeAuth();
-      if (currentUnsubscribeProfile) currentUnsubscribeProfile();
     };
-  }, [loadFromCache, saveToCache, clearCache]);
+  }, [loadFromCache, saveToCache, clearCache, refreshUserProfile]);
 
   const value: UserContextType = {
     firebaseUser,
     userProfile,
+    userClubs,
+    userGroups,
     isLoading,
     isAuthenticated,
     refreshUserProfile,
@@ -388,8 +496,9 @@ export function UserProvider({ children }: UserProviderProps) {
     fetchClubEvents,
     fetchUserEvents,
     fetchUserInvitedEvents,
-    refreshClubMemberships,
-    refreshGroupMemberships,
+    refreshUserMemberships,
+    buildUserClubsFromAccess,
+    buildUserGroupsFromAccess,
     clearVersionCache,
   };
 
@@ -409,12 +518,12 @@ export function useUserProfile() {
   return { userProfile, isLoading };
 }
 export function useUserClubs() {
-  const { userProfile } = useUser();
-  return userProfile?.clubs || [];
+  const { userClubs } = useUser();
+  return userClubs;
 }
 export function useUserGroups() {
-  const { userProfile } = useUser();
-  return userProfile?.groupsJoined || [];
+  const { userGroups } = useUser();
+  return userGroups;
 }
 
 /**
@@ -435,8 +544,8 @@ export function useUserAccessibleGroups() {
 
     console.log('🔄 useUserAccessibleGroups: User profile changed, refetching groups...', {
       uid: userProfile.uid,
-      groupsJoinedCount: userProfile.groupsJoined?.length || 0,
-      clubs: userProfile.clubs?.length || 0
+      groupsJoinedCount: 0, // TODO: Implement with versioning services
+      clubs: 0 // TODO: Implement with versioning services
     });
 
     const fetchGroups = async () => {
@@ -484,8 +593,9 @@ export function useVersionedData() {
     fetchClubEvents,
     fetchUserEvents,
     fetchUserInvitedEvents,
-    refreshClubMemberships,
-    refreshGroupMemberships,
+    refreshUserMemberships,
+    buildUserClubsFromAccess,
+    buildUserGroupsFromAccess,
     clearVersionCache 
   } = useUser();
 
@@ -498,8 +608,9 @@ export function useVersionedData() {
     fetchClubEvents,
     fetchUserEvents,
     fetchUserInvitedEvents,
-    refreshClubMemberships,
-    refreshGroupMemberships,
+    refreshUserMemberships,
+    buildUserClubsFromAccess,
+    buildUserGroupsFromAccess,
     clearVersionCache,
   };
 }

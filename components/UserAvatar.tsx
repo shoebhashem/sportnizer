@@ -1,10 +1,11 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
     Image,
     Modal,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -14,46 +15,34 @@ import {
 import { getDefaultProfilePicture } from '../constants/profilePictures';
 import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { useUserClubs, useUserGroups, useUserProfile } from '../contexts/UserContext';
 import { signOutUser } from '../services/auth/authService';
-import { getUserProfile, UserProfile } from '../services/user/userService';
+
 import Button from './Button';
 import ConfirmationModal from './ConfirmationModal';
-import ProfilePictureUpload from './ProfilePictureUpload';
 
 export default function UserAvatar() {
   const { user } = useAuth();
   const router = useRouter();
+  const { userProfile } = useUserProfile();
+  const userClubs = useUserClubs();
+  const userGroups = useUserGroups();
+  
   const [modalVisible, setModalVisible] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
 
-  // Fetch user profile to get profile picture
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (user?.uid) {
-        // console.log('Fetching user profile for:', user.uid);
-        const profile = await getUserProfile(user.uid);
-        // console.log('User profile loaded:', profile);
-        setUserProfile(profile);
-      }
-    };
-    
-    fetchUserProfile();
-  }, [user?.uid]);
+  if (!user || !userProfile) return null;
 
-  if (!user) return null;
-/*
   // Debug: Log the current state
   console.log('UserAvatar Debug:', {
     'user.photoURL': user.photoURL,
     'user.displayName': user.displayName,
     'userProfile': userProfile,
     'userProfile?.photoURL': userProfile?.photoURL,
-    'userProfile?.name': userProfile?.name
+    'userProfile?.displayName': userProfile?.displayName
   });
-*/
+
   const handleSignOutPress = () => {
     setModalVisible(false); // Close profile modal first
     setShowSignOutModal(true); // Show sign out confirmation
@@ -85,15 +74,8 @@ export default function UserAvatar() {
 
   const handleEditProfile = () => {
     setModalVisible(false);
-    setShowUploadModal(true);
-  };
-
-  const handleProfilePictureSuccess = (newImageUrl: string) => {
-    // Update the userProfile state with the new image URL
-    setUserProfile(prev => prev ? {
-      ...prev,
-      photoURL: newImageUrl
-    } : null);
+    // Navigate to edit profile screen
+    router.push('/edit-profile');
   };
 
   const getInitials = (email: string) => {
@@ -102,9 +84,9 @@ export default function UserAvatar() {
   };
 
   const getUserDisplayName = () => {
-    // Prioritize userProfile name from Firestore (most up-to-date)
-    if (userProfile?.name) {
-      return userProfile.name;
+    // Prioritize userProfile displayName from Firestore (most up-to-date)
+    if (userProfile?.displayName) {
+      return userProfile.displayName;
     }
     // Fallback to Firebase Auth displayName (but clean it up if it looks like an email)
     if (user.displayName) {
@@ -123,12 +105,12 @@ export default function UserAvatar() {
     const emailName = user.email?.split('@')[0] || 'User';
     return emailName.charAt(0).toUpperCase() + emailName.slice(1).toLowerCase();
   };
-/*
+
   // Debug: Log the display name result
   console.log('UserAvatar Display Name Debug:', {
     'Final display name': getUserDisplayName()
   });
-*/
+
   return (
     <>
       {/* Avatar Button */}
@@ -195,11 +177,62 @@ export default function UserAvatar() {
               </View>
 
               {/* User Info */}
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>{getUserDisplayName()}</Text>
-                <Text style={styles.userEmail}>{user.email}</Text>
-                <Text style={styles.userRole}>Member</Text>
-              </View>
+              <ScrollView style={styles.userInfoScroll} showsVerticalScrollIndicator={false}>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{getUserDisplayName()}</Text>
+                  <Text style={styles.userEmail}>{userProfile?.email || user.email}</Text>
+                  
+                  {/* Phone Number */}
+                  {userProfile?.phoneNumber && (
+                    <Text style={styles.userDetail}>📞 {userProfile.phoneNumber}</Text>
+                  )}
+                  
+                  {/* Date of Birth */}
+                  {userProfile?.dateOfBirth && (
+                    <Text style={styles.userDetail}>
+                      🎂 {new Date(userProfile.dateOfBirth).toLocaleDateString()}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Clubs Section */}
+                {userClubs && userClubs.length > 0 && (
+                  <View style={styles.membershipSection}>
+                    <Text style={styles.sectionTitle}>🏢 Clubs</Text>
+                    {userClubs.map((club, index) => (
+                      <View key={`club-${index}`} style={styles.membershipItem}>
+                        <Text style={styles.membershipName}>{club.clubName}</Text>
+                        <View style={styles.rolesContainer}>
+                          {club.roles?.map((role: string, roleIndex: number) => (
+                            <Text key={`club-role-${roleIndex}`} style={styles.roleTag}>
+                              {role}
+                            </Text>
+                          )) || <Text style={styles.roleTag}>Member</Text>}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Groups Section */}
+                {userGroups && userGroups.length > 0 && (
+                  <View style={styles.membershipSection}>
+                    <Text style={styles.sectionTitle}>👥 Groups</Text>
+                    {userGroups.map((group, index) => (
+                      <View key={`group-${index}`} style={styles.membershipItem}>
+                        <Text style={styles.membershipName}>{group.groupName}</Text>
+                        <View style={styles.rolesContainer}>
+                          {group.roles?.map((role: string, roleIndex: number) => (
+                            <Text key={`group-role-${roleIndex}`} style={styles.roleTag}>
+                              {role}
+                            </Text>
+                          )) || <Text style={styles.roleTag}>Member</Text>}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </ScrollView>
 
               {/* Action Buttons */}
               <View style={styles.actionButtons}>
@@ -241,13 +274,6 @@ export default function UserAvatar() {
         confirmButtonTheme="primary"
       />
 
-      {/* Profile Picture Upload Modal */}
-      <ProfilePictureUpload
-        visible={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onSuccess={handleProfilePictureSuccess}
-        currentImageUrl={user.photoURL || userProfile?.photoURL}
-      />
     </>
   );
 }
@@ -376,5 +402,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  userInfoScroll: {
+    maxHeight: 300,
+    marginBottom: 15,
+  },
+  userDetail: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginBottom: 3,
+    textAlign: 'center',
+  },
+  membershipSection: {
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  membershipItem: {
+    backgroundColor: theme.colors.secondary + '10',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.secondary,
+  },
+  membershipName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 6,
+  },
+  rolesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  roleTag: {
+    backgroundColor: theme.colors.secondary,
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '500',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    overflow: 'hidden',
   },
 });

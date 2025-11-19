@@ -1,5 +1,4 @@
-import type { ClubMembership } from './club';
-import type { GroupMembership } from './group';
+// ClubMembership and GroupMembership now fetched via versioning services
 
 export interface UserProfile {
   uid: string;
@@ -15,31 +14,32 @@ export interface UserProfile {
     zipCode?: string;
     country?: string;
   };
-  clubs: ClubMembership[];
-  groupsJoined: GroupMembership[]; // Changed from 'groups' to match actual usage in codebase
+  // Updated to new access-based structure
+  clubAccess: ClubAccess[];
+  groupAccess: GroupAccess[];
   groupsCreated?: number;
   events: EventInvitation[];
-  eventsResponses: EvenstResponses[];
-  emailVerified?: boolean;
+  eventsResponses: any[]; // TODO: Define proper EventResponses type
   verificationStatus?: 'pending' | 'verified' | 'rejected';
   createdAt?: Date;
   lastActive?: Date;
 }
 
-export interface ClubMembership {
+// New access interfaces for user document
+export interface ClubAccess {
   clubId: string;
   clubName: string;
-  isAdmin: boolean;
+  role: 'club-admin' | 'admin' | 'member'; // role in the club
   joinedAt: Date;
   lastModifiedAt: Date;
 }
 
-export interface GroupMembership {
+export interface GroupAccess {
   groupId: string;
-  clubId: string;
   groupName: string;
-  roles: string[]; // e.g., ['admin', 'coach', 'member', 'guardian']
-  joinedAt?: Date;
+  clubId: string;
+  roles: string[]; // roles in the group (e.g., ['coach', 'member'])
+  joinedAt: Date;
   lastModifiedAt: Date;
 }
 
