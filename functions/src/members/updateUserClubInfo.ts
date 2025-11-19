@@ -32,10 +32,10 @@ export const updateUserClubInfo = onCall(
       }
 
       const userData = userDoc.data();
-      let clubs = userData?.clubs || [];
+      let clubAccess = userData?.clubAccess || userData?.clubs || []; // Support backward compatibility
 
       // Check if club membership already exists
-      const existingClubIndex = clubs.findIndex((club: any) => club.clubId === clubInfo.clubId);
+      const existingClubIndex = clubAccess.findIndex((club: any) => club.clubId === clubInfo.clubId);
       
       if (existingClubIndex !== -1) {
         return {
@@ -44,18 +44,18 @@ export const updateUserClubInfo = onCall(
         };
       }
 
-      // Add new club membership
-      clubs.push({
+      // Add new club membership with new structure
+      clubAccess.push({
         clubId: clubInfo.clubId,
         clubName: clubInfo.clubName,
-        isAdmin: clubInfo.isAdmin || false,
+        role: clubInfo.isAdmin ? 'club-admin' : 'member', // Updated to role field
         joinedAt: clubInfo.joinedAt,
         lastModifiedAt: clubInfo.lastModifiedAt || clubInfo.joinedAt
       });
 
-      // Update user document
+      // Update user document with new structure
       await userRef.update({
-        clubs: clubs
+        clubAccess: clubAccess
       });
 
       console.log(`Successfully updated club info for user ${uid}`);

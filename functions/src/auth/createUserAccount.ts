@@ -44,8 +44,8 @@ export const createUserAccount = onCall(
         email: email.toLowerCase().trim(),
         displayName: fullName.trim(),
         photoURL: DEFAULT_PROFILE_PICTURE,
-        clubs: [],
-        groupsJoined: [],
+        clubAccess: [], // Updated from clubs[]
+        groupAccess: [], // Updated from groupsJoined[]
         groupsCreated: 0,
         events: [],
         eventsResponses: [],

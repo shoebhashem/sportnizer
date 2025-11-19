@@ -106,11 +106,11 @@ export const createNewClub = onCall(
         lastModified: timestampNow,
       };
 
-      // Build ClubMembership for user document
-      const membership = {
+      // Build ClubAccess for user document (new structure)
+      const clubAccess = {
         clubId: clubId,
         clubName: trimmedName,
-        isAdmin: true,
+        role: 'club-admin', // Updated to role field
         joinedAt: timestampNow.toDate(),
         lastModifiedAt: timestampNow.toDate(),
       };
@@ -127,10 +127,10 @@ export const createNewClub = onCall(
         allMembersDoc
       );
 
-      // Update user document: add new club membership
+      // Update user document: add new club membership with new structure
       const userRef = db.collection('users').doc(uid);
       batch.update(userRef, {
-        clubs: admin.firestore.FieldValue.arrayUnion(membership)
+        clubAccess: admin.firestore.FieldValue.arrayUnion(clubAccess)
       });
 
       // Commit all operations atomically

@@ -9,24 +9,35 @@ export interface UserCreationData {
   email: string;
   emailVerified: boolean;
   profilePicture: string;
-  groupsJoined: {
+  groupAccess: { // Updated from groupsJoined
     groupId: string;
+    groupName: string;
+    clubId: string;
     roles: string[];
     joinedAt: Date;
-    status: string;
+    lastModifiedAt: Date;
+  }[];
+  clubAccess: { // Added new field
+    clubId: string;
+    clubName: string;
+    role: string;
+    joinedAt: Date;
+    lastModifiedAt: Date;
   }[];
   eventsInvited: any[];
   createdAt: admin.firestore.FieldValue;
 }
 
 /**
- * Group membership interface
+ * Group membership interface (updated)
  */
 export interface GroupMembership {
   groupId: string;
+  groupName: string;
+  clubId: string;
   roles: string[];
   joinedAt: Date;
-  status: string;
+  lastModifiedAt: Date;
 }
 
 /**
@@ -35,6 +46,9 @@ export interface GroupMembership {
 export const createOrUpdateUserWithGroup = async (
   userRecord: admin.auth.UserRecord,
   groupId: string,
+  groupName: string,
+  clubId: string,
+  clubName: string,
   role: string = 'member',
   additionalData?: Partial<UserCreationData>
 ): Promise<void> => {
@@ -44,25 +58,45 @@ export const createOrUpdateUserWithGroup = async (
   if (userDoc.exists) {
     // Update existing user
     const userData = userDoc.data();
-    const currentGroupsJoined = userData?.groupsJoined || [];
+    const currentGroupAccess = userData?.groupAccess || userData?.groupsJoined || [];
+    const currentClubAccess = userData?.clubAccess || userData?.clubs || [];
     
     // Check if group already exists
-    const existingMembership = currentGroupsJoined.find(
+    const existingMembership = currentGroupAccess.find(
       (membership: any) => membership.groupId === groupId
     );
     
     if (!existingMembership) {
-      const newMembership: GroupMembership = {
+      const newGroupMembership: GroupMembership = {
         groupId,
+        groupName,
+        clubId,
         roles: [role],
         joinedAt: new Date(),
-        status: 'active'
+        lastModifiedAt: new Date()
       };
       
-      await userRef.update({
-        groupsJoined: admin.firestore.FieldValue.arrayUnion(newMembership),
+      // Also add club access if not exists
+      const existingClub = currentClubAccess.find(
+        (club: any) => club.clubId === clubId
+      );
+      
+      const updates: any = {
+        groupAccess: admin.firestore.FieldValue.arrayUnion(newGroupMembership),
         ...additionalData,
-      });
+      };
+      
+      if (!existingClub) {
+        updates.clubAccess = admin.firestore.FieldValue.arrayUnion({
+          clubId,
+          clubName,
+          role: 'member',
+          joinedAt: new Date(),
+          lastModifiedAt: new Date()
+        });
+      }
+      
+      await userRef.update(updates);
     }
   } else {
     // Create new user document
@@ -71,11 +105,20 @@ export const createOrUpdateUserWithGroup = async (
       email: userRecord.email?.toLowerCase() || '',
       emailVerified: userRecord.emailVerified || false,
       profilePicture: getDefaultProfilePictureUrl(),
-      groupsJoined: [{
+      clubAccess: [{
+        clubId,
+        clubName,
+        role: 'member',
+        joinedAt: new Date(),
+        lastModifiedAt: new Date()
+      }],
+      groupAccess: [{
         groupId,
+        groupName,
+        clubId,
         roles: [role],
         joinedAt: new Date(),
-        status: 'active'
+        lastModifiedAt: new Date()
       }],
       eventsInvited: [],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),

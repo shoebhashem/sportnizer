@@ -29,7 +29,7 @@ export const updateUserGroupInfo = onCall(
       }
 
       const userData = userDoc.data();
-      let groupsJoined = userData?.groupsJoined || [];
+      let groupAccess = userData?.groupAccess || userData?.groupsJoined || []; // Support backward compatibility
 
       if (operation === 'add') {
         // Validate groupInfo for add operations
@@ -41,7 +41,7 @@ export const updateUserGroupInfo = onCall(
         console.log(`Adding group info for user ${uid}, group ${groupInfo.groupId}`);
 
         // Check if group membership already exists
-        const existingGroupIndex = groupsJoined.findIndex((group: any) => group.groupId === groupInfo.groupId);
+        const existingGroupIndex = groupAccess.findIndex((group: any) => group.groupId === groupInfo.groupId);
         
         if (existingGroupIndex !== -1) {
           return {
@@ -50,8 +50,8 @@ export const updateUserGroupInfo = onCall(
           };
         }
 
-        // Add new group membership
-        groupsJoined.push({
+        // Add new group membership (structure remains the same)
+        groupAccess.push({
           groupId: groupInfo.groupId,
           groupName: groupInfo.groupName,
           clubId: groupInfo.clubId,
@@ -69,7 +69,7 @@ export const updateUserGroupInfo = onCall(
         console.log(`Removing group info for user ${uid}, group ${groupId}`);
 
         // Find and remove the group membership
-        const existingGroupIndex = groupsJoined.findIndex((group: any) => group.groupId === groupId);
+        const existingGroupIndex = groupAccess.findIndex((group: any) => group.groupId === groupId);
         
         if (existingGroupIndex === -1) {
           return {
@@ -79,15 +79,15 @@ export const updateUserGroupInfo = onCall(
         }
 
         // Remove group membership
-        groupsJoined = groupsJoined.filter((group: any) => group.groupId !== groupId);
+        groupAccess = groupAccess.filter((group: any) => group.groupId !== groupId);
 
       } else {
         throw new HttpsError('invalid-argument', 'operation must be either "add" or "remove"');
       }
 
-      // Update user document
+      // Update user document with new structure
       await userRef.update({
-        groupsJoined: groupsJoined
+        groupAccess: groupAccess
       });
 
       console.log(`Successfully ${operation === 'add' ? 'added' : 'removed'} group info for user ${uid}`);

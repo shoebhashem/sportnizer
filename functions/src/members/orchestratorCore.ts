@@ -114,12 +114,12 @@ export async function executeOrchestratorOperations(
           }
 
           const userDataClub = userDocClub.data();
-          let clubs = userDataClub?.clubs || [];
+          let clubAccess = userDataClub?.clubAccess || userDataClub?.clubs || [];
           
-          const existingClubIndex = clubs.findIndex((club: any) => club.clubId === userClubInfo.clubId);
+          const existingClubIndex = clubAccess.findIndex((club: any) => club.clubId === userClubInfo.clubId);
           if (existingClubIndex === -1) {
-            clubs.push(userClubInfo);
-            batch.update(userRefClub, { clubs });
+            clubAccess.push(userClubInfo);
+            batch.update(userRefClub, { clubAccess });
           }
 
           completedOperations.push('updateUserClub');
@@ -138,12 +138,12 @@ export async function executeOrchestratorOperations(
           }
 
           const userDataGroup = userDocGroup.data();
-          let groupsJoined = userDataGroup?.groupsJoined || [];
+          let groupAccess = userDataGroup?.groupAccess || userDataGroup?.groupsJoined || [];
           
-          const existingGroupIndex = groupsJoined.findIndex((group: any) => group.groupId === userGroupInfo.groupId);
+          const existingGroupIndex = groupAccess.findIndex((group: any) => group.groupId === userGroupInfo.groupId);
           if (existingGroupIndex === -1) {
-            groupsJoined.push(userGroupInfo);
-            batch.update(userRefGroup, { groupsJoined });
+            groupAccess.push(userGroupInfo);
+            batch.update(userRefGroup, { groupAccess });
           }
 
           completedOperations.push('updateUserGroup');
