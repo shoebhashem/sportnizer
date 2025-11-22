@@ -36,8 +36,6 @@ export const createNewGroup = onCall(
         throw new HttpsError('invalid-argument', 'Sport type cannot be empty');
       }
 
-      console.log(`Creating new group "${trimmedGroupName}" in club ${clubId} for user ${uid}`);
-
       const db = admin.firestore();
 
       // First, get the club document to check if it exists and user permissions
@@ -45,6 +43,16 @@ export const createNewGroup = onCall(
       if (!clubDoc.exists) {
         throw new HttpsError('not-found', 'Club not found.');
       }
+
+      // Check if group with this name already exists in this club (case-insensitive)
+      const existingGroupQuery = await db.collection('clubs').doc(clubId).collection('groups')
+        .where('name', '==', trimmedGroupName).get();
+
+      if (!existingGroupQuery.empty) {
+        throw new HttpsError('already-exists', `A group with the name "${trimmedGroupName}" already exists in this club.`);
+      }
+    
+      console.log(`Creating new group "${trimmedGroupName}" in club ${clubId} for user ${uid}`);
 
       const clubData = clubDoc.data();
       const isClubCreator = clubData?.createdBy === uid;
@@ -87,8 +95,6 @@ export const createNewGroup = onCall(
       // Create empty allMembers document for the group
       const allMembersDoc = {
         members: [], // Empty - creator is not auto-added
-        lastUpdated: now,
-        memberCount: 0,
         version: 1, // Initial version
         lastModified: now,
       };
@@ -111,7 +117,7 @@ export const createNewGroup = onCall(
       // Commit all operations atomically
       await batch.commit();
 
-      console.log(`Successfully created group ${groupId} in club ${clubId} for user ${uid}`);
+      console.log(`Successfully created group ${groupName} in club ${clubId} for user ${uid}`);
 
       return {
         success: true,

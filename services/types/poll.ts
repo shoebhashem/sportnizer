@@ -6,24 +6,27 @@ export interface PollData {
   recipients: RecipientSelection;
 }
 
+// Poll document structure - follows similar pattern to events
 export interface Poll {
   id: string;
   title: string;
+  description?: string;
   options: string[];
   clubId: string;
-  groupId?: string;
-  createdBy: string;
-  createdAt: any;
-  recipients: RecipientSelection;
+  groupId?: string; // Present if group-specific poll
+  subGroupIds?: string[]; // Present if sub-group specific poll
+  targetScope: 'club' | 'group' | 'subgroup';
+  targetMembers: string[]; // User IDs of invited members
+  responses: {
+    userId: string;
+    selectedOption: number; // Index of selected option
+    respondedAt: any; // Firestore Timestamp
+  }[];
   isActive: boolean;
-  votes?: {
-    [optionIndex: number]: {
-      [userId: string]: {
-        votedAt: Date;
-        voterName: string;
-      };
-    };
-  };
+  createdAt: any; // Firestore Timestamp
+  createdBy: string;
+  lastModifiedAt: any; // Firestore Timestamp
+  version: number;
 }
 
 export interface HomePoll {

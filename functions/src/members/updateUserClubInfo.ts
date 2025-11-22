@@ -10,11 +10,11 @@ export const updateUserClubInfo = onCall(
   },
   async (request): Promise<FunctionResponse> => {
     try {
-      const { uid, clubInfo }: UpdateUserClubInfoRequest = request.data;
+      const { uid, clubInfo, role }: UpdateUserClubInfoRequest = request.data;
 
       // Validate required fields
-      validateRequiredFields(request.data, ['uid', 'clubInfo']);
-      validateRequiredFields(clubInfo, ['clubId', 'clubName', 'joinedAt']);
+      validateRequiredFields(request.data, ['uid', 'clubInfo', 'role']);
+      validateRequiredFields(clubInfo, ['clubId', 'clubName', 'role', 'joinedAt']);
 
       // Verify the user is authenticated
       if (!request.auth) {
@@ -32,7 +32,7 @@ export const updateUserClubInfo = onCall(
       }
 
       const userData = userDoc.data();
-      let clubAccess = userData?.clubAccess || userData?.clubs || []; // Support backward compatibility
+      let clubAccess = userData?.clubAccess || []; // Support backward compatibility
 
       // Check if club membership already exists
       const existingClubIndex = clubAccess.findIndex((club: any) => club.clubId === clubInfo.clubId);
@@ -48,9 +48,10 @@ export const updateUserClubInfo = onCall(
       clubAccess.push({
         clubId: clubInfo.clubId,
         clubName: clubInfo.clubName,
-        role: clubInfo.isAdmin ? 'club-admin' : 'member', // Updated to role field
+        role: role,
+        groupAccess: [], // Initialize empty groupAccess for the new club
         joinedAt: clubInfo.joinedAt,
-        lastModifiedAt: clubInfo.lastModifiedAt || clubInfo.joinedAt
+        lastModifiedAt: clubInfo.lastModifiedAt,
       });
 
       // Update user document with new structure

@@ -10,10 +10,22 @@ export const updateUserGroupInfo = onCall(
   },
   async (request): Promise<FunctionResponse> => {
     try {
-      const { uid, groupInfo, groupId, operation }: UpdateUserGroupInfoRequest = request.data;
+      const { uid, clubId, groupInfo, roles, operation }: UpdateUserGroupInfoRequest = request.data;
 
       // Validate required fields
-      validateRequiredFields(request.data, ['uid', 'operation']);
+      validateRequiredFields(request.data, ['uid', 'clubId', 'operation']);
+      
+      // Additional validation for operations
+      if (operation === 'add') {
+        if (!groupInfo || !roles) {
+          throw new HttpsError('invalid-argument', 'For add operations, both groupInfo and roles are required');
+        }
+        validateRequiredFields(groupInfo, ['groupId', 'groupName', 'joinedAt']);
+      } else if (operation === 'remove') {
+        if (!groupInfo || !groupInfo.groupId) {
+          throw new HttpsError('invalid-argument', 'For remove operations, groupInfo with groupId is required');
+        }
+      }
 
       // Verify the user is authenticated
       if (!request.auth) {
@@ -29,47 +41,53 @@ export const updateUserGroupInfo = onCall(
       }
 
       const userData = userDoc.data();
-      let groupAccess = userData?.groupAccess || userData?.groupsJoined || []; // Support backward compatibility
+      let clubAccess = userData?.clubAccess || userData?.clubs || []; // Support backward compatibility
+    
+      // Find the club in the user's clubAccess array
+      const existingClubIndex = clubAccess.findIndex((club: any) => club.clubId === clubId);
+      
+      if (existingClubIndex === -1) {
+        throw new HttpsError('not-found', 'User is not a member of this club');
+      }
 
       if (operation === 'add') {
-        // Validate groupInfo for add operations
-        if (!groupInfo) {
-          throw new HttpsError('invalid-argument', 'groupInfo is required for add operations');
+        console.log(`Adding group info for user ${uid}, group ${groupInfo!.groupId} in club ${clubId} with roles:`, roles);
+
+        // Get the club's groupAccess array (initialize if it doesn't exist)
+        if (!clubAccess[existingClubIndex].groupAccess) {
+          clubAccess[existingClubIndex].groupAccess = [];
         }
-        validateRequiredFields(groupInfo, ['groupId', 'groupName', 'clubId', 'roles', 'joinedAt']);
+        
+        const clubGroupAccess = clubAccess[existingClubIndex].groupAccess;
 
-        console.log(`Adding group info for user ${uid}, group ${groupInfo.groupId}`);
-
-        // Check if group membership already exists
-        const existingGroupIndex = groupAccess.findIndex((group: any) => group.groupId === groupInfo.groupId);
+        // Check if group membership already exists in this club
+        const existingGroupIndex = clubGroupAccess.findIndex((group: any) => group.groupId === groupInfo!.groupId);
         
         if (existingGroupIndex !== -1) {
-          return {
-            success: false,
-            error: 'User is already a member of this group'
-          };
+          // Update existing membership with new roles
+          clubGroupAccess[existingGroupIndex].roles = roles;
+          clubGroupAccess[existingGroupIndex].lastModifiedAt = new Date();
+          console.log(`Updated existing group membership with new roles for user ${uid}, group ${groupInfo!.groupId}`);
+        } else {
+          // Add new group membership to the club's groupAccess array
+          clubGroupAccess.push({
+            groupId: groupInfo!.groupId,
+            groupName: groupInfo!.groupName,
+            roles: roles,
+            joinedAt: groupInfo!.joinedAt,
+            lastModifiedAt: new Date()
+          });
+          console.log(`Added new group membership for user ${uid}, group ${groupInfo!.groupId}`);
         }
-
-        // Add new group membership (structure remains the same)
-        groupAccess.push({
-          groupId: groupInfo.groupId,
-          groupName: groupInfo.groupName,
-          clubId: groupInfo.clubId,
-          roles: groupInfo.roles,
-          joinedAt: groupInfo.joinedAt,
-          lastModifiedAt: groupInfo.lastModifiedAt || groupInfo.joinedAt
-        });
 
       } else if (operation === 'remove') {
-        // Validate groupId for remove operations
-        if (!groupId) {
-          throw new HttpsError('invalid-argument', 'groupId is required for remove operations');
-        }
+        console.log(`Removing group info for user ${uid}, group ${groupInfo!.groupId} from club ${clubId}`);
 
-        console.log(`Removing group info for user ${uid}, group ${groupId}`);
-
-        // Find and remove the group membership
-        const existingGroupIndex = groupAccess.findIndex((group: any) => group.groupId === groupId);
+        // Get the club's groupAccess array
+        const clubGroupAccess = clubAccess[existingClubIndex].groupAccess || [];
+        
+        // Find the group membership in this club
+        const existingGroupIndex = clubGroupAccess.findIndex((group: any) => group.groupId === groupInfo!.groupId);
         
         if (existingGroupIndex === -1) {
           return {
@@ -78,16 +96,16 @@ export const updateUserGroupInfo = onCall(
           };
         }
 
-        // Remove group membership
-        groupAccess = groupAccess.filter((group: any) => group.groupId !== groupId);
+        // Remove group membership from the club's groupAccess array
+        clubAccess[existingClubIndex].groupAccess = clubGroupAccess.filter((group: any) => group.groupId !== groupInfo!.groupId);
 
       } else {
         throw new HttpsError('invalid-argument', 'operation must be either "add" or "remove"');
       }
 
-      // Update user document with new structure
+      // Update user document with new nested structure
       await userRef.update({
-        groupAccess: groupAccess
+        clubAccess: clubAccess
       });
 
       console.log(`Successfully ${operation === 'add' ? 'added' : 'removed'} group info for user ${uid}`);

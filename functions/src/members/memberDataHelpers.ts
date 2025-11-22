@@ -48,14 +48,14 @@ export const createGroupMemberData = (
 
 export const createUserClubMembership = (
   invitationData: any,
-  isAdmin: boolean = false
+  role: string = 'member'
 ): UserClubMembership => {
   const currentDate = new Date();
   
   return {
     clubId: invitationData.clubId,
     clubName: invitationData.clubName,
-    isAdmin: isAdmin,
+    role: role, // Use the role directly (club-admin or member)
     joinedAt: currentDate,
     lastModifiedAt: currentDate,
   };
@@ -70,7 +70,6 @@ export const createUserGroupMembership = (
   return {
     groupId: invitationData.groupId,
     groupName: invitationData.groupName,
-    clubId: invitationData.clubId,
     roles: roles,
     joinedAt: currentDate,
     lastModifiedAt: currentDate,

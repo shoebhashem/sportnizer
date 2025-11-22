@@ -2,27 +2,7 @@ import { addDoc, collection, doc, getDoc, getFirestore, increment, serverTimesta
 
 // Import Firebase app to ensure it's initialized
 import '../core/firebase';
-
-// Event interfaces
-export interface EventData {
-  title: string;
-  description: string;
-  startTime: Date;
-  endTime: Date;
-  gatheringTime?: Date;
-  location: string;
-  type: 'practice' | 'game' | 'meeting' | 'other';
-  mode: 'simple' | 'advanced'; // Simple or advanced creation mode
-  duration?: number; // Duration in minutes for simple mode
-  capacity?: {
-    enabled: boolean;
-    maxAttendees?: number;
-  };
-  responseDeadline?: {
-    enabled: boolean;
-    date?: Date;
-  };
-}
+import type { EventData } from '../types/event';
 
 export interface RecurringEventData {
   title: string;

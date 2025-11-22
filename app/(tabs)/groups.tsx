@@ -1,7 +1,7 @@
 //import AdContainer from "@/components/AdContainer";
 import Button from "@/components/Button";
 import { theme } from "@/constants/theme";
-import { useUserAccessibleGroups, useUserClubs, useUserProfile, useVersionedData } from "@/contexts/UserContext";
+import { useUserProfile } from "@/contexts/UserContext";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -14,16 +14,52 @@ import {
 } from "react-native";
 
 export default function GroupsScreen() {
-const { isLoading } = useUserProfile();
-const { refreshClubMemberships, refreshGroupMemberships } = useVersionedData();
-const clubs = useUserClubs();
-const { groups: accessibleGroups, isLoading: isLoadingGroups, error: groupsError } = useUserAccessibleGroups();
+const { userProfile, isLoading } = useUserProfile();
+
+// Extract clubs and groups from userProfile
+const clubs = userProfile?.clubAccess || [];
+
+const userGroups = React.useMemo(() => {
+  if (!userProfile?.clubAccess) return [];
+  
+  const allGroups = [];
+  for (const clubAccess of userProfile.clubAccess) {
+    if (clubAccess.groupAccess) {
+      for (const groupAccess of clubAccess.groupAccess) {
+        allGroups.push({
+          clubId: clubAccess.clubId,
+          groupId: groupAccess.groupId,
+          groupName: groupAccess.groupName,
+          roles: groupAccess.roles,
+          joinedAt: groupAccess.joinedAt,
+          lastModifiedAt: groupAccess.lastModifiedAt,
+          groupData: null, // Will be fetched separately when needed
+        });
+      }
+    }
+  }
+  return allGroups;
+}, [userProfile?.clubAccess]);
+
+console.log('📱 GroupsScreen render:', {
+  isLoading,
+  clubsCount: clubs.length,
+  userGroupsCount: userGroups.length,
+  clubs: clubs.map(c => ({ clubId: c.clubId, clubName: c.clubName, role: c.role })),
+  userGroups: userGroups.map(g => ({ 
+    groupId: g.groupId, 
+    groupName: g.groupName,
+    clubId: g.clubId, 
+    roles: g.roles,
+    hasGroupData: !!g.groupData
+  }))
+});
 const [selectedClub, setSelectedClub] = useState<string | null>(null);
 const [isRefreshing, setIsRefreshing] = useState(false);
 
-// Helper function to get groups for a specific club from accessible groups
+// Helper function to get groups for a specific club from user groups
 const getGroupsForClub = (clubId: string) => {
-  return accessibleGroups.filter(group => group.clubId === clubId);
+  return userGroups.filter(group => group.clubId === clubId);
 };
 
 const handleCreateGroup = () => {
@@ -37,11 +73,9 @@ const handleGroupPress = (groupId: string, clubId: string) => {
 const handleRefresh = async () => {
   setIsRefreshing(true);
   try {
-    await Promise.all([
-      refreshClubMemberships(),
-      refreshGroupMemberships()
-    ]);
-    console.log('✅ Refreshed club and group data');
+    // Since we removed complex versioning, just refresh the user profile
+    // Other documents (clubs, groups) are now read directly from Firestore when needed
+    console.log('✅ Refreshed user data');
   } catch (error) {
     console.error('❌ Error refreshing data:', error);
   } finally {
@@ -49,18 +83,10 @@ const handleRefresh = async () => {
   }
 };
 
-if (isLoading || isLoadingGroups) {
+if (isLoading) {
 return (
 <SafeAreaView style={styles.container}>
 <Text style={styles.loadingText}>Loading clubs and groups...</Text>
-</SafeAreaView>
-);
-}
-
-if (groupsError) {
-return (
-<SafeAreaView style={styles.container}>
-<Text style={styles.loadingText}>Error loading groups: {groupsError}</Text>
 </SafeAreaView>
 );
 }
@@ -127,20 +153,28 @@ return (
             {/* Show groups when club is selected */}
             {isSelected && clubGroups.length > 0 && (
               <View style={styles.groupsContainer}>
-                {clubGroups.map((group) => (
-                  <TouchableOpacity 
-                    key={group.id}
-                    style={styles.groupCard}
-                    onPress={() => handleGroupPress(group.id, club.clubId)}
-                  >
-                    <Text style={styles.groupName}>{group.name}</Text>
-                    <Text style={styles.groupRole}>
-                      {group.accessReason === "member" 
-                        ? `Role: ${group.userRoles.join(', ')}`
-                        : "Access: Club Admin"}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {clubGroups.map((group) => {
+                  console.log('🔍 Rendering group:', { 
+                    groupId: group.groupId, 
+                    groupName: group.groupName,
+                    roles: group.roles 
+                  });
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={group.groupId}
+                      style={styles.groupCard}
+                      onPress={() => handleGroupPress(group.groupId, club.clubId)}
+                    >
+                      <Text style={styles.groupName}>
+                        {group.groupName || `Group ${group.groupId.slice(-4)}`}
+                      </Text>
+                      <Text style={styles.groupRole}>
+                        Role: {group.roles.join(', ')}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
             
@@ -194,15 +228,18 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   clubSection: {
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   clubCard: {
     backgroundColor: theme.colors.secondary,
     padding: theme.spacing.md,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.sm,
   },
   clubCardSelected: {
     backgroundColor: theme.colors.success,
+    borderWidth: 2,
+    borderColor: theme.colors.secondary,
   },
   clubHeader: {
     flexDirection: "row",
@@ -225,67 +262,74 @@ const styles = StyleSheet.create({
   },
   groupsContainer: {
     marginTop: theme.spacing.sm,
-    paddingLeft: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
   },
   groupCard: {
-    backgroundColor: theme.colors.white,
+    backgroundColor: theme.colors.inputBackground,
     padding: theme.spacing.md,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.medium,
     marginBottom: theme.spacing.sm,
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
     borderLeftColor: theme.colors.secondary,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
   },
   groupName: {
-    fontSize: theme.typography.fontSize.medium,
-    fontWeight: "500",
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.secondary,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
   },
   groupRole: {
     fontSize: theme.typography.fontSize.small,
-    color: theme.colors.textSecondary,
+    color: theme.colors.secondary,
+    fontWeight: theme.typography.fontWeight.normal,
   },
   noGroupsContainer: {
     marginTop: theme.spacing.sm,
     paddingLeft: theme.spacing.md,
+    backgroundColor: theme.colors.inputBackground,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
   },
   noGroupsText: {
     fontSize: theme.typography.fontSize.small,
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
     fontStyle: "italic",
+    textAlign: "center",
   },
   noClubsText: {
     textAlign: "center",
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
     fontSize: theme.typography.fontSize.medium,
     marginTop: theme.spacing.lg,
+    backgroundColor: theme.colors.inputBackground,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
   },
   loadingText: {
     textAlign: "center",
     marginTop: theme.spacing.lg,
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
     fontSize: theme.typography.fontSize.medium,
   },
   refreshButton: {
-    backgroundColor: theme.colors.white,
-    padding: theme.spacing.sm,
-    borderRadius: 8,
+    backgroundColor: theme.colors.inputBackground,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
     marginTop: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: theme.colors.secondary,
+    borderColor: theme.colors.inputBorder,
     alignItems: 'center',
   },
   refreshButtonText: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
     fontSize: theme.typography.fontSize.small,
-    fontWeight: '500',
+    fontWeight: theme.typography.fontWeight.medium,
   },
 });

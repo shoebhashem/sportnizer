@@ -15,7 +15,7 @@ import {
 import { getDefaultProfilePicture } from '../constants/profilePictures';
 import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
-import { useUserClubs, useUserGroups, useUserProfile } from '../contexts/UserContext';
+import { useUserProfile } from '../contexts/UserContext';
 import { signOutUser } from '../services/auth/authService';
 
 import Button from './Button';
@@ -25,8 +25,31 @@ export default function UserAvatar() {
   const { user } = useAuth();
   const router = useRouter();
   const { userProfile } = useUserProfile();
-  const userClubs = useUserClubs();
-  const userGroups = useUserGroups();
+  
+  // Get clubs and groups from user profile
+  const userClubs = userProfile?.clubAccess || [];
+  
+  // Extract groups from nested groupAccess within each club
+  const userGroups = React.useMemo(() => {
+    if (!userProfile?.clubAccess) return [];
+    
+    const allGroups = [];
+    for (const clubAccess of userProfile.clubAccess) {
+      if (clubAccess.groupAccess) {
+        for (const groupAccess of clubAccess.groupAccess) {
+          allGroups.push({
+            clubId: clubAccess.clubId,
+            groupId: groupAccess.groupId,
+            groupName: groupAccess.groupName,
+            roles: groupAccess.roles,
+            joinedAt: groupAccess.joinedAt,
+            lastModifiedAt: groupAccess.lastModifiedAt,
+          });
+        }
+      }
+    }
+    return allGroups;
+  }, [userProfile?.clubAccess]);
   
   const [modalVisible, setModalVisible] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
@@ -203,11 +226,9 @@ export default function UserAvatar() {
                       <View key={`club-${index}`} style={styles.membershipItem}>
                         <Text style={styles.membershipName}>{club.clubName}</Text>
                         <View style={styles.rolesContainer}>
-                          {club.roles?.map((role: string, roleIndex: number) => (
-                            <Text key={`club-role-${roleIndex}`} style={styles.roleTag}>
-                              {role}
-                            </Text>
-                          )) || <Text style={styles.roleTag}>Member</Text>}
+                          <Text style={styles.roleTag}>
+                            {club.role || 'Member'}
+                          </Text>
                         </View>
                       </View>
                     ))}
@@ -226,7 +247,7 @@ export default function UserAvatar() {
                             <Text key={`group-role-${roleIndex}`} style={styles.roleTag}>
                               {role}
                             </Text>
-                          )) || <Text style={styles.roleTag}>Member</Text>}
+                          ))}
                         </View>
                       </View>
                     ))}

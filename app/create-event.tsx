@@ -16,7 +16,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import CustomDateTimePicker from '../components/DateTimePicker';
 import { theme } from '../constants/theme';
 import { getCurrentUser } from '../services/auth/authService';
-import { eventService } from '../services/events/eventService';
+import { eventService } from '../services/event';
 
 interface EventData {
   title: string;
@@ -41,8 +41,9 @@ interface EventData {
 }
 
 interface RecipientSelection {
-  type: 'selected-groups';
-  groups: {
+  type: 'entire-club' | 'selected-groups' | 'selected-subgroups';
+  clubId?: string;
+  groups?: {
     groupId: string;
     scope: 'entire' | 'subgroups' | 'members';
     subgroupIds?: string[];
@@ -258,8 +259,45 @@ export default function CreateEventScreen() {
       console.log('Event to create:', eventToCreate);
       console.log('Recipients:', recipients);
 
+      // Extract clubId from recipients
+      let clubId: string;
+      if (recipients.type === 'entire-club' && recipients.clubId) {
+        clubId = recipients.clubId;
+      } else if (recipients.groups && recipients.groups.length > 0) {
+        // For now, get the clubId from the first group
+        // TODO: Update to handle multi-club scenarios
+        throw new Error('Multi-group events need club selection update');
+      } else {
+        throw new Error('No club selected for event');
+      }
+
+      // Transform to new EventData format
+      const newEventData = {
+        title: eventToCreate.title,
+        description: eventToCreate.description || '',
+        clubId: clubId,
+        startDate: eventToCreate.startTime.toISOString().split('T')[0], // Extract date part
+        startTime: eventToCreate.startTime.toISOString(),
+        endDate: eventToCreate.endTime ? eventToCreate.endTime.toISOString().split('T')[0] : null,
+        endTime: eventToCreate.endTime ? eventToCreate.endTime.toISOString() : null,
+        location: eventToCreate.location,
+        targetScope: 'club' as const, // For now, all events are club-wide based on recipients
+        gatheringTime: eventToCreate.gatheringTime?.toISOString() || null,
+        capacityLimit: eventToCreate.capacity?.enabled ? eventToCreate.capacity.maxAttendees : null,
+        responseDeadline: eventToCreate.responseDeadline?.enabled && eventToCreate.responseDeadline.date 
+          ? eventToCreate.responseDeadline.date.toISOString() : null,
+        isActive: true,
+        createdBy: currentUser.uid
+      };
+
       // Create the event using the service
-      const eventId = await eventService.createEvent(eventToCreate, recipients, currentUser.uid);
+      const result = await eventService.createEvent(clubId, newEventData);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create event');
+      }
+      
+      const eventId = result.eventId;
       console.log('Event created with ID:', eventId);
 
       // Show success message

@@ -65,14 +65,14 @@ export const signUpUser = async (email: string, password: string, fullName: stri
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Build typed UserProfile object
+    // Build typed UserProfile object according to ARCHITECTURE.md
     const newUser: UserProfile = {
       uid: user.uid,
       email: email.toLowerCase(),
       displayName: fullName.trim(),
+      version: 1, // Start with version 1 as per ARCHITECTURE.md
       photoURL: getDefaultProfilePicture(false), // Use the default adult profile picture
-      clubs: [],
-      groupsJoined: [],
+      clubAccess: [], // Empty array - users join clubs later
       groupsCreated: 0,
       events: [],
       eventsResponses: [],

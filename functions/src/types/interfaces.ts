@@ -58,6 +58,7 @@ export interface CreateClubRequest {
 export interface CreateClubResponse {
   success: boolean;
   clubId?: string;
+  clubName?: string;
   message?: string;
   error?: string;
 }
@@ -72,6 +73,8 @@ export interface CreateGroupRequest {
 export interface CreateGroupResponse {
   success: boolean;
   groupId?: string;
+  groupName?: string;  
+  clubName?: string;
   message?: string;
   error?: string;
 }
@@ -238,7 +241,7 @@ export interface GroupMemberData {
 export interface UserClubMembership {
   clubId: string;
   clubName: string;
-  isAdmin: boolean;
+  role: string;
   joinedAt: Date;
   lastModifiedAt: Date;
 }
@@ -246,8 +249,7 @@ export interface UserClubMembership {
 export interface UserGroupMembership {
   groupId: string;
   groupName: string;
-  clubId: string;
-  roles: string[];
+  roles: string[]; // User's roles in this group
   joinedAt: Date;
   lastModifiedAt: Date;
 }
@@ -266,12 +268,15 @@ export interface AddMemberToGroupRequest {
 export interface UpdateUserClubInfoRequest {
   uid: string;
   clubInfo: UserClubMembership;
+  role: string;
 }
 
 export interface UpdateUserGroupInfoRequest {
   uid: string;
   groupInfo?: UserGroupMembership; // Optional for remove operations
   groupId?: string; // Required for remove operations
+  clubId: string;   
+  roles?: string[]; 
   operation: 'add' | 'remove';
 }
 
@@ -354,22 +359,31 @@ export interface RemoveMemberFromGroupResponse {
 }
 
 // Event-related interfaces
+export interface EventResponse {
+  userId: string;
+  userName: string;
+  photoUrl: string;
+  response: 'pending' | 'accepted' | 'declined';
+  respondedAt?: Date;
+}
+
 export interface EventData {
   title: string;
-  description: string;
-  startTime: string; // ISO string
-  endTime: string; // ISO string
-  gatheringTime?: string; // ISO string - optional
+  description?: string;
+  clubId: string;
+  groupId?: string | null;
+  subGroupIds?: string[];
+  startDate: string; // ISO string
+  startTime: string;
+  gatheringTime?: string | null;
+  endDate?: string | null;
+  endTime?: string | null;
   location: string;
-  eventType: 'practice' | 'game' | 'meeting' | 'other';
-  capacity?: {
-    enabled: boolean;
-    maxAttendees?: number;
-  };
-  responseDeadline?: {
-    enabled: boolean;
-    date?: string; // ISO string
-  };
+  targetScope: 'club' | 'group' | 'subgroup';
+  capacityLimit?: number | null;
+  responseDeadline?: string | null; // ISO string
+  responses?: EventResponse[];
+  isActive?: boolean;
 }
 
 // Legacy interface - keep for backward compatibility

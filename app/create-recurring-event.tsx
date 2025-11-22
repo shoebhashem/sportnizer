@@ -16,7 +16,8 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import CustomDateTimePicker from '../components/DateTimePicker';
 import { theme } from '../constants/theme';
 import { getCurrentUser } from '../services/auth/authService';
-import { eventService } from '../services/events/eventService';
+// TODO: Re-add when recurring events are implemented
+// import { eventService } from '../services/event';
 
 interface RecurringEventData {
   mode: 'simple' | 'advanced'; // New mode selection
@@ -289,17 +290,21 @@ export default function CreateRecurringEventScreen() {
       }
 
       console.log('Creating recurring events...');
-      const result = await eventService.createRecurringEvents(eventData, recipients, currentUser.uid);
-      console.log('Recurring events created:', result);
+      
+      // TODO: Implement createRecurringEvents in new eventService
+      // const result = await eventService.createRecurringEvents(eventData, recipients, currentUser.uid);
+      throw new Error('Recurring events not yet implemented with new service architecture. Please create individual events for now.');
+      
+      // console.log('Recurring events created:', result);
 
-      // Show success message
-      const totalEvents = result.eventIds.length;
-      setModal({
-        visible: true,
-        title: 'Success!',
-        message: `Recurring event "${eventData.title}" has been created with ${totalEvents} occurrences and sent to ${recipients.totalCount} recipients.`,
-        type: 'success'
-      });
+      // // Show success message
+      // const totalEvents = result.eventIds.length;
+      // setModal({
+      //   visible: true,
+      //   title: 'Success!',
+      //   message: `Recurring event "${eventData.title}" has been created with ${totalEvents} occurrences and sent to ${recipients.totalCount} recipients.`,
+      //   type: 'success'
+      // });
 
     } catch (error) {
       console.error('Error creating recurring events:', error);

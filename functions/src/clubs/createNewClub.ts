@@ -54,15 +54,10 @@ export const createNewClub = onCall(
 
       if (userDoc.exists) {
         const userData = userDoc.data();
-        userName = userData?.displayName || userData?.name || request.auth.token.name || request.auth.token.email?.split('@')[0] || 'User';
-        userEmail = userData?.email || request.auth.token.email || '';
-        userPhotoURL = userData?.photoURL || request.auth.token.picture || '';
-      } else {
-        // Fallback to auth token data
-        userName = request.auth.token.name || request.auth.token.email?.split('@')[0] || 'User';
-        userEmail = request.auth.token.email || '';
-        userPhotoURL = request.auth.token.picture || '';
-      }
+        userName = userData?.displayName|| 'User';
+        userEmail = userData?.email || '';
+        userPhotoURL = userData?.photoURL || '';
+      } 
 
       const now = admin.firestore.FieldValue.serverTimestamp();
       const timestampNow = admin.firestore.Timestamp.now();
@@ -100,7 +95,6 @@ export const createNewClub = onCall(
       // Create the allMembers document with the creator
       const allMembersDoc = {
         members: [memberData],
-        lastUpdated: timestampNow,
         memberCount: 1,
         version: 1, // Initial version
         lastModified: timestampNow,
@@ -111,7 +105,7 @@ export const createNewClub = onCall(
         clubId: clubId,
         clubName: trimmedName,
         role: 'club-admin', // Updated to role field
-        joinedAt: timestampNow.toDate(),
+        groupAcess: [],
         lastModifiedAt: timestampNow.toDate(),
       };
 
@@ -136,11 +130,11 @@ export const createNewClub = onCall(
       // Commit all operations atomically
       await batch.commit();
 
-      console.log(`Successfully created club ${clubId} for user ${uid}`);
+      console.log(`Successfully created club ${clubName} for user ${uid}`);
 
       return {
         success: true,
-        clubId: clubId,
+        clubName: clubName,
         message: 'Club created successfully and added to your profile!'
       };
 

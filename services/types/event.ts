@@ -1,27 +1,37 @@
 import type { RecipientSelection } from './common';
 
+// Event response structure
+export interface EventResponse {
+  userId: string;
+  userName: string;
+  photoUrl: string;
+  response: 'pending' | 'accepted' | 'declined';
+  respondedAt?: Date;
+}
+
+// Event document structure according to ARCHITECTURE.md
 export interface EventData {
+  id: string;
   title: string;
-  description: string;
-  startTime: Date;
-  endTime: Date;
-  gatheringTime?: Date;
-  location: string;
-  type: 'practice' | 'game' | 'meeting' | 'other';
-  mode: 'simple' | 'advanced'; // Simple or advanced creation mode
-  duration?: number; // Duration in minutes for simple mode
-  capacity?: {
-    enabled: boolean;
-    maxAttendees?: number;
-  };
-  isRecurring?: boolean;
-  recurringSettings?: RecurringSettings;
-  visibility: 'public' | 'members-only';
+  description?: string;
   clubId: string;
-  groupId: string;
+  groupId?: string | null; // Present if group-specific event
+  subGroupIds?: string[]; // Present if sub-group specific event
+  startDate: string; // ISO string
+  startTime: string;
+  gatheringTime?: string | null;
+  endDate?: string | null; // ISO string
+  endTime?: string | null;
+  location: string;
+  targetScope: 'club' | 'group' | 'subgroup';
+  capacityLimit?: number | null;
+  responseDeadline?: string | null; // ISO string
+  responses?: EventResponse[];
+  isActive?: boolean;
+  createdAt: any; // Firestore Timestamp
   createdBy: string;
-  createdAt: any;
-  isActive: boolean;
+  lastModifiedAt: any; // Firestore Timestamp
+  version: number;
 }
 
 export interface RecurringSettings {

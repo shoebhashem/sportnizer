@@ -2,20 +2,20 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
 import { functions } from '../firebaseConfig';
-import { addUnconfirmedChild } from '../services/group/groupService';
+import { memberService } from '../services/member';
 
 export default function AddMembersScreen() {
   const { groupId, groupName, inviterName, ageGroup } = useLocalSearchParams<{ 
@@ -82,7 +82,7 @@ export default function AddMembersScreen() {
     setLoading(true);
 
     try {
-      const result = await addUnconfirmedChild(groupId as string, {
+      const result = await memberService.addUnconfirmedChild(groupId as string, {
         name: childName.trim(),
         birthDate: childBirthDate.trim() || undefined
       });
@@ -94,10 +94,8 @@ export default function AddMembersScreen() {
         const error = result.error;
         let errorMessage = 'Failed to add child. Please try again.';
         
-        if (error?.code === 'child/already-exists') {
-          errorMessage = error.message;
-        } else if (error?.message) {
-          errorMessage = error.message;
+        if (typeof error === 'string') {
+          errorMessage = error;
         }
         
         setModalMessage(errorMessage);

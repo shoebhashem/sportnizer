@@ -1,13 +1,29 @@
 import AuthGuard from '@/components/AuthGuard';
 import UserAvatar from '@/components/UserAvatar';
 import { theme } from '@/constants/theme';
-import { useUserGroups } from '@/contexts/UserContext';
+import { useUserProfile } from '@/contexts/UserContext';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
+import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
-  const userGroups = useUserGroups();
+  const { userProfile } = useUserProfile();
+  
+  // Extract groups from nested groupAccess within each club
+  const userGroups = React.useMemo(() => {
+    if (!userProfile?.clubAccess) return [];
+    
+    const allGroups = [];
+    for (const clubAccess of userProfile.clubAccess) {
+      if (clubAccess.groupAccess) {
+        for (const groupAccess of clubAccess.groupAccess) {
+          allGroups.push(groupAccess);
+        }
+      }
+    }
+    return allGroups;
+  }, [userProfile?.clubAccess]);
   
   // Check if user has admin or coach role in any group
   const canManage = userGroups.some(group => 
@@ -31,7 +47,7 @@ export default function TabLayout() {
             headerRight: () => <UserAvatar />,
             tabBarStyle: {
               backgroundColor: theme.colors.primary,
-              height: 55,
+              height: 50,
               // Safe area automatically handled by SafeAreaView
             },
           }}

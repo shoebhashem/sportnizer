@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 
 import { theme } from '../constants/theme';
-import { uploadMemberProfilePicture, uploadUserProfilePicture } from '../services/user/profilePictureService';
+// TODO: Implement profile picture upload in new memberService/userService
+import { uploadMemberProfilePicture, uploadUserProfilePicture } from '../services/archived/user/profilePictureService';
 import Button from './Button';
 
 interface ProfilePictureUploadProps {

@@ -1,17 +1,19 @@
 import { GuardianContact } from './group';
 
+// Club document structure according to ARCHITECTURE.md
 export interface ClubData {
+  id: string;
   name: string;
-  description?: string;
-  location?: string;
-  website?: string;
-  logoUrl?: string;
-  createdBy: string;
-  createdAt: any;
-  adminIds: string[];
-  memberIds?: string[]; // Made optional since we're moving to subcollection
-  totalCounts: number;
+  description: string;
+  sport: string;
+  location: string;
+  admins: string[]; // User IDs with club-admin role
+  memberCount: number;
   isActive: boolean;
+  createdAt: any; // Firestore Timestamp
+  createdBy: string;
+  lastModifiedAt: any; // Firestore Timestamp
+  version: number;
 }
 
 

@@ -1,16 +1,21 @@
+// Group document structure according to ARCHITECTURE.md
 export interface GroupData {
-  id: string; // Added ID field
+  id: string;
   name: string;
-  sportType: string;
-  description?: string;
-  createdBy: string;
-  createdAt: any;
-  //participantsIds?: string[]; // Made optional since we're moving to subcollection
-  isActive: boolean;
+  description: string;
+  coaches: string[]; // User IDs with coach role
+  admins: string[]; // User IDs with group-admin role
   memberCount: number;
-  maxCount?: number;
-  subGroups?: string[]; // name of the sugroups
-  ageGroup?: number; // 1=children, 2=adults, 3=mixed
+  subGroups: {
+    id: string;
+    name: string;
+    description: string;
+  }[];
+  isActive: boolean;
+  createdAt: any; // Firestore Timestamp
+  createdBy: string;
+  lastModifiedAt: any; // Firestore Timestamp
+  version: number;
 }
 
 export interface GuardianContact {

@@ -75,10 +75,23 @@ export const processGuardianInvitation = onRequest(
       const guardianUser = await findOrCreateUserByEmail(guardianEmail.toLowerCase(), guardianName);
       console.log('Guardian user ready:', guardianUser.uid);
 
+      // Get group information to determine club
+      const groupDoc = await admin.firestore()
+        .collection('groups')
+        .doc(invitationData!.groupId)
+        .get();
+      
+      const groupData = groupDoc.data();
+      const clubId = groupData?.clubId || 'unknown';
+      const clubName = groupData?.clubName || 'Unknown Club';
+
       // Create or update user with group membership
       await createOrUpdateUserWithGroup(
         guardianUser, 
-        invitationData!.groupId, 
+        invitationData!.groupId,
+        invitationData!.groupName,
+        clubId,
+        clubName,
         'guardian',
         {
           name: guardianName,

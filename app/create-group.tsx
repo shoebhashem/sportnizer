@@ -4,19 +4,19 @@ import DropdownInput from "@/components/DropdownInput";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useUserClubs } from "@/contexts/UserContext";
-import { createClubAndGroup } from "@/services/club/createClubAndGroupService";
+import { clubService } from "@/services/club";
 import { SPORT_TYPES } from "@/services/constants";
-import { createGroup } from "@/services/group/createGroupServiceNew";
+import { groupService } from "@/services/group";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 
 type CreateMode = "existing-club" | "new-club";
@@ -141,35 +141,71 @@ export default function CreateGroupScreen() {
 
     try {
       if (createMode === "new-club") {
-        // Use the combined service for creating both club and group
-        const result = await createClubAndGroup(
-          clubName.trim(),
+        // Step 1: Create new club
+        const clubResult = await clubService.createClub({
+          name: clubName.trim(),
+          description: '',
+          sport: sportType,
+          location: '',
+          admins: [], // Will be set by Firebase Function
+          memberCount: 0,
+          isActive: true,
+          createdBy: '' // Will be set by Firebase Function
+        });
+        
+        if (!clubResult.success || !clubResult.clubId) {
+          showModal("Error", clubResult.error || "Failed to create club", "OK", () => router.push('/(tabs)/groups'), true);
+          setLoading(false);
+          return;
+        }
+
+        // Step 2: Create group in the new club
+        const groupResult = await groupService.createGroup(
+          clubResult.clubId!,
           groupName.trim(),
-          sportType
+          {
+            name: groupName.trim(),
+            description: '',
+            coaches: [],
+            admins: [], // Will be set by Firebase Function
+            memberCount: 0,
+            subGroups: [],
+            isActive: true,
+            createdBy: '' // Will be set by Firebase Function
+          }
         );
 
-        if (!result.success) {
-          showModal("Error", result.error?.message || "Failed to create club and group", "OK", () => router.push('/(tabs)/groups'), true);
+        if (!groupResult.success) {
+          showModal("Error", groupResult.error || "Failed to create group", "OK", () => router.push('/(tabs)/groups'), true);
           setLoading(false);
           return;
         }
 
         showModal(
           "Success!",
-          result.message || `Club "${clubName.trim()}" and group "${groupName.trim()}" created successfully!`,
+          `Club "${clubName.trim()}" and group "${groupName.trim()}" created successfully!`,
           "OK",
           () => router.push('/(tabs)/groups')
         );
       } else {
         // Create group in existing club
-        const groupResult = await createGroup(
+        const groupResult = await groupService.createGroup(
           selectedClubId,
           groupName.trim(),
-          sportType
+          {
+            name: groupName.trim(),
+            description: '',
+            coaches: [],
+            admins: [], // Will be set by Firebase Function
+            memberCount: 0,
+            subGroups: [],
+            isActive: true,
+            createdBy: '' // Will be set by Firebase Function
+          }
         );
 
         if (!groupResult.success) {
-          showModal("Error", groupResult.error?.message || "Failed to create group", "OK", () => router.push('/(tabs)/groups'), true);
+          showModal("Error", groupResult.error || "Failed to create group", "OK", () => router.push('/(tabs)/groups'), true);
           setLoading(false);
           return;
         }

@@ -14,7 +14,8 @@ import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
 import { getCurrentUser } from '../services/auth/authService';
-import { pollService } from '../services/communication/pollService';
+// TODO: Implement pollService in new architecture  
+import { pollService } from '../services/archived/communication/pollService';
 
 interface PollData {
   question: string;

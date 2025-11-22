@@ -13,8 +13,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
-import { useUserAccessibleGroups, useUserProfile } from '../contexts/UserContext';
-import { AccessibleGroupData } from '../services/group/fetchAccessibleGroupsService';
+import { useUserProfile } from '../contexts/UserContext';
+// ✅ Using new user.clubAccess structure directly instead of archived services
+
+// Define AccessibleGroupData type based on new service structure
+interface AccessibleGroupData {
+  id: string;
+  name: string;
+  clubId: string;
+  clubName: string;
+  userRoles: string[];
+  accessReason: 'member' | 'club-admin';
+  memberCount?: number;
+  subGroups: string[];
+}
 
 // Data Interfaces - Updated to match new architecture
 interface SubgroupInfo {
@@ -82,7 +94,32 @@ export default function SelectRecipientsScreen() {
 
   // Use UserContext hooks
   const { userProfile, isLoading: userLoading } = useUserProfile();
-  const { groups: accessibleGroups, isLoading: groupsLoading, error: groupsError } = useUserAccessibleGroups();
+  // Extract accessible groups from userProfile.clubAccess
+  const accessibleGroups: AccessibleGroupData[] = React.useMemo(() => {
+    if (!userProfile?.clubAccess) return [];
+    
+    const groups: AccessibleGroupData[] = [];
+    userProfile.clubAccess.forEach(clubAccess => {
+      if (clubAccess.groupAccess) {
+        clubAccess.groupAccess.forEach(groupAccess => {
+          groups.push({
+            id: groupAccess.groupId,
+            name: groupAccess.groupName,
+            clubId: clubAccess.clubId,
+            clubName: clubAccess.clubName,
+            userRoles: groupAccess.roles || [],
+            accessReason: clubAccess.role === 'club-admin' ? 'club-admin' : 'member',
+            memberCount: 0, // TODO: Get from group document if needed
+            subGroups: groupAccess.subGroups || []
+          });
+        });
+      }
+    });
+    return groups;
+  }, [userProfile?.clubAccess]);
+  
+  const groupsLoading = false; // No async loading needed since data comes from userProfile
+  const groupsError = null;
 
   // State for selection management
   const [selectedClub, setSelectedClub] = useState<boolean>(false);
@@ -100,9 +137,9 @@ export default function SelectRecipientsScreen() {
 
   // Check if user is club admin for the specific club context
   // Fallback: if no clubId provided, use the first admin club
-  const effectiveClubId = clubId || userProfile?.clubs?.find(club => club.isAdmin)?.clubId;
-  const currentClub = userProfile?.clubs?.find(club => club.clubId === effectiveClubId);
-  const isClubAdmin = currentClub?.isAdmin || false;
+  const effectiveClubId = clubId || userProfile?.clubAccess?.find(club => club.role === 'club-admin')?.clubId;
+  const currentClub = userProfile?.clubAccess?.find(club => club.clubId === effectiveClubId);
+  const isClubAdmin = currentClub?.role === 'club-admin' || false;
   
   // Debug logging
   console.log('🔍 Select Recipients Debug:', {

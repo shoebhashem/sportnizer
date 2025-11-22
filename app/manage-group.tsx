@@ -10,16 +10,23 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Import new services
-import { useVersionedData } from '@/contexts/UserContext';
-import { canUserManageGroup } from '@/services/group/fetchGroupDataService';
-import { fetchSubGroups, SubGroup } from '@/services/group/fetchSubGroupsService';
+// Import new services  
+import { groupService } from '@/services/group';
 import { GroupData, GroupMemberData } from '@/services/types/group';
+
+// Define SubGroup type based on new architecture
+interface SubGroup {
+  id: string;
+  name: string;
+  memberIds: string[];
+  createdBy?: string;
+  createdAt?: any;
+  description?: string;
+}
 
 export default function ManageGroupScreen() {
   const { groupId, clubId, tab } = useLocalSearchParams();
   const { user } = useAuth();
-  const { fetchGroupData, fetchGroupMembers } = useVersionedData();
   const [group, setGroup] = useState<GroupData | null>(null);
   const [members, setMembers] = useState<GroupMemberData[]>([]);
   const [subgroups, setSubgroups] = useState<SubGroup[]>([]);
@@ -35,19 +42,18 @@ export default function ManageGroupScreen() {
   const [successMessage, setSuccessMessage] = useState('');
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
-  // Check if user can manage group (is admin, coach, or creator)
-  const canManage = group && user && canUserManageGroup(group, user.uid, userRoles);
+  // Check if user can manage group (is admin, coach, or creator)  
+  const canManage = group && user && groupService.canUserManageGroup(group, user.uid, userRoles);
 
   const fetchAllData = useCallback(async () => {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string') return;
 
     setLoading(true);
     try {
-      // Fetch all data using versioned UserContext services
-      const [groupResult, membersResult, subgroupsData] = await Promise.all([
-        fetchGroupData(clubId, groupId),
-        fetchGroupMembers(clubId, groupId),
-        fetchSubGroups(clubId, groupId)
+      // Fetch all data using new service methods
+      const [groupResult, subgroupsData] = await Promise.all([
+        groupService.getGroup(clubId, groupId),
+        groupService.fetchSubGroups(clubId, groupId)
       ]);
 
       // Process group data
@@ -55,8 +61,9 @@ export default function ManageGroupScreen() {
         setGroup(groupResult.data);
       }
 
-      // Process members data
-      const membersData = membersResult.success ? membersResult.data?.members || [] : [];
+      // TODO: Implement fetchGroupMembers in memberService
+      // For now, set empty array - members functionality will be added later
+      const membersData: GroupMemberData[] = [];
       setMembers(membersData);
       
       // Populate memberIds for each subgroup based on members' belongsToSubGroups
@@ -79,7 +86,7 @@ export default function ManageGroupScreen() {
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, user, fetchGroupData, fetchGroupMembers]);
+  }, [groupId, clubId, user]);
 
   useEffect(() => {
     fetchAllData();

@@ -97,8 +97,14 @@ export const createSubGroup = onCall({
     }
     
     const isGroupCreator = groupData.createdBy === uid;
-    const isGroupAdminOrCoach = userGroupMembershipDoc.exists && 
-      ['admin', 'coach'].includes(userGroupMembershipDoc.data()?.role);
+    
+    // Check group membership and role
+    let isGroupAdminOrCoach = false;
+    if (groupMembersDoc.exists) {
+      const groupMembers = groupMembersDoc.data()?.members || [];
+      const userGroupMembership = groupMembers.find((member: any) => member.userId === uid);
+      isGroupAdminOrCoach = userGroupMembership?.roles?.includes('admin') || userGroupMembership?.roles?.includes('coach') || false;
+    }
 
     if (!isClubCreator && !isClubAdmin && !isGroupCreator && !isGroupAdminOrCoach) {
       return {

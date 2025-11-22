@@ -26,9 +26,10 @@ export interface UserProfile {
   birthdate: Date;
   age?: number; // Calculated field for ad targeting
   ageGroup?: string; // Bucketed for privacy (18-24, 25-34, etc.)
+  version: number; // Version field for cache optimization as per ARCHITECTURE.md
   createdAt: Date;
   groupsCreated: number;
-  groupsJoined: GroupMembership[]; // Enhanced structure with roles
+  clubAccess: any[]; // Updated to new structure - will be empty initially
   eventsInvited: EventInvitation[]; // Track event invitation responses
   photoURL?: string; // URL to profile picture (default or uploaded) - standardized name
 }
@@ -99,9 +100,10 @@ export const createUserProfile = async (
       birthdate: additionalData.birthdate,
       age: age,
       ageGroup: ageGroup,
+      version: 1, // Start with version 1 as per ARCHITECTURE.md
       createdAt: new Date(),
       groupsCreated: 0,
-      groupsJoined: [], // Initialize as empty GroupMembership array
+      clubAccess: [], // Initialize as empty array according to ARCHITECTURE.md
       eventsInvited: [], // Initialize as empty EventInvitation array
       photoURL: defaultProfilePicture // Set default profile picture URL
     };

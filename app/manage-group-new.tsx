@@ -10,9 +10,18 @@ import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import new services
-import { canUserManageGroup } from '@/services/group/fetchGroupDataService';
-import { fetchSubGroups, SubGroup } from '@/services/group/fetchSubGroupsService';
+import { groupService } from '@/services/group';
 import { GroupData, GroupMemberData } from '@/services/types/group';
+
+// Define SubGroup type locally for now
+interface SubGroup {
+  id: string;
+  name: string;
+  memberIds: string[];
+  createdBy?: string;
+  createdAt?: any;
+  description?: string;
+}
 
 export default function ManageGroupScreen() {
   const { groupId, clubId, tab } = useLocalSearchParams();
@@ -33,28 +42,34 @@ export default function ManageGroupScreen() {
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
   // Check if user can manage group (is admin, coach, or creator)
-  const canManage = group && user && canUserManageGroup(group, user.uid, userRoles);
+  const canManage = group && user && groupService.canUserManageGroup(group, user.uid, userRoles);
 
   const fetchAllData = useCallback(async () => {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string') return;
 
     setLoading(true);
     try {
-      // Fetch all data using services
-      const [groupData, membersData, subgroupsData] = await Promise.all([
-        fetchGroupData(clubId, groupId),
-        fetchGroupMembers(clubId, groupId),
-        fetchSubGroups(clubId, groupId)
+      // Fetch all data using new services
+      const [groupData, subgroupsData] = await Promise.all([
+        groupService.getGroup(clubId, groupId),
+        groupService.fetchSubGroups(clubId, groupId)
       ]);
 
-      setGroup(groupData);
-      setMembers(membersData);
+      // TODO: Implement member fetching
+
+      if (groupData.success && groupData.data) {
+        setGroup(groupData.data);
+      }
+      
+      // TODO: Fix member handling when memberService is implemented
+      const membersList: GroupMemberData[] = [];
+      setMembers(membersList);
       setSubgroups(subgroupsData);
 
       // Get current user's roles
-      if (user && membersData) {
-        const currentUserMember = membersData.find(member => member.userId === user.uid);
-        setUserRoles(currentUserMember?.roles || []);
+      if (user) {
+        // TODO: Get user roles from clubAccess when UserContext is available
+        setUserRoles([]);
       }
     } catch (error) {
       console.error('Error fetching group data:', error);

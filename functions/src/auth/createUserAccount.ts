@@ -38,17 +38,15 @@ export const createUserAccount = onCall(
 
       const DEFAULT_PROFILE_PICTURE = 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media';
 
-      // Create user profile document
+      // Create user profile document according to ARCHITECTURE.md
       const userProfile = {
         uid: uid,
         email: email.toLowerCase().trim(),
         displayName: fullName.trim(),
+        version: 1, // Start with version 1 as per ARCHITECTURE.md
         photoURL: DEFAULT_PROFILE_PICTURE,
-        clubAccess: [], // Updated from clubs[]
-        groupAccess: [], // Updated from groupsJoined[]
+        clubAccess: [], // Empty array - users join clubs later
         groupsCreated: 0,
-        events: [],
-        eventsResponses: [],
         emailVerified: false,
         verificationStatus: 'pending',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),

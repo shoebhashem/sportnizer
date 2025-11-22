@@ -42,10 +42,13 @@ export const fetchAccessibleGroups = async (
 
   console.log('🔍 fetchAccessibleGroups called with userProfile:', {
     uid: userProfile.uid,
-    clubsCount: userProfile.clubs?.length || 0,
-    groupsJoinedCount: userProfile.groupsJoined?.length || 0,
-    clubs: userProfile.clubs,
-    groupsJoined: userProfile.groupsJoined
+    clubAccessCount: userProfile.clubAccess?.length || 0,
+    groupAccessCount: userProfile.groupAccess?.length || 0,
+    clubAccess: userProfile.clubAccess,
+    groupAccess: userProfile.groupAccess,
+    // Backward compatibility
+    legacyCubs: userProfile.clubs?.length || 0,
+    legacyGroupsJoined: userProfile.groupsJoined?.length || 0
   });
 
   const db = getFirestore();
@@ -54,8 +57,9 @@ export const fetchAccessibleGroups = async (
     const accessibleGroups: AccessibleGroupData[] = [];
     const processedGroupIds = new Set<string>(); // Avoid duplicates
 
-    // 1. Add groups where user is a member (from userProfile.groupsJoined)
-    for (const membership of userProfile.groupsJoined || []) {
+    // 1. Add groups where user is a member (from userProfile.groupAccess or legacy groupsJoined)
+    const groupAccess = userProfile.groupAccess || userProfile.groupsJoined || [];
+    for (const membership of groupAccess) {
       try {
         const groupDoc = await getDoc(
           doc(db, "clubs", membership.clubId, "groups", membership.groupId)
@@ -64,14 +68,17 @@ export const fetchAccessibleGroups = async (
         if (groupDoc.exists()) {
           const groupData = { id: groupDoc.id, ...groupDoc.data() } as GroupData;
           
-          // Get club name
-          const clubDoc = await getDoc(doc(db, "clubs", membership.clubId));
-          const clubName = clubDoc.exists() ? clubDoc.data().name : "Unknown Club";
+          // Get club name (use cached name from access if available, otherwise fetch)
+          const clubName = membership.clubName || 
+            (async () => {
+              const clubDoc = await getDoc(doc(db, "clubs", membership.clubId));
+              return clubDoc.exists() ? clubDoc.data().name : "Unknown Club";
+            })();
 
           accessibleGroups.push({
             ...groupData,
             clubId: membership.clubId,
-            clubName,
+            clubName: await clubName,
             userRoles: membership.roles,
             accessReason: "member",
           });
@@ -84,11 +91,19 @@ export const fetchAccessibleGroups = async (
     }
 
     // 2. Add all groups from clubs where user is admin (if not already added)
-    const adminClubs = userProfile.clubs?.filter((club: any) => club.isAdmin) || [];
+    const clubAccess = userProfile.clubAccess || userProfile.clubs || [];
+    const adminClubs = clubAccess.filter((club: any) => 
+      club.role === 'club-admin' || club.isAdmin // Support both new and legacy structure
+    );
     
     console.log('🔍 Club-admin check:', {
-      totalClubs: userProfile.clubs?.length || 0,
-      adminClubs: adminClubs.map(c => ({ clubId: c.clubId, clubName: c.clubName, isAdmin: c.isAdmin })),
+      totalClubs: clubAccess.length,
+      adminClubs: adminClubs.map((c: any) => ({ 
+        clubId: c.clubId, 
+        clubName: c.clubName, 
+        role: c.role, 
+        isAdmin: c.isAdmin 
+      })),
       adminClubsCount: adminClubs.length
     });
     
