@@ -8,7 +8,7 @@ import { httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { authServiceNew } from '../services/auth';
+import { signUpUser } from '../services/auth/authService';
 
 export default function SignupScreen() {
   const { invite, verified } = useLocalSearchParams<{ invite?: string; verified?: string }>();
@@ -114,7 +114,7 @@ export default function SignupScreen() {
     setLoading(true);
     
     try {
-      const result = await authServiceNew.signUpUser(email.trim(), password, fullName.trim());
+      const result = await signUpUser(email.trim(), password, fullName.trim());
       
       if (result.success) {
         // Show email verification message
@@ -145,15 +145,11 @@ export default function SignupScreen() {
             // They can always join the group later if needed
           }
         }
-      }
-    } catch (error: any) {
-      console.error('Signup error:', error);
-      
-      // Handle specific Firebase Auth error codes
-      let errorMessage = 'An unexpected error occurred. Please try again.';
-      
-      if (error.code) {
-        switch (error.code) {
+      } else {
+        // Show error
+        let errorMessage = 'An error occurred. Please try again.';
+        
+        switch (result.error?.code) {
           case 'auth/email-already-in-use':
             errorMessage = 'An account with this email already exists.';
             break;
@@ -167,13 +163,15 @@ export default function SignupScreen() {
             errorMessage = 'Network error. Please check your connection.';
             break;
           default:
-            errorMessage = error.message || errorMessage;
+            errorMessage = result.error?.message || errorMessage;
         }
-      } else {
-        errorMessage = error.message || errorMessage;
+        
+        setModalMessage(errorMessage);
+        setErrorModalVisible(true);
       }
-      
-      setModalMessage(errorMessage);
+    } catch (error) {
+      console.error('Signup error:', error);
+      setModalMessage('An unexpected error occurred. Please try again.');
       setErrorModalVisible(true);
     } finally {
       setLoading(false);

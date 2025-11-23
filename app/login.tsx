@@ -9,7 +9,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { authServiceNew } from '../services/auth';
+// ✅ Using functional auth service per ARCHITECTURE.md
+import { resendVerificationEmail, signInUser } from '../services/auth/authService';
 
 export default function LoginScreen() {
   const { invite } = useLocalSearchParams<{ invite?: string }>();
@@ -214,12 +215,12 @@ export default function LoginScreen() {
     setLoading(true);
     
     try {
-      const result = await authServiceNew.signInUser(email.trim(), password);
+      const result = await signInUser(email.trim(), password);
       
       console.log('🔍 Sign in result:', {
         success: result.success,
-        user: result.user?.uid,
-        userProfile: result.userProfile ? 'loaded' : 'null'
+        errorCode: result.error?.code,
+        errorMessage: result.error?.message
       });
       
       if (result.success) {
@@ -248,15 +249,11 @@ export default function LoginScreen() {
           // Navigate to main app (tabs)
           router.replace('/(tabs)');
         }
-      }
-    } catch (error: any) {
-      console.error('Login error:', error);
-      
-      // Handle specific Firebase Auth error codes
-      let errorMessage = 'An unexpected error occurred. Please try again.';
-      
-      if (error.code) {
-        switch (error.code) {
+      } else {
+        // Show error
+        let errorMessage = 'An error occurred. Please try again.';
+        
+        switch (result.error?.code) {
           case 'auth/user-not-found':
             errorMessage = 'No account found with this email address.';
             break;
@@ -277,13 +274,15 @@ export default function LoginScreen() {
             errorMessage = 'Network error. Please check your connection.';
             break;
           default:
-            errorMessage = error.message || errorMessage;
+            errorMessage = result.error?.message || errorMessage;
         }
-      } else {
-        errorMessage = error.message || errorMessage;
+        
+        setErrorMessage(errorMessage);
+        setErrorModalVisible(true);
       }
-      
-      setErrorMessage(errorMessage);
+    } catch (error) {
+      console.error('Login error:', error);
+      setErrorMessage('An unexpected error occurred. Please try again.');
       setErrorModalVisible(true);
     } finally {
       setLoading(false);
@@ -411,16 +410,19 @@ export default function LoginScreen() {
     setResendLoading(true);
     
     try {
-      const result = await authServiceNew.resendVerificationEmail(email.trim());
+      const result = await resendVerificationEmail(email.trim());
       
       if (result.success) {
         // Show success modal instead of error modal
         setShowResendButton(false); // Hide resend button after successful send
         setResendSuccessModalVisible(true);
+      } else {
+        setErrorMessage(`❌ Failed to resend verification email.\n\n${result.error?.message || 'Please try again.'}`);
+        setErrorModalVisible(true);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Resend error:', error);
-      setErrorMessage(`❌ Failed to resend verification email.\n\n${error.message || 'Please try again.'}`);
+      setErrorMessage('❌ An unexpected error occurred. Please try again.');
       setErrorModalVisible(true);
     } finally {
       setResendLoading(false);

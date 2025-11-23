@@ -15,7 +15,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import { theme } from '../constants/theme';
 import { getCurrentUser } from '../services/auth/authService';
 // TODO: Implement announcementService in new architecture
-import { announcementService } from '../services/archived/communication/announcementService';
+
 
 interface AnnouncementData {
   title: string;

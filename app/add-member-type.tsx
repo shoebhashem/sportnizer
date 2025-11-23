@@ -3,10 +3,9 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
-import { addClubAdminToGroup } from '@/services/group/addMemberService';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     SafeAreaView,
     ScrollView,
@@ -67,27 +66,12 @@ export default function AddMemberTypeScreen() {
     setIsJoiningGroup(true);
 
     try {
-      const result = await addClubAdminToGroup(
-        clubId as string,
-        groupId as string,
-        user.uid,
-        ['player'], // Default to player role
-        user.uid // addedBy self
-      );
-
-      if (result.success) {
-        showModal(
-          'Success!',
-          `You have successfully joined ${groupName || 'the group'} as a player!`,
-          'OK',
-          () => router.back()
-        );
-      } else {
-        showModal('Error', result.error?.message || 'Failed to join group. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error joining group as player:', error);
-      showModal('Error', 'An unexpected error occurred. Please try again.');
+      // TODO: Implement group joining functionality using Firebase Functions
+      // This should call a Firebase Function to add the user to the group
+      showModal('Info', 'Group joining functionality is not yet implemented.');
+    } catch (error: any) {
+      console.error('Error joining group:', error);
+      showModal('Error', 'Failed to join group. Please try again.');
     } finally {
       setIsJoiningGroup(false);
     }

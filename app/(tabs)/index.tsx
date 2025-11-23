@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../components/Button';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { getCurrentUser } from '../../services/auth/authService';
-import { homeService } from '../../services/core/homeService';
 import { HomeAnnouncement, HomeEvent, HomePoll, NewsFlowItem } from '../../services/types';
 
 interface ModalState {
@@ -38,13 +37,13 @@ export default function Index() {
     setLoading(true);
     try {
       if (activeTab === 'events') {
-        const eventsData = await homeService.getUpcomingEvents(1);
-        setEvents(eventsData);
-        setEventsWeeksLoaded(1);
+        //const eventsData = await homeService.getUpcomingEvents(1);
+        //setEvents(eventsData);
+        //setEventsWeeksLoaded(1);
       } else {
-        const newsData = await homeService.getNewsFlow(2);
-        setNewsItems(newsData);
-        setNewsWeeksLoaded(2);
+        //const newsData = await homeService.getNewsFlow(2);
+        //setNewsItems(newsData);
+        //setNewsWeeksLoaded(2);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -74,13 +73,13 @@ export default function Index() {
     
     try {
       if (tab === 'events' && events.length === 0) {
-        const eventsData = await homeService.getUpcomingEvents(1);
-        setEvents(eventsData);
-        setEventsWeeksLoaded(1);
+        //const eventsData = await homeService.getUpcomingEvents(1);
+        //setEvents(eventsData);
+        //setEventsWeeksLoaded(1);
       } else if (tab === 'newsflow' && newsItems.length === 0) {
-        const newsData = await homeService.getNewsFlow(2);
-        setNewsItems(newsData);
-        setNewsWeeksLoaded(2);
+        //const newsData = await homeService.getNewsFlow(2);
+        //setNewsItems(newsData);
+        //setNewsWeeksLoaded(2);
       }
     } catch (error) {
       console.error('Error switching tabs:', error);
@@ -91,10 +90,10 @@ export default function Index() {
 
   const handleLoadMoreEvents = async () => {
     try {
-      const newWeeksToLoad = eventsWeeksLoaded + 4; // Load 4 more weeks
-      const eventsData = await homeService.getUpcomingEvents(newWeeksToLoad);
-      setEvents(eventsData);
-      setEventsWeeksLoaded(newWeeksToLoad);
+      //const newWeeksToLoad = eventsWeeksLoaded + 4; // Load 4 more weeks
+      //const eventsData = await homeService.getUpcomingEvents(newWeeksToLoad);
+      //setEvents(eventsData);
+      //setEventsWeeksLoaded(newWeeksToLoad);
     } catch (error) {
       console.error('Error loading more events:', error);
       setModal({
@@ -109,9 +108,9 @@ export default function Index() {
   const handleLoadMoreNews = async () => {
     try {
       const newWeeksToLoad = newsWeeksLoaded + 4; // Load 4 more weeks
-      const newsData = await homeService.getNewsFlow(newWeeksToLoad);
-      setNewsItems(newsData);
-      setNewsWeeksLoaded(newWeeksToLoad);
+      //const newsData = await homeService.getNewsFlow(newWeeksToLoad);
+      //setNewsItems(newsData);
+      //setNewsWeeksLoaded(newWeeksToLoad);
     } catch (error) {
       console.error('Error loading more news:', error);
       setModal({
@@ -138,10 +137,10 @@ export default function Index() {
 
   const handleEventResponse = async (eventId: string, response: 'accepted' | 'declined' | 'maybe') => {
     try {
-      await homeService.updateEventResponse(eventId, response);
+      //await homeService.updateEventResponse(eventId, response);
       // Refresh the events to show updated response
-      const eventsData = await homeService.getUpcomingEvents(eventsWeeksLoaded);
-      setEvents(eventsData);
+      //const eventsData = await homeService.getUpcomingEvents(eventsWeeksLoaded);
+      //setEvents(eventsData);
       
       setModal({
         visible: true,
@@ -162,7 +161,7 @@ export default function Index() {
 
   const handleAnnouncementPress = async (announcement: HomeAnnouncement) => {
     try {
-      await homeService.markAnnouncementAsRead(announcement.id);
+      //await homeService.markAnnouncementAsRead(announcement.id);
       // You could implement a detailed view here
       setModal({
         visible: true,

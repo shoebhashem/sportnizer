@@ -18,6 +18,7 @@ export { updateClub } from './clubs/updateClub';
 
 // Group Management Functions (Atomic)
 export { createGroup } from './groups/createGroup';
+export { createSubGroup } from './groups/createSubGroup';
 export { deleteGroup } from './groups/deleteGroup';
 export { getGroup } from './groups/getGroup';
 export { updateGroup } from './groups/updateGroup';

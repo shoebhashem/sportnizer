@@ -13,5 +13,21 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "services/archived/**/*",
+    "contexts/*_backup.tsx",
+    "contexts/*_new.tsx", 
+    "components/*.backup.tsx",
+    "hooks/useVersionedData.ts",
+    "services/auth/authServiceNew.ts",
+    "services/events/eventService.ts",
+    "app/event-details-v2.tsx",
+    "app/add-member-type.tsx",
+    "app/group-settings.tsx",
+    "app/invite-guardians.tsx",
+    "app/manage-subgroup*.tsx",
+    "app/schedule-event.tsx",
+    "components/DebugUserData.tsx"
   ]
 }

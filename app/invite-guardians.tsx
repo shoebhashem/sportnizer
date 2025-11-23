@@ -2,12 +2,10 @@ import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { sendGuardianInvitations } from '@/services/guardian/guardianInvitationService';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { collection, getDocs, getFirestore } from 'firebase/firestore';
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
