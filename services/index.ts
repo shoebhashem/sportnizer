@@ -6,6 +6,9 @@ export { eventService } from './event';
 export { groupService } from './group';
 export { memberService } from './member';
 
+// Orchestrating services - coordinate multiple atomic functions
+export * from './orchestration';
+
 // Read-only member fetching services
 export { fetchClubMembers, getClubMemberCount } from './fetchClubMembers';
 export {
@@ -13,6 +16,11 @@ export {
     getDeclinedMembers, getEventResponseStats, getPendingMembers
 } from './fetchEventMembers';
 export { fetchGroupMembers, fetchSubGroupMembers, getGroupMemberCount } from './fetchGroupMembers';
+
+// User access permissions service
+export {
+    canUserManageGroup, fetchUserAccess, fetchUserProfile, getUserAccessSummary, getUserAdminClubs, hasUserGroupRole, isUserClubAdmin
+} from './fetchUserAccess';
 
 // Keep existing essential services
 export { signInUser, signOutUser, signUpUser } from './auth/authService';

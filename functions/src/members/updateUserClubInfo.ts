@@ -54,9 +54,11 @@ export const updateUserClubInfo = onCall(
         lastModifiedAt: clubInfo.lastModifiedAt,
       });
 
-      // Update user document with new structure
+      // Update user document with new structure and increment version
       await userRef.update({
-        clubAccess: clubAccess
+        clubAccess: clubAccess,
+        version: admin.firestore.FieldValue.increment(1),
+        lastModified: admin.firestore.FieldValue.serverTimestamp()
       });
 
       console.log(`Successfully updated club info for user ${uid}`);

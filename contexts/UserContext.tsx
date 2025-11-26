@@ -3,8 +3,6 @@
 import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import {
     doc,
-    getDoc,
-    QueryDocumentSnapshot,
     updateDoc,
 } from "firebase/firestore";
 import React, {
@@ -18,7 +16,8 @@ import React, {
 import { auth, db } from "../services/core/firebase";
 import { storage } from "../utils/CrossPlatformStorage";
 
-// Import domain types
+// Import domain types and services
+import { fetchUserProfile } from "@/services/fetchUserAccess";
 import { UserProfile } from "@/services/types/user";
 
 // User Context Interface - Simplified for user document only
@@ -37,29 +36,6 @@ interface UserContextType {
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
-
-// Helper function to convert Firestore data to UserProfile
-const convertFirestoreDataToUserProfile = (snapshot: QueryDocumentSnapshot): UserProfile => {
-  const data = snapshot.data();
-  
-  return {
-    uid: snapshot.id,
-    email: data.email,
-    displayName: data.displayName || data.name || "",
-    photoURL: data.photoURL || data.profilePicture,
-    phoneNumber: data.phoneNumber,
-    dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toDate() : undefined,
-    address: data.address || {},
-    clubAccess: data.clubAccess || [],
-    groupsCreated: data.groupsCreated || 0,
-    events: data.events || [],
-    eventsResponses: data.eventsResponses || [],
-    verificationStatus: data.verificationStatus || 'pending',
-    createdAt: data.createdAt ? data.createdAt.toDate() : undefined,
-    lastActive: data.lastActive ? data.lastActive.toDate() : undefined,
-    version: data.version || 1,
-  };
-};
 
 // Constants for version-based caching
 const STORAGE_KEYS = {
@@ -167,7 +143,7 @@ export function UserProvider({ children }: UserProviderProps) {
     await clearCache();
   }, [clearCache]);
 
-  // Version-based user profile fetching with Firestore document version checking
+  // Version-based user profile fetching using fetchUserProfile service
   const checkAndFetchUserProfile = useCallback(async (): Promise<void> => {
     if (!firebaseUser) return;
 
@@ -177,33 +153,33 @@ export function UserProvider({ children }: UserProviderProps) {
       // Load cached data first
       const { profile: cachedProfile, cachedVersion } = await loadFromCache();
       
-      // Fetch user document to check current version
-      const userDocRef = doc(db, "users", firebaseUser.uid);
-      const userSnap = await getDoc(userDocRef);
+      // Use fetchUserProfile service to get user document
+      const userResponse = await fetchUserProfile(firebaseUser.uid);
       
-      if (!userSnap.exists()) {
-        console.warn("❌ User document not found");
+      if (!userResponse.success || !userResponse.profile) {
+        console.warn("❌ User document not found or error occurred:", userResponse.error);
         setUserProfile(null);
         return;
       }
 
-      const currentVersion = userSnap.data().version || 1;
+      const currentVersion = userResponse.profile.version || 1;
       
       // If cached version matches current version, use cached data
       if (cachedProfile && cachedVersion >= currentVersion) {
         console.log(`📱 Using cached user profile (version ${cachedVersion})`);
+        console.log(`📱 Cached profile clubAccess:`, cachedProfile.clubAccess);
         setUserProfile(cachedProfile);
         setIsFromCache(true);
         return;
       }
 
-      // Version mismatch or no cache - fetch fresh data
-      console.log(`🔄 Fetching fresh user profile (cached: ${cachedVersion}, current: ${currentVersion})`);
-      const freshProfile = convertFirestoreDataToUserProfile(userSnap);
+      // Version mismatch or no cache - use fresh data from service
+      console.log(`🔄 Using fresh user profile from service (cached: ${cachedVersion}, current: ${currentVersion})`);
+      console.log(`🔄 Fresh profile clubAccess:`, userResponse.profile.clubAccess);
       
       // Save to cache and update state
-      await saveToCache(freshProfile);
-      setUserProfile(freshProfile);
+      await saveToCache(userResponse.profile);
+      setUserProfile(userResponse.profile);
       setIsFromCache(false);
       
     } catch (error) {

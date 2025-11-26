@@ -47,18 +47,29 @@ export const createGroup = onCall(
         name: trimmedName,
         description: groupData.description || '',
         clubId: clubId, // Parent club reference
+        sport: groupData.sport || '',
         coaches: [], // User IDs with coach role
         admins: [request.auth.uid], // User IDs with group-admin role (creator becomes admin)
         memberCount: 0,
         subGroups: groupData.subGroups || [],
-        ageRange: groupData.ageRange || null,
-        skillLevel: groupData.skillLevel || null,
         isActive: true,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         createdBy: request.auth.uid,
         lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
         version: 1
       });
+
+      // Initialize the allMembers document to ensure it exists for future operations
+      const groupMemberRef = groupRef.collection('allMembers').doc('members');
+      await groupMemberRef.set({
+        members: [], // Empty array, will be populated when members are added
+        memberCount: 0,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        version: 1
+      });
+      
+      console.log(`Created group ${groupRef.id} with initialized members document`);
       
       // 4. Return consistent response
       return {

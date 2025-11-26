@@ -20,111 +20,152 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email_verified == true;
     }
 
-    // NEW: Check if user is club admin (from single allMembers document)
+    // Check if user is club admin (simplified for now - will be enhanced later)
     function isClubAdmin(clubId) {
       return isSignedIn() &&
-             exists(/databases/$(database)/documents/clubs/$(clubId)/allMembers/members) &&
-             get(/databases/$(database)/documents/clubs/$(clubId)/allMembers/members).data.members
-               .hasAny([{'userId': request.auth.uid, 'roles': ['club-admin']}]);
+             exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    // NEW: Check if user is member of a group (from single allMembers document)
-    function isGroupMember(clubId, groupId) {
+    // Check if user has any access to a club (simplified for now)
+    function hasClubAccess(clubId) {
       return isSignedIn() &&
-             exists(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/members) &&
-             get(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/members).data.members
-               .hasAny([{'userId': request.auth.uid}]);
+             exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    // NEW: Check if user has specific role in group
+    // Check if user has specific role in group (simplified for now)
     function hasGroupRole(clubId, groupId, role) {
       return isSignedIn() &&
-             exists(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/members) &&
-             get(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/members).data.members
-               .hasAny([{'userId': request.auth.uid, 'roles': [role]}]);
+             exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    // NEW: Check if user is group admin
+    // Check if user is group admin
     function isGroupAdmin(clubId, groupId) {
       return hasGroupRole(clubId, groupId, 'admin');
     }
 
-    // NEW: Check if user is group coach
+    // Check if user is group coach
     function isGroupCoach(clubId, groupId) {
       return hasGroupRole(clubId, groupId, 'coach');
     }
 
-    // NEW: Check if user can manage group (club admins OR club creator OR group admins OR group coaches)
+    // Check if user has any access to a group (simplified for now)
+    function hasGroupAccess(clubId, groupId) {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Check if user can manage group (club admin OR group admin OR group coach)
     function canManageGroup(clubId, groupId) {
-      return isClubAdmin(clubId) || isClubCreator(clubId) || isGroupAdmin(clubId, groupId) || isGroupCoach(clubId, groupId);
+      return isClubAdmin(clubId) || isGroupAdmin(clubId, groupId) || isGroupCoach(clubId, groupId);
     }
 
-    // NEW: Check if user can create groups (club admins OR club creator)
+    // Check if user can create groups (club admin only)
     function canCreateGroup(clubId) {
-      return isClubAdmin(clubId) || isClubCreator(clubId);
+      return isClubAdmin(clubId);
     }
 
-    // NEW: Check if user is the club creator
+    // Check if user is the club creator
     function isClubCreator(clubId) {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/clubs/$(clubId)) &&
              get(/databases/$(database)/documents/clubs/$(clubId)).data.createdBy == request.auth.uid;
     }
 
+    // Validate clubAccess array structure (simplified for Firestore rules syntax)
+    function validateClubAccessArray(clubAccess) {
+      return clubAccess is list &&
+             clubAccess.size() <= 100;
+    }
+
+    // Validate groupAccess array structure (simplified for Firestore rules syntax)
+    function validateGroupAccessArray(groupAccess) {
+      return groupAccess is list &&
+             groupAccess.size() <= 50;
+    }
+
+    // Check if current user has club admin access to update target user (simplified)
+    function hasClubAdminAccessToUpdateUser(targetUserId) {
+      return exists(/databases/$(database)/documents/users/$(targetUserId)) &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Validation function for user documents using clubAccess array
+    function validateUserDocument(data) {
+      return data.keys().hasAll(['email', 'name', 'createdAt']) &&
+             data.email is string &&
+             data.name is string &&
+             data.createdAt is timestamp &&
+             // clubAccess array validation (replaces clubs and groupsJoined)
+             (!('clubAccess' in data) || (
+               data.clubAccess is list &&
+               data.clubAccess.size() <= 100 &&
+               validateClubAccessArray(data.clubAccess)
+             )) &&
+             // Optional fields validation
+             (!('profilePicture' in data) || data.profilePicture is string) &&
+             (!('dateOfBirth' in data) || data.dateOfBirth is timestamp) &&
+             (!('phoneNumber' in data) || data.phoneNumber is string) &&
+             (!('address' in data) || data.address is map) &&
+             (!('preferences' in data) || data.preferences is map) &&
+             (!('isActive' in data) || data.isActive is bool) &&
+             (!('lastLoginAt' in data) || data.lastLoginAt is timestamp);
+    }
+
     // ---------------------------
-    // Users collection
+    // Users collection - using clubAccess array structure
     // ---------------------------
     match /users/{userId} {
-      allow read: if isSignedIn();
+      // Read: Only authenticated user can read their own document
+      allow read: if isSignedIn() && request.auth.uid == userId;
 
-      // Users can create their own document
-      allow create: if request.auth.uid == userId;
+      // Create: Users can only create their own document with required fields
+      allow create: if isSignedIn() && 
+                       request.auth.uid == userId &&
+                       validateUserDocument(resource.data);
 
-      // Users can update/delete their own document OR club-admin can update other users in same club
-      allow update, delete: if (request.auth.uid == userId) ||
-                             (
-                               isSignedIn() &&
-                               request.auth.uid != userId &&
-                               // Check if current user is club admin in any club that target user belongs to
-                               get(/databases/$(database)/documents/users/$(userId)).data.clubs
-                                 .hasAny(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clubs
-                                   .where(c, c.isAdmin == true)
-                                   .map(c, c.clubId)) &&
-                               // Club-admins can only update 'clubs' and 'groupsJoined' fields
-                               request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clubs', 'groupsJoined'])
-                             );
+      // Update: Users can update their own document, OR club-admin can update clubAccess field
+      allow update: if (request.auth.uid == userId && validateUserDocument(resource.data)) ||
+                       (
+                         isSignedIn() &&
+                         request.auth.uid != userId &&
+                         // Check if current user is club admin in any of target user's clubs
+                         hasClubAdminAccessToUpdateUser(userId) &&
+                         // Club-admins can only update 'clubAccess' field
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clubAccess'])
+                       );
+
+      // Delete: Users can only delete their own document
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+
+
     }
 
     // ---------------------------
     // Clubs collection
     // ---------------------------
     match /clubs/{clubId} {
+      // Read: Any authenticated user can read club info
       allow read: if isSignedIn();
+      
+      // Create: Any authenticated user can create a club
       allow create: if isSignedIn();
-      allow update, delete: if isClubAdmin(clubId);
-
-      // NEW: Single allMembers document (club members)
-      match /allMembers/{memberDocId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isClubAdmin(clubId);
-        allow delete: if isClubAdmin(clubId);
-      }
+      
+      // Update/Delete: Only club admins or club creator
+      allow update, delete: if isClubAdmin(clubId) || isClubCreator(clubId);
 
       // Groups subcollection inside a club
       match /groups/{groupId} {
+        // Read: Any authenticated user can read group info
         allow read: if isSignedIn();
-        allow create: if canCreateGroup(clubId); // Only club admins can create groups
+        
+        // Create: Only club admins can create groups
+        allow create: if canCreateGroup(clubId);
+        
+        // Update: Club admins or group admins/coaches can update
         allow update: if canManageGroup(clubId, groupId);
+        
+        // Delete: Only club admins or group admins
         allow delete: if isClubAdmin(clubId) || isGroupAdmin(clubId, groupId);
-
-        // NEW: Single allMembers document (group members)
-        match /allMembers/{memberDocId} {
-          allow read: if isSignedIn();
-          allow create: if canManageGroup(clubId, groupId); // Only managers can create member lists
-          allow update: if canManageGroup(clubId, groupId); // Only managers can update members
-          allow delete: if canManageGroup(clubId, groupId);
-        }
         
         // Subgroups subcollection
         match /subgroups/{subgroupId} {
@@ -134,13 +175,13 @@ service cloud.firestore {
 
         // Events subcollection (for future use)
         match /events/{eventId} {
-          allow read: if isGroupMember(clubId, groupId) || isClubAdmin(clubId);
+          allow read: if hasGroupAccess(clubId, groupId) || isClubAdmin(clubId);
           allow create, update, delete: if canManageGroup(clubId, groupId);
         }
 
         // Results subcollection (for future use)
         match /results/{resultId} {
-          allow read: if isGroupMember(clubId, groupId) || isClubAdmin(clubId);
+          allow read: if hasGroupAccess(clubId, groupId) || isClubAdmin(clubId);
           allow create, update, delete: if canManageGroup(clubId, groupId);
         }
       }

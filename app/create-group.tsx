@@ -3,26 +3,32 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import DropdownInput from "@/components/DropdownInput";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
-import { useUserClubs } from "@/contexts/UserContext";
-import { clubService } from "@/services/club";
+import { useUser } from "@/contexts/UserContext";
 import { SPORT_TYPES } from "@/services/constants";
-import { groupService } from "@/services/group";
+import {
+  createNewClubAndGroup,
+  createNewGroupInExistingClub,
+  type CreateNewClubAndGroupInput,
+  type CreateNewGroupInExistingClubInput
+} from "@/services/orchestration";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 type CreateMode = "existing-club" | "new-club";
 
 export default function CreateGroupScreen() {
-  const userClubs = useUserClubs();
+  // User context for getting user data and admin clubs
+  const { firebaseUser, userProfile, isLoading: userLoading, refreshUserProfile } = useUser();
+  
   const [loading, setLoading] = useState(false);
 
   // Step 1: Club selection
@@ -38,6 +44,30 @@ export default function CreateGroupScreen() {
   // Step 4: Sport type
   const [sportType, setSportType] = useState("");
   const [sportTypeError, setSportTypeError] = useState("");
+
+  // Get admin clubs from user profile
+  const adminClubs = useMemo(() => {
+    if (!userProfile?.clubAccess) return [];
+    return userProfile.clubAccess
+      .filter(club => club.role === 'club-admin')
+      .map(club => ({
+        value: club.clubId,
+        label: club.clubName
+      }));
+  }, [userProfile?.clubAccess]);
+
+  // Prepare dropdown options with "Create New Club" option
+  const clubOptions = useMemo(() => {
+    const options = [
+      { id: "create-new-club", name: "➕ Create New Club" },
+      ...adminClubs.map(club => ({ id: club.value, name: club.label }))
+    ];
+    return options;
+  }, [adminClubs]);
+
+  // Step visibility logic
+  const showStep2 = selectedClubId !== "";
+  const showStep4 = showStep2 && groupName.trim() !== "" && (createMode === "existing-club" || clubName.trim() !== "");
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -66,30 +96,11 @@ export default function CreateGroupScreen() {
   };
 
   // Get admin clubs for dropdown
-  const adminClubs = userClubs.filter((club) => club.isAdmin);
 
   // Prepare dropdown options with "Create New Club" option
-  const clubOptions = [
-    ...adminClubs.map((club) => ({
-      id: club.clubId,
-      name: club.clubName,
-    })),
-    {
-      id: "create-new-club",
-      name: "➕ Create New Club",
-    },
-  ];
+ 
 
-  // Set default selection on mount
-  useEffect(() => {
-    if (adminClubs.length > 0 && !selectedClubId) {
-      setSelectedClubId(adminClubs[0].clubId);
-      setCreateMode("existing-club");
-    } else if (adminClubs.length === 0) {
-      setSelectedClubId("create-new-club");
-      setCreateMode("new-club");
-    }
-  }, [adminClubs, selectedClubId]);
+ 
 
   // Handle club selection change
   const handleClubSelection = (value: string) => {
@@ -137,85 +148,77 @@ export default function CreateGroupScreen() {
       return;
     }
 
+    if (!firebaseUser || !userProfile) {
+      showModal("Error", "User authentication required. Please login again.", "OK", () => router.push('/(tabs)/groups'), true);
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (createMode === "new-club") {
-        // Step 1: Create new club
-        const clubResult = await clubService.createClub({
-          name: clubName.trim(),
-          description: '',
-          sport: sportType,
-          location: '',
-          admins: [], // Will be set by Firebase Function
-          memberCount: 0,
-          isActive: true,
-          createdBy: '' // Will be set by Firebase Function
-        });
-        
-        if (!clubResult.success || !clubResult.clubId) {
-          showModal("Error", clubResult.error || "Failed to create club", "OK", () => router.push('/(tabs)/groups'), true);
-          setLoading(false);
-          return;
-        }
-
-        // Step 2: Create group in the new club
-        const groupResult = await groupService.createGroup(
-          clubResult.clubId!,
-          groupName.trim(),
-          {
+        // Create new club and group
+        const input: CreateNewClubAndGroupInput = {
+          clubData: {
+            name: clubName.trim(),
+            description: "", // Could be added as optional field later
+            location: ""     // Could be added as optional field later
+          },
+          groupData: {
             name: groupName.trim(),
-            description: '',
-            coaches: [],
-            admins: [], // Will be set by Firebase Function
-            memberCount: 0,
-            subGroups: [],
-            isActive: true,
-            createdBy: '' // Will be set by Firebase Function
-          }
-        );
+            sport: sportType,
+            description: ""  // Could be added as optional field later
+          },
+          userId: firebaseUser.uid,
+          userDisplayName: userProfile.displayName || firebaseUser.displayName || "Unknown User",
+          userEmail: userProfile.email || firebaseUser.email || "",
+          userPhotoURL: userProfile.photoURL || firebaseUser.photoURL || undefined
+        };
 
-        if (!groupResult.success) {
-          showModal("Error", groupResult.error || "Failed to create group", "OK", () => router.push('/(tabs)/groups'), true);
-          setLoading(false);
-          return;
+        const result = await createNewClubAndGroup(input);
+        
+        if (result.success) {
+          // Refresh user profile to get updated club/group access
+          await refreshUserProfile();
+          showModal(
+            "Success!", 
+            `Club "${clubName}" and group "${groupName}" created successfully!`, 
+            "Continue", 
+            () => router.push('/(tabs)/groups')
+          );
+        } else {
+          showModal("Error", result.error || "Failed to create club and group", "OK", undefined, true);
         }
-
-        showModal(
-          "Success!",
-          `Club "${clubName.trim()}" and group "${groupName.trim()}" created successfully!`,
-          "OK",
-          () => router.push('/(tabs)/groups')
-        );
       } else {
         // Create group in existing club
-        const groupResult = await groupService.createGroup(
-          selectedClubId,
-          groupName.trim(),
-          {
+        const input: CreateNewGroupInExistingClubInput = {
+          clubId: selectedClubId,
+          groupData: {
             name: groupName.trim(),
-            description: '',
-            coaches: [],
-            admins: [], // Will be set by Firebase Function
-            memberCount: 0,
-            subGroups: [],
-            isActive: true,
-            createdBy: '' // Will be set by Firebase Function
-          }
-        );
+            sport: sportType,
+            description: ""  // Could be added as optional field later
+          },
+          userId: firebaseUser.uid,
+          userDisplayName: userProfile.displayName || firebaseUser.displayName || "Unknown User",
+          userEmail: userProfile.email || firebaseUser.email || "",
+          userPhotoURL: userProfile.photoURL || firebaseUser.photoURL || undefined
+        };
 
-        if (!groupResult.success) {
-          showModal("Error", groupResult.error || "Failed to create group", "OK", () => router.push('/(tabs)/groups'), true);
-          setLoading(false);
-          return;
+        const result = await createNewGroupInExistingClub(input);
+        
+        if (result.success) {
+          // Refresh user profile to get updated group access
+          await refreshUserProfile();
+          const selectedClub = adminClubs.find(club => club.value === selectedClubId);
+          showModal(
+            "Success!", 
+            `Group "${groupName}" created successfully in "${selectedClub?.label || 'selected club'}"!`, 
+            "Continue", 
+            () => router.push('/(tabs)/groups')
+          );
+        } else {
+          showModal("Error", result.error || "Failed to create group", "OK", undefined, true);
         }
-
-        showModal(
-          "Success!",
-          `Group "${groupName.trim()}" created successfully!`,
-          "OK",
-          () => router.push('/(tabs)/groups')
-        );
       }
     } catch (error) {
       console.error("Error in handleSubmit:", error);
@@ -225,14 +228,58 @@ export default function CreateGroupScreen() {
     }
   };
 
-  // Check if we should show step 2 (club/group name)
-  const showStep2 = selectedClubId !== "";
 
-  // Check if we should show step 4 (sport type)
-  const showStep4 = showStep2 && (
-    (createMode === "new-club" && clubName.trim().length > 0 && groupName.trim().length > 0) ||
-    (createMode === "existing-club" && groupName.trim().length > 0)
-  );
+  // Show loading state while user data is being fetched
+  if (userLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Ionicons 
+            name="arrow-back" 
+            size={24} 
+            color={theme.colors.secondary}
+            onPress={() => router.back()}
+            style={styles.backButton}
+          />
+          <Text style={styles.title}>Create New Group</Text>
+        </View>
+        <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color={theme.colors.secondary} />
+          <Text style={{ color: theme.colors.text, marginTop: theme.spacing.md }}>Loading user data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error if user is not authenticated
+  if (!firebaseUser || !userProfile) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Ionicons 
+            name="arrow-back" 
+            size={24} 
+            color={theme.colors.secondary}
+            onPress={() => router.back()}
+            style={styles.backButton}
+          />
+          <Text style={styles.title}>Create New Group</Text>
+        </View>
+        <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ color: theme.colors.error, textAlign: 'center', fontSize: theme.typography.fontSize.large }}>
+            Authentication required. Please log in to create groups.
+          </Text>
+          <View style={{ marginTop: theme.spacing.lg }}>
+            <Button
+              label="Go Back"
+              theme="primary"
+              onPress={() => router.back()}
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -260,8 +307,14 @@ export default function CreateGroupScreen() {
             value={selectedClubId}
             onValueChange={handleClubSelection}
             options={clubOptions}
-            placeholder="Select a club..."
+            placeholder={adminClubs.length === 0 ? "Create New Club (No admin clubs found)" : "Select a club..."}
           />
+          
+          {adminClubs.length === 0 && (
+            <Text style={styles.helpText}>
+              💡 You don&apos;t have admin access to any clubs yet. You can create a new club and group together, or ask an existing club admin to give you permissions.
+            </Text>
+          )}
         </View>
 
         {/* Step 2/2.5: Club Name (if creating new) and Group Name */}
@@ -408,5 +461,12 @@ const styles = StyleSheet.create({
   },
   loadingIndicator: {
     marginTop: theme.spacing.md,
+  },
+  helpText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.sm,
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
 });

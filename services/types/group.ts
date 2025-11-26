@@ -3,6 +3,8 @@ export interface GroupData {
   id: string;
   name: string;
   description: string;
+  clubId: string; // Parent club reference
+  sport: string; // Sport type for this group
   coaches: string[]; // User IDs with coach role
   admins: string[]; // User IDs with group-admin role
   memberCount: number;

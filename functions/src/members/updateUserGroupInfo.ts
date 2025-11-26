@@ -103,9 +103,11 @@ export const updateUserGroupInfo = onCall(
         throw new HttpsError('invalid-argument', 'operation must be either "add" or "remove"');
       }
 
-      // Update user document with new nested structure
+      // Update user document with new nested structure and increment version
       await userRef.update({
-        clubAccess: clubAccess
+        clubAccess: clubAccess,
+        version: admin.firestore.FieldValue.increment(1),
+        lastModified: admin.firestore.FieldValue.serverTimestamp()
       });
 
       console.log(`Successfully ${operation === 'add' ? 'added' : 'removed'} group info for user ${uid}`);

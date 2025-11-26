@@ -1,20 +1,21 @@
 //import AdContainer from "@/components/AdContainer";
 import Button from "@/components/Button";
 import { theme } from "@/constants/theme";
-import { useUserProfile } from "@/contexts/UserContext";
+import { useUser } from "@/contexts/UserContext";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function GroupsScreen() {
-const { userProfile, isLoading } = useUserProfile();
+const { userProfile, isLoading, refreshUserProfile, clearUserData } = useUser();
 
 // Extract clubs and groups from userProfile
 const clubs = userProfile?.clubAccess || [];
@@ -41,11 +42,21 @@ const userGroups = React.useMemo(() => {
   return allGroups;
 }, [userProfile?.clubAccess]);
 
-console.log('📱 GroupsScreen render:', {
+console.log('📱 GroupsScreen render - DETAILED DEBUG:', {
   isLoading,
+  hasUserProfile: !!userProfile,
+  userProfile_uid: userProfile?.uid,
+  userProfile_email: userProfile?.email,
+  clubAccess_raw: userProfile?.clubAccess,
+  clubAccess_length: userProfile?.clubAccess?.length || 0,
   clubsCount: clubs.length,
   userGroupsCount: userGroups.length,
-  clubs: clubs.map(c => ({ clubId: c.clubId, clubName: c.clubName, role: c.role })),
+  clubs: clubs.map(c => ({ 
+    clubId: c.clubId, 
+    clubName: c.clubName, 
+    role: c.role,
+    groupAccess_length: c.groupAccess?.length || 0
+  })),
   userGroups: userGroups.map(g => ({ 
     groupId: g.groupId, 
     groupName: g.groupName,
@@ -56,6 +67,51 @@ console.log('📱 GroupsScreen render:', {
 });
 const [selectedClub, setSelectedClub] = useState<string | null>(null);
 const [isRefreshing, setIsRefreshing] = useState(false);
+
+// Manual refresh function for pull-to-refresh
+const handleRefresh = async () => {
+  setIsRefreshing(true);
+  try {
+    console.log('🔄 Manual refresh triggered');
+    await refreshUserProfile();
+  } catch (error) {
+    console.error('❌ Error during manual refresh:', error);
+  } finally {
+    setIsRefreshing(false);
+  }
+};
+
+// Debug function to check data directly from Firestore
+const handleDebugUserData = async () => {
+  if (!userProfile?.uid) {
+    console.log('❌ No user profile available');
+    return;
+  }
+  
+  console.log('🐛 === DETAILED DEBUG START ===');
+  console.log('🐛 UserContext data:', {
+    hasUserProfile: !!userProfile,
+    uid: userProfile.uid,
+    email: userProfile.email,
+    clubAccess: userProfile.clubAccess,
+    clubAccessLength: userProfile.clubAccess?.length || 0
+  });
+  
+  // Import and use the service directly to bypass cache
+  const { fetchUserProfile } = await import('@/services/fetchUserAccess');
+  console.log('🐛 Fetching fresh data from Firestore...');
+  
+  const freshData = await fetchUserProfile(userProfile.uid);
+  console.log('🐛 Fresh Firestore data:', {
+    success: freshData.success,
+    error: freshData.error,
+    profile: freshData.profile,
+    clubAccess: freshData.profile?.clubAccess,
+    clubAccessLength: freshData.profile?.clubAccess?.length || 0
+  });
+  
+  console.log('🐛 === DETAILED DEBUG END ===');
+};
 
 // Helper function to get groups for a specific club from user groups
 const getGroupsForClub = (clubId: string) => {
@@ -68,19 +124,6 @@ const handleCreateGroup = () => {
 
 const handleGroupPress = (groupId: string, clubId: string) => {
   router.push(`/manage-group?groupId=${groupId}&clubId=${clubId}`);
-};
-
-const handleRefresh = async () => {
-  setIsRefreshing(true);
-  try {
-    // Since we removed complex versioning, just refresh the user profile
-    // Other documents (clubs, groups) are now read directly from Firestore when needed
-    console.log('✅ Refreshed user data');
-  } catch (error) {
-    console.error('❌ Error refreshing data:', error);
-  } finally {
-    setIsRefreshing(false);
-  }
 };
 
 if (isLoading) {
@@ -104,18 +147,40 @@ return (
       theme="primary"
       onPress={handleCreateGroup}
     />
-    <TouchableOpacity 
-      style={[styles.refreshButton, { opacity: isRefreshing ? 0.7 : 1 }]}
-      onPress={handleRefresh}
-      disabled={isRefreshing}
+    
+    {/* Debug button - remove in production */}
+    <TouchableOpacity
+      style={styles.debugButton}
+      onPress={handleDebugUserData}
     >
-      <Text style={styles.refreshButtonText}>
-        {isRefreshing ? "Refreshing..." : "🔄 Refresh Data"}
-      </Text>
+      <Text style={styles.debugText}>🔍 Debug User Data</Text>
+    </TouchableOpacity>
+    
+    {/* Clear Cache button - remove in production */}
+    <TouchableOpacity
+      style={[styles.debugButton, { backgroundColor: theme.colors.error }]}
+      onPress={async () => {
+        console.log('🗑️ Clearing user cache...');
+        await clearUserData();
+        console.log('🔄 Cache cleared, refreshing...');
+        await refreshUserProfile();
+      }}
+    >
+      <Text style={styles.debugText}>🗑️ Clear Cache & Refresh</Text>
     </TouchableOpacity>
   </View>
 
-  <ScrollView contentContainerStyle={styles.clubsContainer}>
+  <ScrollView 
+    contentContainerStyle={styles.clubsContainer}
+    refreshControl={
+      <RefreshControl
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        colors={[theme.colors.secondary]}
+        tintColor={theme.colors.secondary}
+      />
+    }
+  >
     {clubs.length === 0 ? (
       <Text style={styles.noClubsText}>
         You haven&apos;t joined any clubs yet. Create your groups and
@@ -318,18 +383,16 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: theme.typography.fontSize.medium,
   },
-  refreshButton: {
-    backgroundColor: theme.colors.inputBackground,
-    padding: theme.spacing.md,
+  debugButton: {
+    backgroundColor: theme.colors.error,
+    padding: theme.spacing.sm,
     borderRadius: theme.borderRadius.medium,
     marginTop: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    alignItems: 'center',
   },
-  refreshButtonText: {
-    color: theme.colors.text,
+  debugText: {
+    color: theme.colors.primary,
+    textAlign: "center",
     fontSize: theme.typography.fontSize.small,
-    fontWeight: theme.typography.fontWeight.medium,
+    fontWeight: theme.typography.fontWeight.bold,
   },
 });

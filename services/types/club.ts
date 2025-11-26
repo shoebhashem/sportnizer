@@ -5,7 +5,6 @@ export interface ClubData {
   id: string;
   name: string;
   description: string;
-  sport: string;
   location: string;
   admins: string[]; // User IDs with club-admin role
   memberCount: number;

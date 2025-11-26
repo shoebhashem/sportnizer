@@ -36,11 +36,11 @@ export const createClub = onCall(
       // Generate new club document
       const clubRef = clubsRef.doc();
       
+      // Create club document
       await clubRef.set({
         id: clubRef.id,
         name: trimmedName,
         description: clubData.description || '',
-        sport: clubData.sport || '',
         location: clubData.location || '',
         admins: [request.auth.uid], // User IDs with club-admin role
         memberCount: 0, // Will be updated when members are added
@@ -50,6 +50,18 @@ export const createClub = onCall(
         lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
         version: 1
       });
+
+      // Initialize the allMembers document to ensure it exists for future operations
+      const clubMemberRef = clubRef.collection('allMembers').doc('members');
+      await clubMemberRef.set({
+        members: [], // Empty array, will be populated when members are added
+        memberCount: 0,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        version: 1
+      });
+      
+      console.log(`Created club ${clubRef.id} with initialized members document`);
       
       // 4. Return consistent response
       return {
