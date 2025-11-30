@@ -2,19 +2,19 @@ import { getDefaultProfilePicture } from '@/constants/profilePictures';
 import '@/firebaseConfig'; // Ensure Firebase is initialized
 import { functions } from '@/services/core/firebase';
 import {
-  createUserWithEmailAndPassword,
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  User,
+    createUserWithEmailAndPassword,
+    getAuth,
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    signOut,
+    User,
 } from 'firebase/auth';
 import {
-  doc,
-  getDoc,
-  getFirestore,
-  serverTimestamp,
-  setDoc,
+    doc,
+    getDoc,
+    getFirestore,
+    serverTimestamp,
+    setDoc,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
@@ -72,6 +72,8 @@ export const signUpUser = async (email: string, password: string, fullName: stri
       displayName: fullName.trim(),
       version: 1, // Start with version 1 as per ARCHITECTURE.md
       photoURL: getDefaultProfilePicture(false), // Use the default adult profile picture
+      phoneNumber: undefined, // Initially undefined, can be updated later
+      dateOfBirth: undefined, // Initially undefined, can be updated later
       clubAccess: [], // Empty array - users join clubs later
       groupsCreated: 0,
       events: [],
@@ -172,4 +174,61 @@ export const setupAuthListener = (callback: (user: User | null) => void) => {
 // ---------------------- CURRENT USER ----------------------
 export const getCurrentUser = () => {
   return auth.currentUser;
+};
+
+// ---------------------- UPDATE USER PROFILE ----------------------
+/**
+ * Update user profile using atomic Firebase Function
+ * This ensures proper version management and cache invalidation
+ */
+export const updateUserProfile = async (profileData: {
+  displayName?: string;
+  photoURL?: string;
+  phoneNumber?: string | null;
+  dateOfBirth?: Date | null;
+}) => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      return {
+        success: false,
+        error: {
+          code: 'auth/user-not-authenticated',
+          message: 'No authenticated user found',
+        },
+      };
+    }
+
+    // Call the Firebase Function
+    const updateUserProfileFunction = httpsCallable(functions, 'updateUserProfile');
+    const result = await updateUserProfileFunction({
+      userId: currentUser.uid,
+      profileData,
+    });
+
+    const responseData = result.data as {
+      success: boolean;
+      message: string;
+      userId: string;
+      version: number;
+      updatedFields: string[];
+    };
+
+    return {
+      success: true,
+      data: responseData,
+      message: 'Profile updated successfully',
+    };
+
+  } catch (error: any) {
+    console.error('Error updating user profile:', error);
+    
+    return {
+      success: false,
+      error: {
+        code: error.code || 'unknown',
+        message: error.message || 'Failed to update profile',
+      },
+    };
+  }
 };

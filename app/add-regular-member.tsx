@@ -9,13 +9,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import React, { useState } from 'react';
 import {
-    Clipboard,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -29,13 +27,7 @@ interface InvitationResult {
   }[];
 }
 
-interface ShareableInviteResult {
-  success: boolean;
-  inviteToken?: string;
-  inviteLink?: string;
-  expiresAt?: string;
-  error?: string;
-}
+
 
 export default function AddRegularMemberScreen() {
   const { groupId, groupName, clubId } = useLocalSearchParams();
@@ -54,14 +46,6 @@ export default function AddRegularMemberScreen() {
   // State for email invitations
   const [emailAddresses, setEmailAddresses] = useState<string[]>(['']);
   const [sendingEmails, setSendingEmails] = useState(false);
-  
-  // State for shareable link
-  const [shareableLink, setShareableLink] = useState<string>('');
-  const [generatingLink, setGeneratingLink] = useState(false);
-  const [linkExpiration, setLinkExpiration] = useState<string>('');
-  
-  // Active tab
-  const [activeTab, setActiveTab] = useState<'email' | 'link'>('email');
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -219,75 +203,7 @@ export default function AddRegularMemberScreen() {
     }
   };
 
-  const handleGenerateShareableLink = async () => {
-    if (!user) {
-      showModal('Error', 'Unable to generate link. Please make sure you are properly logged in.');
-      return;
-    }
 
-    setGeneratingLink(true);
-
-    try {
-      const generateShareableInvite = httpsCallable<any, ShareableInviteResult>(
-        functions,
-        'generateShareableInvite'
-      );
-
-      const result = await generateShareableInvite({
-        clubId: clubId as string,
-        groupId: groupId as string,
-        groupName: groupName as string,
-        inviterName: user.displayName || user.email || 'Unknown User',
-        inviterUid: user.uid,
-        expirationDays: 7, // Default to 7 days
-        invitationType: 'group-member'
-      });
-
-      if (result.data.success && result.data.inviteLink) {
-        setShareableLink(result.data.inviteLink);
-        setLinkExpiration(result.data.expiresAt || '');
-        
-        showModal(
-          'Link Generated',
-          'Your shareable invitation link has been generated successfully!'
-        );
-      } else {
-        showModal('Error', result.data.error || 'Failed to generate shareable link');
-      }
-    } catch (error: any) {
-      console.error('Error generating shareable link:', error);
-      showModal('Error', 'Failed to generate shareable link. Please try again.');
-    } finally {
-      setGeneratingLink(false);
-    }
-  };
-
-  const handleCopyLink = async () => {
-    if (shareableLink) {
-      await Clipboard.setString(shareableLink);
-      showModal('Copied', 'Invitation link copied to clipboard!');
-    }
-  };
-
-  const handleShareLink = async () => {
-    if (shareableLink) {
-      try {
-        await Share.share({
-          message: `Join our ${groupName} group! Click this link to join: ${shareableLink}`,
-          url: shareableLink,
-          title: `Join ${groupName}`,
-        });
-      } catch (error) {
-        console.error('Error sharing link:', error);
-      }
-    }
-  };
-
-  const formatExpirationDate = (isoString: string): string => {
-    if (!isoString) return '';
-    const date = new Date(isoString);
-    return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -302,48 +218,16 @@ export default function AddRegularMemberScreen() {
           </TouchableOpacity>
           <Text style={styles.title}>Add Regular Member</Text>
           <Text style={styles.subtitle}>
-            Invite adults to join {groupName || 'this group'}
+            Send email invitations to adults to join {groupName || 'this group'}
           </Text>
         </View>
 
-        {/* Tab Selection */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'email' && styles.activeTab]}
-            onPress={() => setActiveTab('email')}
-          >
-            <Ionicons 
-              name="mail" 
-              size={20} 
-              color={activeTab === 'email' ? theme.colors.primary : theme.colors.textSecondary} 
-            />
-            <Text style={[styles.tabText, activeTab === 'email' && styles.activeTabText]}>
-              Email Invitation
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'link' && styles.activeTab]}
-            onPress={() => setActiveTab('link')}
-          >
-            <Ionicons 
-              name="link" 
-              size={20} 
-              color={activeTab === 'link' ? theme.colors.primary : theme.colors.textSecondary} 
-            />
-            <Text style={[styles.tabText, activeTab === 'link' && styles.activeTabText]}>
-              Shareable Link
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Email Invitation Tab */}
-        {activeTab === 'email' && (
-          <View style={styles.tabContent}>
+        {/* Email Invitation Content */}
+        <View>
             <View style={styles.instructionCard}>
-              <Ionicons name="information-circle" size={24} color={theme.colors.secondary} />
+              <Ionicons name="mail" size={24} color={theme.colors.secondary} />
               <Text style={styles.instructionText}>
-                Enter email addresses to send personal invitations. Recipients will receive an email with a link to join the group.
+                Enter email addresses to send personal invitations. Recipients will receive an email with a secure link to join the group.
               </Text>
             </View>
 
@@ -388,67 +272,6 @@ export default function AddRegularMemberScreen() {
               disabled={sendingEmails}
             />
           </View>
-        )}
-
-        {/* Shareable Link Tab */}
-        {activeTab === 'link' && (
-          <View style={styles.tabContent}>
-            <View style={styles.instructionCard}>
-              <Ionicons name="information-circle" size={24} color={theme.colors.secondary} />
-              <Text style={styles.instructionText}>
-                Generate a shareable link that you can send via WhatsApp, Messenger, or any other app. The link works for multiple people and expires in 7 days.
-              </Text>
-            </View>
-
-            {!shareableLink ? (
-              <Button
-                label={generatingLink ? "Generating Link..." : "Generate Shareable Link"}
-                onPress={handleGenerateShareableLink}
-                theme="primary"
-                disabled={generatingLink}
-              />
-            ) : (
-              <View style={styles.linkSection}>
-                <Text style={styles.sectionTitle}>Your Shareable Link</Text>
-                
-                <View style={styles.linkContainer}>
-                  <Text style={styles.linkText} numberOfLines={3}>
-                    {shareableLink}
-                  </Text>
-                </View>
-
-                {linkExpiration && (
-                  <Text style={styles.expirationText}>
-                    Expires: {formatExpirationDate(linkExpiration)}
-                  </Text>
-                )}
-
-                <View style={styles.linkActions}>
-                  <Button
-                    label="Copy Link"
-                    onPress={handleCopyLink}
-                    theme="secondary"
-                  />
-                  <Button
-                    label="Share Link"
-                    onPress={handleShareLink}
-                    theme="primary"
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={styles.generateNewButton}
-                  onPress={() => {
-                    setShareableLink('');
-                    setLinkExpiration('');
-                  }}
-                >
-                  <Text style={styles.generateNewText}>Generate New Link</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
       </ScrollView>
 
       <ConfirmationModal
@@ -493,37 +316,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     lineHeight: 24,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
-    padding: 4,
-    marginBottom: theme.spacing.xl,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.sm,
-    borderRadius: theme.borderRadius.small,
-    gap: theme.spacing.sm,
-  },
-  activeTab: {
-    backgroundColor: theme.colors.secondary,
-  },
-  tabText: {
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.typography.fontWeight.medium,
-  },
-  activeTabText: {
-    color: theme.colors.primary,
-  },
-  tabContent: {
-    flex: 1,
-  },
+
   instructionCard: {
     flexDirection: 'row',
     backgroundColor: theme.colors.inputBackground,
@@ -570,39 +363,5 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.medium,
-  },
-  linkSection: {
-    gap: theme.spacing.lg,
-  },
-  linkContainer: {
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-  },
-  linkText: {
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.text,
-    fontFamily: 'monospace',
-  },
-  expirationText: {
-    fontSize: theme.typography.fontSize.small,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginTop: -theme.spacing.sm,
-  },
-  linkActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-  },
-  generateNewButton: {
-    alignSelf: 'center',
-    padding: theme.spacing.md,
-  },
-  generateNewText: {
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.secondary,
-    textDecorationLine: 'underline',
   },
 });

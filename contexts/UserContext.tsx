@@ -1,26 +1,22 @@
 // /contexts/UserContext.tsx - Simplified version with user document version caching only
 
 import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
-import {
-    doc,
-    updateDoc,
-} from "firebase/firestore";
 import React, {
-    createContext,
-    ReactNode,
-    useCallback,
-    useContext,
-    useEffect,
-    useState,
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
-import { auth, db } from "../services/core/firebase";
+import { auth } from "../services/core/firebase";
 import { storage } from "../utils/CrossPlatformStorage";
 
 // Import domain types and services
 import { fetchUserProfile } from "@/services/fetchUserAccess";
 import { UserProfile } from "@/services/types/user";
 
-// User Context Interface - Simplified for user document only
+// User Context Interface - READ-ONLY user document caching only
 interface UserContextType {
   firebaseUser: FirebaseUser | null;
   userProfile: UserProfile | null;
@@ -29,10 +25,12 @@ interface UserContextType {
   isFromCache: boolean;
   lastCacheUpdate: Date | null;
 
-  // User profile management
+  // User profile management (READ-ONLY)
   refreshUserProfile: () => Promise<void>;
-  updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
   clearUserData: () => Promise<void>;
+  
+  // NOTE: NO updateUserProfile - UserContext is READ-ONLY
+  // Use Firebase Functions for user updates (e.g., updateUserProfile function)
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -105,35 +103,8 @@ export function UserProvider({ children }: UserProviderProps) {
       return { profile: null, cachedVersion: 0 };
     }
   }, []);
-
-  // Update user profile in Firestore and update cache
-  const updateUserProfile = useCallback(
-    async (updates: Partial<UserProfile>) => {
-      if (!firebaseUser || !userProfile) {
-        throw new Error("No authenticated user or profile");
-      }
-
-      const userRef = doc(db, "users", firebaseUser.uid);
-      
-      // Increment version for cache invalidation
-      const updatedData = {
-        ...updates,
-        version: (userProfile.version || 1) + 1,
-        lastActive: new Date(),
-      };
-
-      await updateDoc(userRef, updatedData);
-
-      const updatedProfile: UserProfile = {
-        ...userProfile,
-        ...updatedData,
-      };
-
-      setUserProfile(updatedProfile);
-      await saveToCache(updatedProfile);
-    },
-    [userProfile, firebaseUser, saveToCache]
-  );
+  // NOTE: updateUserProfile removed - UserContext is READ-ONLY
+  // All user profile updates must go through Firebase Functions (e.g., updateUserProfile function)
 
   const clearUserData = useCallback(async () => {
     setUserProfile(null);
@@ -198,9 +169,15 @@ export function UserProvider({ children }: UserProviderProps) {
   // Auth state listener
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      console.log('🔐 UserContext - Auth state changed:', {
+        hasUser: !!user,
+        uid: user?.uid,
+        email: user?.email
+      });
       setFirebaseUser(user);
 
       if (user) {
+        console.log('🔐 UserContext - User authenticated, fetching profile...');
         await checkAndFetchUserProfile();
       } else {
         setUserProfile(null);
@@ -226,7 +203,6 @@ export function UserProvider({ children }: UserProviderProps) {
     isFromCache,
     lastCacheUpdate,
     refreshUserProfile,
-    updateUserProfile,
     clearUserData,
   };
 

@@ -5,8 +5,8 @@ export interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
-  phoneNumber?: string;
-  dateOfBirth?: Date;
+  phoneNumber?: string | null;
+  dateOfBirth?: Date | null;
   address?: {
     street?: string;
     city?: string;

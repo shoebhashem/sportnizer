@@ -8,12 +8,14 @@ export { createUserAccount } from './auth/createUserAccount';
 export { getUserProfile } from './auth/getUserProfile';
 export { resendVerificationEmail } from './auth/resendVerificationEmail';
 export { sendEmailVerification } from './auth/sendEmailVerification';
+export { updateUserProfile } from './auth/updateUserProfile';
 export { verifyEmail } from './auth/verifyEmail';
 
 // Club Management Functions (Atomic)
 export { createClub } from './clubs/createClub';
 export { deleteClub } from './clubs/deleteClub';
 export { getClub } from './clubs/getClub';
+export { getClubMembers } from './clubs/getClubMembers';
 export { updateClub } from './clubs/updateClub';
 
 // Group Management Functions (Atomic)
@@ -21,6 +23,7 @@ export { createGroup } from './groups/createGroup';
 export { createSubGroup } from './groups/createSubGroup';
 export { deleteGroup } from './groups/deleteGroup';
 export { getGroup } from './groups/getGroup';
+export { getGroupMembers } from './groups/getGroupMembers';
 export { updateGroup } from './groups/updateGroup';
 
 // Event Management Functions (Atomic)
@@ -44,7 +47,7 @@ export { updateUserGroupInfo } from './members/updateUserGroupInfo';
 export { updateUserPollInfo } from './members/updateUserPollInfo';
 
 // Member Orchestration Functions (Service Layer)
-export { orchestrateMembershipOperation } from './members/orchestrateMembershipOperation';
+// TODO: Add orchestration functions here when implemented
 
 // Invitation Functions (Existing - TODO: Review for atomic pattern)
 export { generateShareableInvite } from './invitations/generateShareableInvite';
@@ -55,4 +58,7 @@ export { processInvitation } from './invitations/processInvitation';
 export { respondToInvitation } from './invitations/respondToInvitation';
 export { sendGroupInvitation } from './invitations/sendGroupInvitation';
 export { sendGuardianInvitations } from './invitations/sendGuardianInvitations';
+
+// Utility Functions
+export { fixEmptyUserDocument } from './utils/fixEmptyUserDocument';
 

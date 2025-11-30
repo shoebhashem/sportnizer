@@ -1,7 +1,8 @@
-// /services/fetchClubMembers.ts - Read club members directly from Firestore
-// Fetches from /clubs/{clubId}/allMembers/members/
+// /services/fetchClubMembers.ts - Read club members via Firebase Functions
+// Calls getClubMembers Firebase Function following three-layer architecture
 
-import { doc, getDoc, getFirestore } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from './core/firebase';
 import type { ClubMemberData } from './types/club';
 
 export interface ClubMembersResponse {
@@ -11,28 +12,31 @@ export interface ClubMembersResponse {
 }
 
 /**
- * Fetch all members of a club
- * Reads from /clubs/{clubId}/allMembers/members/
+ * Fetch all members of a club via Firebase Function
+ * Calls getClubMembers Firebase Function instead of direct Firestore access
  */
 export const fetchClubMembers = async (clubId: string): Promise<ClubMembersResponse> => {
   try {
-    const db = getFirestore();
-    const membersDocRef = doc(db, 'clubs', clubId, 'allMembers', 'members');
-    const membersDoc = await getDoc(membersDocRef);
-
-    if (!membersDoc.exists()) {
-      console.log(`No members document found for club ${clubId}`);
-      return { success: true, members: [] };
+    // Call Firebase Function instead of direct Firestore access
+    const getClubMembersFn = httpsCallable(functions, 'getClubMembers');
+    const result = await getClubMembersFn({ clubId });
+    
+    const response = result.data as { success: boolean; members?: any[]; memberCount?: number; error?: string };
+    
+    if (!response.success) {
+      console.log(`Error fetching club members: ${response.error}`);
+      return { success: false, members: [], error: response.error };
     }
 
-    const data = membersDoc.data();
-    const members: ClubMemberData[] = data?.members || [];
+    const members: ClubMemberData[] = response.members || [];
 
-    console.log(`Fetched ${members.length} members for club ${clubId}`);
+    console.log(`✅ Fetched ${members.length} members for club ${clubId}`);
     return { success: true, members };
 
   } catch (error: any) {
     console.error('❌ Error fetching club members:', error);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error message:', error.message);
     return { 
       success: false, 
       members: [], 

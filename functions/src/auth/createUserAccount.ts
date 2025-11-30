@@ -45,6 +45,8 @@ export const createUserAccount = onCall(
         displayName: fullName.trim(),
         version: 1, // Start with version 1 as per ARCHITECTURE.md
         photoURL: DEFAULT_PROFILE_PICTURE,
+        phoneNumber: null, // Initially null, can be updated later
+        dateOfBirth: null, // Initially null, can be updated later
         clubAccess: [], // Empty array - users join clubs later
         groupsCreated: 0,
         emailVerified: false,

@@ -1,20 +1,21 @@
-import Button from '@/components/Button';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import Input from '@/components/Input';
-import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { collection, doc, getDoc, getDocs, getFirestore, runTransaction, writeBatch } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Button from '../components/Button';
+import ConfirmationModal from '../components/ConfirmationModal';
+import Input from '../components/Input';
+import { theme } from '../constants/theme';
+import { useAuth } from '../contexts/AuthContext';
 
-// Import new services and types
-import { useVersionedData } from '@/contexts/UserContext';
-import { functions } from '@/services/core/firebase';
-import { GroupData } from '@/services/types/group';
+// Import services following three-layer architecture
+import { functions } from '../services/core/firebase';
+import { fetchGroupMembers } from '../services/fetchGroupMembers';
+import { groupService } from '../services/group';
+import { memberService } from '../services/member';
+import { GroupData } from '../services/types/group';
 
 // interface UnconfirmedMember {
 //   id: string; // Member document ID
@@ -27,7 +28,6 @@ import { GroupData } from '@/services/types/group';
 export default function GroupSettingsScreen() {
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
-  const { fetchGroupData, fetchGroupMembers } = useVersionedData();
   const [group, setGroup] = useState<GroupData | null>(null);
   // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
   const [userRole, setUserRole] = useState<string>('member');
@@ -50,18 +50,16 @@ export default function GroupSettingsScreen() {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !user?.uid) return;
     
     try {
-      // Fetch group data and members using versioned UserContext services
-      const [groupResult, membersResult] = await Promise.all([
-        fetchGroupData(clubId, groupId),
-        fetchGroupMembers(clubId, groupId)
-      ]);
+      // Fetch group data using services following three-layer architecture
+      const groupResult = await groupService.getGroup(clubId, groupId);
+      const membersResult = await fetchGroupMembers(clubId, groupId);
 
       if (groupResult.success && groupResult.data) {
         setGroup(groupResult.data);
       }
       
       // Process members data
-      const membersData = membersResult.success ? membersResult.data?.members || [] : [];
+      const membersData = membersResult.success ? membersResult.members || [] : [];
       // setMembers(membersData); // Commented out - not used in UI yet
 
       // Find current user's role and count admins
@@ -111,7 +109,7 @@ export default function GroupSettingsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, user?.uid, fetchGroupData, fetchGroupMembers]);
+  }, [groupId, clubId, user?.uid]);
 
   useEffect(() => {
     fetchGroupDataFromServices();
@@ -136,32 +134,29 @@ export default function GroupSettingsScreen() {
   };
 
   const confirmLeaveGroup = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid || !clubId || !groupId) return;
     
     setShowLeaveModal(false);
     
     try {
-      const db = getFirestore();
-      
-      await runTransaction(db, async (transaction) => {
-        // Remove user from group allMembers (updated from members)
-        const memberRef = doc(db, 'clubs', clubId as string, 'groups', groupId as string, 'allMembers', user.uid);
-        transaction.delete(memberRef);
-        
-        // Update group member count
-        const groupRef = doc(db, 'clubs', clubId as string, 'groups', groupId as string);
-        const groupDoc = await transaction.get(groupRef);
-        if (groupDoc.exists()) {
-          const currentCount = groupDoc.data().memberCount || 0; // Updated field name from membersCount
-          transaction.update(groupRef, {
-            memberCount: Math.max(0, currentCount - 1) // Updated field name from membersCount
-          });
-        }
-      });
+      // Use memberService to remove member from group (follows three-layer architecture)
+      const result = await memberService.removeMemberFromGroup(
+        clubId as string, 
+        groupId as string, 
+        user.uid
+      );
 
-      // Show success modal
-      setSuccessMessage('You have left the group successfully');
-      setShowSuccessModal(true);
+      if (result.success) {
+        // Show success modal
+        setSuccessMessage('You have left the group successfully');
+        setShowSuccessModal(true);
+        
+        // Refresh the data
+        await fetchGroupDataFromServices();
+      } else {
+        setErrorMessage(result.error || 'Failed to leave group. Please try again.');
+        setShowErrorModal(true);
+      }
     } catch (error) {
       console.error('Error leaving group:', error);
       setErrorMessage('Failed to leave group. Please try again.');
@@ -176,81 +171,23 @@ export default function GroupSettingsScreen() {
   const confirmDeleteGroup = async () => {
     setShowDeleteModal(false);
     
+    if (!clubId || !groupId || !user?.uid) return;
+    
     try {
-      const db = getFirestore();
-      
-      // Use batch operations to delete everything
-      const batch = writeBatch(db);
-      
-      // Get all subcollections first - updated to use allMembers
-      const membersSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'allMembers'));
-      const eventsSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'events'));
-      const subgroupsSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'subgroups'));
-      const resultsSnapshot = await getDocs(collection(db, 'clubs', clubId as string, 'groups', groupId as string, 'results'));
-      
-      // Remove group from all members' groupsJoined arrays
-      // Note: groupsJoined is an array of objects, not strings, so we need to handle removal differently
-      for (const memberDoc of membersSnapshot.docs) {
-        const userId = memberDoc.id;
-        const userRef = doc(db, 'users', userId);
+      // Use groupService to delete group (follows three-layer architecture)
+      const result = await groupService.deleteGroup(clubId as string, groupId as string);
+
+      if (result.success) {
+        // Show success modal
+        setSuccessMessage('Group has been deleted successfully');
+        setShowSuccessModal(true);
         
-        // Get current user data to properly remove the group membership
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const currentGroupsJoined = userData.groupsJoined || [];
-          const updatedGroupsJoined = currentGroupsJoined.filter(
-            (membership: any) => membership.groupId !== groupId
-          );
-          
-          batch.update(userRef, {
-            groupsJoined: updatedGroupsJoined
-          });
-        }
+        // Navigate back to groups list after successful deletion
+        router.back();
+      } else {
+        setErrorMessage(result.error || 'Failed to delete group. Please try again.');
+        setShowErrorModal(true);
       }
-
-      // Delete all members
-      membersSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
-      
-      // Delete all events
-      eventsSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
-      
-      // Delete all subgroups
-      subgroupsSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
-      
-      // Delete all results
-      resultsSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
-      
-      // Delete the group document
-      const groupRef = doc(db, 'clubs', clubId as string, 'groups', groupId as string);
-      batch.delete(groupRef);
-      
-      // Update creator's groupsCreated count
-      if (group?.createdBy) {
-        const creatorRef = doc(db, 'users', group.createdBy);
-        const creatorDoc = await getDoc(creatorRef);
-        if (creatorDoc.exists()) {
-          const currentCount = creatorDoc.data().groupsCreated || 0;
-          batch.update(creatorRef, {
-            groupsCreated: Math.max(0, currentCount - 1)
-          });
-        }
-      }
-      
-      // Commit all deletions
-      await batch.commit();
-
-      // Show success modal
-      setSuccessMessage('Group has been deleted successfully');
-      setShowSuccessModal(true);
     } catch (error) {
       console.error('Error deleting group:', error);
       setErrorMessage('Failed to delete group. Please try again.');
@@ -483,8 +420,8 @@ export default function GroupSettingsScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Send Confirmation Link - Only for ageGroup 1 */}
-          {canManage && group?.ageGroup === 1 && (
+          {/* Send Confirmation Link - Only for children's groups */}
+          {canManage && false /* TODO: Add children's group detection logic */ && (
             <TouchableOpacity 
               style={styles.optionItem}
               onPress={handleSendGuardianConfirmation}
@@ -675,8 +612,8 @@ export default function GroupSettingsScreen() {
               </Text>
               
               <View style={styles.coachOptionsList}>
-                {/* Promote Member Option - ageGroup 2 only */}
-                {group?.ageGroup === 2 && (
+                {/* Promote Member Option - adults only */}
+                {true /* TODO: Add adult group detection logic */ && (
                   <TouchableOpacity style={styles.coachOption}>
                     <Ionicons name="people-outline" size={24} color={theme.colors.secondary} />
                     <Text style={styles.coachOptionText}>Promote Existing Member</Text>
@@ -684,8 +621,8 @@ export default function GroupSettingsScreen() {
                   </TouchableOpacity>
                 )}
                 
-                {/* Promote Guardian Option - ageGroup 1 only */}
-                {group?.ageGroup === 1 && (
+                {/* Promote Guardian Option - children's groups only */}
+                {false /* TODO: Add children's group detection logic */ && (
                   <TouchableOpacity style={styles.coachOption}>
                     <Ionicons name="shield-outline" size={24} color={theme.colors.secondary} />
                     <Text style={styles.coachOptionText}>Promote Guardian</Text>

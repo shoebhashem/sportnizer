@@ -1,7 +1,8 @@
-// /services/fetchUserAccess.ts - Read user access permissions directly from Firestore
-// Fetches from /users/{userId} and returns the clubAccess array with all nested permissions
+// /services/fetchUserAccess.ts - Read user access permissions via Firebase Functions
+// Calls getUserProfile Firebase Function following three-layer architecture
 
-import { doc, getDoc, getFirestore } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { auth, functions } from './core/firebase';
 import type { ClubAccess, UserProfile } from './types/user';
 
 export interface UserAccessResponse {
@@ -33,17 +34,18 @@ export interface UserProfileResponse {
  */
 export const fetchUserAccess = async (userId: string): Promise<UserAccessResponse> => {
   try {
-    const db = getFirestore();
-    const userDocRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userDocRef);
-
-    if (!userDoc.exists()) {
-      console.log(`No user document found for userId ${userId}`);
+    // Call Firebase Function instead of direct Firestore access
+    const getUserProfileFn = httpsCallable(functions, 'getUserProfile');
+    const result = await getUserProfileFn({ uid: userId });
+    
+    const response = result.data as { success: boolean; userProfile?: UserProfile; error?: string };
+    
+    if (!response.success || !response.userProfile) {
+      console.log(`No user profile found for userId ${userId}`);
       return { success: true, clubAccess: [] };
     }
 
-    const userData = userDoc.data();
-    const clubAccess: ClubAccess[] = userData?.clubAccess || [];
+    const clubAccess: ClubAccess[] = response.userProfile.clubAccess || [];
 
     console.log(`✅ Fetched access permissions for user ${userId}: ${clubAccess.length} clubs`);
     
@@ -78,33 +80,40 @@ export const fetchUserAccess = async (userId: string): Promise<UserAccessRespons
  */
 export const fetchUserProfile = async (userId: string): Promise<UserProfileResponse> => {
   try {
-    const db = getFirestore();
-    const userDocRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userDocRef);
-
-    if (!userDoc.exists()) {
-      console.log(`No user document found for userId ${userId}`);
+    // Debug: Check auth state before making function call
+    console.log('🔐 fetchUserProfile - About to call getUserProfile function for userId:', userId);
+    console.log('🔐 Firebase Auth current user:', auth.currentUser?.uid);
+    console.log('🔐 User is authenticated:', !!auth.currentUser);
+    
+    // Call Firebase Function instead of direct Firestore access
+    const getUserProfileFn = httpsCallable(functions, 'getUserProfile');
+    const result = await getUserProfileFn({ uid: userId });
+    
+    const response = result.data as { success: boolean; userProfile?: any; error?: string };
+    
+    if (!response.success || !response.userProfile) {
+      console.log(`No user profile found for userId ${userId}`);
       return { success: true, profile: null };
     }
 
-    const userData = userDoc.data();
+    const userData = response.userProfile;
     
-    // Convert Firestore document to UserProfile with proper type handling
+    // Convert Firebase Function response to UserProfile with proper type handling
     const profile: UserProfile = {
-      uid: userDoc.id,
+      uid: userData.uid || userId,
       email: userData.email || '',
       displayName: userData.displayName || userData.name || '',
       photoURL: userData.photoURL || userData.profilePicture,
       phoneNumber: userData.phoneNumber,
-      dateOfBirth: userData.dateOfBirth ? userData.dateOfBirth.toDate() : undefined,
+      dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth) : undefined,
       address: userData.address || {},
       clubAccess: userData.clubAccess || [],
       groupsCreated: userData.groupsCreated || 0,
       events: userData.events || [],
       eventsResponses: userData.eventsResponses || [],
       verificationStatus: userData.verificationStatus || 'pending',
-      createdAt: userData.createdAt ? userData.createdAt.toDate() : undefined,
-      lastActive: userData.lastActive ? userData.lastActive.toDate() : undefined,
+      createdAt: userData.createdAt ? new Date(userData.createdAt) : undefined,
+      lastActive: userData.lastActive ? new Date(userData.lastActive) : undefined,
       version: userData.version || 1,
     };
 
@@ -117,6 +126,9 @@ export const fetchUserProfile = async (userId: string): Promise<UserProfileRespo
 
   } catch (error: any) {
     console.error('❌ Error fetching user profile:', error);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Full error:', JSON.stringify(error, null, 2));
     return { 
       success: false, 
       profile: null,

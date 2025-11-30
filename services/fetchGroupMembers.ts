@@ -1,7 +1,8 @@
-// /services/fetchGroupMembers.ts - Read group members directly from Firestore
-// Fetches from /clubs/{clubId}/groups/{groupId}/allMembers/members/
+// /services/fetchGroupMembers.ts - Read group members via Firebase Functions
+// Calls getGroupMembers Firebase Function following three-layer architecture
 
-import { doc, getDoc, getFirestore } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from './core/firebase';
 import type { GroupMemberData } from './types/group';
 
 export interface GroupMembersResponse {
@@ -11,28 +12,31 @@ export interface GroupMembersResponse {
 }
 
 /**
- * Fetch all members of a group
- * Reads from /clubs/{clubId}/groups/{groupId}/allMembers/members/
+ * Fetch all members of a group via Firebase Function
+ * Calls getGroupMembers Firebase Function instead of direct Firestore access
  */
 export const fetchGroupMembers = async (clubId: string, groupId: string): Promise<GroupMembersResponse> => {
   try {
-    const db = getFirestore();
-    const membersDocRef = doc(db, 'clubs', clubId, 'groups', groupId, 'allMembers', 'members');
-    const membersDoc = await getDoc(membersDocRef);
-
-    if (!membersDoc.exists()) {
-      console.log(`No members document found for group ${groupId} in club ${clubId}`);
-      return { success: true, members: [] };
+    // Call Firebase Function instead of direct Firestore access
+    const getGroupMembersFn = httpsCallable(functions, 'getGroupMembers');
+    const result = await getGroupMembersFn({ clubId, groupId });
+    
+    const response = result.data as { success: boolean; members?: any[]; memberCount?: number; error?: string };
+    
+    if (!response.success) {
+      console.log(`Error fetching group members: ${response.error}`);
+      return { success: false, members: [], error: response.error };
     }
 
-    const data = membersDoc.data();
-    const members: GroupMemberData[] = data?.members || [];
+    const members: GroupMemberData[] = response.members || [];
 
-    console.log(`Fetched ${members.length} members for group ${groupId} in club ${clubId}`);
+    console.log(`✅ Fetched ${members.length} members for group ${groupId} in club ${clubId}`);
     return { success: true, members };
 
   } catch (error: any) {
     console.error('❌ Error fetching group members:', error);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error message:', error.message);
     return { 
       success: false, 
       members: [], 
