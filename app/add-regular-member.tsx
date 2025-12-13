@@ -3,10 +3,9 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { functions } from '@/services/core/firebase';
+import { addMemberToGroupService } from '@/services/orchestration/addMemberToGroup';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { httpsCallable } from 'firebase/functions';
 import React, { useState } from 'react';
 import {
   ScrollView,
@@ -119,12 +118,8 @@ export default function AddRegularMemberScreen() {
     setSendingEmails(true);
 
     try {
-      const sendGroupInvitation = httpsCallable<any, InvitationResult>(
-        functions,
-        'sendGroupInvitation'
-      );
-
-      const result = await sendGroupInvitation({
+      // Use the direct addition method which handles both existing users and email invitations
+      const result = await addMemberToGroupService.addExistingUsersToGroup({
         emails: validEmails,
         clubId: clubId as string,
         clubName: clubName as string,
@@ -133,20 +128,33 @@ export default function AddRegularMemberScreen() {
         inviterName: user.displayName || user.email || 'Unknown User',
       });
 
-      console.log('📧 Email invitation result:', result.data);
+      console.log('📧 Email invitation result:', result);
 
-      if (result.data.success) {
-        const successCount = result.data.results?.filter(r => r.success).length || 0;
-        const failureCount = result.data.results?.filter(r => !r.success).length || 0;
-        const failedResults = result.data.results?.filter(r => !r.success) || [];
+      if (result.success) {
+        const successCount = result.results?.filter((r: any) => r.success).length || 0;
+        const failureCount = result.results?.filter((r: any) => !r.success).length || 0;
+        const failedResults = result.results?.filter((r: any) => !r.success) || [];
+        const addedDirectly = result.results?.filter((r: any) => r.success && !r.invitationToken).length || 0;
+        const emailsSent = result.results?.filter((r: any) => r.success && r.invitationToken).length || 0;
         
-        console.log('📊 Invitation stats:', { successCount, failureCount, failedResults });
+        console.log('📊 Member addition stats:', { successCount, failureCount, addedDirectly, emailsSent, failedResults });
         
-        let message = `Successfully sent ${successCount} invitation(s)`;
+        let message = '';
+        if (addedDirectly > 0) {
+          message += `Successfully added ${addedDirectly} existing user(s) to the group`;
+        }
+        if (emailsSent > 0) {
+          if (message) message += '\n';
+          message += `Successfully sent ${emailsSent} invitation email(s)`;
+        }
+        if (!message) {
+          message = 'Operation completed';
+        }
+        
         if (failureCount > 0) {
-          message += `\n${failureCount} invitation(s) failed to send`;
+          message += `\n\n${failureCount} operation(s) failed`;
           
-          // Add specific error details for failed invitations
+          // Add specific error details for failed operations
           if (failedResults.length > 0) {
             message += '\n\nErrors:';
             failedResults.forEach((failed, index) => {
@@ -156,7 +164,7 @@ export default function AddRegularMemberScreen() {
           }
         }
         
-        const title = failureCount > 0 ? 'Invitations Partially Sent' : 'Invitations Sent';
+        const title = failureCount > 0 ? 'Partially Completed' : (addedDirectly > 0 ? 'Members Added' : 'Invitations Sent');
         
         showModal(title, message, 'OK', '', () => {
           hideModal();
@@ -168,13 +176,13 @@ export default function AddRegularMemberScreen() {
           setEmailAddresses(['']);
         }
       } else {
-        console.error('❌ Failed to send invitations:', result.data.error);
-        showModal('Error', result.data.error || 'Failed to send invitations');
+        console.error('❌ Failed to add members:', result.error);
+        showModal('Error', result.error || 'Failed to add members to group');
       }
     } catch (error: any) {
-      console.error('❌ Error sending email invitations:', error);
+      console.error('❌ Error adding members to group:', error);
       
-      let errorMessage = 'Failed to send invitations. Please try again.';
+      let errorMessage = 'Failed to add members to group. Please try again.';
       
       // Check for specific error types
       if (error.code) {
@@ -183,10 +191,10 @@ export default function AddRegularMemberScreen() {
             errorMessage = 'Authentication error. Please sign out and sign back in.';
             break;
           case 'functions/permission-denied':
-            errorMessage = 'You do not have permission to send invitations to this group.';
+            errorMessage = 'You do not have permission to add members to this group.';
             break;
           case 'functions/unavailable':
-            errorMessage = 'Invitation service is currently unavailable. Please try again later.';
+            errorMessage = 'Member addition service is currently unavailable. Please try again later.';
             break;
           case 'functions/deadline-exceeded':
             errorMessage = 'Request timed out. Please check your internet connection and try again.';

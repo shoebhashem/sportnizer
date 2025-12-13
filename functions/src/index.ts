@@ -5,6 +5,7 @@ admin.initializeApp();
 
 // Authentication Functions (DO NOT MODIFY)
 export { createUserAccount } from './auth/createUserAccount';
+export { getUserByEmail } from './auth/getUserByEmail';
 export { getUserProfile } from './auth/getUserProfile';
 export { resendVerificationEmail } from './auth/resendVerificationEmail';
 export { sendEmailVerification } from './auth/sendEmailVerification';
@@ -49,15 +50,19 @@ export { updateUserPollInfo } from './members/updateUserPollInfo';
 // Member Orchestration Functions (Service Layer)
 // TODO: Add orchestration functions here when implemented
 
-// Invitation Functions (Existing - TODO: Review for atomic pattern)
+// Invitation Functions (Atomic)
 export { generateShareableInvite } from './invitations/generateShareableInvite';
 export { getGuardianInvitationDetails } from './invitations/getGuardianInvitationDetails';
-export { getInvitationDetails } from './invitations/getInvitationDetails';
+export { markInvitationUsed } from './invitations/markInvitationUsed';
 export { processGuardianInvitation } from './invitations/processGuardianInvitation';
-export { processInvitation } from './invitations/processInvitation';
-export { respondToInvitation } from './invitations/respondToInvitation';
 export { sendGroupInvitation } from './invitations/sendGroupInvitation';
 export { sendGuardianInvitations } from './invitations/sendGuardianInvitations';
+export { validateInvitationToken } from './invitations/validateInvitationToken';
+
+// TODO: Remove these non-atomic HTTP endpoint functions
+// export { getInvitationDetails } from './invitations/getInvitationDetails';
+// export { processInvitation } from './invitations/processInvitation';
+// export { respondToInvitation } from './invitations/respondToInvitation';
 
 // Utility Functions
 export { fixEmptyUserDocument } from './utils/fixEmptyUserDocument';

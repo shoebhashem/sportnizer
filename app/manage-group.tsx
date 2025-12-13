@@ -11,6 +11,7 @@ import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import new services  
+import { fetchGroupMembers } from '@/services/fetchGroupMembers';
 import { groupService } from '@/services/group';
 import { GroupData, GroupMemberData } from '@/services/types/group';
 
@@ -51,8 +52,9 @@ export default function ManageGroupScreen() {
     setLoading(true);
     try {
       // Fetch all data using new service methods
-      const [groupResult, subgroupsData] = await Promise.all([
+      const [groupResult, membersResult, subgroupsData] = await Promise.all([
         groupService.getGroup(clubId, groupId),
+        fetchGroupMembers(clubId, groupId),
         groupService.fetchSubGroups(clubId, groupId)
       ]);
 
@@ -61,9 +63,12 @@ export default function ManageGroupScreen() {
         setGroup(groupResult.data);
       }
 
-      // TODO: Implement fetchGroupMembers in memberService
-      // For now, set empty array - members functionality will be added later
-      const membersData: GroupMemberData[] = [];
+      // Process members data
+      const membersData: GroupMemberData[] = membersResult.success ? membersResult.members : [];
+      if (!membersResult.success && membersResult.error) {
+        console.error('❌ Failed to fetch group members:', membersResult.error);
+      }
+      console.log(`📋 Fetched ${membersData.length} members for group ${groupId}:`, membersData);
       setMembers(membersData);
       
       // Populate memberIds for each subgroup based on members' belongsToSubGroups
