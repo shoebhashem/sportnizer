@@ -36,13 +36,38 @@ export default function SignupScreen() {
   // Load invitation info if invite token is present
   useEffect(() => {
     if (invite) {
-      // Set invitation info for display purposes
+      loadInvitationDetails(invite);
+    }
+  }, [invite]);
+
+  const loadInvitationDetails = async (inviteToken: string) => {
+    try {
+      // Call validateInvitationToken to get invitation details without processing
+      const validateTokenFn = httpsCallable(functions, 'validateInvitationToken');
+      const result = await validateTokenFn({ token: inviteToken });
+      const validation = result.data as any;
+      
+      if (validation.success && validation.invitationData) {
+        setInvitationInfo({
+          groupName: validation.invitationData.groupName || 'the group',
+          inviterName: validation.invitationData.inviterName || 'a team member'
+        });
+      } else {
+        // Fallback to generic info if validation fails
+        setInvitationInfo({
+          groupName: 'the group',
+          inviterName: 'a team member'
+        });
+      }
+    } catch (error) {
+      console.error('Error loading invitation details:', error);
+      // Fallback to generic info
       setInvitationInfo({
-        groupName: 'the group',
+        groupName: 'the group', 
         inviterName: 'a team member'
       });
     }
-  }, [invite]);
+  };
 
   // Handle email verification status
   useEffect(() => {
@@ -126,18 +151,23 @@ export default function SignupScreen() {
         if (invite) {
           try {
             console.log('Processing invitation after signup for token:', invite);
-            // Call the processInvitation function
-            const processInvitationFunction = httpsCallable(functions, 'processInvitation');
-            const invitationResult = await processInvitationFunction({ 
-              invitationToken: invite,
-              userEmail: email.trim()
+            // Call the respondToEmailInvite function to process the invitation
+            const respondToEmailInviteFn = httpsCallable(functions, 'respondToEmailInvite');
+            const invitationResult = await respondToEmailInviteFn({ 
+              token: invite,
+              action: 'accept',
+              userInfo: {
+                email: email.trim(),
+                displayName: fullName.trim()
+              }
             });
             
             console.log('Invitation processing result:', invitationResult.data);
             
-            if ((invitationResult.data as any)?.success) {
+            const inviteResponse = invitationResult.data as any;
+            if (inviteResponse?.success) {
               // Update the success message to include invitation acceptance
-              setModalMessage(`Account created successfully! You have also been added to the group.\n\nPlease check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.`);
+              setModalMessage(`🎉 Account created and invitation accepted!\n\nYou have been added to ${invitationInfo?.groupName || 'the group'}.\n\nPlease check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.`);
             }
           } catch (invitationError) {
             console.error('Error processing invitation:', invitationError);

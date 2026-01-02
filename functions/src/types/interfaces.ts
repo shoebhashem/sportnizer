@@ -106,6 +106,7 @@ export interface CreateUserAccountRequest {
   email: string;
   fullName: string;
   uid: string;
+  invitationToken?: boolean; // Indicates invitation-based signup (skip email verification)
 }
 
 export interface CreateUserAccountResponse {

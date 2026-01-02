@@ -9,6 +9,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import Input from '../components/Input';
 import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { useUserProfile } from '../contexts/UserContext';
 
 // Import services following three-layer architecture
 import { functions } from '../services/core/firebase';
@@ -28,6 +29,7 @@ import { GroupData } from '../services/types/group';
 export default function GroupSettingsScreen() {
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
+  const { userProfile } = useUserProfile();
   const [group, setGroup] = useState<GroupData | null>(null);
   // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
   const [userRole, setUserRole] = useState<string>('member');
@@ -198,7 +200,12 @@ export default function GroupSettingsScreen() {
   const handleAddMember = async () => {
     if (group && groupId && clubId) {
       const groupName = encodeURIComponent(group.name);
-      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}` as any);
+      
+      // Get club name from userProfile.clubAccess
+      const clubAccess = userProfile?.clubAccess?.find(club => club.clubId === clubId);
+      const clubName = clubAccess?.clubName || 'Unknown Club';
+      
+      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}&clubName=${encodeURIComponent(clubName)}` as any);
     }
   };
 

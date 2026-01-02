@@ -36,6 +36,7 @@ export interface ClubAccess {
   eventAccess?: EventAccess[]; // nested event access within this club
   pollAccess?: PollAccess[]; // nested poll access within this club
   announcementAccess?: AnnouncementAccess[]; // nested announcement access within this club
+  groupInvites?: GroupInvite[]; // pending group invitations for this club
 }
 
 export interface GroupAccess {
@@ -70,6 +71,18 @@ export interface AnnouncementAccess {
   announcementName: string;
   readAt?: Date;
   targetScope: 'club' | 'group' | 'subgroup';
+}
+
+export interface GroupInvite {
+  inviteId: string;
+  groupId: string;
+  groupName: string;
+  clubId?: string; // Optional since it's nested within ClubAccess
+  invitedBy: string;
+  invitedByName?: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  message?: string;
+  createdAt: Date;
 }
 
 

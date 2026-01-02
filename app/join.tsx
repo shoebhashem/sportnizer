@@ -4,10 +4,11 @@ import Input from '@/components/Input';
 import { getFunctionsUrl } from '@/constants/config';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { auth } from '@/services/core/firebase';
+import { auth, functions } from '@/services/core/firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -84,23 +85,19 @@ export default function JoinScreen() {
     try {
       setLoading(true);
       
-      const functionsUrl = getFunctionsUrl();
-      const response = await fetch(`${functionsUrl}/getInvitationDetails?token=${token}`);
+      // Use validateInvitationToken Firebase Function instead of deprecated HTTP endpoint
+      const validateInvitationFunction = httpsCallable(functions, 'validateInvitationToken');
+      const validationResult = await validateInvitationFunction({ invitationToken: token });
+      const validationData = validationResult.data as { success: boolean; isValid: boolean; invitationData?: any; error?: string };
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch invitation details');
-      }
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        setError(data.error || 'Failed to load invitation details');
-      } else if (data.invitation) {
-        setInvitationDetails(data.invitation);
+      if (!validationData.success || !validationData.isValid) {
+        setError(validationData.error || 'Failed to load invitation details');
+      } else if (validationData.invitationData) {
+        setInvitationDetails(validationData.invitationData);
         
         // Pre-fill email for email invitations
-        if (data.invitation.invitationType === 'email' && data.invitation.email) {
-          setEmail(data.invitation.email);
+        if (validationData.invitationData.invitationType === 'email' && validationData.invitationData.email) {
+          setEmail(validationData.invitationData.email);
         }
       } else {
         setError('Invalid invitation data');

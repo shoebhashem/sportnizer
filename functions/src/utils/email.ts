@@ -36,6 +36,70 @@ export const groupInvitationTemplate = (
 `;
 
 /**
+ * Email template for group invitations with accept/reject actions
+ * Used for non-existing users in the new invitation workflow
+ */
+export const groupInvitationWithActionsTemplate = (
+  groupName: string,
+  clubName: string,
+  inviterName: string,
+  acceptLink: string,
+  rejectLink: string
+) => `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #007AFF, #5AC8FA); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+      <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Sportnizer</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0; font-size: 16px;">Join your sports community</p>
+    </div>
+    
+    <div style="padding: 40px 30px;">
+      <h2 style="color: #333; margin: 0 0 20px; font-size: 24px; text-align: center;">You're invited to join ${groupName}!</h2>
+      
+      <div style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 20px 0; border-left: 4px solid #007AFF;">
+        <p style="margin: 0; color: #555; font-size: 16px; line-height: 1.5;">
+          <strong style="color: #333;">${inviterName}</strong> has invited you to join 
+          <strong style="color: #007AFF;">${groupName}</strong> in <strong style="color: #333;">${clubName}</strong>.
+        </p>
+      </div>
+      
+      <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 25px 0;">
+        Sportnizer makes it easy to manage your sports activities, coordinate with teammates, 
+        track events, and stay connected with your sports community.
+      </p>
+      
+      <div style="text-align: center; margin: 40px 0;">
+        <p style="color: #333; font-size: 18px; font-weight: 500; margin-bottom: 25px;">Ready to join the team?</p>
+        
+        <div style="display: inline-block;">
+          <a href="${acceptLink}" 
+             style="background-color: #34C759; color: white; padding: 14px 28px; text-decoration: none; border-radius: 25px; display: inline-block; margin: 0 10px; font-weight: 600; font-size: 16px; min-width: 120px; text-align: center; box-shadow: 0 2px 6px rgba(52, 199, 89, 0.3);">
+            ✅ Accept Invitation
+          </a>
+          
+          <a href="${rejectLink}" 
+             style="background-color: #FF3B30; color: white; padding: 14px 28px; text-decoration: none; border-radius: 25px; display: inline-block; margin: 0 10px; font-weight: 600; font-size: 16px; min-width: 120px; text-align: center; box-shadow: 0 2px 6px rgba(255, 59, 48, 0.3);">
+            ❌ Decline
+          </a>
+        </div>
+      </div>
+      
+      <div style="background-color: #f1f3f4; border-radius: 6px; padding: 15px; margin: 30px 0;">
+        <p style="margin: 0; color: #666; font-size: 14px; text-align: center;">
+          <strong>New to Sportnizer?</strong> No problem! Clicking "Accept Invitation" will guide you through creating your account.
+        </p>
+      </div>
+    </div>
+    
+    <div style="background-color: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
+      <p style="margin: 0; color: #6c757d; font-size: 12px; text-align: center; line-height: 1.4;">
+        This invitation was sent by <strong>${inviterName}</strong> from ${clubName}.<br>
+        If you didn't expect this invitation, you can safely ignore this email or click "Decline" above.
+      </p>
+    </div>
+  </div>
+`;
+
+/**
  * Email template for email verification
  */
 export const emailVerificationTemplate = (

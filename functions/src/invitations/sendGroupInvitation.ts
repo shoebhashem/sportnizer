@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { GroupInvitationRequest, InvitationResult } from '../types/interfaces';
 import { config } from '../utils/config';
-import { emailTransporter, groupInvitationTemplate } from '../utils/email';
+import { emailTransporter, groupInvitationWithActionsTemplate } from '../utils/email';
 import { validateArrayField, validateRequiredFields } from '../utils/validation';
 
 export const sendGroupInvitation = onCall(
@@ -13,6 +13,17 @@ export const sendGroupInvitation = onCall(
     try {
       const { emails, clubId, clubName, groupId, groupName, inviterName }: GroupInvitationRequest = request.data;
 
+      // Debug logging for clubName issue
+      console.log('🔍 sendGroupInvitation received data:', {
+        emails: emails?.length,
+        clubId,
+        clubName,
+        clubNameType: typeof clubName,
+        groupId,
+        groupName,
+        inviterName
+      });
+
       // Validate required fields
       validateRequiredFields(request.data, ['emails', 'clubId', 'clubName', 'groupId', 'groupName', 'inviterName']);
       validateArrayField(emails, 'emails');
@@ -22,63 +33,16 @@ export const sendGroupInvitation = onCall(
         throw new HttpsError('unauthenticated', 'User must be authenticated');
       }
 
-      // Check if group exists and get current members
-      const groupMembersRef = admin.firestore()
-        .collection('clubs')
-        .doc(clubId)
-        .collection('groups')
-        .doc(groupId)
-        .collection('allMembers')
-        .doc('members');
-      
-      const groupMembersDoc = await groupMembersRef.get();
-      const currentMembers: any[] = groupMembersDoc.exists ? groupMembersDoc.data()?.members || [] : [];
-      
-      // Extract current member emails for comparison
-      const currentMemberEmails = currentMembers.map(member => member.email?.toLowerCase()).filter(Boolean);
-
       const results: InvitationResult[] = [];
 
       for (const email of emails) {
         try {
-          const normalizedEmail = email.trim().toLowerCase();
-          
-          // Check if email is already a member of the group
-          if (currentMemberEmails.includes(normalizedEmail)) {
-            console.log(`Email ${normalizedEmail} is already a member of group ${groupId}`);
-            results.push({
-              email,
-              success: false,
-              error: 'User is already a member of this group',
-            });
-            continue;
-          }
-
-          // Check for existing pending invitations
-          const existingInvitationQuery = await admin.firestore()
-            .collection('invitations')
-            .where('email', '==', normalizedEmail)
-            .where('groupId', '==', groupId)
-            .where('status', '==', 'pending')
-            .where('used', '==', false)
-            .get();
-
-          if (!existingInvitationQuery.empty) {
-            console.log(`Pending invitation already exists for ${normalizedEmail} in group ${groupId}`);
-            results.push({
-              email,
-              success: false,
-              error: 'Invitation already sent to this email address',
-            });
-            continue;
-          }
-
           // Generate a unique invitation token
           const invitationToken = admin.firestore().collection('invitations').doc().id;
           
-          // Store invitation details in Firestore
+          // Store invitation details in Firestore with new workflow support
           await admin.firestore().collection('invitations').doc(invitationToken).set({
-            email: normalizedEmail,
+            email: email.trim().toLowerCase(),
             clubId,
             clubName,
             groupId,
@@ -87,18 +51,23 @@ export const sendGroupInvitation = onCall(
             inviterUid: request.auth.uid,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             used: false,
-            status: 'pending',
+            status: 'pending', // 'pending', 'accepted', 'rejected'
+            type: 'group_invitation', // Type to distinguish from other invitation types
+            workflowVersion: '2.0', // Track new vs old invitation workflow
+            respondedAt: null, // Will be set when user responds
+            expiresAt: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)), // 7 days expiration
           });
 
-          // Create invitation link
-          const invitationLink = `${config.baseUrl}/login?invite=${invitationToken}`;
+          // Create accept and reject links with invitation token
+          const acceptLink = `${config.baseUrl}/invitation/accept?token=${invitationToken}`;
+          const rejectLink = `${config.baseUrl}/invitation/reject?token=${invitationToken}`;
 
-          // Send email
+          // Send email with accept/reject buttons
           const mailOptions = {
             from: config.email.from,
-            to: normalizedEmail,
+            to: email,
             subject: `Invitation to join ${groupName} on Sportnizer`,
-            html: groupInvitationTemplate(groupName, inviterName, invitationLink),
+            html: groupInvitationWithActionsTemplate(groupName, clubName, inviterName, acceptLink, rejectLink),
           };
 
           await emailTransporter.sendMail(mailOptions);

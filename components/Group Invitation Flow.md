@@ -4,11 +4,22 @@ Overview
 This document describes how the group invitation flow works across the frontend (Expo React App) and backend (Firebase Cloud Functions).
 It explains the data flow, Firestore updates, and how the invitation token is created, validated, and consumed.
 
+## 🔑 **Key UX Decision: Invited Users Skip Email Verification**
+
+**IMPORTANT**: Users who sign up through group invitations bypass the email verification requirement for improved user experience.
+- **Regular Signup**: Requires email verification before account activation (`emailVerified: false` initially)
+- **Invitation Signup**: Email verification is skipped (`emailVerified: true` from account creation)
+- **Rationale**: Invitation email serves as email validation, eliminating redundant verification step
+
+## Architecture Guarantees
+
 The flow ensures that:
 
 Invitations can be sent by admins via email.
 
-Invited users can accept or reject invitations.
+Invited users can accept or reject invitations without email verification barriers.
+
+Users signing up through invitations have `emailVerified: true` from account creation.
 
 Firestore updates occur consistently across:
 
@@ -226,26 +237,44 @@ Viewed	processInvitation	No DB changes	Token verified, details shown to user.
 Accepted	respondToInvitation	status: accepted, used: true	User added to club/group, token marked used.
 Rejected	respondToInvitation	status: rejected, used: true	Invitation declined, cleaned up.
 Expired	(future)	status: expired	Automatically marked expired after a TTL (optional).
-💻 Frontend Responsibilities (Expo React App)
+## � **Email Verification Policy**
+
+### Regular User Signup Flow:
+1. User creates account → `emailVerified: false`
+2. Verification email sent → user must verify before signing in
+3. After verification → `emailVerified: true`, account activated
+
+### Invitation-Based Signup Flow:
+1. User clicks invitation link → validates identity through invitation email
+2. User creates account → **`emailVerified: true` immediately** (no verification email sent)
+3. User can sign in immediately → no verification barrier
+4. Invitation acts as email validation mechanism
+
+### Implementation Details:
+- `createUserAccount` function detects invitation context via `invitationToken` parameter
+- When `invitationToken` present: `emailVerified: true`, skip verification email
+- When `invitationToken` absent: `emailVerified: false`, send verification email
+
+�💻 Frontend Responsibilities (Expo React App)
 1. Handle Deep Linking / URL Params
 const token = new URLSearchParams(window.location.search).get('invite');
 
 
 Store this token (e.g., in AsyncStorage or React Context) until the user signs in.
 
-2. Call processInvitation
+2. Call validateInvitationToken
 
-When the app loads with invite param, call /processInvitation.
+When the app loads with invite param, call /validateInvitationToken.
 
-Display group and inviter details to the user.
+Check if user exists in Firestore, route accordingly (login vs signup).
 
 3. Authenticate User
 
 If user not logged in → prompt Firebase Auth login/signup.
 
-On signup, /users/{uid} is automatically created.
+On signup with invitation, /users/{uid} is created with `emailVerified: true`.
 
-4. Call respondToInvitation
+4. Call addMemberToGroup and markInvitationUsed
 
 After login, if an invite token exists:
 

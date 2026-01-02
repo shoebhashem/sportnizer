@@ -51,18 +51,20 @@ export { updateUserPollInfo } from './members/updateUserPollInfo';
 // TODO: Add orchestration functions here when implemented
 
 // Invitation Functions (Atomic)
-export { generateShareableInvite } from './invitations/generateShareableInvite';
-export { getGuardianInvitationDetails } from './invitations/getGuardianInvitationDetails';
+export { addGroupInviteToUser } from './invitations/addGroupInviteToUser';
 export { markInvitationUsed } from './invitations/markInvitationUsed';
 export { processGuardianInvitation } from './invitations/processGuardianInvitation';
+export { respondToEmailInvite } from './invitations/respondToEmailInvite';
+export { respondToGroupInvite } from './invitations/respondToGroupInvite';
 export { sendGroupInvitation } from './invitations/sendGroupInvitation';
-export { sendGuardianInvitations } from './invitations/sendGuardianInvitations';
 export { validateInvitationToken } from './invitations/validateInvitationToken';
 
-// TODO: Remove these non-atomic HTTP endpoint functions
-// export { getInvitationDetails } from './invitations/getInvitationDetails';
-// export { processInvitation } from './invitations/processInvitation';
-// export { respondToInvitation } from './invitations/respondToInvitation';
+// Recipient Selection Functions (Atomic)
+export { calculateRecipientCount } from './recipients/calculateRecipientCount';
+export { validateRecipientSelection } from './recipients/validateRecipientSelection';
+
+// ✅ Legacy HTTP endpoint functions have been archived
+// New invitation workflow uses onCall functions: addGroupInviteToUser, respondToGroupInvite, respondToEmailInvite
 
 // Utility Functions
 export { fixEmptyUserDocument } from './utils/fixEmptyUserDocument';

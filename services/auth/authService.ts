@@ -74,6 +74,7 @@ export const signUpUser = async (email: string, password: string, fullName: stri
       photoURL: getDefaultProfilePicture(false), // Use the default adult profile picture
       phoneNumber: undefined, // Initially undefined, can be updated later
       dateOfBirth: undefined, // Initially undefined, can be updated later
+      emailVerified: false, // Regular signups require email verification
       clubAccess: [], // Empty array - users join clubs later
       groupsCreated: 0,
       events: [],

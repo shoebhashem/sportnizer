@@ -12,7 +12,7 @@ export const createUserAccount = onCall(
   },
   async (request): Promise<CreateUserAccountResponse> => {
     try {
-      const { email, fullName, uid }: CreateUserAccountRequest = request.data;
+      const { email, fullName, uid, invitationToken }: CreateUserAccountRequest = request.data;
 
       // Validate required fields
       validateRequiredFields(request.data, ['email', 'fullName', 'uid']);
@@ -49,8 +49,8 @@ export const createUserAccount = onCall(
         dateOfBirth: null, // Initially null, can be updated later
         clubAccess: [], // Empty array - users join clubs later
         groupsCreated: 0,
-        emailVerified: false,
-        verificationStatus: 'pending',
+        emailVerified: invitationToken || false, // Skip email verification for invitation signups
+        verificationStatus: invitationToken ? 'verified' : 'pending',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         lastActive: admin.firestore.FieldValue.serverTimestamp(),
       };
@@ -58,10 +58,13 @@ export const createUserAccount = onCall(
       // Save user profile to Firestore
       await db.collection('users').doc(uid).set(userProfile);
 
-      console.log(`User profile created for ${uid}, now sending verification email...`);
+      console.log(`User profile created for ${uid}`);
 
-      // Send email verification - call the email logic directly
-      try {
+      // Only send email verification for non-invitation signups
+      if (!invitationToken) {
+        console.log('Sending email verification for regular signup...');
+        // Send email verification - call the email logic directly
+        try {
         // Cleanup expired verification tokens first
         await cleanupExpiredTokens('emailVerifications', uid);
 
@@ -97,12 +100,17 @@ export const createUserAccount = onCall(
         // Don't throw error here - user account was created successfully
         // They can resend verification email later if needed
       }
+      } else {
+        console.log('Skipping email verification for invitation signup');
+      }
 
       console.log(`Successfully created user account for ${uid}`);
 
       return {
         success: true,
-        message: 'Account created successfully! Please check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.'
+        message: invitationToken 
+          ? 'Account created successfully! You can now sign in and will be automatically added to your invited group.'
+          : 'Account created successfully! Please check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.'
       };
 
     } catch (error) {
