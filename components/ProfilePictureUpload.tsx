@@ -13,8 +13,19 @@ import {
 
 import { theme } from '../constants/theme';
 // TODO: Implement profile picture upload in new memberService/userService
-import { uploadMemberProfilePicture, uploadUserProfilePicture } from '../services/archived/user/profilePictureService';
+// import { uploadMemberProfilePicture, uploadUserProfilePicture } from '../services/archived/user/profilePictureService';
 import Button from './Button';
+
+// Temporary placeholder functions until profile picture service is implemented
+const uploadMemberProfilePicture = async (groupId: string, memberId: string, imageUri: string): Promise<{ success: boolean; profilePictureUrl?: string; error?: string }> => {
+  console.warn('uploadMemberProfilePicture not yet implemented');
+  return { success: false, error: 'Profile picture upload not yet implemented' };
+};
+
+const uploadUserProfilePicture = async (imageUri: string): Promise<{ success: boolean; profilePictureUrl?: string; error?: string }> => {
+  console.warn('uploadUserProfilePicture not yet implemented');
+  return { success: false, error: 'Profile picture upload not yet implemented' };
+};
 
 interface ProfilePictureUploadProps {
   visible: boolean;

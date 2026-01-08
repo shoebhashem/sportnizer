@@ -12,6 +12,10 @@ import { signUpUser } from '../services/auth/authService';
 
 export default function SignupScreen() {
   const { invite, verified } = useLocalSearchParams<{ invite?: string; verified?: string }>();
+  
+  console.log('🔍 SignupScreen mounted with params:', { invite, verified });
+  console.log('🎫 Invitation token type:', typeof invite, 'value:', invite);
+  
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -139,19 +143,17 @@ export default function SignupScreen() {
     setLoading(true);
     
     try {
-      const result = await signUpUser(email.trim(), password, fullName.trim());
+      console.log('🚀 Starting signup process with invitation token:', invite);
+      // Pass invitation token to signUpUser to skip email verification for invited users
+      const result = await signUpUser(email.trim(), password, fullName.trim(), invite || undefined);
+      
+      console.log('📊 Signup result:', result);
       
       if (result.success) {
-        // Show email verification message
-        setModalMessage(result.message || 'Account created successfully! Please check your email to verify your account before signing in.');
-        setSuccessModalVisible(true);
-        
-        // If there is an invitation token, process it after successful signup
-        // Note: The user will need to verify their email first, but we can still process the invitation
-        if (invite) {
+        if (invite && !result.requiresEmailVerification) {
+          // Invited user - account is ready, process invitation immediately
           try {
-            console.log('Processing invitation after signup for token:', invite);
-            // Call the respondToEmailInvite function to process the invitation
+            console.log('Processing invitation for pre-verified user:', invite);
             const respondToEmailInviteFn = httpsCallable(functions, 'respondToEmailInvite');
             const invitationResult = await respondToEmailInviteFn({ 
               token: invite,
@@ -166,14 +168,27 @@ export default function SignupScreen() {
             
             const inviteResponse = invitationResult.data as any;
             if (inviteResponse?.success) {
-              // Update the success message to include invitation acceptance
-              setModalMessage(`🎉 Account created and invitation accepted!\n\nYou have been added to ${invitationInfo?.groupName || 'the group'}.\n\nPlease check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.`);
+              setModalMessage(`🎉 Welcome to Sportnizer!\n\nYour account has been created and you've been added to ${invitationInfo?.groupName || 'the group'}.\n\nYou can now access all features immediately!`);
+              setSuccessModalVisible(true);
+              return; // Exit early since we handled everything
             }
           } catch (invitationError) {
             console.error('Error processing invitation:', invitationError);
-            // Don't show error to user since account creation was successful
-            // They can always join the group later if needed
+            // Still show success for account creation
+            setModalMessage('Account created successfully! However, there was an issue processing your invitation. Please contact support.');
+            setSuccessModalVisible(true);
+            return;
           }
+        } 
+        
+        // Regular signup flow or invited user fallback
+        setModalMessage(result.message || 'Account created successfully!');
+        setSuccessModalVisible(true);
+        
+        // If there is an invitation token and regular email verification is required, inform user
+        if (invite && result.requiresEmailVerification) {
+          // Update message to mention invitation will be processed after verification
+          setModalMessage(result.message + `\n\nAfter verifying your email, your invitation to ${invitationInfo?.groupName || 'the group'} will be automatically processed.`);
         }
       } else {
         // Show error
@@ -215,11 +230,11 @@ export default function SignupScreen() {
   const handleSuccessModalConfirm = () => {
     setSuccessModalVisible(false);
     
-    // If this is email verification success, redirect to login
-    if (verified === 'success' || verified === 'already') {
+    // If this is email verification success or invited user success, redirect to login
+    if (verified === 'success' || verified === 'already' || (invite && modalMessage.includes('🎉 Welcome to Sportnizer'))) {
       router.replace('/login');
     } else {
-      // For regular signup success, stay on signup screen
+      // For regular signup success (pending email verification), stay on signup screen
       router.replace('/signup');
     }
   };

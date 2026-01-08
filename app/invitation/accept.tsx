@@ -49,8 +49,16 @@ export default function InvitationAcceptScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token || Array.isArray(token)) {
+    console.log('📱 InvitationAcceptScreen mounted, token:', token);
+    
+    if (!token) {
       setError('Invalid invitation link. No token found.');
+      setLoading(false);
+      return;
+    }
+    
+    if (Array.isArray(token)) {
+      setError('Invalid invitation link. Multiple tokens found.');
       setLoading(false);
       return;
     }

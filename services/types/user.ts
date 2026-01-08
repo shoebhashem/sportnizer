@@ -7,6 +7,7 @@ export interface UserProfile {
   photoURL?: string;
   phoneNumber?: string | null;
   dateOfBirth?: Date | null;
+  emailVerified?: boolean; // Custom email verification status
   address?: {
     street?: string;
     city?: string;

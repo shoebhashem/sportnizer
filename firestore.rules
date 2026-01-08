@@ -113,10 +113,10 @@ service cloud.firestore {
 
     // Validation function for user documents using clubAccess array
     function validateUserDocument(data) {
-      return data.keys().hasAll(['email', 'name', 'createdAt']) &&
+      return data.keys().hasAll(['email', 'displayName', 'createdAt']) &&
              data.email is string &&
-             data.name is string &&
-             data.createdAt is timestamp &&
+             data.displayName is string &&
+             (data.createdAt is timestamp || data.createdAt == request.time) &&
              // clubAccess array validation (replaces clubs and groupsJoined)
              (!('clubAccess' in data) || (
                data.clubAccess is list &&
@@ -124,13 +124,23 @@ service cloud.firestore {
                validateClubAccessArray(data.clubAccess)
              )) &&
              // Optional fields validation
+             (!('photoURL' in data) || data.photoURL is string) &&
              (!('profilePicture' in data) || data.profilePicture is string) &&
              (!('dateOfBirth' in data) || data.dateOfBirth is timestamp) &&
              (!('phoneNumber' in data) || data.phoneNumber is string) &&
+             (!('emailVerified' in data) || data.emailVerified is bool) &&
+             (!('verificationStatus' in data) || data.verificationStatus is string) &&
+             (!('version' in data) || data.version is number) &&
+             (!('groupsCreated' in data) || data.groupsCreated is number) &&
+             (!('events' in data) || data.events is list) &&
+             (!('eventsResponses' in data) || data.eventsResponses is list) &&
+             (!('groupInvites' in data) || data.groupInvites is list) &&
+             (!('lastActive' in data) || (data.lastActive is timestamp || data.lastActive == request.time)) &&
+             (!('uid' in data) || data.uid is string) &&
              (!('address' in data) || data.address is map) &&
              (!('preferences' in data) || data.preferences is map) &&
              (!('isActive' in data) || data.isActive is bool) &&
-             (!('lastLoginAt' in data) || data.lastLoginAt is timestamp);
+             (!('lastLoginAt' in data) || (data.lastLoginAt is timestamp || data.lastLoginAt == request.time));
     }
 
     // ---------------------------
@@ -143,10 +153,10 @@ service cloud.firestore {
       // Create: Users can only create their own document with required fields
       allow create: if isSignedIn() && 
                        request.auth.uid == userId &&
-                       validateUserDocument(resource.data);
+                       validateUserDocument(request.resource.data);
 
       // Update: Users can update their own document, OR club-admin can update clubAccess field
-      allow update: if (request.auth.uid == userId && validateUserDocument(resource.data)) ||
+      allow update: if (request.auth.uid == userId && validateUserDocument(request.resource.data)) ||
                        (
                          isSignedIn() &&
                          request.auth.uid != userId &&
@@ -219,6 +229,30 @@ service cloud.firestore {
           allow create, update, delete: if canManageGroup(clubId, groupId);
         }
       }
+    }
+
+    // ---------------------------
+    // Invitations collection - Group invitation system
+    // ---------------------------
+    match /invitations/{invitationToken} {
+      // Allow reading for:
+      // 1. Users whose email matches the invitation email
+      // 2. Club admins who can manage the club the invitation is for
+      // 3. Users who created the invitation
+      allow read: if isSignedIn() && 
+                     (resource.data.email == request.auth.token.email ||
+                      isClubAdmin(resource.data.clubId) ||
+                      resource.data.inviterUid == request.auth.uid);
+      
+      // Allow creating invitations for authenticated users
+      allow create: if isSignedIn();
+      
+      // Allow updating/deleting for:
+      // 1. Club admins of the target club
+      // 2. Users who created the invitation
+      allow update, delete: if isSignedIn() && 
+                            (isClubAdmin(resource.data.clubId) || 
+                             resource.data.inviterUid == request.auth.uid);
     }
 
     // ---------------------------
