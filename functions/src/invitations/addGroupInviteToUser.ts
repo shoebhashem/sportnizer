@@ -65,7 +65,7 @@ export const addGroupInviteToUser = onCall(
       const invitationWithId = {
         ...inviteData,
         inviteId: invitationId,
-        invitedAt: admin.firestore.FieldValue.serverTimestamp()
+        invitedAt: new Date() // Use regular Date instead of FieldValue.serverTimestamp() in arrays
       };
 
       // Check if user already has clubAccess array, if not create it
@@ -100,7 +100,7 @@ export const addGroupInviteToUser = onCall(
           clubName: inviteData.clubName,
           role: null, // Will be set when invitation is accepted
           joinedAt: null, // Will be set when invitation is accepted
-          lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastModifiedAt: new Date(), // Use regular Date instead of FieldValue.serverTimestamp() in arrays
           groupAccess: [], // Will be populated when invitation is accepted
           groupInvites: [invitationWithId]
         });

@@ -169,7 +169,27 @@ service cloud.firestore {
       // Delete: Users can only delete their own document
       allow delete: if isSignedIn() && request.auth.uid == userId;
 
-
+      // ---------------------------
+      // Notifications subcollection - dual-storage architecture
+      // ---------------------------
+      match /notifications/{notificationId} {
+        // Read: Only the user can read their own notifications
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        
+        // Create: Backend functions can create notifications for users
+        // Client cannot create notifications directly (must use backend function)
+        allow create: if false;
+        
+        // Update: Only the user can update their own notifications (mark as read, dismiss)
+        allow update: if isSignedIn() && 
+                         request.auth.uid == userId &&
+                         // Only allow updating specific fields
+                         request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['read', 'readAt', 'dismissed', 'dismissedAt', 'actionTakenAt']);
+        
+        // Delete: Users can delete their own notifications
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     // ---------------------------
@@ -184,6 +204,19 @@ service cloud.firestore {
       
       // Update/Delete: Only club admins or club creator
       allow update, delete: if isClubAdmin(clubId) || isClubCreator(clubId);
+
+      // All Members subcollection at club level - contains member documents/arrays for the club
+      match /allMembers/{memberId} {
+        // Read: Only club admins can read club member data
+        // Membership checks now done via backend checkMembership function
+        allow read: if isClubAdmin(clubId);
+        
+        // Create/Update: Only club admins can manage club-level members
+        allow create, update: if isClubAdmin(clubId);
+        
+        // Delete: Only club admins can remove members
+        allow delete: if isClubAdmin(clubId);
+      }
 
       // Groups subcollection inside a club
       match /groups/{groupId} {
@@ -208,6 +241,7 @@ service cloud.firestore {
         // All Members subcollection - contains member documents for the group
         match /allMembers/{memberId} {
           // Read: Club admins, group admins/coaches, or group members can read member data
+          // Membership checks now done via backend checkMembership function for better security
           allow read: if isClubAdmin(clubId) || canManageGroup(clubId, groupId) || hasGroupAccess(clubId, groupId);
           
           // Create/Update: Only club admins or group admins/coaches can manage members
@@ -232,27 +266,27 @@ service cloud.firestore {
     }
 
     // ---------------------------
-    // Invitations collection - Group invitation system
+    // Invitations collection - dual-storage source of truth
     // ---------------------------
-    match /invitations/{invitationToken} {
-      // Allow reading for:
-      // 1. Users whose email matches the invitation email
-      // 2. Club admins who can manage the club the invitation is for
-      // 3. Users who created the invitation
+    match /invitations/{invitationId} {
+      // Read: User can read invitations sent to their email OR created by them
+      // Allow list queries for user's own invitations
       allow read: if isSignedIn() && 
                      (resource.data.email == request.auth.token.email ||
-                      isClubAdmin(resource.data.clubId) ||
+                      resource.data.userId == request.auth.uid ||
                       resource.data.inviterUid == request.auth.uid);
       
-      // Allow creating invitations for authenticated users
-      allow create: if isSignedIn();
+      // Allow list operations (queries) for user's email or userId
+      allow list: if isSignedIn();
       
-      // Allow updating/deleting for:
-      // 1. Club admins of the target club
-      // 2. Users who created the invitation
-      allow update, delete: if isSignedIn() && 
-                            (isClubAdmin(resource.data.clubId) || 
-                             resource.data.inviterUid == request.auth.uid);
+      // Create: Backend functions only (not directly by clients)
+      allow create: if false;
+      
+      // Update: Backend functions only (status changes handled by backend)
+      allow update: if false;
+      
+      // Delete: Only invitation creator or backend functions
+      allow delete: if isSignedIn() && resource.data.inviterUid == request.auth.uid;
     }
 
     // ---------------------------

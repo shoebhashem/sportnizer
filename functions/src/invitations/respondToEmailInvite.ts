@@ -65,14 +65,6 @@ export const respondToEmailInvite = onCall(
         };
       }
 
-      if (inviteData?.status !== 'pending') {
-        return {
-          success: false,
-          action: 'already_used',
-          message: `This invitation has already been ${inviteData?.status}`
-        };
-      }
-
       // Check expiration
       const expiresAt = inviteData?.expiresAt?.toDate();
       if (expiresAt && expiresAt < new Date()) {
@@ -88,6 +80,29 @@ export const respondToEmailInvite = onCall(
         clubName: inviteData?.clubName || 'Unknown Club',
         inviterName: inviteData?.inviterName || 'Someone'
       };
+
+      // Handle different invitation statuses
+      if (inviteData?.status === 'accepted_pending_signup') {
+        // This invitation was already processed during signup
+        // Return success since the intended outcome (user joins group) has already happened
+        console.log(`� Invitation was already processed during signup, returning success`);
+        
+        return {
+          success: true,
+          action: 'accepted',
+          message: `Welcome to ${invitationDetails.groupName}! Your membership was already processed during account creation.`,
+          invitationDetails,
+          requiresSignup: false
+        };
+      }
+
+      if (inviteData?.status !== 'pending') {
+        return {
+          success: false,
+          action: 'already_used',
+          message: `This invitation has already been ${inviteData?.status}`
+        };
+      }
 
       if (action === 'reject') {
         console.log(`❌ User rejected email invitation to group ${invitationDetails.groupName}`);

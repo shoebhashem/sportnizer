@@ -37,6 +37,7 @@ export { updateEvent } from './events/updateEvent';
 export { addMemberToClub } from './members/addMemberToClub';
 export { addMemberToGroup } from './members/addMemberToGroup';
 export { addMemberToSubGroup } from './members/addMemberToSubGroup';
+export { checkMembership } from './members/checkMembership';
 export { removeMemberFromGroup } from './members/removeMemberFromGroup';
 export { removeMemberFromSubGroup } from './members/removeMemberFromSubGroup';
 
@@ -58,6 +59,9 @@ export { respondToEmailInvite } from './invitations/respondToEmailInvite';
 export { respondToGroupInvite } from './invitations/respondToGroupInvite';
 export { sendGroupInvitation } from './invitations/sendGroupInvitation';
 export { validateInvitationToken } from './invitations/validateInvitationToken';
+
+// Notification Functions (Atomic)
+export { createNotification } from './notifications/createNotification';
 
 // Recipient Selection Functions (Atomic)
 export { calculateRecipientCount } from './recipients/calculateRecipientCount';

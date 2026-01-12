@@ -74,7 +74,7 @@ export default function InvitationAcceptScreen() {
       const respondToEmailInviteFn = httpsCallable(functions, 'respondToEmailInvite');
       const result = await respondToEmailInviteFn({
         token: invitationToken,
-        action: 'accept'
+        action: 'accepted'
       });
 
       const invitationResponse = result.data as RespondToEmailInviteResponse;

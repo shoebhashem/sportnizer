@@ -48,7 +48,7 @@ export default function SignupScreen() {
     try {
       // Call validateInvitationToken to get invitation details without processing
       const validateTokenFn = httpsCallable(functions, 'validateInvitationToken');
-      const result = await validateTokenFn({ token: inviteToken });
+      const result = await validateTokenFn({ invitationToken: inviteToken });
       const validation = result.data as any;
       
       if (validation.success && validation.invitationData) {

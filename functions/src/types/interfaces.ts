@@ -2,6 +2,59 @@
  * TypeScript interfaces for Firebase Functions
  */
 
+// Notification interfaces
+export type NotificationType = 
+  | 'group_invitation' 
+  | 'announcement' 
+  | 'event' 
+  | 'poll'
+  | 'role_changed'
+  | 'member_joined'
+  | 'event_cancelled';
+
+export interface NotificationData {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  invitationToken?: string;
+  sourceId?: string;
+  sourceCollection?: string;
+  read: boolean;
+  dismissed: boolean;
+  clubId: string;
+  clubName: string;
+  groupId?: string;
+  groupName?: string;
+  createdAt: any;
+  readAt?: any;
+  actionTakenAt?: any;
+  priority?: 'low' | 'normal' | 'high';
+  actionUrl?: string;
+}
+
+export interface CreateNotificationRequest {
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  invitationToken?: string;
+  sourceId?: string;
+  sourceCollection?: string;
+  clubId: string;
+  clubName: string;
+  groupId?: string;
+  groupName?: string;
+  priority?: 'low' | 'normal' | 'high';
+  actionUrl?: string;
+}
+
+export interface CreateNotificationResponse {
+  success: boolean;
+  notificationId?: string;
+  error?: string;
+}
+
 // Group invitation interfaces
 export interface GroupInvitationData {
   email: string;
@@ -26,6 +79,7 @@ export interface GroupInvitationRequest {
   groupId: string;
   groupName: string;
   inviterName: string;
+  inviterUid?: string;       // Optional: UID of inviter (defaults to request.auth.uid)
 }
 
 export interface ProcessInvitationRequest {
@@ -211,6 +265,7 @@ export interface InvitationResult {
   error?: string;
   invitationToken?: string;
   guardianEmails?: string[];
+  isExistingUser?: boolean;  // Indicates if user already has an account
 }
 
 // Member management operation interfaces

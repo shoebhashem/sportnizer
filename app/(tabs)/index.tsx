@@ -7,7 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../../components/Button';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import InvitationModal from '../../components/InvitationModal';
+import NotificationBell from '../../components/NotificationBell';
 import { getCurrentUser } from '../../services/auth/authService';
+import { acceptGroupInvite, fetchGroupInvites, GroupInviteInfo, rejectGroupInvite } from '../../services/fetchGroupInvites';
 import { HomeAnnouncement, HomeEvent, HomePoll, NewsFlowItem } from '../../services/types';
 
 interface ModalState {
@@ -32,10 +35,61 @@ export default function Index() {
     message: '',
     type: 'error'
   });
+  
+  // Invitation state
+  const [pendingInvites, setPendingInvites] = useState<GroupInviteInfo[]>([]);
+  const [currentInvite, setCurrentInvite] = useState<GroupInviteInfo | null>(null);
+  const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [processedInvites, setProcessedInvites] = useState<Set<string>>(new Set()); // Track processed invites
+  const [hasLoadedInitialInvites, setHasLoadedInitialInvites] = useState(false); // Track if we've done initial load
+
+  const loadInvitations = useCallback(async () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        console.log('No current user, skipping invitation check');
+        return;
+      }
+      
+      console.log('Fetching group invitations...');
+      const response = await fetchGroupInvites(currentUser.uid);
+      console.log('Found invitations:', response);
+      
+      // Extract invitations from response
+      const allInvites = response.invites || [];
+      
+      // Filter out invitations we've already processed
+      const newInvites = allInvites.filter(invite => {
+        const inviteKey = `${invite.clubId}-${invite.groupId}`;
+        return !processedInvites.has(inviteKey);
+      });
+      
+      console.log('New unprocessed invitations:', newInvites);
+      setPendingInvites(newInvites);
+      
+      // Show the first new invitation if any exist and no modal is currently visible
+      if (newInvites.length > 0 && !isInviteModalVisible && !currentInvite) {
+        setCurrentInvite(newInvites[0]);
+        setIsInviteModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Error loading invitations:', error);
+    }
+  }, [isInviteModalVisible, currentInvite, processedInvites]);
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
+      console.log('Loading initial home screen data...');
+      
+      // Load invitations only on first load
+      if (!hasLoadedInitialInvites) {
+        await loadInvitations();
+        setHasLoadedInitialInvites(true);
+      }
+      
+      // Placeholder for other data loading
       if (activeTab === 'events') {
         //const eventsData = await homeService.getUpcomingEvents(1);
         //setEvents(eventsData);
@@ -46,7 +100,7 @@ export default function Index() {
         //setNewsWeeksLoaded(2);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading initial data:', error);
       setModal({
         visible: true,
         title: 'Error',
@@ -56,7 +110,7 @@ export default function Index() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, loadInvitations, hasLoadedInitialInvites]);
 
   // Load initial data when screen focuses
   useFocusEffect(
@@ -159,6 +213,145 @@ export default function Index() {
     }
   };
 
+  // Invitation handlers
+  const handleAcceptInvite = async () => {
+    if (!currentInvite) return;
+    
+    setInviteLoading(true);
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Mark this invitation as processed immediately
+      const inviteKey = `${currentInvite.clubId}-${currentInvite.groupId}`;
+      setProcessedInvites(prev => new Set(prev.add(inviteKey)));
+      
+      await acceptGroupInvite(currentInvite.inviteId, currentInvite.clubId, currentInvite.groupId);
+      
+      // Remove from pending invites
+      const updatedInvites = pendingInvites.filter(invite => 
+        invite.clubId !== currentInvite.clubId || invite.groupId !== currentInvite.groupId
+      );
+      setPendingInvites(updatedInvites);
+      
+      // Show success message
+      setModal({
+        visible: true,
+        title: 'Invitation Accepted',
+        message: `You've successfully joined ${currentInvite.groupName}!`,
+        type: 'success'
+      });
+      
+      // Close modal and show next invitation if any (pass updated list)
+      closeInviteModalWithUpdatedList(updatedInvites);
+      
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      // Remove from processed invites if there was an error
+      if (currentInvite) {
+        const inviteKey = `${currentInvite.clubId}-${currentInvite.groupId}`;
+        setProcessedInvites(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(inviteKey);
+          return newSet;
+        });
+      }
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to accept invitation. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleRejectInvite = async () => {
+    if (!currentInvite) return;
+    
+    setInviteLoading(true);
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Mark this invitation as processed immediately
+      const inviteKey = `${currentInvite.clubId}-${currentInvite.groupId}`;
+      setProcessedInvites(prev => new Set(prev.add(inviteKey)));
+      
+      await rejectGroupInvite(currentInvite.inviteId, currentInvite.clubId, currentInvite.groupId);
+      
+      // Remove from pending invites
+      const updatedInvites = pendingInvites.filter(invite => 
+        invite.clubId !== currentInvite.clubId || invite.groupId !== currentInvite.groupId
+      );
+      setPendingInvites(updatedInvites);
+      
+      // Close modal and show next invitation if any (pass updated list)
+      closeInviteModalWithUpdatedList(updatedInvites);
+      
+    } catch (error) {
+      console.error('Error rejecting invitation:', error);
+      // Remove from processed invites if there was an error
+      if (currentInvite) {
+        const inviteKey = `${currentInvite.clubId}-${currentInvite.groupId}`;
+        setProcessedInvites(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(inviteKey);
+          return newSet;
+        });
+      }
+      setModal({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to reject invitation. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const closeInviteModalWithUpdatedList = (updatedInvites: GroupInviteInfo[]) => {
+    setIsInviteModalVisible(false);
+    setCurrentInvite(null);
+    
+    // Filter out any processed invitations from the updated list
+    const unprocessedInvites = updatedInvites.filter(invite => {
+      const inviteKey = `${invite.clubId}-${invite.groupId}`;
+      return !processedInvites.has(inviteKey);
+    });
+    
+    // Show next invitation if any remaining unprocessed invites
+    if (unprocessedInvites.length > 0) {
+      setTimeout(() => {
+        setCurrentInvite(unprocessedInvites[0]);
+        setIsInviteModalVisible(true);
+      }, 500); // Small delay for better UX
+    }
+  };
+
+  const closeInviteModal = () => {
+    setIsInviteModalVisible(false);
+    setCurrentInvite(null);
+    
+    // Show next invitation if any remaining
+    const remainingInvites = pendingInvites.filter(invite => 
+      invite.clubId !== currentInvite?.clubId || invite.groupId !== currentInvite?.groupId
+    );
+    
+    if (remainingInvites.length > 0) {
+      setTimeout(() => {
+        setCurrentInvite(remainingInvites[0]);
+        setIsInviteModalVisible(true);
+      }, 500); // Small delay for better UX
+    }
+  };
+
   const handleAnnouncementPress = async (announcement: HomeAnnouncement) => {
     try {
       //await homeService.markAnnouncementAsRead(announcement.id);
@@ -207,11 +400,40 @@ export default function Index() {
     setModal({ ...modal, visible: false });
   };
 
+  // Handle invitation click from notification bell
+  const handleNotificationInvitationPress = async (invitationToken: string) => {
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        console.error('No current user');
+        return;
+      }
+
+      // Fetch the specific invitation details
+      const response = await fetchGroupInvites(currentUser.uid);
+      const invitation = response.invites?.find(inv => inv.inviteId === invitationToken);
+      
+      if (invitation) {
+        setCurrentInvite(invitation);
+        setIsInviteModalVisible(true);
+      } else {
+        console.error('Invitation not found:', invitationToken);
+      }
+    } catch (error) {
+      console.error('Error loading invitation from notification:', error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Sportnizer</Text>
+        <NotificationBell 
+          onInvitationPress={handleNotificationInvitationPress}
+          iconSize={24}
+          iconColor={theme.colors.white}
+        />
       </View>
 
       {/* Tab Selector */}
@@ -330,6 +552,18 @@ export default function Index() {
         onCancel={handleModalClose}
         confirmButtonTheme="primary"
       />
+
+      {/* Group Invitation Modal */}
+      {currentInvite && (
+        <InvitationModal
+          visible={isInviteModalVisible}
+          groupName={currentInvite.groupName}
+          inviterName={currentInvite.invitedByName || 'Someone'}
+          onAccept={handleAcceptInvite}
+          onReject={handleRejectInvite}
+          loading={inviteLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -476,6 +710,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: theme.layout.containerPadding,
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
@@ -485,6 +722,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.xlarge,
     color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.bold,
+    flex: 1,
     textAlign: 'center',
   },
   tabSelector: {

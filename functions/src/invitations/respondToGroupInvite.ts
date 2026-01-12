@@ -115,7 +115,7 @@ export const respondToGroupInvite = onCall(
           version: admin.firestore.FieldValue.increment(1)
         });
 
-        // Add user to club and group using proper club membership verification
+        // Add user to club and group using atomic functions with membership verification
         try {
           // STEP 1: Check if user is already a club member
           const clubMemberRef = admin.firestore()
@@ -135,58 +135,69 @@ export const respondToGroupInvite = onCall(
 
           console.log(`🔍 User ${userId} club membership check: ${isAlreadyClubMember ? 'Already member' : 'Not a member'}`);
 
-          // STEP 2: Add to club membership if not already a member
+          // STEP 2: Add to club membership if not already a member (using atomic function)
           if (!isAlreadyClubMember) {
-            console.log(`➕ Adding user ${userId} to club ${clubId} first`);
+            console.log(`📞 Calling addMemberToClub atomic function for user ${userId}`);
             
             const clubMemberData = {
               userId: userId,
               name: userData?.displayName || userData?.name || userData?.email?.split('@')[0] || 'Unknown User',
               email: userData?.email || '',
               roles: ['member'],
-              joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-              photoURL: userData?.photoURL || '',
+              joinedAt: new Date(), // Use Date instead of serverTimestamp for consistency with orchestration service
+              profilePictureUrl: userData?.photoURL || '',
               needsGuardian: false,
               guardiansContacts: [],
               addedBy: invitation.inviterUid
             };
 
-            await clubMemberRef.update({
-              members: admin.firestore.FieldValue.arrayUnion(clubMemberData),
-              lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-              memberCount: admin.firestore.FieldValue.increment(1),
-              version: admin.firestore.FieldValue.increment(1),
-              lastModified: admin.firestore.FieldValue.serverTimestamp(),
+            // Call addMemberToClub atomic function (backend-to-backend)
+            // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+            const addMemberToClubFunction = require('../members/addMemberToClub').addMemberToClub;
+            const clubResult = await addMemberToClubFunction.run({
+              auth: { uid: userId },
+              data: {
+                clubId: clubId,
+                memberData: clubMemberData
+              }
             });
 
-            // Update club total count
-            await admin.firestore().collection('clubs').doc(clubId).update({
-              totalCounts: admin.firestore.FieldValue.increment(1),
-              version: admin.firestore.FieldValue.increment(1),
-              lastModified: admin.firestore.FieldValue.serverTimestamp(),
+            if (!clubResult.success) {
+              throw new Error(`Failed to add member to club: ${clubResult.error}`);
+            }
+            console.log('✅ User added to club membership successfully via atomic function');
+
+            // Update user profile with club info (using atomic function)
+            console.log(`📞 Calling updateUserClubInfo atomic function for user ${userId}`);
+            const clubInfo = {
+              clubId: clubId,
+              clubName: invitation.clubName || 'Unknown Club',
+              role: 'member',
+              joinedAt: new Date(),
+              lastModifiedAt: new Date()
+            };
+
+            // Call updateUserClubInfo atomic function (backend-to-backend)
+            // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+            const updateUserClubInfoFunction = require('../members/updateUserClubInfo').updateUserClubInfo;
+            const userClubResult = await updateUserClubInfoFunction.run({
+              auth: { uid: userId },
+              data: {
+                uid: userId,
+                clubInfo: clubInfo,
+                role: 'member'
+              }
             });
 
-            console.log('✅ User added to club membership successfully');
+            if (!userClubResult.success) {
+              throw new Error(`Failed to update user club info: ${userClubResult.error}`);
+            }
+            console.log('✅ User club info updated successfully via atomic function');
           } else {
-            console.log('ℹ️ User already a club member, skipping club addition');
+            console.log('ℹ️ User already a club member, skipping club addition and profile update');
           }
 
-          // STEP 3: Add user to group (this always happens)
-          console.log(`➕ Adding user ${userId} to group ${groupId}`);
-          
-          const groupMemberData = {
-            userId: userId,
-            name: userData?.displayName || userData?.name || userData?.email?.split('@')[0] || 'Unknown User',
-            email: userData?.email || '',
-            roles: ['player'],
-            joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-            photoURL: userData?.photoURL || '',
-            needsGuardian: false,
-            belongsToSubGroups: [],
-            guardiansContacts: [],
-            addedBy: invitation.inviterUid
-          };
-
+          // STEP 3: Check if user is already a group member  
           const groupMemberRef = admin.firestore()
             .collection('clubs')
             .doc(clubId)
@@ -195,18 +206,84 @@ export const respondToGroupInvite = onCall(
             .collection('allMembers')
             .doc('members');
 
-          await groupMemberRef.update({
-            members: admin.firestore.FieldValue.arrayUnion(groupMemberData),
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-            memberCount: admin.firestore.FieldValue.increment(1),
-            version: admin.firestore.FieldValue.increment(1),
-            lastModified: admin.firestore.FieldValue.serverTimestamp(),
-          });
+          const groupMembersDoc = await groupMemberRef.get();
+          let isAlreadyGroupMember = false;
 
-          console.log('✅ User added to group membership successfully');
+          if (groupMembersDoc.exists) {
+            const groupMembersData = groupMembersDoc.data();
+            const members = groupMembersData?.members || [];
+            isAlreadyGroupMember = members.some((member: any) => member.userId === userId);
+          }
+
+          console.log(`🔍 User ${userId} group membership check: ${isAlreadyGroupMember ? 'Already member' : 'Not a member'}`);
+
+          // STEP 4: Add to group membership if not already a member (using atomic function)
+          if (!isAlreadyGroupMember) {
+            console.log(`📞 Calling addMemberToGroup atomic function for user ${userId}`);
+            
+            const groupMemberData = {
+              userId: userId,
+              name: userData?.displayName || userData?.name || userData?.email?.split('@')[0] || 'Unknown User',
+              email: userData?.email || '',
+              roles: ['player'],
+              joinedAt: new Date(), // Use Date instead of serverTimestamp for consistency
+              profilePictureUrl: userData?.photoURL || '',
+              needsGuardian: false,
+              belongsToSubGroups: [],
+              guardiansContacts: [],
+              addedBy: invitation.inviterUid
+            };
+
+            // Call addMemberToGroup atomic function (backend-to-backend)
+            // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+            const addMemberToGroupFunction = require('../members/addMemberToGroup').addMemberToGroup;
+            const groupResult = await addMemberToGroupFunction.run({
+              auth: { uid: userId },
+              data: {
+                clubId: clubId,
+                groupId: groupId,
+                memberData: groupMemberData
+              }
+            });
+
+            if (!groupResult.success) {
+              throw new Error(`Failed to add member to group: ${groupResult.error}`);
+            }
+            console.log('✅ User added to group membership successfully via atomic function');
+
+            // Update user profile with group info (using atomic function)
+            console.log(`📞 Calling updateUserGroupInfo atomic function for user ${userId}`);
+            const groupInfo = {
+              groupId: groupId,
+              groupName: invitation.groupName,
+              joinedAt: new Date(),
+              lastModifiedAt: new Date()
+            };
+
+            // Call updateUserGroupInfo atomic function (backend-to-backend)
+            // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+            const updateUserGroupInfoFunction = require('../members/updateUserGroupInfo').updateUserGroupInfo;
+            const userGroupResult = await updateUserGroupInfoFunction.run({
+              auth: { uid: userId },
+              data: {
+                uid: userId,
+                clubId: clubId,
+                groupInfo: groupInfo,
+                roles: ['player'],
+                operation: 'add'
+              }
+            });
+
+            if (!userGroupResult.success) {
+              throw new Error(`Failed to update user group info: ${userGroupResult.error}`);
+            }
+            console.log('✅ User group info updated successfully via atomic function');
+          } else {
+            console.log('ℹ️ User already a group member, skipping group addition and profile update');
+          }
           
         } catch (membershipError) {
-          console.error('❌ Error adding user to club/group:', membershipError);
+          console.error('❌ Error adding user to club/group via atomic functions:', membershipError);
           throw new HttpsError('internal', 'Failed to add user to club/group membership');
         }
 

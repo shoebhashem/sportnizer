@@ -22,6 +22,12 @@ export {
     canUserManageGroup, fetchUserAccess, fetchUserProfile, getUserAccessSummary, getUserAdminClubs, hasUserGroupRole, isUserClubAdmin
 } from './fetchUserAccess';
 
+// Notification services - real-time notification fetching and management
+export {
+    dismissNotification, filterNotificationsByType, getNotificationById, getUnreadNotificationCount, getUnreadNotifications, markAllNotificationsAsRead, markNotificationAsRead, sortNotificationsByPriority, subscribeToUserNotifications, type NotificationData,
+    type NotificationType
+} from './fetchNotifications';
+
 // Keep existing essential services
 export { signInUser, signOutUser, signUpUser } from './auth/authService';
 

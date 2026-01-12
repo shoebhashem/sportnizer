@@ -42,19 +42,23 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
           </Text>
           
           <View style={styles.buttonContainer}>
-            <Button
-              label="Reject"
-              onPress={onReject}
-              loading={loading}
-              disabled={loading}
-            />
-            <Button
-              label="Accept & Join"
-              onPress={onAccept}
-              theme="primary"
-              loading={loading}
-              disabled={loading}
-            />
+            <View style={styles.buttonWrapper}>
+              <Button
+                label="Reject"
+                onPress={onReject}
+                loading={loading}
+                disabled={loading}
+              />
+            </View>
+            <View style={styles.buttonWrapper}>
+              <Button
+                label="Accept & Join"
+                onPress={onAccept}
+                theme="primary"
+                loading={loading}
+                disabled={loading}
+              />
+            </View>
           </View>
         </View>
       </View>
@@ -116,6 +120,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 15,
     marginTop: 10,
+  },
+  buttonWrapper: {
+    flex: 1,
   },
 });
 

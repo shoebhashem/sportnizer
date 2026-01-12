@@ -23,6 +23,8 @@
 import { httpsCallable } from 'firebase/functions';
 // functions: Our connection to the Firebase backend where our server functions live
 import { functions } from '../core/firebase';
+// dismissNotification: Tool to remove notifications from user's notification list
+import { dismissNotification } from '../fetchNotifications';
 
 // ===============================================================================
 // TYPESCRIPT INTERFACES: Data Structure Definitions
@@ -88,6 +90,55 @@ export interface AcceptRejectResult {
   action: 'accepted' | 'rejected' | 'error';  // What actually happened?
   message: string;           // Human-readable message to show the user
   error?: string;            // Error details if something went wrong (optional)
+}
+
+// ===============================================================================
+// HELPER FUNCTION: Clean up notification after invitation response
+// ===============================================================================
+/**
+ * 🧹 Helper to dismiss notification when user responds to invitation
+ * 
+ * When a user accepts or rejects an invitation, we need to remove the corresponding
+ * notification from their notification list so it doesn't keep appearing in the UI.
+ * 
+ * This function:
+ * 1. Queries the user's notifications subcollection for matching invitation
+ * 2. If found, dismisses the notification (soft delete)
+ * 3. Gracefully handles case where no notification exists (new users won't have one)
+ */
+async function cleanupInvitationNotification(userId: string, invitationToken: string): Promise<void> {
+  try {
+    console.log(`🧹 Cleaning up notification for invitation ${invitationToken}...`);
+    
+    // Import Firestore tools
+    const { getFirestore, collection, query, where, getDocs } = await import('firebase/firestore');
+    const db = getFirestore();
+    
+    // Query for notification matching this invitation token
+    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    const q = query(
+      notificationsRef,
+      where('data.invitationToken', '==', invitationToken),
+      where('dismissed', '==', false)
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+      // Found matching notification, dismiss it
+      const notificationDoc = snapshot.docs[0];
+      const notificationId = notificationDoc.id;
+      
+      await dismissNotification(userId, notificationId);
+      console.log(`✅ Notification ${notificationId} dismissed successfully`);
+    } else {
+      // No notification found - this is expected for new users who received email invitations
+      console.log('ℹ️ No notification found (expected for new users)');
+    }
+  } catch (error: any) {
+    // Log error but don't throw - notification cleanup shouldn't block invitation processing
+    console.warn('⚠️ Failed to cleanup notification:', error.message);
+  }
 }
 
 // ===============================================================================
@@ -178,55 +229,49 @@ export const addRegularMemberToGroupService = {
             continue; // Skip to the next email (don't process this one further)
           }
 
-          // 🎯 STEP 3C: Branch the logic based on whether user exists
-          if (userResponse.userExists && userResponse.userId) {
-            // 📱 BRANCH A: User exists - send them an in-app notification
-            console.log(`✅ User exists: ${userResponse.userId}, creating in-app notification`);
-            
-            // Call our helper function that creates notifications inside the app
-            const notificationResult = await this.createInAppGroupInvitation({
-              userId: userResponse.userId,
-              email,
-              clubId: request.clubId,
-              clubName: request.clubName,
-              groupId: request.groupId,
-              groupName: request.groupName,
-              inviterName: request.inviterName,
-              inviterUid: request.inviterUid
-            });
+          // 🎯 STEP 3C: Call unified sendGroupInvitation function
+          // The backend function handles both existing and non-existing users based on the flag
+          console.log(`📞 Calling sendGroupInvitation for ${email} (existing user: ${userResponse.userExists})`);
+          
+          const sendInvitationFn = httpsCallable(functions, 'sendGroupInvitation');
+          const invitationResult = await sendInvitationFn({
+            emails: [email],
+            clubId: request.clubId,
+            clubName: request.clubName,
+            groupId: request.groupId,
+            groupName: request.groupName,
+            inviterName: request.inviterName,
+            inviterUid: request.inviterUid,
+            isExistingUser: userResponse.userExists,
+            userId: userResponse.userId
+          });
 
-            // Add the result to our results list
+          // Extract the response and process results
+          const invitationResponse = invitationResult.data as {
+            success: boolean;
+            results?: { email: string; success: boolean; invitationToken?: string; error?: string }[];
+            error?: string;
+          };
+
+          if (invitationResponse.success && invitationResponse.results && invitationResponse.results.length > 0) {
+            const result = invitationResponse.results[0];
             results.push({
               email,
-              success: notificationResult.success,
-              userExists: true,
-              action: notificationResult.success ? 'in_app_notification' : 'error',
-              error: notificationResult.error,
-              invitationId: notificationResult.invitationId
+              success: result.success,
+              userExists: userResponse.userExists,
+              action: result.success 
+                ? (userResponse.userExists ? 'in_app_notification' : 'email_invitation')
+                : 'error',
+              error: result.error,
+              invitationId: result.invitationToken
             });
           } else {
-            // 📧 BRANCH B: User doesn't exist - send them an email invitation
-            console.log(`📧 User doesn't exist, sending email invitation to: ${email}`);
-            
-            // Call our helper function that sends email invitations
-            const emailResult = await this.sendEmailGroupInvitation({
-              email,
-              clubId: request.clubId,
-              clubName: request.clubName,
-              groupId: request.groupId,
-              groupName: request.groupName,
-              inviterName: request.inviterName,
-              inviterUid: request.inviterUid
-            });
-
-            // Add the result to our results list
             results.push({
               email,
-              success: emailResult.success,
-              userExists: false,
-              action: emailResult.success ? 'email_invitation' : 'error',
-              error: emailResult.error,
-              invitationId: emailResult.invitationId
+              success: false,
+              userExists: userResponse.userExists,
+              action: 'error',
+              error: invitationResponse.error || 'Failed to send invitation'
             });
           }
 
@@ -265,209 +310,46 @@ export const addRegularMemberToGroupService = {
   },
 
   /**
-   * 📱 TOOL #2: Create in-app notification for existing users
+   * 🎯 TOOL #2: Process invitation after user response (UNIFIED FOR BOTH USER TYPES!)
    * 
    * 📋 WHAT THIS FUNCTION DOES:
-   * - When we know someone already has an account in our app
-   * - We create a notification that appears in their notifications list
-   * - They'll see it next time they open the app
-   * - Much faster than email and more reliable (no spam filters!)
+   * - This is the UNIFIED function that handles invitation responses from BOTH user types:
+   *   1. New users who signed up using an invitation link (email invitations)
+   *   2. Existing users who accepted in-app invitation notifications
+   * - It intelligently handles membership checks based on invitation status
+   * - It calls the same atomic functions for both scenarios with proper deduplication
    * 
-   * 💡 WHY WE USE IN-APP NOTIFICATIONS:
-   * - Instant delivery (they see it immediately when they open the app)
-   * - No email delivery issues or spam filters to worry about
-   * - Better user experience for people already using the app
-   * - Users can accept/reject directly in the app
+   * 🎪 THE UNIFIED WORKFLOW:
+   * 1. New users: Email invitation → signup with token → THIS FUNCTION (status: 'accepted_pending_signup')
+   * 2. Existing users: In-app notification → accept → THIS FUNCTION (status: 'pending')
+   * 3. Both get the same atomic function calls with smart membership checking
+   * 4. Both end up as members with consistent data structure
    * 
-   * 📥 WHAT IT NEEDS (Parameters):
-   * - All the information needed to create the invitation notification
-   * 
-   * 📤 WHAT IT RETURNS:
-   * - Whether it worked and the invitation ID if successful
-   */
-  async createInAppGroupInvitation(params: {
-    userId: string;        // Unique ID of the user who will receive the notification
-    email: string;         // Their email address (for logging/reference)
-    clubId: string;        // Which club they're being invited to
-    clubName: string;      // Name of the club (for the notification message)
-    groupId: string;       // Which group within the club
-    groupName: string;     // Name of the group (for the notification message)
-    inviterName: string;   // Who is inviting them (for the notification message)
-    inviterUid: string;    // Unique ID of the person doing the inviting
-  }): Promise<{ success: boolean; invitationId?: string; error?: string }> {
-    try {
-      // 📝 Log what we're starting to do (debugging breadcrumbs)
-      console.log(`📱 Creating in-app invitation for user: ${params.userId}`);
-      
-      // 🔧 STEP 1: Call the backend function that adds the invitation to the user's document
-      // Think of this like adding a new notification to their notifications list
-      const addGroupInviteFn = httpsCallable(functions, 'addGroupInviteToUser');
-      const result = await addGroupInviteFn({
-        userId: params.userId,
-        inviteData: {
-          clubId: params.clubId,
-          clubName: params.clubName,
-          groupId: params.groupId,
-          groupName: params.groupName,
-          inviterName: params.inviterName,
-          inviterUid: params.inviterUid,
-          invitedAt: new Date(),        // Timestamp: when was this invitation created (right now)
-          status: 'pending',            // Status: they haven't responded yet
-          type: 'group_invitation'      // Type: what kind of invitation this is
-        }
-      });
-
-      // 📤 STEP 2: Extract the response data and tell TypeScript what shape it has
-      const response = result.data as { success: boolean; invitationId?: string; error?: string };
-      
-      // 📝 STEP 3: Log the outcome for debugging
-      if (response.success) {
-        console.log(`✅ In-app invitation created with ID: ${response.invitationId}`);
-      } else {
-        console.error(`❌ Failed to create in-app invitation:`, response.error);
-      }
-
-      // 📤 STEP 4: Return the result to whoever called this function
-      return response;
-
-    } catch (error: any) {
-      // 🚨 If anything goes wrong during this process
-      console.error('❌ Error creating in-app invitation:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to create in-app invitation'
-      };
-    }
-  },
-
-  /**
-   * 📧 TOOL #3: Send email invitation for non-existing users
-   * 
-   * 📋 WHAT THIS FUNCTION DOES:
-   * - When someone doesn't have an account in our app yet
-   * - We send them an email with a special signup link
-   * - The link contains an "invitation token" (like a secret code)
-   * - When they sign up using that link, they automatically join the group
-   * - No manual steps needed after signup - it's all automatic!
-   * 
-   * 💡 WHY WE USE EMAIL FOR NEW USERS:
-   * - They don't have our app yet, so in-app notifications won't work
-   * - Email is the universal way to reach anyone
-   * - The invitation token ensures they get added to the right group automatically
-   * 
-   * 🎯 HOW THE MAGIC WORKS:
-   * 1. Backend creates an invitation record with a unique token in the database
-   * 2. Email is sent with a link containing that token (like: app.com/signup?token=abc123)
-   * 3. When they click the link and sign up, the signup process detects the token
-   * 4. The signup process automatically adds them to the correct group
-   * 
-   * 📥 WHAT IT NEEDS (Parameters):
-   * - All the information needed to send the email invitation
-   * 
-   * 📤 WHAT IT RETURNS:
-   * - Whether it worked and the invitation token if successful
-   */
-  async sendEmailGroupInvitation(params: {
-    email: string;         // Email address to send the invitation to
-    clubId: string;        // Which club they're being invited to
-    clubName: string;      // Name of club (for the email message)
-    groupId: string;       // Which group within the club
-    groupName: string;     // Name of group (for the email message)
-    inviterName: string;   // Who is inviting them (for the email message)
-    inviterUid: string;    // Unique ID of the person doing the inviting
-  }): Promise<{ success: boolean; invitationId?: string; error?: string }> {
-    try {
-      // 📝 Log what we're starting to do
-      console.log(`📧 Sending email invitation to: ${params.email}`);
-      
-      // 🔧 STEP 1: Call the backend function that sends group invitation emails
-      // This backend function does several things:
-      // - Creates an invitation record in the database
-      // - Generates a unique invitation token (like a secret code)
-      // - Sends a nicely formatted email with a signup link containing that token
-      const sendInvitationFn = httpsCallable(functions, 'sendGroupInvitation');
-      const result = await sendInvitationFn({
-        emails: [params.email],           // Put the email in an array (the function expects a list)
-        clubId: params.clubId,
-        clubName: params.clubName,
-        groupId: params.groupId,
-        groupName: params.groupName,
-        inviterName: params.inviterName,
-        inviterUid: params.inviterUid
-      });
-
-      // 📤 STEP 2: Extract the response data and tell TypeScript what shape it has
-      const response = result.data as { 
-        success: boolean; 
-        results?: { email: string; success: boolean; invitationToken?: string; error?: string }[]; 
-        error?: string; 
-      };
-
-      // 🔍 STEP 3: Process the results
-      // The backend function can handle multiple emails at once, but we only sent one
-      // So we need to extract the result for our single email
-      if (response.success && response.results && response.results.length > 0) {
-        const emailResult = response.results[0];  // Get the first (and only) result
-        return {
-          success: emailResult.success,
-          invitationId: emailResult.invitationToken,  // This is the magic token!
-          error: emailResult.error
-        };
-      } else {
-        // Something went wrong with the email sending
-        return {
-          success: false,
-          error: response.error || 'Failed to send email invitation'
-        };
-      }
-
-    } catch (error: any) {
-      // 🚨 If anything goes wrong during this process
-      console.error('❌ Error sending email invitation:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to send email invitation'
-      };
-    }
-  },
-
-  /**
-   * 🎯 TOOL #4: Process invitation after user signup (THE MAGIC HAPPENS HERE!)
-   * 
-   * 📋 WHAT THIS FUNCTION DOES:
-   * - This is called after someone signs up using an invitation link
-   * - Remember that invitation token from the email? This is where it gets processed!
-   * - This function takes that token and automatically adds the new user to the group
-   * - It calls multiple "atomic functions" to update different parts of the database
-   * 
-   * 🎪 THE COMPLETE WORKFLOW:
-   * 1. User gets email invitation with special token
-   * 2. User clicks link and signs up for account
-   * 3. During signup, system detects the invitation token
-   * 4. After signup is complete, THIS FUNCTION gets called
-   * 5. This function adds user to club, adds user to group, updates user's profile
-   * 6. User is now automatically a member - no manual steps needed!
+   * 🔧 CONDITIONAL LOGIC FOR MEMBERSHIP CHECKS:
+   * - New users ('accepted_pending_signup'): Skip membership checks (they're brand new)
+   * - Existing users ('pending'): Check existing memberships before adding
    * 
    * 🔧 WHAT ATOMIC FUNCTIONS DOES IT CALL:
-   * - addMemberToClub: Adds user to the club's member list
-   * - addMemberToGroup: Adds user to the specific group's member list  
-   * - updateUserClubInfo: Updates user's profile to show they're in this club
-   * - updateUserGroupInfo: Updates user's profile to show they're in this group
+   * - addMemberToClub: Adds user to the club's member list (with deduplication for existing users)
+   * - addMemberToGroup: Adds user to the specific group's member list (with deduplication for existing users)
+   * - updateUserClubInfo: Updates user's profile to show they're in this club (with deduplication for existing users)
+   * - updateUserGroupInfo: Updates user's profile to show they're in this group (with deduplication for existing users)
    * - markInvitationUsed: Marks the invitation as completed so it can't be used again
    * 
    * 📥 WHAT IT NEEDS (Parameters):
-   * - invitationToken: The special code from the email link
-   * - newUserId: The unique ID of the newly created user account
+   * - invitationToken: The invitation ID (works for both email tokens and in-app invitation IDs)
+   * - userId: The user ID (for new users: their newly created ID, for existing users: their existing ID)
    * 
    * 📤 WHAT IT RETURNS:
    * - Success/failure status and a welcome message
    */
-  async processInvitationAfterSignup(invitationToken: string, newUserId: string): Promise<AcceptRejectResult> {
+  async processInvitationAfterUserResponse(invitationToken: string, userId: string, action: 'accept' | 'reject' = 'accept'): Promise<AcceptRejectResult> {
     try {
       // 📝 Log what we're starting to process
-      console.log(`🎯 Processing invitation after signup:`, {
+      console.log(`🎯 Processing invitation after user response:`, {
         invitationToken,
-        newUserId
+        userId,
+        action
       });
 
       // 💾 STEP 1: Get invitation data directly from the database
@@ -501,22 +383,23 @@ export const addRegularMemberToGroupService = {
         // Extract the invitation data
         invitationData = invitationDocSnap.data();
         
-        // 🔍 Verify invitation is in the correct status for post-signup processing
-        // It should be 'accepted_pending_signup' which means:
-        // - User clicked the email link (accepted)
-        // - User completed signup (pending_signup)  
-        // - Now we need to add them to the group
-        if (invitationData.status !== 'accepted_pending_signup') {
-          console.log(`❌ Invitation status is ${invitationData.status}, expected accepted_pending_signup`);
+        // 🔍 Verify invitation status and determine user type
+        // - 'accepted_pending_signup': New user who signed up via email invitation
+        // - 'pending': Existing user accepting in-app invitation
+        const isNewUser = invitationData.status === 'accepted_pending_signup';
+        const isExistingUser = invitationData.status === 'pending';
+        
+        if (!isNewUser && !isExistingUser) {
+          console.log(`❌ Invitation status is ${invitationData.status}, expected 'accepted_pending_signup' or 'pending'`);
           return {
             success: false,
             action: 'error',
             message: 'Invitation is not in the correct state for processing',
-            error: `Expected status 'accepted_pending_signup', got '${invitationData.status}'`
+            error: `Expected status 'accepted_pending_signup' or 'pending', got '${invitationData.status}'`
           };
         }
 
-        console.log(`📋 Found invitation for group: ${invitationData.groupName} (Status: ${invitationData.status})`);
+        console.log(`📋 Found invitation for group: ${invitationData.groupName} (Status: ${invitationData.status}, User Type: ${isNewUser ? 'New' : 'Existing'})`);
 
       } catch (firestoreError: any) {
         console.error('❌ Error getting invitation data:', firestoreError);
@@ -528,10 +411,44 @@ export const addRegularMemberToGroupService = {
         };
       }
 
-      // 📋 STEP 2: Prepare member data for the atomic functions
+      // � STEP 2: Handle rejection case (simple path)
+      if (action === 'reject') {
+        console.log(`❌ User rejected invitation to group ${invitationData.groupName}`);
+        
+        try {
+          // Mark invitation as rejected using atomic function
+          console.log('📞 Calling markInvitationUsed to mark as rejected...');
+          const markInvitationUsedFn = httpsCallable(functions, 'markInvitationUsed');
+          await markInvitationUsedFn({
+            invitationToken: invitationToken,
+            userId: userId,
+            status: 'rejected'
+          });
+
+          // 🧹 Clean up the notification (for existing users who had in-app notification)
+          await cleanupInvitationNotification(userId, invitationToken);
+
+          return {
+            success: true,
+            action: 'rejected',
+            message: `You declined the invitation to join ${invitationData.groupName}`
+          };
+          
+        } catch (rejectError: any) {
+          console.error('❌ Error processing rejection:', rejectError);
+          return {
+            success: false,
+            action: 'error',
+            message: 'Failed to process invitation rejection',
+            error: rejectError.message
+          };
+        }
+      }
+
+      // �📋 STEP 3: Prepare member data for the atomic functions (acceptance flow)
       // This creates a standard "member" object that all functions expect
       const memberData = {
-        userId: newUserId,
+        userId: userId,
         name: invitationData.email?.split('@')[0] || 'Unknown User', // Use email prefix as temporary name
         email: invitationData.email,
         roles: ['member'],                    // Default role: regular member
@@ -559,10 +476,159 @@ export const addRegularMemberToGroupService = {
         lastModifiedAt: new Date()
       };
 
-      // 🎯 STEP 3: Call atomic functions in sequence (THIS IS THE IMPORTANT PART!)
-      // Each function updates a different part of the database safely
+      // 🎯 STEP 4: CONDITIONAL LOGIC - Handle membership based on user type
+      const isNewUser = invitationData.status === 'accepted_pending_signup';
       
-      // 🏛️ Add user to the club's member list
+      if (isNewUser) {
+        // 🆕 NEW USER PATH: Skip membership checks (they're brand new)
+        console.log('🆕 Processing for NEW USER - skipping membership checks');
+        
+        // Call atomic functions directly (original working logic)
+        await this.callAtomicFunctionsDirectly(invitationData, memberData, clubInfo, groupInfo, userId, invitationToken);
+      } else {
+        // 👤 EXISTING USER PATH: Check memberships before adding
+        console.log('👤 Processing for EXISTING USER - checking existing memberships');
+        
+        // Call atomic functions with membership checks
+        await this.callAtomicFunctionsWithMembershipChecks(invitationData, memberData, clubInfo, groupInfo, userId, invitationToken);
+      }
+
+      // 🎉 SUCCESS: All processing completed
+      console.log(`✅ Successfully orchestrated all atomic functions for user ${userId}`);
+      
+      return {
+        success: true,
+        action: 'accepted',
+        message: `Welcome to ${invitationData.groupName}! You have been successfully added to the group.`
+      };
+
+    } catch (error: any) {
+      // 🚨 If anything goes wrong during this complex process
+      console.error('❌ Error processing invitation after user response:', error);
+      return {
+        success: false,
+        action: 'error',
+        message: 'Failed to process invitation after user response',
+        error: error.message || 'Unknown error'
+      };
+    }
+  },
+
+  /**
+   * 🔧 HELPER METHOD: Call atomic functions directly (for new users)
+   * - Used for new users who just signed up (no membership checks needed)
+   * - Preserves the original working logic
+   */
+  async callAtomicFunctionsDirectly(invitationData: any, memberData: any, clubInfo: any, groupInfo: any, userId: string, invitationToken: string) {
+    // 🏛️ Add user to the club's member list
+    console.log('📞 Calling addMemberToClub atomic function...');
+    const addMemberToClubFn = httpsCallable(functions, 'addMemberToClub');
+    const clubResult = await addMemberToClubFn({
+      clubId: invitationData.clubId,
+      memberData
+    });
+
+    const clubResponse = clubResult.data as { success: boolean; error?: string };
+    if (!clubResponse.success) {
+      throw new Error(`Failed to add member to club: ${clubResponse.error}`);
+    }
+    console.log('✅ Member added to club successfully');
+
+    // 👥 Add user to the group's member list  
+    console.log('📞 Calling addMemberToGroup atomic function...');
+    const addMemberToGroupFn = httpsCallable(functions, 'addMemberToGroup');
+    const groupResult = await addMemberToGroupFn({
+      clubId: invitationData.clubId,
+      groupId: invitationData.groupId,
+      memberData
+    });
+
+    const groupResponse = groupResult.data as { success: boolean; error?: string };
+    if (!groupResponse.success) {
+      throw new Error(`Failed to add member to group: ${groupResponse.error}`);
+    }
+    console.log('✅ Member added to group successfully');
+
+    // 👤 Update user's profile to show they're in this club
+    console.log('📞 Calling updateUserClubInfo atomic function...');
+    const updateUserClubInfoFn = httpsCallable(functions, 'updateUserClubInfo');
+    const userClubResult = await updateUserClubInfoFn({
+      uid: userId,
+      clubInfo,
+      role: 'member'
+    });
+
+    const userClubResponse = userClubResult.data as { success: boolean; error?: string };
+    if (!userClubResponse.success) {
+      throw new Error(`Failed to update user club info: ${userClubResponse.error}`);
+    }
+    console.log('✅ User club info updated successfully');
+
+    // 👥 Update user's profile to show they're in this group
+    console.log('📞 Calling updateUserGroupInfo atomic function...');
+    const updateUserGroupInfoFn = httpsCallable(functions, 'updateUserGroupInfo');
+    const userGroupResult = await updateUserGroupInfoFn({
+      uid: userId,
+      clubId: invitationData.clubId,
+      groupInfo,
+      roles: ['member'],
+      operation: 'add'
+    });
+
+    const userGroupResponse = userGroupResult.data as { success: boolean; error?: string };
+    if (!userGroupResponse.success) {
+      throw new Error(`Failed to update user group info: ${userGroupResponse.error}`);
+    }
+    console.log('✅ User group info updated successfully');
+
+    // ✅ Mark invitation as used (so it can't be used again)
+    console.log('📞 Calling markInvitationUsed atomic function...');
+    const markInvitationUsedFn = httpsCallable(functions, 'markInvitationUsed');
+    await markInvitationUsedFn({
+      invitationToken: invitationToken,
+      userId: userId,
+      status: 'accepted'
+    });
+
+    // 🧹 Clean up the notification (for existing users who had in-app notification)
+    await cleanupInvitationNotification(userId, invitationToken);
+  },
+
+  /**
+   * 🔧 HELPER METHOD: Call atomic functions with membership checks (for existing users)
+   * - Used for existing users accepting in-app invitations
+   * - Checks existing memberships before calling atomic functions using secure backend function
+   */
+  async callAtomicFunctionsWithMembershipChecks(invitationData: any, memberData: any, clubInfo: any, groupInfo: any, userId: string, invitationToken: string) {
+    // 🔒 STEP 1: Check memberships using secure backend function
+    console.log('🔍 Checking existing memberships via backend...');
+    
+    const checkMembershipFn = httpsCallable(functions, 'checkMembership');
+    const membershipResult = await checkMembershipFn({
+      userId: userId,
+      clubId: invitationData.clubId,
+      groupId: invitationData.groupId
+    });
+
+    const membershipData = membershipResult.data as { 
+      success: boolean; 
+      isClubMember: boolean; 
+      isGroupMember: boolean;
+      error?: string;
+    };
+
+    if (!membershipData.success) {
+      throw new Error(`Failed to check membership: ${membershipData.error}`);
+    }
+
+    const isAlreadyClubMember = membershipData.isClubMember;
+    const isAlreadyGroupMember = membershipData.isGroupMember;
+
+    console.log(`📊 Membership status: Club=${isAlreadyClubMember}, Group=${isAlreadyGroupMember}`);
+
+    // 🏛️ STEP 2: Handle club membership
+    if (!isAlreadyClubMember) {
+      // Add user to club using atomic function
       console.log('📞 Calling addMemberToClub atomic function...');
       const addMemberToClubFn = httpsCallable(functions, 'addMemberToClub');
       const clubResult = await addMemberToClubFn({
@@ -576,7 +642,27 @@ export const addRegularMemberToGroupService = {
       }
       console.log('✅ Member added to club successfully');
 
-      // 👥 Add user to the group's member list  
+      // Update user's club info using atomic function
+      console.log('📞 Calling updateUserClubInfo atomic function...');
+      const updateUserClubInfoFn = httpsCallable(functions, 'updateUserClubInfo');
+      const userClubResult = await updateUserClubInfoFn({
+        uid: userId,
+        clubInfo,
+        role: 'member'
+      });
+
+      const userClubResponse = userClubResult.data as { success: boolean; error?: string };
+      if (!userClubResponse.success) {
+        throw new Error(`Failed to update user club info: ${userClubResponse.error}`);
+      }
+      console.log('✅ User club info updated successfully');
+    } else {
+      console.log('ℹ️ User already a club member, skipping club addition');
+    }
+
+    // 👥 STEP 3: Handle group membership
+    if (!isAlreadyGroupMember) {
+      // Add user to group using atomic function
       console.log('📞 Calling addMemberToGroup atomic function...');
       const addMemberToGroupFn = httpsCallable(functions, 'addMemberToGroup');
       const groupResult = await addMemberToGroupFn({
@@ -591,26 +677,11 @@ export const addRegularMemberToGroupService = {
       }
       console.log('✅ Member added to group successfully');
 
-      // 👤 Update user's profile to show they're in this club
-      console.log('📞 Calling updateUserClubInfo atomic function...');
-      const updateUserClubInfoFn = httpsCallable(functions, 'updateUserClubInfo');
-      const userClubResult = await updateUserClubInfoFn({
-        uid: newUserId,
-        clubInfo,
-        role: 'member'
-      });
-
-      const userClubResponse = userClubResult.data as { success: boolean; error?: string };
-      if (!userClubResponse.success) {
-        throw new Error(`Failed to update user club info: ${userClubResponse.error}`);
-      }
-      console.log('✅ User club info updated successfully');
-
-      // 👥 Update user's profile to show they're in this group
+      // Update user's group info using atomic function
       console.log('📞 Calling updateUserGroupInfo atomic function...');
       const updateUserGroupInfoFn = httpsCallable(functions, 'updateUserGroupInfo');
       const userGroupResult = await updateUserGroupInfoFn({
-        uid: newUserId,
+        uid: userId,
         clubId: invitationData.clubId,
         groupInfo,
         roles: ['member'],
@@ -622,113 +693,21 @@ export const addRegularMemberToGroupService = {
         throw new Error(`Failed to update user group info: ${userGroupResponse.error}`);
       }
       console.log('✅ User group info updated successfully');
-
-      // ✅ STEP 4: Mark invitation as used (so it can't be used again)
-      console.log('📞 Calling markInvitationUsed atomic function...');
-      const markInvitationUsedFn = httpsCallable(functions, 'markInvitationUsed');
-      await markInvitationUsedFn({
-        invitationToken: invitationToken,
-        userId: newUserId,
-        status: 'accepted'
-      });
-
-      // 🎉 STEP 5: Success! All atomic functions completed successfully
-      console.log(`✅ Successfully orchestrated all atomic functions for user ${newUserId}`);
-      
-      return {
-        success: true,
-        action: 'accepted',
-        message: `Welcome to ${invitationData.groupName}! You have been successfully added to the group.`
-      };
-
-    } catch (error: any) {
-      // 🚨 If anything goes wrong during this complex process
-      console.error('❌ Error processing invitation after signup:', error);
-      return {
-        success: false,
-        action: 'error',
-        message: 'Failed to process invitation after signup',
-        error: error.message || 'Unknown error'
-      };
+    } else {
+      console.log('ℹ️ User already a group member, skipping group addition');
     }
-  },
 
-  /**
-   * ✅❌ TOOL #5: Handle accept/reject responses from existing users
-   * 
-   * 📋 WHAT THIS FUNCTION DOES:
-   * - When an existing user sees an in-app invitation notification
-   * - They can tap "Accept" or "Reject" buttons
-   * - This function processes their choice and updates everything accordingly
-   * 
-   * 🎯 WHAT HAPPENS WHEN THEY ACCEPT:
-   * - Adds user to the group's member list
-   * - Updates user's profile to show they're in this club/group  
-   * - Marks the invitation as "accepted"
-   * - Sends a success confirmation message
-   * 
-   * 🚫 WHAT HAPPENS WHEN THEY REJECT:
-   * - Marks the invitation as "rejected"
-   * - Removes invitation from their notifications list
-   * - Sends a confirmation message that they declined
-   * 
-   * 💡 WHY THIS IS SEPARATE FROM SIGNUP PROCESSING:
-   * - This is for users who ALREADY have accounts
-   * - The signup processing is for users who are NEW and don't have accounts yet
-   * - Different flows, different functions, but similar end result
-   * 
-   * 📥 WHAT IT NEEDS (Parameters):
-   * - The invitation ID and whether they're accepting or rejecting
-   * 
-   * 📤 WHAT IT RETURNS:
-   * - Whether it worked and what message to show the user
-   */
-  async respondToGroupInvite(request: AcceptRejectInviteRequest): Promise<AcceptRejectResult> {
-    try {
-      // 📝 Log what we're starting to process  
-      console.log(`🔄 Processing invitation response:`, {
-        inviteId: request.inviteId,
-        action: request.action
-      });
+    // ✅ STEP 3: Mark invitation as accepted
+    console.log('📞 Calling markInvitationUsed to mark as accepted...');
+    const markInvitationUsedFn = httpsCallable(functions, 'markInvitationUsed');
+    await markInvitationUsedFn({
+      invitationToken: invitationToken,
+      userId: userId,
+      status: 'accepted'
+    });
 
-      // 🔧 STEP 1: Call the backend function that handles invitation responses
-      // This backend function is smart and does different things based on accept/reject:
-      //
-      // 🎯 IF ACCEPTING:
-      // - Validates that the invitation is still valid
-      // - Adds user to group membership lists
-      // - Updates user's profile with club/group info
-      // - Marks invitation as accepted
-      // - Returns success message
-      //
-      // 🚫 IF REJECTING: 
-      // - Validates that the invitation exists
-      // - Marks invitation as rejected
-      // - Removes from user's notifications
-      // - Returns confirmation message
-      //
-      const respondToInviteFn = httpsCallable(functions, 'respondToGroupInvite');
-      const result = await respondToInviteFn(request);
-      
-      // 📤 STEP 2: Extract the response data and tell TypeScript what shape it has
-      const response = result.data as AcceptRejectResult;
-      
-      // 📝 STEP 3: Log the final outcome for debugging
-      console.log(`✅ Invitation response processed: ${response.action}`);
-      
-      // 📤 STEP 4: Return the result (this gets shown to the user in the app)
-      return response;
-
-    } catch (error: any) {
-      // 🚨 If anything goes wrong during this process
-      console.error('❌ Error processing invitation response:', error);
-      return {
-        success: false,
-        action: 'error',
-        message: 'Failed to process invitation response',
-        error: error.message || 'Unknown error'
-      };
-    }
+    // 🧹 Clean up the notification (for existing users who had in-app notification)
+    await cleanupInvitationNotification(userId, invitationToken);
   }
 }; // 🔚 END OF SERVICE OBJECT
 
@@ -738,37 +717,49 @@ export const addRegularMemberToGroupService = {
 // 
 // 🎯 THIS FILE IS THE "INVITATION MANAGER" FOR SPORTS GROUPS
 // 
-// 📋 IT HAS 5 MAIN TOOLS:
-// 1. 🎼 inviteUsersToGroup: The main coordinator that decides what to do with each email
-// 2. 📱 createInAppGroupInvitation: Sends notifications to existing users  
-// 3. 📧 sendEmailGroupInvitation: Sends emails to new users with magic signup links
-// 4. 🎯 processInvitationAfterSignup: THE IMPORTANT ONE - adds new users to groups after signup
-// 5. ✅❌ respondToGroupInvite: Handles accept/reject from existing users
+// 📋 IT NOW HAS 2 MAIN TOOLS (SIMPLIFIED UNIFIED ARCHITECTURE):
+// 1. 🎼 inviteUsersToGroup: The main coordinator that handles all email invitations
+//    - Checks if user exists using getUserByEmail
+//    - Calls sendGroupInvitation with appropriate flags for both user types
+//    - No unnecessary branching - the backend handles notification vs email logic
+// 2. 🎯 processInvitationAfterUserResponse: UNIFIED function handling BOTH user types
+//    - Handles acceptance/rejection for both new and existing users
+//    - Uses conditional membership checking based on invitation status
 // 
-// 🔑 KEY CONCEPTS YOU LEARNED:
-// - "Orchestration" = coordinating multiple steps like a conductor
-// - "Atomic functions" = backend functions that do one specific task safely
-// - "Invitation tokens" = special codes that automatically add users to groups
-// - "In-app notifications" vs "Email invitations" = different flows for existing vs new users
-// - "Three-layer architecture" = client → orchestration → backend pattern
+// 🔑 KEY ARCHITECTURAL IMPROVEMENTS:
+// - **Simplified Service Layer**: Removed createInAppGroupInvitation and sendEmailGroupInvitation helpers
+// - **Single Backend Call**: Direct call to sendGroupInvitation for all invitation types
+// - **Backend-Driven Logic**: The Firebase Function handles branching based on isExistingUser flag
+// - **Unified Invitation Storage**: Both existing and new users use the 'invitations' collection
+// - **Conditional Membership Checking**: Smart logic based on invitation status
+// - **Consistent Three-Layer Architecture**: UI → Orchestration Service → Firebase Functions
+// - **Same Atomic Functions**: Both flows call identical atomic functions with proper deduplication
+// - **Preserved Working Logic**: New users keep the original working flow (no membership checks)
 //
-// 🎪 THE COMPLETE INVITATION WORKFLOW:
+// 🎪 THE SIMPLIFIED INVITATION WORKFLOW:
 // 1. Coach wants to invite players → calls inviteUsersToGroup()
-// 2. System checks each email → existing user or new user?
-// 3. Existing users → get in-app notifications → can accept/reject in app
-// 4. New users → get email invites → click link to signup with token
-// 5. After signup → processInvitationAfterSignup() automatically adds them to group
-// 6. Result: Everyone who accepts is now a member of the team! 🎉
+// 2. System checks each email → existing user or new user? (getUserByEmail)
+// 3. Single call to sendGroupInvitation with isExistingUser flag:
+//    - Existing users: isExistingUser=true, userId provided → creates invitation record only
+//    - New users: isExistingUser=false → creates invitation record + sends email
+// 4. Backend stores invitation in 'invitations' collection with status='pending'
+// 5. User responds:
+//    - Existing users: Accept in-app → processInvitationAfterUserResponse()
+//    - New users: Click email link → signup → processInvitationAfterUserResponse()
+// 6. Both paths use same atomic functions with smart membership deduplication:
+//    - addMemberToClub (with membership checking for existing users)
+//    - addMemberToGroup (with membership checking for existing users) 
+//    - updateUserClubInfo (with membership checking for existing users)
+//    - updateUserGroupInfo (with membership checking for existing users)
+// 7. Result: Everyone who accepts is now a member with consistent architecture! 🎉
 //
-// 💡 WHY THIS MATTERS FOR YOUR ORIGINAL QUESTION:
-// When you reported that "new member is not added to the group" after signup,
-// the issue was likely in the processInvitationAfterSignup() function (Tool #4).
-// This function calls all the atomic functions you mentioned:
-// - addMemberToClub
-// - addMemberToGroup  
-// - updateUserClubInfo
-// - updateUserGroupInfo
-//
-// Now you can see exactly how they all work together! 🔧
+// 💡 WHY THIS SIMPLIFIED APPROACH IS BETTER:
+// - Less code to maintain (removed 2 unnecessary helper functions)
+// - Clearer separation of concerns (service layer doesn't duplicate backend logic)
+// - Single source of truth for invitation logic (backend function)
+// - Easier to test and debug (fewer code paths)
+// - Better performance (one less function call layer)
+// - Consistent architecture pattern (same as other services)
+// - Preserved working functionality (all existing behavior intact)
+// - Smart membership deduplication (prevents invitation modal loops for existing users)
 // ===============================================================================
- 
