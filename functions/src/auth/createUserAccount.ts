@@ -94,125 +94,11 @@ export const createUserAccount = onCall(
               throw new HttpsError('permission-denied', 'This invitation has already been used');
             }
             
-            // Mark invitation as used
-            await invitationDoc.ref.update({
-              used: true,
-              usedAt: admin.firestore.FieldValue.serverTimestamp(),
-              usedBy: uid,
-              status: 'accepted'
-            });
+            // ✅ NOTE: We don't mark invitation as used here anymore
+            // The frontend will call atomic functions and markInvitationUsed after signup
+            // This allows validateInvitationToken to work correctly in the frontend flow
             
-            // Add user to the club/group using atomic functions
-            if (invitation.clubId && invitation.groupId) {
-              console.log(`Adding user ${uid} to club ${invitation.clubId} and group ${invitation.groupId} via atomic functions`);
-              
-              try {
-                // Prepare member data for the atomic functions
-                const memberData = {
-                  userId: uid,
-                  name: fullName.trim(),
-                  email: email.toLowerCase().trim(),
-                  roles: invitation.roles || ['member'], // Default to 'member' role if not specified
-                  addedBy: invitation.invitedBy,
-                  joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-                  profilePictureUrl: DEFAULT_PROFILE_PICTURE
-                };
-                
-                const clubInfo = {
-                  clubId: invitation.clubId,
-                  clubName: invitation.clubName || 'Unknown Club', // Should be available in invitation
-                  joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-                  role: invitation.roles?.[0] || 'member'
-                };
-                
-                const groupInfo = {
-                  groupId: invitation.groupId,
-                  groupName: invitation.groupName || 'Unknown Group', // Should be available in invitation
-                  joinedAt: admin.firestore.FieldValue.serverTimestamp()
-                };
-                
-                // Call atomic functions in sequence
-                
-                // 1. Add member to club
-                console.log('Calling addMemberToClub atomic function...');
-                const addMemberToClubFunction = require('../members/addMemberToClub').addMemberToClub;
-                const clubResult = await addMemberToClubFunction.run({
-                  auth: { uid: invitation.invitedBy },
-                  data: {
-                    clubId: invitation.clubId,
-                    memberData
-                  }
-                });
-                
-                if (!clubResult.success) {
-                  throw new Error(`Failed to add member to club: ${clubResult.error}`);
-                }
-                console.log('✅ Member added to club successfully');
-                
-                // 2. Add member to group
-                console.log('Calling addMemberToGroup atomic function...');
-                const addMemberToGroupFunction = require('../members/addMemberToGroup').addMemberToGroup;
-                const groupResult = await addMemberToGroupFunction.run({
-                  auth: { uid: invitation.invitedBy },
-                  data: {
-                    clubId: invitation.clubId,
-                    groupId: invitation.groupId,
-                    memberData
-                  }
-                });
-                
-                if (!groupResult.success) {
-                  throw new Error(`Failed to add member to group: ${groupResult.error}`);
-                }
-                console.log('✅ Member added to group successfully');
-                
-                // 3. Update user club info
-                console.log('Calling updateUserClubInfo atomic function...');
-                const updateUserClubInfoFunction = require('../members/updateUserClubInfo').updateUserClubInfo;
-                const userClubResult = await updateUserClubInfoFunction.run({
-                  auth: { uid: invitation.invitedBy },
-                  data: {
-                    uid,
-                    clubInfo,
-                    role: invitation.roles?.[0] || 'member'
-                  }
-                });
-                
-                if (!userClubResult.success) {
-                  throw new Error(`Failed to update user club info: ${userClubResult.error}`);
-                }
-                console.log('✅ User club info updated successfully');
-                
-                // 4. Update user group info
-                console.log('Calling updateUserGroupInfo atomic function...');
-                const updateUserGroupInfoFunction = require('../members/updateUserGroupInfo').updateUserGroupInfo;
-                const userGroupResult = await updateUserGroupInfoFunction.run({
-                  auth: { uid: invitation.invitedBy },
-                  data: {
-                    uid,
-                    clubId: invitation.clubId,
-                    groupInfo,
-                    roles: invitation.roles || ['member'],
-                    operation: 'add'
-                  }
-                });
-                
-                if (!userGroupResult.success) {
-                  throw new Error(`Failed to update user group info: ${userGroupResult.error}`);
-                }
-                console.log('✅ User group info updated successfully');
-                
-                console.log(`✅ User ${uid} successfully added to club ${invitation.clubId} and group ${invitation.groupId} via atomic functions`);
-                
-              } catch (atomicFunctionError) {
-                console.error('Error calling atomic functions:', atomicFunctionError);
-                // Don't fail the account creation, but log the error for investigation
-                const errorMessage = atomicFunctionError instanceof Error ? atomicFunctionError.message : String(atomicFunctionError);
-                console.warn(`⚠️ Account created successfully for ${uid}, but failed to add to club/group via atomic functions: ${errorMessage}`);
-              }
-            }
-            
-            console.log(`Invitation processed successfully for ${uid}`);
+            console.log(`✅ Invitation validated for ${uid}. Membership will be processed by frontend.`);
           } catch (invitationError) {
             console.error('Error processing invitation:', invitationError);
             // Don't fail the account creation if invitation processing fails
@@ -263,10 +149,18 @@ export const createUserAccount = onCall(
 
       console.log(`Successfully created user account for ${uid}`);
 
-      return {
-        success: true,
-        message: 'Account created successfully! Please check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.'
-      };
+      // Return appropriate message based on user type
+      if (isInvitedUser) {
+        return {
+          success: true,
+          message: 'Account created successfully! Your account has been verified automatically. You can now sign in and access your group.'
+        };
+      } else {
+        return {
+          success: true,
+          message: 'Account created successfully! Please check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.'
+        };
+      }
 
     } catch (error) {
       console.error('Error in createUserAccount:', error);

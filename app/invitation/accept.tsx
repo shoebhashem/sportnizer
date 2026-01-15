@@ -21,6 +21,7 @@
 
 import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
+import { getCurrentUser } from '@/services/auth/authService';
 import { functions } from '@/services/core/firebase';
 import { router, useLocalSearchParams } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
@@ -74,7 +75,7 @@ export default function InvitationAcceptScreen() {
       const respondToEmailInviteFn = httpsCallable(functions, 'respondToEmailInvite');
       const result = await respondToEmailInviteFn({
         token: invitationToken,
-        action: 'accepted'
+        action: 'accept'
       });
 
       const invitationResponse = result.data as RespondToEmailInviteResponse;
@@ -87,14 +88,28 @@ export default function InvitationAcceptScreen() {
           // User needs to sign up first
           console.log('🔄 Redirecting to signup with invitation context');
           router.replace(`/signup?invite=${invitationToken}`);
-        } else if (invitationResponse.redirectUrl) {
-          // User exists and invitation processed, redirect to dashboard
-          console.log('✅ Invitation processed, redirecting to:', invitationResponse.redirectUrl);
-          // Add a small delay to show success message before redirect
-          setTimeout(() => {
-            // Use a safe navigation method
-            router.push('/(tabs)/' as any);
-          }, 2000);
+        } else {
+          // Check if user is authenticated
+          const currentUser = getCurrentUser();
+          
+          if (!currentUser) {
+            // User not authenticated - redirect to signup/login with invitation token
+            console.log('⚠️ User not authenticated, redirecting to signup');
+            router.replace(`/signup?invite=${invitationToken}`);
+          } else if (invitationResponse.redirectUrl) {
+            // User exists and invitation processed, redirect to dashboard
+            console.log('✅ Invitation processed, redirecting to:', invitationResponse.redirectUrl);
+            // Add a small delay to show success message before redirect
+            setTimeout(() => {
+              router.push('/(tabs)/' as any);
+            }, 2000);
+          } else {
+            // Authenticated but no redirect URL - go to dashboard
+            console.log('✅ Authenticated, going to dashboard');
+            setTimeout(() => {
+              router.push('/(tabs)/' as any);
+            }, 2000);
+          }
         }
       } else {
         // Handle error cases (expired, already used, etc.)
@@ -176,10 +191,18 @@ export default function InvitationAcceptScreen() {
               </View>
             )}
 
-            {!response.requiresSignup && (
+            {!response.requiresSignup ? (
               <Text style={styles.redirectMessage}>
                 You will be redirected to the dashboard shortly...
               </Text>
+            ) : (
+              <View style={styles.buttonContainer}>
+                <Button 
+                  label="Continue to Sign Up" 
+                  onPress={() => router.replace(`/signup?invite=${token}`)}
+                  theme="primary"
+                />
+              </View>
             )}
           </View>
         </SafeAreaView>

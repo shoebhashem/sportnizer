@@ -78,7 +78,10 @@ export const fetchUserAccess = async (userId: string): Promise<UserAccessRespons
  * @param userId - The user ID to fetch complete profile for
  * @returns Promise with user's complete profile or error
  */
-export const fetchUserProfile = async (userId: string): Promise<UserProfileResponse> => {
+export const fetchUserProfile = async (userId: string, retryCount = 0): Promise<UserProfileResponse> => {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000; // Start with 1 second
+  
   try {
     // Debug: Check auth state before making function call
     console.log('🔐 fetchUserProfile - About to call getUserProfile function for userId:', userId);
@@ -129,6 +132,17 @@ export const fetchUserProfile = async (userId: string): Promise<UserProfileRespo
     console.error('❌ Error code:', error.code);
     console.error('❌ Error message:', error.message);
     console.error('❌ Full error:', JSON.stringify(error, null, 2));
+    
+    // If user profile not found and we haven't exhausted retries, try again
+    // This handles race condition where auth user is created but Firestore document isn't ready yet
+    if (error.code === 'functions/not-found' && retryCount < MAX_RETRIES) {
+      const delayMs = RETRY_DELAY_MS * Math.pow(2, retryCount); // Exponential backoff
+      console.log(`⏳ User profile not found, retrying in ${delayMs}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+      
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      return fetchUserProfile(userId, retryCount + 1);
+    }
+    
     return { 
       success: false, 
       profile: null,

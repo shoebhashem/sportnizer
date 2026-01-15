@@ -1,20 +1,19 @@
 import '@/firebaseConfig'; // Ensure Firebase is initialized
 import { functions } from '@/services/core/firebase';
 import {
-    createUserWithEmailAndPassword,
-    getAuth,
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    signOut,
-    User,
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  User,
 } from 'firebase/auth';
 import {
-    doc,
-    getDoc,
-    getFirestore,
+  doc,
+  getDoc,
+  getFirestore,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { addRegularMemberToGroupService } from '../orchestration/addRegularMemberToGroup';
 
 // ✅ Import UserProfile interface
 import { UserProfile } from '@/services/types/user';
@@ -92,52 +91,15 @@ export const signUpUser = async (email: string, password: string, fullName: stri
 
       console.log('✅ User account created successfully via function');
 
-      if (isInvitedUser && invitationToken) {
-        // For invited users, process the invitation to add them to the group
-        console.log('🎯 Processing invitation for new user...');
+      if (isInvitedUser) {
+        // For invited users, keep them signed in
+        console.log('✅ Invited user account created and processed');
         
-        try {
-          const invitationResult = await addRegularMemberToGroupService.processInvitationAfterSignup(
-            invitationToken, 
-            user.uid
-          );
-          
-          if (invitationResult.success) {
-            console.log('✅ Invitation processed successfully');
-            return {
-              success: true,
-              user,
-              requiresEmailVerification: false,
-              message: invitationResult.message || '🎉 Account created successfully!\n\nYour account has been activated and you can start using Sportnizer right away!',
-            };
-          } else {
-            console.warn('⚠️ Account created but invitation processing failed:', invitationResult.error);
-            // Don't fail the signup, but show a warning message
-            return {
-              success: true,
-              user,
-              requiresEmailVerification: false,
-              message: '🎉 Account created successfully!\n\nThere was an issue processing your invitation, but you can still use the app. Please contact support if needed.',
-            };
-          }
-        } catch (invitationError: any) {
-          console.error('❌ Error processing invitation:', invitationError);
-          // Don't fail the signup, but show a warning message
-          return {
-            success: true,
-            user,
-            requiresEmailVerification: false,
-            message: '🎉 Account created successfully!\n\nThere was an issue processing your invitation, but you can still use the app. Please contact support if needed.',
-          };
-        }
-      } else if (isInvitedUser) {
-        // This case shouldn't happen (invited user without token), but handle gracefully
-        console.warn('⚠️ Invited user signup without invitation token');
         return {
           success: true,
           user,
           requiresEmailVerification: false,
-          message: '🎉 Account created successfully!\n\nYour account has been activated and you can start using Sportnizer right away!',
+          message: responseData.message || '🎉 Account created successfully!\n\nYour account has been activated and you can start using Sportnizer right away!',
         };
       } else {
         // For regular users, sign out until email is verified

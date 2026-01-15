@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signUpUser } from '../services/auth/authService';
+import { addRegularMemberToGroupService } from '../services/orchestration/addRegularMemberToGroup';
 
 export default function SignupScreen() {
   const { invite, verified } = useLocalSearchParams<{ invite?: string; verified?: string }>();
@@ -151,37 +152,51 @@ export default function SignupScreen() {
       
       if (result.success) {
         if (invite && !result.requiresEmailVerification) {
-          // Invited user - account is ready, process invitation immediately
+          // Invited user account created, now process membership via unified orchestration service
           try {
-            console.log('Processing invitation for pre-verified user:', invite);
-            const respondToEmailInviteFn = httpsCallable(functions, 'respondToEmailInvite');
-            const invitationResult = await respondToEmailInviteFn({ 
-              token: invite,
-              action: 'accept',
-              userInfo: {
-                email: email.trim(),
-                displayName: fullName.trim()
-              }
-            });
+            console.log('✅ Account created. Processing invitation via processInvitationAfterUserResponse...');
             
-            console.log('Invitation processing result:', invitationResult.data);
+            // Use the unified orchestration service that handles both new and existing users
+            const invitationResult = await addRegularMemberToGroupService.processInvitationAfterUserResponse(
+              invite,           // invitationToken
+              result.user.uid,  // userId
+              'accept'          // action
+            );
             
-            const inviteResponse = invitationResult.data as any;
-            if (inviteResponse?.success) {
-              setModalMessage(`🎉 Welcome to Sportnizer!\n\nYour account has been created and you've been added to ${invitationInfo?.groupName || 'the group'}.\n\nYou can now access all features immediately!`);
-              setSuccessModalVisible(true);
-              return; // Exit early since we handled everything
+            if (!invitationResult.success) {
+              throw new Error(invitationResult.error || 'Failed to process invitation');
             }
-          } catch (invitationError) {
-            console.error('Error processing invitation:', invitationError);
-            // Still show success for account creation
-            setModalMessage('Account created successfully! However, there was an issue processing your invitation. Please contact support.');
+            
+            console.log('✅ Invitation processed successfully via orchestration service!');
+            
+            // Get invitation info for welcome message
+            const validateTokenFn = httpsCallable(functions, 'validateInvitationToken');
+            const validationResult = await validateTokenFn({ invitationToken: invite });
+            const validation = validationResult.data as any;
+            const groupName = validation?.invitationData?.groupName || 'the group';
+            
+            setModalMessage(
+              `🎉 Welcome to Sportnizer!\n\n` +
+              `You've been added to ${groupName}.\n\n` +
+              `You can now access all features immediately!`
+            );
             setSuccessModalVisible(true);
-            return;
+            
+          } catch (invitationError) {
+            console.error('❌ Error processing invitation:', invitationError);
+            // User account was created successfully, but membership failed
+            setModalMessage(
+              `Account created successfully!\n\n` +
+              `However, there was an issue adding you to the group. ` +
+              `Please contact ${invitationInfo?.inviterName || 'the group admin'} for assistance.`
+            );
+            setSuccessModalVisible(true);
           }
+          
+          return; // Exit early - don't show regular signup message
         } 
         
-        // Regular signup flow or invited user fallback
+        // Regular signup flow
         setModalMessage(result.message || 'Account created successfully!');
         setSuccessModalVisible(true);
         
