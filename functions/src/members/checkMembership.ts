@@ -35,7 +35,8 @@ export const checkMembership = onCall(
       const {
         userId,
         clubId,
-        groupId
+        groupId,
+        guardianUid  // Optional: for checking guardian's club membership in youth invitations
       } = request.data;
 
       // Validate required fields
@@ -43,7 +44,7 @@ export const checkMembership = onCall(
         throw new HttpsError('invalid-argument', 'userId and clubId are required');
       }
 
-      console.log(`🔍 Checking membership for user ${userId} in club ${clubId}${groupId ? `, group ${groupId}` : ''}`);
+      console.log(`🔍 Checking membership for user ${userId} in club ${clubId}${groupId ? `, group ${groupId}` : ''}${guardianUid ? `, guardian ${guardianUid}` : ''}`);
 
       const db = admin.firestore();
 
@@ -56,8 +57,8 @@ export const checkMembership = onCall(
         if (clubMembersDoc.exists) {
           const membersData = clubMembersDoc.data();
           const membersArray = membersData?.members || [];
-          // Check if user ID exists in the members array
-          isClubMember = membersArray.some((member: any) => member.userId === userId || member.email === request.auth?.token.email);
+          // Check if user ID exists in the members array (removed email check to prevent false positives)
+          isClubMember = membersArray.some((member: any) => member.userId === userId);
         }
       } catch (error) {
         console.error('Error checking club membership:', error);
@@ -76,11 +77,8 @@ export const checkMembership = onCall(
           if (groupMembersDoc.exists) {
             const membersData = groupMembersDoc.data();
             const membersArray = membersData?.members || [];
-            // Check if user exists in the members array
-            isGroupMember = membersArray.some((member: any) => 
-              member.userId === userId || 
-              member.email === request.auth?.token.email
-            );
+            // Check if user exists in the members array (removed email check)
+            isGroupMember = membersArray.some((member: any) => member.userId === userId);
           }
         } catch (error) {
           console.error('Error checking group membership:', error);
@@ -88,12 +86,33 @@ export const checkMembership = onCall(
         }
       }
 
-      console.log(`✅ Membership check complete: Club=${isClubMember}, Group=${isGroupMember}`);
+      // Check guardian's club membership if guardianUid provided (for youth invitations)
+      let isGuardianClubMember = undefined;
+      if (guardianUid) {
+        try {
+          const clubMembersRef = db.collection('clubs').doc(clubId).collection('allMembers').doc('members');
+          const clubMembersDoc = await clubMembersRef.get();
+          
+          if (clubMembersDoc.exists) {
+            const membersData = clubMembersDoc.data();
+            const membersArray = membersData?.members || [];
+            isGuardianClubMember = membersArray.some((member: any) => member.userId === guardianUid);
+          } else {
+            isGuardianClubMember = false;
+          }
+        } catch (error) {
+          console.error('Error checking guardian club membership:', error);
+          isGuardianClubMember = false;
+        }
+      }
+
+      console.log(`✅ Membership check complete: Club=${isClubMember}, Group=${isGroupMember}${guardianUid ? `, Guardian=${isGuardianClubMember}` : ''}`);
 
       return {
         success: true,
         isClubMember,
         isGroupMember,
+        isGuardianClubMember,
         userId,
         clubId,
         groupId

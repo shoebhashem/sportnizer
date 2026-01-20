@@ -729,17 +729,24 @@ export const addRegularMemberToGroupService = {
     // 🔒 STEP 1: Check memberships using secure backend function
     console.log('🔍 Checking existing memberships via backend...');
     
+    const isYouthInvitation = invitationData.invitationType === 'youth_member' && invitationData.youthData;
+    
     const checkMembershipFn = httpsCallable(functions, 'checkMembership');
     const membershipResult = await checkMembershipFn({
       userId: userId,
       clubId: invitationData.clubId,
-      groupId: invitationData.groupId
+      groupId: invitationData.groupId,
+      // For youth invitations, also check guardian's club membership
+      ...(isYouthInvitation && memberData.guardiansContacts?.[0] 
+        ? { guardianUid: memberData.guardiansContacts[0].guardianUid } 
+        : {})
     });
 
     const membershipData = membershipResult.data as { 
       success: boolean; 
       isClubMember: boolean; 
       isGroupMember: boolean;
+      isGuardianClubMember?: boolean;
       error?: string;
     };
 
@@ -749,8 +756,9 @@ export const addRegularMemberToGroupService = {
 
     const isAlreadyClubMember = membershipData.isClubMember;
     const isAlreadyGroupMember = membershipData.isGroupMember;
+    const isGuardianInClub = membershipData.isGuardianClubMember || false;
 
-    console.log(`📊 Membership status: Club=${isAlreadyClubMember}, Group=${isAlreadyGroupMember}`);
+    console.log(`📊 Membership status: Club=${isAlreadyClubMember}, Group=${isAlreadyGroupMember}${isYouthInvitation ? `, Guardian=${isGuardianInClub}` : ''}`);
 
     // 🏛️ STEP 2: Handle club membership
     if (!isAlreadyClubMember) {
@@ -767,12 +775,16 @@ export const addRegularMemberToGroupService = {
         throw new Error(`Failed to add member to club: ${clubResponse.error}`);
       }
       console.log('✅ Member added to club successfully');
+    } else {
+      console.log('ℹ️ User already a club member, skipping club addition');
+    }
+
+    // 🏛️ STEP 2B: For youth invitations, add guardian to club if not already member
+    if (isYouthInvitation && memberData.guardiansContacts && memberData.guardiansContacts.length > 0) {
+      const guardian = memberData.guardiansContacts[0];
       
-      // 👨‍👩‍👧 For youth invitations, also add guardian as a club member
-      const isYouthInvitation = invitationData.invitationType === 'youth_member' && invitationData.youthData;
-      if (isYouthInvitation && memberData.guardiansContacts && memberData.guardiansContacts.length > 0) {
-        const guardian = memberData.guardiansContacts[0]; // Use first guardian
-        console.log('📞 Adding guardian to club as well...');
+      if (!isGuardianInClub) {
+        console.log('📞 Adding guardian to club...');
         
         const guardianMemberData = {
           userId: guardian.guardianUid,
@@ -788,6 +800,7 @@ export const addRegularMemberToGroupService = {
         };
         
         try {
+          const addMemberToClubFn = httpsCallable(functions, 'addMemberToClub');
           const guardianClubResult = await addMemberToClubFn({
             clubId: invitationData.clubId,
             memberData: guardianMemberData
@@ -813,15 +826,19 @@ export const addRegularMemberToGroupService = {
               console.log('⚠️ Failed to update guardian club info:', guardianClubInfoResponse.error);
             }
           } else {
-            console.log('⚠️ Guardian may already be in club:', guardianClubResponse.error);
+            console.log('⚠️ Failed to add guardian to club:', guardianClubResponse.error);
           }
         } catch (guardianError) {
           console.error('⚠️ Error adding guardian to club:', guardianError);
           // Don't throw - guardian addition is supplementary
         }
+      } else {
+        console.log('ℹ️ Guardian already a club member, skipping guardian club addition');
       }
+    }
 
-      // Update user's club info using atomic function
+    // 🏛️ STEP 2C: Update user's (youth's) club info in their profile
+    if (!isAlreadyClubMember) {
       console.log('📞 Calling updateUserClubInfo atomic function...');
       const updateUserClubInfoFn = httpsCallable(functions, 'updateUserClubInfo');
       const userClubResult = await updateUserClubInfoFn({
@@ -835,8 +852,6 @@ export const addRegularMemberToGroupService = {
         throw new Error(`Failed to update user club info: ${userClubResponse.error}`);
       }
       console.log('✅ User club info updated successfully');
-    } else {
-      console.log('ℹ️ User already a club member, skipping club addition');
     }
 
     // 👥 STEP 3: Handle group membership

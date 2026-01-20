@@ -39,8 +39,6 @@ export { addMemberToGroup } from './members/addMemberToGroup';
 export { addMemberToSubGroup } from './members/addMemberToSubGroup';
 export { checkMembership } from './members/checkMembership';
 export { createYouthMemberDocument } from './members/createYouthMemberDocument';
-export { migratePhotoURLs } from './members/migratePhotoURLs';
-export { removeMemberFromGroup } from './members/removeMemberFromGroup';
 export { removeMemberFromSubGroup } from './members/removeMemberFromSubGroup';
 
 // User Document Update Functions (Atomic)

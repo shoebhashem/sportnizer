@@ -237,7 +237,9 @@ export default function Index() {
         
         const createYouthFn = httpsCallable(functions, 'createYouthMemberDocument');
         const youthResult = await createYouthFn({
-          guardianUserId: currentUser.uid,
+          guardianUid: currentUser.uid,
+          guardianEmail: currentUser.email || '',
+          guardianName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Guardian',
           childName: currentInvite.youthData.childName,
           dateOfBirth: currentInvite.youthData.dateOfBirth,
           relationship: currentInvite.youthData.relationship
@@ -248,7 +250,7 @@ export default function Index() {
           throw new Error(youthResponse.error || 'Failed to create youth member');
         }
         
-        console.log('✅ Youth member document created:', youthResponse.youthUserId);
+        console.log('✅ Youth member document created:', youthResponse.youthUid);
         
         // Get guardian info for the invitation processing
         const guardianEmail = currentUser.email || '';
@@ -258,7 +260,7 @@ export default function Index() {
         const { addRegularMemberToGroupService } = await import('@/services/orchestration/addRegularMemberToGroup');
         const invitationResult = await addRegularMemberToGroupService.processInvitationAfterUserResponse(
           currentInvite.inviteId,      // invitationToken
-          youthResponse.youthUserId,   // Use youth's userId, not guardian's
+          youthResponse.youthUid,      // Use youth's userId, not guardian's
           'accept',                    // action
           {                            // guardianInfo to avoid permission issues
             guardianUid: currentUser.uid,
@@ -461,15 +463,15 @@ export default function Index() {
         return;
       }
 
-      // Fetch the specific invitation details
-      const response = await fetchGroupInvites(currentUser.uid);
-      const invitation = response.invites?.find(inv => inv.inviteId === invitationToken);
+      // Fetch the specific invitation by token (includes youth invitations)
+      const { fetchInvitationByToken } = await import('@/services/fetchGroupInvites');
+      const invitation = await fetchInvitationByToken(currentUser.uid, invitationToken);
       
       if (invitation) {
         setCurrentInvite(invitation);
         setIsInviteModalVisible(true);
       } else {
-        console.error('Invitation not found:', invitationToken);
+        console.error('Invitation not found or already processed:', invitationToken);
       }
     } catch (error) {
       console.error('Error loading invitation from notification:', error);

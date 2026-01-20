@@ -124,6 +124,64 @@ export const fetchGroupInvites = async (userId: string): Promise<FetchGroupInvit
 };
 
 /**
+ * Fetches a specific invitation by token for notification clicks
+ * Unlike fetchGroupInvites, this does NOT filter out youth invitations
+ * Used when user clicks on a notification to view/accept invitation details
+ * 
+ * @param userId - The user ID (for logging/context)
+ * @param invitationToken - The invitation document ID
+ * @returns Promise with the invitation details or null if not found
+ */
+export const fetchInvitationByToken = async (
+  userId: string,
+  invitationToken: string
+): Promise<GroupInviteInfo | null> => {
+  try {
+    console.log(`📬 Fetching invitation by token: ${invitationToken} for user: ${userId}`);
+
+    const { getDoc, doc } = await import('firebase/firestore');
+    const { db } = await import('./core/firebase');
+
+    const inviteDoc = await getDoc(doc(db, 'invitations', invitationToken));
+
+    if (!inviteDoc.exists()) {
+      console.log(`❌ Invitation not found: ${invitationToken}`);
+      return null;
+    }
+
+    const inviteData = inviteDoc.data();
+
+    // ✅ Safety check: Only return pending invitations
+    if (inviteData.status !== 'pending') {
+      console.log(`⚠️ Invitation ${invitationToken} is not pending (status: ${inviteData.status})`);
+      return null;
+    }
+
+    console.log(`✅ Found invitation: ${invitationToken} (type: ${inviteData.invitationType || 'regular'})`);
+
+    // Return invitation regardless of type (includes youth invitations)
+    return {
+      inviteId: inviteDoc.id,
+      groupId: inviteData.groupId,
+      groupName: inviteData.groupName,
+      clubId: inviteData.clubId,
+      clubName: inviteData.clubName,
+      invitedBy: inviteData.inviterUid,
+      invitedByName: inviteData.inviterName,
+      createdAt: inviteData.createdAt,
+      status: inviteData.status,
+      message: inviteData.message,
+      invitationType: inviteData.invitationType,
+      youthData: inviteData.youthData
+    };
+
+  } catch (error: any) {
+    console.error('❌ Error fetching invitation by token:', error);
+    return null;
+  }
+};
+
+/**
  * Accepts a group invitation (uses unified orchestration service for both user types)
  */
 export const acceptGroupInvite = async (
