@@ -14,7 +14,14 @@ export const addMemberToClub = onCall(
 
       // Validate required fields
       validateRequiredFields(request.data, ['clubId', 'memberData']);
-      validateRequiredFields(memberData, ['userId', 'roles', 'name', 'email', 'addedBy']);
+      
+      // For youth members, email is optional; for regular members, email is required
+      // Check if needsGuardian is explicitly true (not just truthy)
+      const requiredMemberFields = memberData.needsGuardian === true
+        ? ['userId', 'roles', 'name', 'addedBy'] // Youth members don't need email
+        : ['userId', 'roles', 'name', 'email', 'addedBy']; // Regular members need email
+      
+      validateRequiredFields(memberData, requiredMemberFields);
 
       // Verify the user is authenticated
       if (!request.auth) {

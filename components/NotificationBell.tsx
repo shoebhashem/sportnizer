@@ -99,6 +99,7 @@ export default function NotificationBell({
     // Handle different notification types
     switch (notification.type) {
       case 'group_invitation':
+      case 'youth_member_invitation':
         if (onInvitationPress && notification.invitationToken) {
           onInvitationPress(notification.invitationToken);
           setModalVisible(false);
@@ -143,6 +144,8 @@ export default function NotificationBell({
     switch (type) {
       case 'group_invitation':
         return 'user-plus';
+      case 'youth_member_invitation':
+        return 'child';
       case 'announcement':
         return 'bullhorn';
       case 'event':

@@ -228,7 +228,55 @@ export default function Index() {
       const inviteKey = `${currentInvite.clubId}-${currentInvite.groupId}`;
       setProcessedInvites(prev => new Set(prev.add(inviteKey)));
       
-      await acceptGroupInvite(currentInvite.inviteId, currentInvite.clubId, currentInvite.groupId);
+      // YOUTH INVITATION: Create youth document first, then process invitation
+      if (currentInvite.invitationType === 'youth_member' && currentInvite.youthData) {
+        console.log('👶 Creating youth member document before accepting invitation...');
+        
+        const { httpsCallable } = await import('firebase/functions');
+        const { functions } = await import('@/services/core/firebase');
+        
+        const createYouthFn = httpsCallable(functions, 'createYouthMemberDocument');
+        const youthResult = await createYouthFn({
+          guardianUserId: currentUser.uid,
+          childName: currentInvite.youthData.childName,
+          dateOfBirth: currentInvite.youthData.dateOfBirth,
+          relationship: currentInvite.youthData.relationship
+        });
+        
+        const youthResponse = youthResult.data as any;
+        if (!youthResponse.success) {
+          throw new Error(youthResponse.error || 'Failed to create youth member');
+        }
+        
+        console.log('✅ Youth member document created:', youthResponse.youthUserId);
+        
+        // Get guardian info for the invitation processing
+        const guardianEmail = currentUser.email || '';
+        const guardianName = currentUser.displayName || guardianEmail.split('@')[0] || 'Guardian';
+        
+        // Now process the invitation with the youth's userId (not guardian's) and guardian info
+        const { addRegularMemberToGroupService } = await import('@/services/orchestration/addRegularMemberToGroup');
+        const invitationResult = await addRegularMemberToGroupService.processInvitationAfterUserResponse(
+          currentInvite.inviteId,      // invitationToken
+          youthResponse.youthUserId,   // Use youth's userId, not guardian's
+          'accept',                    // action
+          {                            // guardianInfo to avoid permission issues
+            guardianUid: currentUser.uid,
+            guardianEmail: guardianEmail,
+            guardianName: guardianName,
+            relationship: currentInvite.youthData.relationship
+          }
+        );
+        
+        if (!invitationResult.success) {
+          throw new Error(invitationResult.error || 'Failed to process invitation');
+        }
+        
+        console.log('✅ Youth invitation processed successfully!');
+      } else {
+        // REGULAR INVITATION: Standard flow
+        await acceptGroupInvite(currentInvite.inviteId, currentInvite.clubId, currentInvite.groupId);
+      }
       
       // Remove from pending invites
       const updatedInvites = pendingInvites.filter(invite => 
@@ -237,10 +285,14 @@ export default function Index() {
       setPendingInvites(updatedInvites);
       
       // Show success message
+      const successMessage = currentInvite.youthData 
+        ? `${currentInvite.youthData.childName} has been successfully added to ${currentInvite.groupName}!`
+        : `You've successfully joined ${currentInvite.groupName}!`;
+      
       setModal({
         visible: true,
         title: 'Invitation Accepted',
-        message: `You've successfully joined ${currentInvite.groupName}!`,
+        message: successMessage,
         type: 'success'
       });
       
@@ -562,6 +614,7 @@ export default function Index() {
           onAccept={handleAcceptInvite}
           onReject={handleRejectInvite}
           loading={inviteLoading}
+          youthData={currentInvite.youthData}
         />
       )}
     </SafeAreaView>

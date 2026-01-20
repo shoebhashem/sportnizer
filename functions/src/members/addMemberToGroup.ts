@@ -14,7 +14,25 @@ export const addMemberToGroup = onCall(
 
       // Validate required fields
       validateRequiredFields(request.data, ['clubId', 'groupId', 'memberData']);
-      validateRequiredFields(memberData, ['userId', 'roles', 'name', 'email']);
+      
+      // DEBUG: Log memberData to see what we're receiving
+      console.log('🔍 DEBUG addMemberToGroup - memberData received:', JSON.stringify({
+        needsGuardian: memberData.needsGuardian,
+        needsGuardianType: typeof memberData.needsGuardian,
+        hasEmail: 'email' in memberData,
+        emailValue: memberData.email,
+        memberDataKeys: Object.keys(memberData)
+      }));
+      
+      // For youth members, email is optional; for regular members, email is required
+      // Check if needsGuardian is explicitly true (not just truthy)
+      const requiredMemberFields = memberData.needsGuardian === true
+        ? ['userId', 'roles', 'name'] // Youth members don't need email
+        : ['userId', 'roles', 'name', 'email']; // Regular members need email
+      
+      console.log('🔍 DEBUG addMemberToGroup - requiredMemberFields:', requiredMemberFields);
+      
+      validateRequiredFields(memberData, requiredMemberFields);
 
       // Verify the user is authenticated
       if (!request.auth) {
@@ -65,12 +83,16 @@ export const addMemberToGroup = onCall(
       await groupMemberRef.update({
         members: admin.firestore.FieldValue.arrayUnion(memberData),
         lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        memberCount: admin.firestore.FieldValue.increment(1)
+        memberCount: admin.firestore.FieldValue.increment(1),
+        version: admin.firestore.FieldValue.increment(1), // Increment version
+        lastModified: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // Update group member count
       await groupRef.update({
-        membersCount: admin.firestore.FieldValue.increment(1)
+        membersCount: admin.firestore.FieldValue.increment(1),
+        version: admin.firestore.FieldValue.increment(1), // Increment version
+        lastModified: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       console.log(`Successfully added member ${memberData.userId} to group ${groupId}`);

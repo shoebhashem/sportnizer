@@ -10,6 +10,11 @@ interface InvitationModalProps {
   onAccept: () => void;
   onReject: () => void;
   loading?: boolean;
+  youthData?: {
+    childName: string;
+    dateOfBirth: string;
+    relationship: string;
+  };
 }
 
 const InvitationModal: React.FC<InvitationModalProps> = ({
@@ -18,7 +23,8 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
   inviterName,
   onAccept,
   onReject,
-  loading = false
+  loading = false,
+  youthData
 }) => {
   return (
     <Modal
@@ -30,16 +36,34 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
     >
       <View style={styles.overlay}>
         <View style={styles.modal}>
-          <Text style={styles.title}>Group Invitation</Text>
-          
-          <Text style={styles.message}>
-            <Text style={styles.bold}>{inviterName}</Text> has invited you to join the group{' '}
-            <Text style={styles.bold}>{groupName}</Text>.
+          <Text style={styles.title}>
+            {youthData ? 'Child Member Invitation' : 'Group Invitation'}
           </Text>
           
-          <Text style={styles.question}>
-            Would you like to join this group?
-          </Text>
+          {youthData ? (
+            <>
+              <Text style={styles.message}>
+                <Text style={styles.bold}>{inviterName}</Text> has invited your child{' '}
+                <Text style={styles.bold}>{youthData.childName}</Text> to join the group{' '}
+                <Text style={styles.bold}>{groupName}</Text>.
+              </Text>
+              
+              <Text style={styles.question}>
+                Would you like to add {youthData.childName} to this group?
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.message}>
+                <Text style={styles.bold}>{inviterName}</Text> has invited you to join the group{' '}
+                <Text style={styles.bold}>{groupName}</Text>.
+              </Text>
+              
+              <Text style={styles.question}>
+                Would you like to join this group?
+              </Text>
+            </>
+          )}
           
           <View style={styles.buttonContainer}>
             <View style={styles.buttonWrapper}>

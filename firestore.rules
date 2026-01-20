@@ -93,6 +93,22 @@ service cloud.firestore {
              get(/databases/$(database)/documents/clubs/$(clubId)).data.createdBy == request.auth.uid;
     }
 
+    // Check if user is a guardian of a youth member
+    function isGuardianOf(youthUserId) {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(youthUserId)) &&
+             get(/databases/$(database)/documents/users/$(youthUserId)).data.guardians != null &&
+             youthUserId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('dependents', []).map(d => d.dependentUid);
+    }
+
+    // Check if user has access to youth member data (guardian or club admin)
+    function canAccessYouthMember(youthUserId) {
+      return isSignedIn() && (
+        request.auth.uid == youthUserId ||
+        isGuardianOf(youthUserId)
+      );
+    }
+
     // Validate clubAccess array structure (simplified for Firestore rules syntax)
     function validateClubAccessArray(clubAccess) {
       return clubAccess is list &&
@@ -123,6 +139,10 @@ service cloud.firestore {
                data.clubAccess.size() <= 100 &&
                validateClubAccessArray(data.clubAccess)
              )) &&
+             // Youth member fields validation
+             (!('guardians' in data) || data.guardians is list) &&
+             (!('dependents' in data) || data.dependents is list) &&
+             (!('isYouthMember' in data) || data.isYouthMember is bool) &&
              // Optional fields validation
              (!('photoURL' in data) || data.photoURL is string) &&
              (!('profilePicture' in data) || data.profilePicture is string) &&
@@ -147,23 +167,33 @@ service cloud.firestore {
     // Users collection - using clubAccess array structure
     // ---------------------------
     match /users/{userId} {
-      // Read: Only authenticated user can read their own document
-      allow read: if isSignedIn() && request.auth.uid == userId;
+      // Read: User can read their own document OR guardians can read their dependents' documents
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isGuardianOf(userId)
+      );
 
       // Create: Users can only create their own document with required fields
-      allow create: if isSignedIn() && 
+      // OR backend functions can create youth member documents (no auth requirement for youth)
+      allow create: if (isSignedIn() && 
                        request.auth.uid == userId &&
-                       validateUserDocument(request.resource.data);
+                       validateUserDocument(request.resource.data)) ||
+                       // Allow backend to create youth member documents without auth
+                       (request.resource.data.get('isYouthMember', false) == true &&
+                       validateUserDocument(request.resource.data));
 
-      // Update: Users can update their own document, OR club-admin can update clubAccess field
+      // Update: Users can update their own document, OR guardians can update dependents' documents,
+      // OR club-admin can update clubAccess field
       allow update: if (request.auth.uid == userId && validateUserDocument(request.resource.data)) ||
+                       (isGuardianOf(userId) && validateUserDocument(request.resource.data)) ||
                        (
                          isSignedIn() &&
                          request.auth.uid != userId &&
                          // Check if current user is club admin in any of target user's clubs
                          hasClubAdminAccessToUpdateUser(userId) &&
-                         // Club-admins can only update 'clubAccess' field
-                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clubAccess'])
+                         // Club-admins can only update 'clubAccess', 'guardians', or 'dependents' fields
+                         request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['clubAccess', 'guardians', 'dependents'])
                        );
 
       // Delete: Users can only delete their own document
@@ -173,22 +203,28 @@ service cloud.firestore {
       // Notifications subcollection - dual-storage architecture
       // ---------------------------
       match /notifications/{notificationId} {
-        // Read: Only the user can read their own notifications
-        allow read: if isSignedIn() && request.auth.uid == userId;
+        // Read: User can read their own notifications OR guardians can read their dependents' notifications
+        allow read: if isSignedIn() && (
+          request.auth.uid == userId ||
+          isGuardianOf(userId)
+        );
         
         // Create: Backend functions can create notifications for users
         // Client cannot create notifications directly (must use backend function)
         allow create: if false;
         
-        // Update: Only the user can update their own notifications (mark as read, dismiss)
+        // Update: User can update their own notifications OR guardians can update dependents' notifications
         allow update: if isSignedIn() && 
-                         request.auth.uid == userId &&
+                         (request.auth.uid == userId || isGuardianOf(userId)) &&
                          // Only allow updating specific fields
                          request.resource.data.diff(resource.data).affectedKeys()
                            .hasOnly(['read', 'readAt', 'dismissed', 'dismissedAt', 'actionTakenAt']);
         
-        // Delete: Users can delete their own notifications
-        allow delete: if isSignedIn() && request.auth.uid == userId;
+        // Delete: Users can delete their own notifications OR guardians can delete dependents' notifications
+        allow delete: if isSignedIn() && (
+          request.auth.uid == userId ||
+          isGuardianOf(userId)
+        );
       }
     }
 
@@ -270,11 +306,15 @@ service cloud.firestore {
     // ---------------------------
     match /invitations/{invitationId} {
       // Read: User can read invitations sent to their email OR created by them
+      // For youth invitations, guardians can read invitations for their dependents
       // Allow list queries for user's own invitations
       allow read: if isSignedIn() && 
                      (resource.data.email == request.auth.token.email ||
                       resource.data.userId == request.auth.uid ||
-                      resource.data.inviterUid == request.auth.uid);
+                      resource.data.inviterUid == request.auth.uid ||
+                      // Allow reading youth invitations if user is guardian
+                      (resource.data.get('invitationType', '') == 'youth_member' &&
+                       resource.data.email == request.auth.token.email));
       
       // Allow list operations (queries) for user's email or userId
       allow list: if isSignedIn();

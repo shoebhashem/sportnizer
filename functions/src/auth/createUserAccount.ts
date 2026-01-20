@@ -52,6 +52,7 @@ export const createUserAccount = onCall(
         dateOfBirth: null, // Initially null, can be updated later
         clubAccess: [], // Empty array - users join clubs later
         groupsCreated: 0,
+        dependents: [], // Initialize empty array for youth members/dependents
         emailVerified: isInvitedUser, // Skip verification for invited users
         verificationStatus: isInvitedUser ? 'verified' : 'pending', // Pre-verify invited users
         createdAt: admin.firestore.FieldValue.serverTimestamp(),

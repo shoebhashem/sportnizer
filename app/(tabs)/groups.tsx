@@ -5,13 +5,13 @@ import { useUser } from "@/contexts/UserContext";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  RefreshControl,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function GroupsScreen() {
@@ -20,10 +20,25 @@ const { userProfile, isLoading, refreshUserProfile, clearUserData } = useUser();
 // Extract clubs and groups from userProfile
 const clubs = userProfile?.clubAccess || [];
 
+// Enhanced group type with membership context
+interface EnhancedGroup {
+  clubId: string;
+  groupId: string;
+  groupName: string;
+  roles: string[];
+  joinedAt: Date;
+  lastModifiedAt: Date;
+  membershipType: 'direct' | 'dependent'; // Badge distinction
+  dependentName?: string; // For dependent groups
+  dependentUid?: string; // For dependent groups
+}
+
 const userGroups = React.useMemo(() => {
   if (!userProfile?.clubAccess) return [];
   
-  const allGroups = [];
+  const allGroups: EnhancedGroup[] = [];
+  
+  // Add direct groups (user's own memberships)
   for (const clubAccess of userProfile.clubAccess) {
     if (clubAccess.groupAccess) {
       for (const groupAccess of clubAccess.groupAccess) {
@@ -34,13 +49,38 @@ const userGroups = React.useMemo(() => {
           roles: groupAccess.roles,
           joinedAt: groupAccess.joinedAt,
           lastModifiedAt: groupAccess.lastModifiedAt,
-          groupData: null, // Will be fetched separately when needed
+          membershipType: 'direct',
         });
       }
     }
   }
+  
+  // Add dependent groups (children's memberships) - directly from dependents array
+  const dependents = userProfile.dependents || [];
+  for (const dependent of dependents) {
+    if (dependent.clubAccess) {
+      for (const clubAccess of dependent.clubAccess) {
+        if (clubAccess.groupAccess) {
+          for (const groupAccess of clubAccess.groupAccess) {
+            allGroups.push({
+              clubId: clubAccess.clubId,
+              groupId: groupAccess.groupId,
+              groupName: groupAccess.groupName,
+              roles: groupAccess.roles,
+              joinedAt: groupAccess.joinedAt,
+              lastModifiedAt: groupAccess.lastModifiedAt,
+              membershipType: 'dependent',
+              dependentName: dependent.childName,
+              dependentUid: dependent.uid,
+            });
+          }
+        }
+      }
+    }
+  }
+  
   return allGroups;
-}, [userProfile?.clubAccess]);
+}, [userProfile?.clubAccess, userProfile?.dependents]);
 
 console.log('📱 GroupsScreen render - DETAILED DEBUG:', {
   isLoading,
@@ -49,8 +89,12 @@ console.log('📱 GroupsScreen render - DETAILED DEBUG:', {
   userProfile_email: userProfile?.email,
   clubAccess_raw: userProfile?.clubAccess,
   clubAccess_length: userProfile?.clubAccess?.length || 0,
+  dependents_count: userProfile?.dependents?.length || 0,
+  dependents_with_clubAccess: userProfile?.dependents?.filter(d => d.clubAccess && d.clubAccess.length > 0).length || 0,
   clubsCount: clubs.length,
   userGroupsCount: userGroups.length,
+  directGroupsCount: userGroups.filter(g => g.membershipType === 'direct').length,
+  dependentGroupsCount: userGroups.filter(g => g.membershipType === 'dependent').length,
   clubs: clubs.map(c => ({ 
     clubId: c.clubId, 
     clubName: c.clubName, 
@@ -62,7 +106,8 @@ console.log('📱 GroupsScreen render - DETAILED DEBUG:', {
     groupName: g.groupName,
     clubId: g.clubId, 
     roles: g.roles,
-    hasGroupData: !!g.groupData
+    membershipType: g.membershipType,
+    dependentName: g.dependentName
   }))
 });
 const [selectedClub, setSelectedClub] = useState<string | null>(null);
@@ -74,6 +119,8 @@ const handleRefresh = async () => {
   try {
     console.log('🔄 Manual refresh triggered');
     await refreshUserProfile();
+    // Dependent access is now stored in userProfile.dependents[].clubAccess
+    // No need to fetch separately
   } catch (error) {
     console.error('❌ Error during manual refresh:', error);
   } finally {
@@ -222,18 +269,41 @@ return (
                   console.log('🔍 Rendering group:', { 
                     groupId: group.groupId, 
                     groupName: group.groupName,
-                    roles: group.roles 
+                    roles: group.roles,
+                    membershipType: group.membershipType,
+                    dependentName: group.dependentName
                   });
                   
                   return (
                     <TouchableOpacity 
-                      key={group.groupId}
-                      style={styles.groupCard}
+                      key={`${group.groupId}-${group.dependentUid || 'direct'}`}
+                      style={[
+                        styles.groupCard,
+                        group.membershipType === 'dependent' && styles.dependentGroupCard
+                      ]}
                       onPress={() => handleGroupPress(group.groupId, club.clubId)}
                     >
-                      <Text style={styles.groupName}>
-                        {group.groupName || `Group ${group.groupId.slice(-4)}`}
-                      </Text>
+                      <View style={styles.groupHeader}>
+                        <View style={styles.groupTitleContainer}>
+                          <Text style={styles.groupName}>
+                            {group.groupName || `Group ${group.groupId.slice(-4)}`}
+                          </Text>
+                          {group.membershipType === 'dependent' && (
+                            <View style={styles.dependentBadge}>
+                              <Text style={styles.badgeText}>
+                                👶 {group.dependentName}
+                              </Text>
+                            </View>
+                          )}
+                          {group.membershipType === 'direct' && (
+                            <View style={styles.directBadge}>
+                              <Text style={styles.badgeText}>
+                                👤 You
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
                       <Text style={styles.groupRole}>
                         Role: {group.roles.join(', ')}
                       </Text>
@@ -339,12 +409,44 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
   },
+  dependentGroupCard: {
+    borderLeftColor: theme.colors.success, // Different color for dependent groups
+    backgroundColor: theme.colors.inputBackground,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: theme.spacing.sm,
+  },
+  groupTitleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
   groupName: {
     fontSize: theme.typography.fontSize.large,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.secondary,
-    marginBottom: theme.spacing.sm,
-    textAlign: 'center',
+  },
+  directBadge: {
+    backgroundColor: theme.colors.secondary,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.small,
+  },
+  dependentBadge: {
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.small,
+  },
+  badgeText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.primary,
+    fontWeight: theme.typography.fontWeight.bold,
   },
   groupRole: {
     fontSize: theme.typography.fontSize.small,

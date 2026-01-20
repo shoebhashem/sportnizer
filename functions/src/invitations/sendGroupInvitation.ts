@@ -3,7 +3,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { createNotificationDirect } from '../notifications/createNotification';
 import { GroupInvitationRequest, InvitationResult } from '../types/interfaces';
 import { config } from '../utils/config';
-import { emailTransporter, groupInvitationWithActionsTemplate } from '../utils/email';
+import { emailTransporter, groupInvitationWithActionsTemplate, guardianInvitationTemplate } from '../utils/email';
 import { validateArrayField, validateRequiredFields } from '../utils/validation';
 
 export const sendGroupInvitation = onCall(
@@ -19,7 +19,9 @@ export const sendGroupInvitation = onCall(
         groupId, 
         groupName, 
         inviterName,
-        inviterUid
+        inviterUid,
+        invitationType,
+        youthData
       }: GroupInvitationRequest = request.data;
 
       // Debug logging
@@ -30,7 +32,9 @@ export const sendGroupInvitation = onCall(
         groupId,
         groupName,
         inviterName,
-        inviterUid: inviterUid || request.auth?.uid
+        inviterUid: inviterUid || request.auth?.uid,
+        invitationType: invitationType || 'regular',
+        hasYouthData: !!youthData
       });
 
       // Validate required fields
@@ -72,7 +76,7 @@ export const sendGroupInvitation = onCall(
           const invitationToken = db.collection('invitations').doc().id;
           
           // STEP 3: Create invitation document (source of truth for both user types)
-          const invitationData = {
+          const invitationData: any = {
             email: normalizedEmail,
             clubId,
             clubName,
@@ -89,6 +93,10 @@ export const sendGroupInvitation = onCall(
             expiresAt: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)), // 7 days
             isExistingUser: userExists,
             userId: existingUserId,
+            
+            // Youth-specific fields (optional)
+            invitationType: invitationType || 'regular',
+            youthData: youthData || null,
           };
 
           await db.collection('invitations').doc(invitationToken).set(invitationData);
@@ -98,16 +106,23 @@ export const sendGroupInvitation = onCall(
           if (userExists && existingUserId) {
             // EXISTING USER PATH: Create notification (dual write)
             try {
+              const notificationType = invitationType === 'youth_member' ? 'youth_member_invitation' : 'group_invitation';
+              const notificationTitle = invitationType === 'youth_member' ? 'New Child Invitation' : 'Group Invitation';
+              const notificationMessage = invitationType === 'youth_member' 
+                ? `Add ${youthData?.childName || 'child'} to ${groupName}`
+                : `${inviterName} invited you to join ${groupName}`;
+              
               const notificationId = await createNotificationDirect(existingUserId, {
-                type: 'group_invitation',
-                title: 'Group Invitation',
-                message: `${inviterName} invited you to join ${groupName}`,
+                type: notificationType,
+                title: notificationTitle,
+                message: notificationMessage,
                 invitationToken,
                 sourceCollection: 'invitations',
                 clubId,
                 clubName,
                 groupId,
                 groupName,
+                youthData: invitationType === 'youth_member' ? youthData : undefined,
                 priority: 'normal'
               });
               
@@ -123,11 +138,32 @@ export const sendGroupInvitation = onCall(
               const acceptLink = `${config.baseUrl}/invitation/accept?token=${invitationToken}`;
               const rejectLink = `${config.baseUrl}/invitation/reject?token=${invitationToken}`;
 
+              let emailHtml: string;
+              let emailSubject: string;
+              
+              // Choose email template based on invitation type
+              if (invitationType === 'youth_member' && youthData) {
+                // Youth member invitation - use guardian template
+                emailHtml = guardianInvitationTemplate(
+                  youthData.childName,
+                  groupName,
+                  inviterName,
+                  `${config.baseUrl}/signup?invite=${invitationToken}`
+                );
+                emailSubject = `Your child ${youthData.childName} has been invited to ${groupName}`;
+                console.log(`📧 Sending guardian invitation email for ${youthData.childName}`);
+              } else {
+                // Regular invitation - use standard template
+                emailHtml = groupInvitationWithActionsTemplate(groupName, clubName, inviterName, acceptLink, rejectLink);
+                emailSubject = `Invitation to join ${groupName} on Sportnizer`;
+                console.log(`📧 Sending regular invitation email`);
+              }
+
               const mailOptions = {
                 from: config.email.from,
                 to: normalizedEmail,
-                subject: `Invitation to join ${groupName} on Sportnizer`,
-                html: groupInvitationWithActionsTemplate(groupName, clubName, inviterName, acceptLink, rejectLink),
+                subject: emailSubject,
+                html: emailHtml,
               };
 
               await emailTransporter.sendMail(mailOptions);

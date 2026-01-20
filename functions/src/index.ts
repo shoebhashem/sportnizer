@@ -38,10 +38,13 @@ export { addMemberToClub } from './members/addMemberToClub';
 export { addMemberToGroup } from './members/addMemberToGroup';
 export { addMemberToSubGroup } from './members/addMemberToSubGroup';
 export { checkMembership } from './members/checkMembership';
+export { createYouthMemberDocument } from './members/createYouthMemberDocument';
+export { migratePhotoURLs } from './members/migratePhotoURLs';
 export { removeMemberFromGroup } from './members/removeMemberFromGroup';
 export { removeMemberFromSubGroup } from './members/removeMemberFromSubGroup';
 
 // User Document Update Functions (Atomic)
+export { updateGuardianDependentAccess } from './members/updateGuardianDependentAccess';
 export { updateUserAnnouncementInfo } from './members/updateUserAnnouncementInfo';
 export { updateUserClubInfo } from './members/updateUserClubInfo';
 export { updateUserEventInfo } from './members/updateUserEventInfo';
@@ -52,11 +55,8 @@ export { updateUserPollInfo } from './members/updateUserPollInfo';
 // TODO: Add orchestration functions here when implemented
 
 // Invitation Functions (Atomic)
-export { addGroupInviteToUser } from './invitations/addGroupInviteToUser';
 export { markInvitationUsed } from './invitations/markInvitationUsed';
-export { processGuardianInvitation } from './invitations/processGuardianInvitation';
 export { respondToEmailInvite } from './invitations/respondToEmailInvite';
-export { respondToGroupInvite } from './invitations/respondToGroupInvite';
 export { sendGroupInvitation } from './invitations/sendGroupInvitation';
 export { validateInvitationToken } from './invitations/validateInvitationToken';
 
@@ -67,8 +67,8 @@ export { createNotification } from './notifications/createNotification';
 export { calculateRecipientCount } from './recipients/calculateRecipientCount';
 export { validateRecipientSelection } from './recipients/validateRecipientSelection';
 
-// ✅ Legacy HTTP endpoint functions have been archived
-// New invitation workflow uses onCall functions: addGroupInviteToUser, respondToGroupInvite, respondToEmailInvite
+// ✅ Legacy HTTP endpoint functions and unused helpers have been removed
+// Current invitation workflow uses: sendGroupInvitation, respondToEmailInvite, markInvitationUsed, validateInvitationToken
 
 // Utility Functions
 export { fixEmptyUserDocument } from './utils/fixEmptyUserDocument';

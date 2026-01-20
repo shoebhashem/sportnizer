@@ -24,6 +24,28 @@ export interface UserProfile {
   createdAt?: Date;
   lastActive?: Date;
   version?: number; // Version for cache optimization
+  // Youth member relationships
+  dependents?: DependentInfo[]; // For guardians - list of youth members they manage
+  guardians?: GuardianInfo[]; // For youth members - list of guardians
+}
+
+// Dependent (youth member) info stored in guardian's document
+export interface DependentInfo {
+  uid: string; // Youth member's UID
+  childName: string;
+  relationship: string;
+  addedAt: Date;
+  clubAccess?: ClubAccess[]; // Youth's club and group access (synced from youth's profile)
+}
+
+// Guardian info stored in youth member's document
+export interface GuardianInfo {
+  uid: string; // Guardian's UID
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  relationship: string;
+  addedAt: Date;
 }
 
 // New access interfaces for user document

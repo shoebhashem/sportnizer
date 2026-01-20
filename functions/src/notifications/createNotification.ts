@@ -1,20 +1,8 @@
 import * as admin from 'firebase-admin';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { NotificationType } from '../types/interfaces';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
-
-/**
- * Notification type definition
- * Extensible for future notification types (announcements, events, polls, etc.)
- */
-export type NotificationType = 
-  | 'group_invitation' 
-  | 'announcement' 
-  | 'event' 
-  | 'poll'
-  | 'role_changed'
-  | 'member_joined'
-  | 'event_cancelled';
 
 export interface CreateNotificationRequest {
   userId: string;
@@ -32,6 +20,13 @@ export interface CreateNotificationRequest {
   clubName: string;
   groupId?: string;
   groupName?: string;
+  
+  // Youth member data (for youth invitations)
+  youthData?: {
+    childName: string;
+    dateOfBirth: string;
+    relationship: string;
+  };
   
   // Optional fields
   priority?: 'low' | 'normal' | 'high';

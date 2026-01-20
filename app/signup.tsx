@@ -25,6 +25,12 @@ export default function SignupScreen() {
   const [invitationInfo, setInvitationInfo] = useState<{
     groupName: string;
     inviterName: string;
+    invitationType?: string;
+  } | null>(null);
+  const [youthData, setYouthData] = useState<{
+    childName: string;
+    dateOfBirth: string;
+    relationship: string;
   } | null>(null);
   
   // Error states
@@ -53,10 +59,22 @@ export default function SignupScreen() {
       const validation = result.data as any;
       
       if (validation.success && validation.invitationData) {
+        const invData = validation.invitationData;
         setInvitationInfo({
-          groupName: validation.invitationData.groupName || 'the group',
-          inviterName: validation.invitationData.inviterName || 'a team member'
+          groupName: invData.groupName || 'the group',
+          inviterName: invData.inviterName || 'a team member',
+          invitationType: invData.invitationType
         });
+        
+        // If this is a youth invitation, store the youth data and pre-fill guardian email
+        if (invData.invitationType === 'youth_member' && invData.youthData) {
+          setYouthData(invData.youthData);
+          // Pre-fill the email field with guardian's email from invitation
+          if (invData.email) {
+            setEmail(invData.email);
+          }
+          console.log('👶 Youth invitation detected:', invData.youthData);
+        }
       } else {
         // Fallback to generic info if validation fails
         setInvitationInfo({
@@ -150,44 +168,96 @@ export default function SignupScreen() {
       
       console.log('📊 Signup result:', result);
       
-      if (result.success) {
+      if (result.success && result.user) {
         if (invite && !result.requiresEmailVerification) {
           // Invited user account created, now process membership via unified orchestration service
           try {
-            console.log('✅ Account created. Processing invitation via processInvitationAfterUserResponse...');
+            console.log('✅ Account created. Processing invitation...');
             
-            // Use the unified orchestration service that handles both new and existing users
-            const invitationResult = await addRegularMemberToGroupService.processInvitationAfterUserResponse(
-              invite,           // invitationToken
-              result.user.uid,  // userId
-              'accept'          // action
-            );
-            
-            if (!invitationResult.success) {
-              throw new Error(invitationResult.error || 'Failed to process invitation');
+            // YOUTH INVITATION: Create youth document first, then process invitation
+            if (invitationInfo?.invitationType === 'youth_member' && youthData) {
+              console.log('👶 Creating youth member document...');
+              
+              const createYouthFn = httpsCallable(functions, 'createYouthMemberDocument');
+              const youthResult = await createYouthFn({
+                guardianUid: result.user.uid,
+                guardianEmail: result.user.email || email.trim(),
+                guardianName: fullName.trim(),
+                childName: youthData.childName,
+                dateOfBirth: youthData.dateOfBirth,
+                relationship: youthData.relationship
+              });
+              
+              const youthResponse = youthResult.data as any;
+              if (!youthResponse.success) {
+                throw new Error(youthResponse.error || 'Failed to create youth member');
+              }
+              
+              console.log('✅ Youth member document created:', youthResponse.youthUid);
+              
+              // Now process the invitation with the youth's userId and guardian info
+              const invitationResult = await addRegularMemberToGroupService.processInvitationAfterUserResponse(
+                invite,                      // invitationToken
+                youthResponse.youthUid,      // Use youth's userId, not guardian's
+                'accept',                    // action
+                {                            // guardianInfo to avoid permission issues
+                  guardianUid: result.user.uid,
+                  guardianEmail: result.user.email || email.trim(),
+                  guardianName: fullName.trim(),
+                  relationship: youthData.relationship
+                }
+              );
+              
+              if (!invitationResult.success) {
+                throw new Error(invitationResult.error || 'Failed to process invitation');
+              }
+              
+              console.log('✅ Youth invitation processed successfully!');
+              
+              setModalMessage(
+                `🎉 Welcome to Sportnizer!\n\n` +
+                `${youthData.childName} has been added to ${invitationInfo.groupName}.\n\n` +
+                `You can now manage their membership!`
+              );
+              setSuccessModalVisible(true);
+              
+            } else {
+              // REGULAR INVITATION: Standard flow
+              console.log('✅ Processing regular invitation via orchestration service...');
+              
+              const invitationResult = await addRegularMemberToGroupService.processInvitationAfterUserResponse(
+                invite,           // invitationToken
+                result.user.uid,  // userId
+                'accept'          // action
+              );
+              
+              if (!invitationResult.success) {
+                throw new Error(invitationResult.error || 'Failed to process invitation');
+              }
+              
+              console.log('✅ Invitation processed successfully via orchestration service!');
+              
+              // Get invitation info for welcome message
+              const validateTokenFn = httpsCallable(functions, 'validateInvitationToken');
+              const validationResult = await validateTokenFn({ invitationToken: invite });
+              const validation = validationResult.data as any;
+              const groupName = validation?.invitationData?.groupName || 'the group';
+              
+              setModalMessage(
+                `🎉 Welcome to Sportnizer!\n\n` +
+                `You've been added to ${groupName}.\n\n` +
+                `You can now access all features immediately!`
+              );
+              setSuccessModalVisible(true);
             }
-            
-            console.log('✅ Invitation processed successfully via orchestration service!');
-            
-            // Get invitation info for welcome message
-            const validateTokenFn = httpsCallable(functions, 'validateInvitationToken');
-            const validationResult = await validateTokenFn({ invitationToken: invite });
-            const validation = validationResult.data as any;
-            const groupName = validation?.invitationData?.groupName || 'the group';
-            
-            setModalMessage(
-              `🎉 Welcome to Sportnizer!\n\n` +
-              `You've been added to ${groupName}.\n\n` +
-              `You can now access all features immediately!`
-            );
-            setSuccessModalVisible(true);
             
           } catch (invitationError) {
             console.error('❌ Error processing invitation:', invitationError);
             // User account was created successfully, but membership failed
+            const errorContext = youthData ? `adding ${youthData.childName} to the group` : 'adding you to the group';
             setModalMessage(
               `Account created successfully!\n\n` +
-              `However, there was an issue adding you to the group. ` +
+              `However, there was an issue ${errorContext}. ` +
               `Please contact ${invitationInfo?.inviterName || 'the group admin'} for assistance.`
             );
             setSuccessModalVisible(true);
@@ -273,9 +343,19 @@ export default function SignupScreen() {
             <Text style={styles.title}>Join</Text>
             <Text style={styles.appName}>Sportnizer</Text>
             {invitationInfo ? (
-              <Text style={styles.subtitle}>
-                You have been invited to join {invitationInfo.groupName} by {invitationInfo.inviterName}
-              </Text>
+              <>
+                <Text style={styles.subtitle}>
+                  {youthData 
+                    ? `You have been invited to add ${youthData.childName} to ${invitationInfo.groupName} by ${invitationInfo.inviterName}`
+                    : `You have been invited to join ${invitationInfo.groupName} by ${invitationInfo.inviterName}`
+                  }
+                </Text>
+                {youthData && (
+                  <Text style={styles.guardianNote}>
+                    Please create your own guardian account below to manage {youthData.childName}&apos;s participation.
+                  </Text>
+                )}
+              </>
             ) : (
               <Text style={styles.subtitle}>Create your account to get started</Text>
             )}
@@ -399,6 +479,14 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     textAlign: 'center',
     marginTop: theme.spacing.sm,
+  },
+  guardianNote: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.secondary,
+    textAlign: 'center',
+    marginTop: theme.spacing.md,
+    fontStyle: 'italic',
+    paddingHorizontal: theme.spacing.md,
   },
   form: {
     width: '100%',

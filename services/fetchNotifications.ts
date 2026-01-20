@@ -20,6 +20,7 @@ import { db } from './core/firebase';
  */
 export type NotificationType = 
   | 'group_invitation' 
+  | 'youth_member_invitation'
   | 'announcement' 
   | 'event' 
   | 'poll'
@@ -50,6 +51,13 @@ export interface NotificationData {
   clubName: string;
   groupId?: string;
   groupName?: string;
+  
+  // Youth member data (for youth invitations)
+  youthData?: {
+    childName: string;
+    dateOfBirth: string;
+    relationship: string;
+  };
   
   // Timestamps
   createdAt: Timestamp | any;

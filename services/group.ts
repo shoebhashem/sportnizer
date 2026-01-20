@@ -4,6 +4,7 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './core/firebase';
 import type { GroupData } from './types/group';
+import { getUserProfile } from './userProfile';
 
 // Firebase Function references
 const createGroupFn = httpsCallable(functions, 'createGroup');
@@ -127,6 +128,103 @@ export const groupService = {
     } catch (error: any) {
       console.error('❌ Error fetching subgroups:', error);
       return [];
+    }
+  },
+
+  /**
+   * Fetch all groups for a user including their children's groups
+   * This is used for guardians to see both their own groups and their dependents' groups
+   */
+  async fetchAllUserGroups(userProfile: any): Promise<{
+    success: boolean;
+    ownGroups: any[];
+    childrenGroups: any[];
+    allGroups: any[];
+    error?: string;
+  }> {
+    try {
+      if (!userProfile) {
+        return {
+          success: false,
+          ownGroups: [],
+          childrenGroups: [],
+          allGroups: [],
+          error: 'No user profile provided'
+        };
+      }
+
+      // 1. Get guardian's own groups
+      const ownGroups: any[] = [];
+      if (userProfile.clubAccess) {
+        for (const clubAccess of userProfile.clubAccess) {
+          if (clubAccess.groupAccess) {
+            for (const groupAccess of clubAccess.groupAccess) {
+              ownGroups.push({
+                id: groupAccess.groupId,
+                name: groupAccess.groupName,
+                clubId: clubAccess.clubId,
+                clubName: clubAccess.clubName,
+                userRoles: groupAccess.roles || [],
+                memberType: 'self' as const,
+                accessReason: clubAccess.role === 'club-admin' ? 'club-admin' : 'member',
+                subGroups: groupAccess.subGroups || []
+              });
+            }
+          }
+        }
+      }
+
+      // 2. Get children's groups
+      const childrenGroups: any[] = [];
+      if (userProfile.dependents && userProfile.dependents.length > 0) {
+        for (const dependent of userProfile.dependents) {
+          try {
+            const childProfile = await getUserProfile(dependent.dependentUid);
+            
+            if (childProfile.success && childProfile.userProfile?.clubAccess) {
+              for (const clubAccess of childProfile.userProfile.clubAccess) {
+                if (clubAccess.groupAccess) {
+                  for (const groupAccess of clubAccess.groupAccess) {
+                    childrenGroups.push({
+                      id: groupAccess.groupId,
+                      name: groupAccess.groupName,
+                      clubId: clubAccess.clubId,
+                      clubName: clubAccess.clubName,
+                      userRoles: groupAccess.roles || [],
+                      memberType: 'dependent' as const,
+                      dependentName: dependent.dependentName,
+                      dependentUid: dependent.dependentUid,
+                      accessReason: 'guardian',
+                      subGroups: groupAccess.subGroups || []
+                    });
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching profile for dependent ${dependent.dependentUid}:`, error);
+            // Continue with other dependents even if one fails
+          }
+        }
+      }
+
+      const allGroups = [...ownGroups, ...childrenGroups];
+
+      return {
+        success: true,
+        ownGroups,
+        childrenGroups,
+        allGroups
+      };
+    } catch (error: any) {
+      console.error('❌ Error fetching all user groups:', error);
+      return {
+        success: false,
+        ownGroups: [],
+        childrenGroups: [],
+        allGroups: [],
+        error: error.message
+      };
     }
   }
 };

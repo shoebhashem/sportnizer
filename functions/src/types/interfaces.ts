@@ -5,6 +5,7 @@
 // Notification interfaces
 export type NotificationType = 
   | 'group_invitation' 
+  | 'youth_member_invitation'
   | 'announcement' 
   | 'event' 
   | 'poll'
@@ -45,6 +46,7 @@ export interface CreateNotificationRequest {
   clubName: string;
   groupId?: string;
   groupName?: string;
+  youthData?: YouthData;     // Optional: Youth member data for youth invitations
   priority?: 'low' | 'normal' | 'high';
   actionUrl?: string;
 }
@@ -72,6 +74,12 @@ export interface GroupInvitationData {
   expiresAt?: any;
 }
 
+export interface YouthData {
+  childName: string;
+  dateOfBirth: string;
+  relationship: string;
+}
+
 export interface GroupInvitationRequest {
   emails: string[];
   clubId: string;
@@ -80,6 +88,8 @@ export interface GroupInvitationRequest {
   groupName: string;
   inviterName: string;
   inviterUid?: string;       // Optional: UID of inviter (defaults to request.auth.uid)
+  invitationType?: 'regular' | 'youth_member';  // Optional: Type of invitation
+  youthData?: YouthData;     // Optional: Youth member data for youth invitations
 }
 
 export interface ProcessInvitationRequest {
@@ -242,14 +252,6 @@ export interface GenerateShareableInviteResponse {
   error?: string;
 }
 
-export interface ProcessGuardianInvitationRequest {
-  invitationToken: string;
-  guardianEmail: string;
-  guardianName: string;
-  guardianPhone?: string;
-  relationship: string;
-}
-
 // Generic response interfaces
 export interface FunctionResponse {
   success: boolean;
@@ -274,7 +276,7 @@ export interface ClubMemberData {
   roles: string[];
   photoURL: string;
   name: string;
-  email: string;
+  email?: string; // Optional for youth members
   addedBy: string;
   joinedAt: Date;
   lastModifiedAt: Date;
@@ -288,7 +290,7 @@ export interface GroupMemberData {
   joinedAt: Date;
   photoURL: string;
   name: string;
-  email: string;
+  email?: string; // Optional for youth members
   needsGuardian: boolean;
   belongsToSubGroups: string[];
   guardiansContacts: any[];

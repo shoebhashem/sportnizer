@@ -17,6 +17,12 @@ export interface GroupInviteInfo {
   createdAt: any; // Firestore timestamp
   status: 'pending' | 'accepted' | 'rejected';
   message?: string;
+  invitationType?: string;
+  youthData?: {
+    childName: string;
+    dateOfBirth: string;
+    relationship: string;
+  };
 }
 
 export interface FetchGroupInvitesResponse {
@@ -73,7 +79,9 @@ export const fetchGroupInvites = async (userId: string): Promise<FetchGroupInvit
       const inviteData = doc.data();
       
       // Only include pending invitations for existing users
-      if (inviteData.status === 'pending') {
+      // Exclude youth invitations - guardians should never see these in their invitation list
+      // Youth invitations are handled automatically during guardian signup
+      if (inviteData.status === 'pending' && inviteData.invitationType !== 'youth_member') {
         allInvites.push({
           inviteId: doc.id, // Use document ID as invitation token
           groupId: inviteData.groupId,

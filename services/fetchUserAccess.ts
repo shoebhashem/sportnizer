@@ -118,6 +118,8 @@ export const fetchUserProfile = async (userId: string, retryCount = 0): Promise<
       createdAt: userData.createdAt ? new Date(userData.createdAt) : undefined,
       lastActive: userData.lastActive ? new Date(userData.lastActive) : undefined,
       version: userData.version || 1,
+      dependents: userData.dependents || [], // Youth members managed by guardian
+      guardians: userData.guardians || [], // Guardians for youth member
     };
 
     console.log(`✅ Fetched complete profile for user ${userId}`);
