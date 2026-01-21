@@ -32,6 +32,12 @@ export interface NotificationData {
   actionTakenAt?: any;
   priority?: 'low' | 'normal' | 'high';
   actionUrl?: string;
+  metadata?: {
+    action?: 'role_update' | 'new_member';
+    newRole?: string;
+    existingRoles?: string[];
+    [key: string]: any;
+  };
 }
 
 export interface CreateNotificationRequest {
@@ -48,6 +54,12 @@ export interface CreateNotificationRequest {
   groupName?: string;
   youthData?: YouthData;     // Optional: Youth member data for youth invitations
   priority?: 'low' | 'normal' | 'high';
+  metadata?: {
+    action?: 'role_update' | 'new_member';
+    newRole?: string;
+    existingRoles?: string[];
+    [key: string]: any;
+  };
   actionUrl?: string;
 }
 
@@ -90,6 +102,7 @@ export interface GroupInvitationRequest {
   inviterUid?: string;       // Optional: UID of inviter (defaults to request.auth.uid)
   invitationType?: 'regular' | 'youth_member';  // Optional: Type of invitation
   youthData?: YouthData;     // Optional: Youth member data for youth invitations
+  role?: 'member' | 'coach'; // Optional: Role to assign (defaults to 'member')
 }
 
 export interface ProcessInvitationRequest {

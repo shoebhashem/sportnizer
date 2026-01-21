@@ -43,6 +43,7 @@ export interface GroupInvitationRequest {
   inviterName: string;       // Name of person sending invites (e.g., "Coach Smith")
   inviterUid: string;        // Unique ID of person sending invites (e.g., "user_def456")
   invitationType?: 'youth_member' | 'regular';  // Type of invitation (optional, defaults to 'regular')
+  role?: 'coach' | 'member';  // Role to assign (optional, defaults to 'member')
   youthData?: {             // Youth member specific data (optional, required for youth invitations)
     childName: string;       // Name of the child/youth member
     dateOfBirth: string;     // Date of birth (ISO format)
@@ -251,7 +252,8 @@ export const addRegularMemberToGroupService = {
             isExistingUser: userResponse.userExists,
             userId: userResponse.userId,
             invitationType: request.invitationType || 'regular',
-            youthData: request.youthData
+            youthData: request.youthData,
+            role: request.role || 'member'  // ✨ NEW: Pass role to invitation
           });
 
           // Extract the response and process results
@@ -724,6 +726,7 @@ export const addRegularMemberToGroupService = {
    * 🔧 HELPER METHOD: Call atomic functions with membership checks (for existing users)
    * - Used for existing users accepting in-app invitations
    * - Checks existing memberships before calling atomic functions using secure backend function
+   * - Handles role updates for existing members (e.g., member → coach)
    */
   async callAtomicFunctionsWithMembershipChecks(invitationData: any, memberData: any, clubInfo: any, groupInfo: any, userId: string, invitationToken: string) {
     // 🔒 STEP 1: Check memberships using secure backend function
@@ -746,6 +749,7 @@ export const addRegularMemberToGroupService = {
       success: boolean; 
       isClubMember: boolean; 
       isGroupMember: boolean;
+      currentRoles?: string[];  // Current roles if already a member
       isGuardianClubMember?: boolean;
       error?: string;
     };
@@ -754,14 +758,49 @@ export const addRegularMemberToGroupService = {
       throw new Error(`Failed to check membership: ${membershipData.error}`);
     }
 
-    const isAlreadyClubMember = membershipData.isClubMember;
-    const isAlreadyGroupMember = membershipData.isGroupMember;
+    const isClubMember = membershipData.isClubMember;
+    const isGroupMember = membershipData.isGroupMember;
+    const currentRoles = membershipData.currentRoles || [];
     const isGuardianInClub = membershipData.isGuardianClubMember || false;
 
-    console.log(`📊 Membership status: Club=${isAlreadyClubMember}, Group=${isAlreadyGroupMember}${isYouthInvitation ? `, Guardian=${isGuardianInClub}` : ''}`);
+    console.log(`🔍 Membership status: Club=${isClubMember}, Group=${isGroupMember}, CurrentRoles=[${currentRoles.join(', ')}]`);
 
-    // 🏛️ STEP 2: Handle club membership
-    if (!isAlreadyClubMember) {
+    // 🎯 STEP 2: Check if this is a role update for existing member
+    const requestedRole = invitationData.role || 'member';
+    const isRoleUpdate = isGroupMember && !currentRoles.includes(requestedRole);
+
+    if (isRoleUpdate) {
+      console.log(`🔄 User is already a group member - updating role to add '${requestedRole}'`);
+      
+      const updateMemberRoleFn = httpsCallable(functions, 'updateMemberRole');
+      const roleUpdateResult = await updateMemberRoleFn({
+        clubId: invitationData.clubId,
+        groupId: invitationData.groupId,
+        userId: userId,
+        roleToAdd: requestedRole
+      });
+
+      const roleUpdateResponse = roleUpdateResult.data as { 
+        success: boolean; 
+        message?: string; 
+        error?: string;
+        alreadyHasRole?: boolean;
+      };
+
+      if (roleUpdateResponse.success) {
+        console.log(`✅ Role update successful: ${roleUpdateResponse.message}`);
+        
+        // Clean up notification
+        await cleanupInvitationNotification(userId, invitationToken);
+        
+        return; // Exit early - no need to add member again
+      } else if (!roleUpdateResponse.alreadyHasRole) {
+        throw new Error(`Failed to update member role: ${roleUpdateResponse.error}`);
+      }
+    }
+
+    // 🏛️ STEP 3: Handle club membership (regular flow continues)
+    if (!isClubMember) {
       // Add user to club using atomic function
       console.log('📞 Calling addMemberToClub atomic function...');
       const addMemberToClubFn = httpsCallable(functions, 'addMemberToClub');
@@ -838,7 +877,7 @@ export const addRegularMemberToGroupService = {
     }
 
     // 🏛️ STEP 2C: Update user's (youth's) club info in their profile
-    if (!isAlreadyClubMember) {
+    if (!isClubMember) {
       console.log('📞 Calling updateUserClubInfo atomic function...');
       const updateUserClubInfoFn = httpsCallable(functions, 'updateUserClubInfo');
       const userClubResult = await updateUserClubInfoFn({
@@ -854,8 +893,8 @@ export const addRegularMemberToGroupService = {
       console.log('✅ User club info updated successfully');
     }
 
-    // 👥 STEP 3: Handle group membership
-    if (!isAlreadyGroupMember) {
+    // 👥 STEP 4: Handle group membership
+    if (!isGroupMember) {
       // Add user to group using atomic function
       console.log('📞 Calling addMemberToGroup atomic function...');
       const addMemberToGroupFn = httpsCallable(functions, 'addMemberToGroup');

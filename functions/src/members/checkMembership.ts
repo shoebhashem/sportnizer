@@ -67,6 +67,7 @@ export const checkMembership = onCall(
 
       // Check group membership if groupId provided
       let isGroupMember = false;
+      let currentRoles: string[] = [];
       if (groupId) {
         try {
           const groupMembersRef = db.collection('clubs').doc(clubId)
@@ -77,8 +78,12 @@ export const checkMembership = onCall(
           if (groupMembersDoc.exists) {
             const membersData = groupMembersDoc.data();
             const membersArray = membersData?.members || [];
-            // Check if user exists in the members array (removed email check)
-            isGroupMember = membersArray.some((member: any) => member.userId === userId);
+            // Find the member and get their roles
+            const member = membersArray.find((m: any) => m.userId === userId);
+            if (member) {
+              isGroupMember = true;
+              currentRoles = member.roles || [];
+            }
           }
         } catch (error) {
           console.error('Error checking group membership:', error);
@@ -106,13 +111,14 @@ export const checkMembership = onCall(
         }
       }
 
-      console.log(`✅ Membership check complete: Club=${isClubMember}, Group=${isGroupMember}${guardianUid ? `, Guardian=${isGuardianClubMember}` : ''}`);
+      console.log(`✅ Membership check complete: Club=${isClubMember}, Group=${isGroupMember}${guardianUid ? `, Guardian=${isGuardianClubMember}` : ''}, Roles=${currentRoles.join(', ')}`);
 
       return {
         success: true,
         isClubMember,
         isGroupMember,
         isGuardianClubMember,
+        currentRoles,  // Return current roles for role update detection
         userId,
         clubId,
         groupId

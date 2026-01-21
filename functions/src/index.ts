@@ -40,6 +40,7 @@ export { addMemberToSubGroup } from './members/addMemberToSubGroup';
 export { checkMembership } from './members/checkMembership';
 export { createYouthMemberDocument } from './members/createYouthMemberDocument';
 export { removeMemberFromSubGroup } from './members/removeMemberFromSubGroup';
+export { updateMemberRole } from './members/updateMemberRole';
 
 // User Document Update Functions (Atomic)
 export { updateGuardianDependentAccess } from './members/updateGuardianDependentAccess';

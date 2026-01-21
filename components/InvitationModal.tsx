@@ -15,6 +15,11 @@ interface InvitationModalProps {
     dateOfBirth: string;
     relationship: string;
   };
+  metadata?: {
+    action?: 'role_update' | 'new_member';
+    newRole?: string;
+    existingRoles?: string[];
+  };
 }
 
 const InvitationModal: React.FC<InvitationModalProps> = ({
@@ -24,8 +29,12 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
   onAccept,
   onReject,
   loading = false,
-  youthData
+  youthData,
+  metadata
 }) => {
+  const isRoleUpdate = metadata?.action === 'role_update';
+  const newRole = metadata?.newRole || 'member';
+  
   return (
     <Modal
       transparent={true}
@@ -37,7 +46,7 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
       <View style={styles.overlay}>
         <View style={styles.modal}>
           <Text style={styles.title}>
-            {youthData ? 'Child Member Invitation' : 'Group Invitation'}
+            {isRoleUpdate ? 'Role Update' : (youthData ? 'Child Member Invitation' : 'Group Invitation')}
           </Text>
           
           {youthData ? (
@@ -50,6 +59,17 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
               
               <Text style={styles.question}>
                 Would you like to add {youthData.childName} to this group?
+              </Text>
+            </>
+          ) : isRoleUpdate ? (
+            <>
+              <Text style={styles.message}>
+                You are being promoted to <Text style={styles.bold}>{newRole}</Text> role in{' '}
+                <Text style={styles.bold}>{groupName}</Text>.
+              </Text>
+              
+              <Text style={styles.question}>
+                Would you like to accept this role update?
               </Text>
             </>
           ) : (
@@ -76,7 +96,7 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
             </View>
             <View style={styles.buttonWrapper}>
               <Button
-                label="Accept & Join"
+                label={isRoleUpdate ? "Accept Role" : "Accept & Join"}
                 onPress={onAccept}
                 theme="primary"
                 loading={loading}

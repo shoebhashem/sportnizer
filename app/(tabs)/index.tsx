@@ -286,14 +286,19 @@ export default function Index() {
       );
       setPendingInvites(updatedInvites);
       
-      // Show success message
+      // Show success message based on action type
+      const isRoleUpdate = currentInvite.metadata?.action === 'role_update';
+      const newRole = currentInvite.metadata?.newRole || 'member';
+      
       const successMessage = currentInvite.youthData 
         ? `${currentInvite.youthData.childName} has been successfully added to ${currentInvite.groupName}!`
+        : isRoleUpdate
+        ? `Your role has been updated to ${newRole} in ${currentInvite.groupName}!`
         : `You've successfully joined ${currentInvite.groupName}!`;
       
       setModal({
         visible: true,
-        title: 'Invitation Accepted',
+        title: isRoleUpdate ? 'Role Updated' : 'Invitation Accepted',
         message: successMessage,
         type: 'success'
       });
@@ -455,7 +460,7 @@ export default function Index() {
   };
 
   // Handle invitation click from notification bell
-  const handleNotificationInvitationPress = async (invitationToken: string) => {
+  const handleNotificationInvitationPress = async (invitationToken: string, metadata?: any) => {
     try {
       const currentUser = getCurrentUser();
       if (!currentUser) {
@@ -468,7 +473,8 @@ export default function Index() {
       const invitation = await fetchInvitationByToken(currentUser.uid, invitationToken);
       
       if (invitation) {
-        setCurrentInvite(invitation);
+        // Merge metadata from notification with invitation data
+        setCurrentInvite({ ...invitation, metadata });
         setIsInviteModalVisible(true);
       } else {
         console.error('Invitation not found or already processed:', invitationToken);
@@ -617,6 +623,7 @@ export default function Index() {
           onReject={handleRejectInvite}
           loading={inviteLoading}
           youthData={currentInvite.youthData}
+          metadata={currentInvite.metadata}
         />
       )}
     </SafeAreaView>

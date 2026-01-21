@@ -36,7 +36,7 @@ import {
  */
 
 interface NotificationBellProps {
-  onInvitationPress?: (invitationToken: string) => void;
+  onInvitationPress?: (invitationToken: string, metadata?: any) => void;
   iconSize?: number;
   iconColor?: string;
 }
@@ -101,7 +101,7 @@ export default function NotificationBell({
       case 'group_invitation':
       case 'youth_member_invitation':
         if (onInvitationPress && notification.invitationToken) {
-          onInvitationPress(notification.invitationToken);
+          onInvitationPress(notification.invitationToken, notification.metadata);
           setModalVisible(false);
         }
         break;

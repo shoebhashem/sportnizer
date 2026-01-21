@@ -9,7 +9,6 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import Input from '../components/Input';
 import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
-import { useUserProfile } from '../contexts/UserContext';
 
 // Import services following three-layer architecture
 import { functions } from '../services/core/firebase';
@@ -29,7 +28,6 @@ import { GroupData } from '../services/types/group';
 export default function GroupSettingsScreen() {
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
-  const { userProfile } = useUserProfile();
   const [group, setGroup] = useState<GroupData | null>(null);
   // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
   const [userRole, setUserRole] = useState<string>('member');
@@ -44,9 +42,6 @@ export default function GroupSettingsScreen() {
   const [showCreateSubgroupModal, setShowCreateSubgroupModal] = useState(false);
   const [subgroupName, setSubgroupName] = useState('');
   const [creatingSubgroup, setCreatingSubgroup] = useState(false);
-  
-  // Coach Management State
-  const [showAddCoachModal, setShowAddCoachModal] = useState(false);
   
   const fetchGroupDataFromServices = useCallback(async () => {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !user?.uid) return;
@@ -200,12 +195,14 @@ export default function GroupSettingsScreen() {
   const handleAddMember = async () => {
     if (group && groupId && clubId) {
       const groupName = encodeURIComponent(group.name);
-      
-      // Get club name from userProfile.clubAccess
-      const clubAccess = userProfile?.clubAccess?.find(club => club.clubId === clubId);
-      const clubName = clubAccess?.clubName || 'Unknown Club';
-      
-      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}&clubName=${encodeURIComponent(clubName)}` as any);
+      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}` as any);
+    }
+  };
+
+  const handleAddCoach = () => {
+    if (group && groupId && clubId) {
+      const groupNameEncoded = encodeURIComponent(group.name);
+      router.push(`/add-coach?groupId=${groupId}&clubId=${clubId}&groupName=${groupNameEncoded}&clubName=Club` as any);
     }
   };
 
@@ -406,7 +403,7 @@ export default function GroupSettingsScreen() {
           {canManage && (
             <TouchableOpacity 
               style={styles.optionItem}
-              onPress={() => setShowAddCoachModal(true)}
+              onPress={handleAddCoach}
             >
               <View style={styles.optionIcon}>
                 <Ionicons 
@@ -417,7 +414,7 @@ export default function GroupSettingsScreen() {
               </View>
               <View style={styles.optionContent}>
                 <Text style={styles.optionTitle}>Add Coach</Text>
-                <Text style={styles.optionDescription}>Promote members or invite external coaches</Text>
+                <Text style={styles.optionDescription}>Invite coaches or promote existing members</Text>
               </View>
               <Ionicons 
                 name="chevron-forward" 
@@ -593,64 +590,6 @@ export default function GroupSettingsScreen() {
                     disabled={creatingSubgroup || !subgroupName.trim()}
                   />
                 </View>
-              </View>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
-
-      {/* Add Coach Modal */}
-      <Modal
-        visible={showAddCoachModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAddCoachModal(false)}
-      >
-        <Pressable 
-          style={styles.modalOverlay} 
-          onPress={() => setShowAddCoachModal(false)}
-        >
-          <View style={styles.modalContainer}>
-            <Pressable onPress={() => {}} style={styles.modal}>
-              <Text style={styles.modalTitle}>Add Coach</Text>
-              
-              <Text style={styles.modalDescription}>
-                Choose how to add a new coach to your group:
-              </Text>
-              
-              <View style={styles.coachOptionsList}>
-                {/* Promote Member Option - adults only */}
-                {true /* TODO: Add adult group detection logic */ && (
-                  <TouchableOpacity style={styles.coachOption}>
-                    <Ionicons name="people-outline" size={24} color={theme.colors.secondary} />
-                    <Text style={styles.coachOptionText}>Promote Existing Member</Text>
-                    <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                )}
-                
-                {/* Promote Guardian Option - children's groups only */}
-                {false /* TODO: Add children's group detection logic */ && (
-                  <TouchableOpacity style={styles.coachOption}>
-                    <Ionicons name="shield-outline" size={24} color={theme.colors.secondary} />
-                    <Text style={styles.coachOptionText}>Promote Guardian</Text>
-                    <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                )}
-                
-                {/* Invite External Adult - All ageGroups */}
-                <TouchableOpacity style={styles.coachOption}>
-                  <Ionicons name="person-add-outline" size={24} color={theme.colors.secondary} />
-                  <Text style={styles.coachOptionText}>Invite External Adult</Text>
-                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.modalButtons}>
-                <Button
-                  label="Cancel"
-                  onPress={() => setShowAddCoachModal(false)}
-                  theme="secondary"
-                />
               </View>
             </Pressable>
           </View>

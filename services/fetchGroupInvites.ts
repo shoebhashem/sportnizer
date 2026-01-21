@@ -23,6 +23,12 @@ export interface GroupInviteInfo {
     dateOfBirth: string;
     relationship: string;
   };
+  metadata?: {
+    action?: 'role_update' | 'new_member';
+    newRole?: string;
+    existingRoles?: string[];
+    [key: string]: any;
+  };
 }
 
 export interface FetchGroupInvitesResponse {

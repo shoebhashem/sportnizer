@@ -169,6 +169,8 @@ export const createNotificationDirect = async (
   userId: string,
   notificationData: Omit<CreateNotificationRequest, 'userId'>
 ): Promise<string> => {
+  // Type guard for metadata
+  const hasMetadata = 'metadata' in notificationData && notificationData.metadata !== undefined;
   const db = admin.firestore();
 
   // Verify target user exists
@@ -200,6 +202,9 @@ export const createNotificationDirect = async (
     clubName: notificationData.clubName,
     ...(notificationData.groupId && { groupId: notificationData.groupId }),
     ...(notificationData.groupName && { groupName: notificationData.groupName }),
+    
+    // Metadata for context-aware UI
+    ...(hasMetadata ? { metadata: (notificationData as any).metadata } : {}),
     
     // Timestamps
     createdAt: admin.firestore.FieldValue.serverTimestamp(),

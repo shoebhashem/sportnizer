@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { createNotificationDirect } from '../notifications/createNotification';
-import { GroupInvitationRequest, InvitationResult } from '../types/interfaces';
+import { CreateNotificationRequest, GroupInvitationRequest, InvitationResult } from '../types/interfaces';
 import { config } from '../utils/config';
 import { emailTransporter, groupInvitationWithActionsTemplate, guardianInvitationTemplate } from '../utils/email';
 import { validateArrayField, validateRequiredFields } from '../utils/validation';
@@ -21,7 +21,8 @@ export const sendGroupInvitation = onCall(
         inviterName,
         inviterUid,
         invitationType,
-        youthData
+        youthData,
+        role  // New: role to assign (coach or member)
       }: GroupInvitationRequest = request.data;
 
       // Debug logging
@@ -94,6 +95,9 @@ export const sendGroupInvitation = onCall(
             isExistingUser: userExists,
             userId: existingUserId,
             
+            // Role assignment
+            role: role || 'member',  // Store role for later assignment
+            
             // Youth-specific fields (optional)
             invitationType: invitationType || 'regular',
             youthData: youthData || null,
@@ -123,8 +127,12 @@ export const sendGroupInvitation = onCall(
                 groupId,
                 groupName,
                 youthData: invitationType === 'youth_member' ? youthData : undefined,
-                priority: 'normal'
-              });
+                priority: 'normal',
+                metadata: {
+                  action: 'new_member',
+                  role: role || 'member'
+                }
+              } as Omit<CreateNotificationRequest, 'userId'>);
               
               console.log(`✅ Notification created for existing user: ${notificationId}`);
               console.log(`📱 Dual-write complete - invitation: ${invitationToken}, notification: ${notificationId}`);
