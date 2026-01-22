@@ -68,12 +68,10 @@ export const fetchSubGroupMembers = async (
       return allMembersResult;
     }
 
-    // Filter members who belong to any of the specified sub-groups
-    const subGroupMembers = allMembersResult.members.filter(member => 
-      member.belongsToSubGroups?.some(subGroup => subGroupIds.includes(subGroup))
-    );
-
-    return { success: true, members: subGroupMembers };
+    // TODO: Update this to fetch from new subgroup subcollections
+    // For now, return empty array as subgroup membership is tracked separately
+    console.warn('⚠️ fetchSubGroupMembers: Needs update to use new subgroup architecture');
+    return { success: true, members: [] };
 
   } catch (error: any) {
     console.error('❌ Error fetching sub-group members:', error);

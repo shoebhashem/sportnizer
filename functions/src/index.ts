@@ -23,9 +23,14 @@ export { updateClub } from './clubs/updateClub';
 export { createGroup } from './groups/createGroup';
 export { createSubGroup } from './groups/createSubGroup';
 export { deleteGroup } from './groups/deleteGroup';
+export { deleteSubGroup } from './groups/deleteSubGroup';
 export { getGroup } from './groups/getGroup';
 export { getGroupMembers } from './groups/getGroupMembers';
+export { getSubgroup } from './groups/getSubgroup';
+export { getSubgroupMembers } from './groups/getSubgroupMembers';
+export { getSubGroups } from './groups/getSubGroups';
 export { updateGroup } from './groups/updateGroup';
+export { updateSubGroup } from './groups/updateSubGroup';
 
 // Event Management Functions (Atomic)
 export { createEvent } from './events/createEvent';

@@ -5,6 +5,7 @@ export { clubService } from './club';
 export { eventService } from './event';
 export { groupService } from './group';
 export { memberService } from './member';
+export { subgroupService } from './subgroup';
 
 // Orchestrating services - coordinate multiple atomic functions
 export * from './orchestration';

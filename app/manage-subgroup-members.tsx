@@ -1,12 +1,11 @@
 import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { theme } from '@/constants/theme';
-import { useVersionedData } from '@/contexts/UserContext';
-import { functions } from '@/services/core/firebase';
+import { fetchGroupMembers } from '@/services/fetchGroupMembers';
+import { subgroupService } from '@/services/subgroup';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { httpsCallable } from 'firebase/functions';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,14 +15,12 @@ interface Member {
   roles?: string[]; // New field for multiple roles
   name: string;
   email: string;
-  belongsToSubGroups?: string[];
   selected: boolean;
   originallySelected: boolean; // Track original state to determine what changed
 }
 
 export default function ManageSubgroupMembersScreen() {
-  const { groupId, clubId, subgroupName } = useLocalSearchParams();
-  const { fetchGroupMembers } = useVersionedData();
+  const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,22 +35,30 @@ export default function ManageSubgroupMembersScreen() {
   };
 
   const fetchMembersAndSubgroup = useCallback(async () => {
-    if (!groupId || !clubId || !subgroupName || 
-        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupName !== 'string') return;
+    if (!groupId || !clubId || !subgroupId || 
+        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupId !== 'string') return;
 
     setLoading(true);
-    console.log('Fetching members with params:', { groupId, clubId, subgroupName });
+    console.log('Fetching members with params:', { groupId, clubId, subgroupId });
     try {
-      // Fetch group members using versioned UserContext service
-      const membersResult = await fetchGroupMembers(clubId, groupId);
-      const allGroupMembers = membersResult.success ? membersResult.data?.members || [] : [];
+      // Fetch all group members and current subgroup members
+      const [groupMembersResult, subgroupMembersResult] = await Promise.all([
+        fetchGroupMembers(clubId, groupId),
+        subgroupService.getSubgroupMembers(clubId, groupId, subgroupId)
+      ]);
+      
+      const allGroupMembers = groupMembersResult.success ? groupMembersResult.members || [] : [];
+      const subgroupMembers = subgroupMembersResult.success ? subgroupMembersResult.members || [] : [];
       
       if (allGroupMembers.length === 0) {
-        console.log('No members found');
+        console.log('No members found in group');
         setMembers([]);
         setLoading(false);
         return;
       }
+      
+      // Create a Set of subgroup member IDs for quick lookup
+      const subgroupMemberIds = new Set(subgroupMembers.map((m: any) => m.userId));
       
       const processedMembers: Member[] = allGroupMembers.map((memberData: any) => {
         // Handle both old role field and new roles array
@@ -70,12 +75,11 @@ export default function ManageSubgroupMembersScreen() {
           memberRoles = [memberRole];
         }
 
-        // Get member name (could be from member data or need to be fetched)
+        // Get member name
         const memberName = memberData.name || memberData.email?.split('@')[0] || 'Unknown User';
         
         // Check if member is currently in this subgroup
-        const belongsToSubGroups = memberData.belongsToSubGroups || [];
-        const isInSubgroup = belongsToSubGroups.includes(subgroupName);
+        const isInSubgroup = subgroupMemberIds.has(memberData.userId);
 
         return {
           userId: memberData.userId,
@@ -83,7 +87,6 @@ export default function ManageSubgroupMembersScreen() {
           roles: memberRoles,
           name: memberName,
           email: memberData.email || '',
-          belongsToSubGroups: belongsToSubGroups,
           selected: isInSubgroup,
           originallySelected: isInSubgroup
         };
@@ -92,10 +95,11 @@ export default function ManageSubgroupMembersScreen() {
       setMembers(processedMembers);
     } catch (error) {
       console.error('Error fetching members:', error);
+      showError('Error', 'Failed to load members');
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, subgroupName, fetchGroupMembers]);
+  }, [groupId, clubId, subgroupId]);
 
   useEffect(() => {
     fetchMembersAndSubgroup();
@@ -110,62 +114,66 @@ export default function ManageSubgroupMembersScreen() {
   };
 
   const handleSave = async () => {
-    if (!groupId || !clubId || !subgroupName || 
-        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupName !== 'string') return;
+    if (!groupId || !clubId || !subgroupId || 
+        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupId !== 'string') return;
 
     setSaving(true);
     try {
-      const addMemberToSubGroup = httpsCallable(functions, 'addMemberToSubGroup');
-      const removeMemberFromSubGroup = httpsCallable(functions, 'removeMemberFromSubGroup');
-      
       // Find members whose selection changed
       const membersToAdd = members.filter(m => m.selected && !m.originallySelected);
       const membersToRemove = members.filter(m => !m.selected && m.originallySelected);
       
-      // Process additions
+      console.log(`Changes: ${membersToAdd.length} to add, ${membersToRemove.length} to remove`);
+      
+      // Process additions using the new atomic function
       for (const member of membersToAdd) {
         try {
           console.log('Adding member to subgroup:', {
-            clubId: clubId,
-            groupId: groupId,
-            subGroupName: subgroupName,
+            clubId,
+            groupId,
+            subGroupId: subgroupId,
             userId: member.userId,
             memberName: member.name
           });
           
-          const result = await addMemberToSubGroup({
-            clubId: clubId,
-            groupId: groupId,
-            subGroupName: subgroupName,
-            userId: member.userId
-          });
+          const result = await subgroupService.addMemberToSubgroup(
+            clubId,
+            groupId,
+            subgroupId,
+            member.userId
+          );
           
-          const response = result.data as any;
-          if (!response.success) {
-            console.error('Failed to add member:', response.error);
-            showError('Error', `Failed to add ${member.name}: ${response.error}`);
+          if (!result.success) {
+            console.error('Failed to add member:', result.error);
+            showError('Error', `Failed to add ${member.name}: ${result.error}`);
           }
         } catch (error) {
           console.error('Error adding member to subgroup:', error);
-          console.error('Error details:', JSON.stringify(error, null, 2));
           showError('Error', `Failed to add ${member.name} to subgroup`);
         }
       }
       
-      // Process removals
+      // Process removals using the new atomic function
       for (const member of membersToRemove) {
         try {
-          const result = await removeMemberFromSubGroup({
-            clubId: clubId,
-            groupId: groupId,
-            subGroupName: subgroupName,
-            userId: member.userId
+          console.log('Removing member from subgroup:', {
+            clubId,
+            groupId,
+            subGroupId: subgroupId,
+            userId: member.userId,
+            memberName: member.name
           });
           
-          const response = result.data as any;
-          if (!response.success) {
-            console.error('Failed to remove member:', response.error);
-            showError('Error', `Failed to remove ${member.name}: ${response.error}`);
+          const result = await subgroupService.removeMemberFromSubgroup(
+            clubId,
+            groupId,
+            subgroupId,
+            member.userId
+          );
+          
+          if (!result.success) {
+            console.error('Failed to remove member:', result.error);
+            showError('Error', `Failed to remove ${member.name}: ${result.error}`);
           }
         } catch (error) {
           console.error('Error removing member from subgroup:', error);
@@ -173,6 +181,7 @@ export default function ManageSubgroupMembersScreen() {
         }
       }
 
+      // Navigate back on success
       router.back();
     } catch (error) {
       console.error('Error saving subgroup members:', error);

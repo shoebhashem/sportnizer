@@ -4,26 +4,39 @@ import { RemoveMemberFromSubGroupRequest, RemoveMemberFromSubGroupResponse } fro
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
 
+/**
+ * Remove a member from a subgroup
+ * 
+ * Architecture: Removes member from /clubs/{clubId}/groups/{groupId}/subgroups/{subgroupId}/allMembers/members
+ * 
+ * New approach:
+ * - Uses subGroupId instead of subGroupName
+ * - Only updates subgroup's allMembers collection
+ * - No need to update belongsToSubGroups array (doesn't exist anymore)
+ */
 export const removeMemberFromSubGroup = onCall(
   {
     region: config.region,
   },
   async (request): Promise<RemoveMemberFromSubGroupResponse> => {
     try {
-      const { clubId, groupId, subGroupName, userId }: RemoveMemberFromSubGroupRequest = request.data;
+      const { clubId, groupId, subGroupId, userId } = request.data as RemoveMemberFromSubGroupRequest;
 
       // Validate required fields
-      validateRequiredFields(request.data, ['clubId', 'groupId', 'subGroupName', 'userId']);
+      validateRequiredFields(request.data, ['clubId', 'groupId', 'subGroupId', 'userId']);
 
       // Verify the user is authenticated
       if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be authenticated');
       }
 
-      console.log(`Removing user ${userId} from subgroup ${subGroupName} in group ${groupId}`);
+      console.log(`Removing user ${userId} from subgroup ${subGroupId} in group ${groupId}`);
+
+      const db = admin.firestore();
+      const currentUserId = request.auth.uid;
 
       // Verify group exists
-      const groupRef = admin.firestore()
+      const groupRef = db
         .collection('clubs')
         .doc(clubId)
         .collection('groups')
@@ -34,63 +47,94 @@ export const removeMemberFromSubGroup = onCall(
         throw new HttpsError('not-found', 'Group not found');
       }
 
-      // Get current group allMembers document
-      const groupMemberRef = admin.firestore()
-        .collection('clubs')
-        .doc(clubId)
-        .collection('groups')
-        .doc(groupId)
-        .collection('allMembers')
-        .doc('members');
+      const groupData = groupDoc.data();
 
+      // Check permissions: only coach, admin, club-admin, or group creator can manage subgroup members
+      const groupMemberRef = groupRef.collection('allMembers').doc('members');
       const groupMembersDoc = await groupMemberRef.get();
+      
       if (!groupMembersDoc.exists) {
         throw new HttpsError('not-found', 'Group members document not found');
       }
 
       const groupMembersData = groupMembersDoc.data();
-      const currentMembers = groupMembersData?.members || [];
+      const groupMembers = groupMembersData?.members || [];
+      const currentUserMember = groupMembers.find((m: any) => m.userId === currentUserId);
+      
+      const isGroupCreator = groupData?.createdBy === currentUserId;
+      
+      console.log('Permission check:', {
+        currentUserId,
+        isGroupCreator,
+        hasCurrentUserMember: !!currentUserMember,
+        currentUserRoles: currentUserMember?.roles || 'none'
+      });
+      
+      const hasPermission = isGroupCreator || (currentUserMember && (
+        currentUserMember.roles?.includes('coach') ||
+        currentUserMember.roles?.includes('admin') ||
+        currentUserMember.roles?.includes('club-admin')
+      ));
 
-      // Find the specific member by userId
-      const memberIndex = currentMembers.findIndex((member: any) => member.userId === userId);
-      if (memberIndex === -1) {
-        throw new HttpsError('not-found', 'User is not a member of this group');
+      if (!hasPermission) {
+        console.error('Permission denied:', {
+          currentUserId,
+          isGroupCreator,
+          hasCurrentUserMember: !!currentUserMember,
+          currentUserRoles: currentUserMember?.roles
+        });
+        throw new HttpsError(
+          'permission-denied',
+          'Only coaches, admins, or group creators can manage subgroup members'
+        );
       }
 
-      const member = currentMembers[memberIndex];
-      const currentSubGroups = member.belongsToSubGroups || [];
+      // Verify subgroup exists
+      const subgroupRef = groupRef.collection('subgroups').doc(subGroupId);
+      const subgroupDoc = await subgroupRef.get();
+      
+      if (!subgroupDoc.exists) {
+        throw new HttpsError('not-found', 'Subgroup not found');
+      }
 
-      // Check if user is actually in this subgroup
-      if (!currentSubGroups.includes(subGroupName)) {
+      // Get subgroup members
+      const subgroupMemberRef = subgroupRef
+        .collection('allMembers')
+        .doc('members');
+
+      const subgroupMembersDoc = await subgroupMemberRef.get();
+      if (!subgroupMembersDoc.exists) {
+        throw new HttpsError('not-found', 'Subgroup members document not found');
+      }
+
+      const subgroupMembersData = subgroupMembersDoc.data();
+      const currentMembers = subgroupMembersData?.members || [];
+
+      // Find the member in subgroup
+      const memberIndex = currentMembers.findIndex((member: any) => member.userId === userId);
+      if (memberIndex === -1) {
         return {
           success: false,
           error: 'User is not a member of this subgroup'
         };
       }
 
-      // Remove the subgroup from the member's belongsToSubGroups array
-      const updatedSubGroups = currentSubGroups.filter((sg: string) => sg !== subGroupName);
-      const updatedMember = {
-        ...member,
-        belongsToSubGroups: updatedSubGroups
-      };
-
-      // Replace the member in the array
-      const updatedMembers = [...currentMembers];
-      updatedMembers[memberIndex] = updatedMember;
+      // Remove the member from the array
+      const updatedMembers = currentMembers.filter((member: any) => member.userId !== userId);
 
       // Update the document with the new members array
-      await groupMemberRef.update({
+      await subgroupMemberRef.update({
         members: updatedMembers,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        memberCount: updatedMembers.length,
+        version: admin.firestore.FieldValue.increment(1),
+        lastModified: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      console.log(`Successfully removed user ${userId} from subgroup ${subGroupName}`);
+      console.log(`✅ Successfully removed user ${userId} from subgroup ${subGroupId}`);
 
       return {
         success: true,
-        message: `Member removed from subgroup ${subGroupName} successfully`,
-        subGroupName: subGroupName
+        message: 'Member removed from subgroup successfully'
       };
 
     } catch (error) {

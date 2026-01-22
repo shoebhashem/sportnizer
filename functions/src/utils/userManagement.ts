@@ -22,7 +22,6 @@ export interface UserCreationData {
       roles: string[];
       joinedAt: Date;
       lastModifiedAt: Date;
-      subGroups: string[];
     }[];
     eventAccess: {
       eventId: string;
@@ -101,8 +100,7 @@ export const createOrUpdateUserWithGroup = async (
           groupName,
           roles: [role],
           joinedAt: new Date(),
-          lastModifiedAt: new Date(),
-          subGroups: []
+          lastModifiedAt: new Date()
         };
         
         const updates: any = {
@@ -127,8 +125,7 @@ export const createOrUpdateUserWithGroup = async (
           groupName,
           roles: [role],
           joinedAt: new Date(),
-          lastModifiedAt: new Date(),
-          subGroups: []
+          lastModifiedAt: new Date()
         }],
         eventAccess: [],
         pollAccess: [],
@@ -162,8 +159,7 @@ export const createOrUpdateUserWithGroup = async (
           groupName,
           roles: [role],
           joinedAt: new Date(),
-          lastModifiedAt: new Date(),
-          subGroups: []
+          lastModifiedAt: new Date()
         }],
         eventAccess: [],
         pollAccess: [],

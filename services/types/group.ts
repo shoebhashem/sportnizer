@@ -8,11 +8,7 @@ export interface GroupData {
   coaches: string[]; // User IDs with coach role
   admins: string[]; // User IDs with group-admin role
   memberCount: number;
-  subGroups: {
-    id: string;
-    name: string;
-    description: string;
-  }[];
+  subGroups: { id: string; name: string }[]; // Array of subgroup metadata for denormalization
   isActive: boolean;
   createdAt: any; // Firestore Timestamp
   createdBy: string;
@@ -34,7 +30,6 @@ export interface GroupMemberData {
   name: string;
   email: string;
   needsGuardian: boolean; // true for child/youth members
-  belongsToSubGroups?: string[]; // Names of subgroups the member belongs to
   guardiansContacts: GuardianContact[]; // Guardian contact details (UPDATED)
 }
 

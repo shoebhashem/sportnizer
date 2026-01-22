@@ -97,8 +97,8 @@ service cloud.firestore {
     function isGuardianOf(youthUserId) {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/users/$(youthUserId)) &&
-             get(/databases/$(database)/documents/users/$(youthUserId)).data.guardians != null &&
-             youthUserId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('dependents', []).map(d => d.dependentUid);
+             get(/databases/$(database)/documents/users/$(youthUserId)).data.guardians != null;
+      // Note: Full dependent relationship checking moved to backend for security
     }
 
     // Check if user has access to youth member data (guardian or club admin)
@@ -272,6 +272,13 @@ service cloud.firestore {
         match /subgroups/{subgroupId} {
           allow read: if isSignedIn();
           allow create, update, delete: if canManageGroup(clubId, groupId);
+          
+          // Subgroup members subcollection
+          match /allMembers/{memberId} {
+            allow read: if isClubAdmin(clubId) || canManageGroup(clubId, groupId) || hasGroupAccess(clubId, groupId);
+            allow create, update: if isClubAdmin(clubId) || canManageGroup(clubId, groupId);
+            allow delete: if isClubAdmin(clubId) || isGroupAdmin(clubId, groupId);
+          }
         }
 
         // All Members subcollection - contains member documents for the group

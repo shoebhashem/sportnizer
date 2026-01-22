@@ -1,172 +1,92 @@
 import Button from '@/components/Button';
+import { getDefaultProfilePicture } from '@/constants/profilePictures';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useVersionedData } from '@/contexts/UserContext';
+import { fetchGroupMembers } from '@/services/fetchGroupMembers';
+import { groupService } from '@/services/group';
+import { subgroupService } from '@/services/subgroup';
+import { GroupData, GroupMemberData } from '@/services/types/group';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-interface Group {
-  id: string;
-  name: string;
-  createdBy: string;
-  ageGroup?: number; // 1=children, 2=adults, 3=mixed
-}
-
-interface Member {
-  id: string;
-  role?: string; // Legacy field for backward compatibility
-  roles?: string[]; // New field for multiple roles
-  name: string;
-}
-
-interface Subgroup {
-  id: string;
-  name: string;
-  memberIds: string[];
-  createdBy: string;
-}
-
 export default function ManageSubgroupScreen() {
-  const { groupId, subgroupName, clubId } = useLocalSearchParams();
+  const { groupId, subgroupId, clubId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
-  const { fetchGroupData, fetchGroupMembers } = useVersionedData();
-  const [group, setGroup] = useState<Group | null>(null);
-  const [subgroup, setSubgroup] = useState<Subgroup | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [subgroupMembers, setSubgroupMembers] = useState<Member[]>([]);
+  const [group, setGroup] = useState<GroupData | null>(null);
+  const [subgroupMembers, setSubgroupMembers] = useState<GroupMemberData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
 
-  // Check if user is admin or coach (can manage group/subgroups)
+  // Check if user can manage subgroup
   const canManage = user && group && (
-    group.createdBy === user.uid || 
-    members.some(member => {
-      if (member.id !== user.uid) return false;
-      // Handle both old role field and new roles array
-      if (member.roles && Array.isArray(member.roles)) {
-        return member.roles.includes('admin') || member.roles.includes('coach');
-      }
-      // Fallback to old role field
-      return member.role === 'admin' || member.role === 'coach';
-    })
+    group.createdBy === user.uid ||
+    userRoles.includes('admin') ||
+    userRoles.includes('coach')
   );
 
   const fetchData = useCallback(async () => {
-    if (!groupId || !clubId || !subgroupName || 
-        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupName !== 'string') return;
+    if (!groupId || !clubId || !subgroupId || 
+        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupId !== 'string') return;
 
     try {
-      // Fetch group data using versioned UserContext services
-      const [groupResult, membersResult] = await Promise.all([
-        fetchGroupData(clubId, groupId),
-        fetchGroupMembers(clubId, groupId)
+      // Fetch group and subgroup members
+      const [groupResult, membersResult, subgroupMembersResult] = await Promise.all([
+        groupService.getGroup(clubId, groupId),
+        fetchGroupMembers(clubId, groupId),
+        subgroupService.getSubgroupMembers(clubId, groupId, subgroupId)
       ]);
 
       // Process group data
       if (groupResult.success && groupResult.data) {
-        const groupData = groupResult.data;
-        setGroup({
-          id: groupId,
-          name: groupData.name,
-          createdBy: groupData.createdBy
-        });
-
-        // Create subgroup object from name (no separate document in new architecture)
-        setSubgroup({
-          id: subgroupName, // Use name as ID since there's no separate document
-          name: subgroupName,
-          memberIds: [], // Will be populated from members' belongsToSubGroups
-          createdBy: groupData.createdBy // Assume same as group creator
-        });
+        setGroup(groupResult.data);
       }
 
-      // Process members data
-      const allGroupMembers = membersResult.success ? membersResult.data?.members || [] : [];
-        
-        const processedMembers: Member[] = allGroupMembers.map((memberData: any) => {
-          // Handle both old role field and new roles array
-          let memberRole = 'member';
-          let memberRoles: string[] = [];
-          
-          if (memberData.roles && Array.isArray(memberData.roles)) {
-            // New schema: roles array
-            memberRoles = memberData.roles;
-            memberRole = memberRoles[0] || 'member'; // Use first role as primary for display
-          } else {
-            // Old schema: role string
-            memberRole = memberData.role || 'member';
-            memberRoles = [memberRole];
-          }
+      // Process members data for role checking
+      const membersData: GroupMemberData[] = membersResult.success ? membersResult.members : [];
 
-          // Get member name
-          const memberName = memberData.name || memberData.email?.split('@')[0] || 'Unknown User';
-          
-          return {
-            id: memberData.userId,
-            role: memberRole,
-            roles: memberRoles,
-            name: memberName
-          };
-        });
+      // Process subgroup members data
+      const subgroupMembersData: GroupMemberData[] = subgroupMembersResult.success ? subgroupMembersResult.members : [];
+      console.log(`📋 Fetched ${subgroupMembersData.length} members for subgroup ${subgroupId}`);
+      setSubgroupMembers(subgroupMembersData);
 
-        setMembers(processedMembers);
-
-        // Filter subgroup members based on belongsToSubGroups
-        const subgroupMembersData = allGroupMembers
-          .filter((memberData: any) => {
-            const belongsToSubGroups = memberData.belongsToSubGroups || [];
-            return belongsToSubGroups.includes(subgroupName);
-          })
-          .map((memberData: any) => {
-            // Handle both old role field and new roles array
-            let memberRole = 'member';
-            let memberRoles: string[] = [];
-            
-            if (memberData.roles && Array.isArray(memberData.roles)) {
-              memberRoles = memberData.roles;
-              memberRole = memberRoles[0] || 'member';
-            } else {
-              memberRole = memberData.role || 'member';
-              memberRoles = [memberRole];
-            }
-
-            return {
-              id: memberData.userId,
-              role: memberRole,
-              roles: memberRoles,
-              name: memberData.name || memberData.email?.split('@')[0] || 'Unknown User'
-            };
-          });
-
-        setSubgroupMembers(subgroupMembersData);
-
-        // Update subgroup with actual member IDs
-        setSubgroup(prev => prev ? {
-          ...prev,
-          memberIds: subgroupMembersData.map((member: Member) => member.id)
-        } : null);
-
+      // Get current user's roles
+      if (user && membersData) {
+        const currentUserMember = membersData.find((member: any) => member.userId === user.uid);
+        setUserRoles(currentUserMember?.roles || []);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, subgroupName, fetchGroupData, fetchGroupMembers]);
+  }, [groupId, clubId, subgroupId, user]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const handleManageMembers = () => {
-    router.push(`/manage-subgroup-members?groupId=${groupId}&clubId=${clubId}&subgroupName=${encodeURIComponent(subgroupName as string)}` as any);
-  };
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
-  const renderMemberItem = ({ item }: { item: Member }) => (
+  const renderMemberItem = ({ item }: { item: GroupMemberData }) => (
     <View style={styles.memberItem}>
-      <Text style={styles.memberText}>{item.name}</Text>
-      <Text style={styles.memberRole}>{item.role}</Text>
+      <Image
+        style={styles.memberAvatar}
+        source={{ uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian) }}
+      />
+      <View style={styles.memberInfo}>
+        <Text style={styles.memberName}>{item.name}</Text>
+        <Text style={styles.memberRole}>
+          {item.roles.join(', ')} {item.needsGuardian && '(Child/Youth)'}
+        </Text>
+      </View>
     </View>
   );
 
@@ -181,7 +101,7 @@ export default function ManageSubgroupScreen() {
     );
   }
 
-  if (!group || !subgroup) {
+  if (!group) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
@@ -191,6 +111,8 @@ export default function ManageSubgroupScreen() {
       </SafeAreaView>
     );
   }
+
+  const displaySubgroupName = typeof subgroupName === 'string' ? subgroupName : 'Subgroup';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -212,22 +134,20 @@ export default function ManageSubgroupScreen() {
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.groupTitle}>{group.name}</Text>
-            <Text style={styles.subgroupTitle}>{subgroup.name}</Text>
+            <Text style={styles.subgroupTitle}>{displaySubgroupName}</Text>
           </View>
-          <View style={styles.placeholder} />
+          <TouchableOpacity 
+            style={styles.kebabButton}
+            onPress={() => router.push(`/subgroup-settings?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(displaySubgroupName)}` as any)}
+          >
+            <Ionicons 
+              name="ellipsis-vertical" 
+              size={24} 
+              color={theme.colors.text} 
+            />
+          </TouchableOpacity>
         </View>
 
-        {/* Manage Members Button */}
-        {canManage && (
-          <View style={{ marginBottom: 16 }}>
-            <Button
-              label="Manage Members"
-              onPress={handleManageMembers}
-              theme="primary"
-            />
-          </View>
-        )}
-        
         {/* Members Section */}
         <Text style={styles.sectionTitle}>Members ({subgroupMembers.length})</Text>
         
@@ -288,8 +208,40 @@ const styles = StyleSheet.create({
     color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.bold,
   },
-  placeholder: {
-    width: 40, // Same width as back button for centering
+  kebabButton: {
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
+  },
+  kebabMenu: {
+    position: 'absolute',
+    top: 60,
+    right: theme.layout.containerPadding,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
+    minWidth: 200,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  menuText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  settingsButton: {
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
   },
   sectionTitle: {
     fontSize: theme.typography.fontSize.large,
@@ -303,21 +255,29 @@ const styles = StyleSheet.create({
   },
   memberItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.inputBorder,
   },
-  memberText: {
+  memberAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: theme.spacing.md,
+  },
+  memberInfo: {
+    flex: 1,
+  },
+  memberName: {
     fontSize: theme.typography.fontSize.medium,
+    fontWeight: '600',
     color: theme.colors.text,
-    fontWeight: theme.typography.fontWeight.medium,
+    marginBottom: 2,
   },
   memberRole: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
-    textTransform: 'capitalize',
   },
   emptyState: {
     padding: theme.spacing.xl,

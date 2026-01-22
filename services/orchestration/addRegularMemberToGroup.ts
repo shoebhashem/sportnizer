@@ -496,8 +496,7 @@ export const addRegularMemberToGroupService = {
           : 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media', // Default profile icons
         addedBy: invitationData.inviterUid,  // Who invited them
         needsGuardian: !!isYouthInvitation,  // Convert to boolean - Youth members need a guardian
-        guardiansContacts: guardiansContacts, // Guardian contacts from youth's guardians array
-        belongsToSubGroups: []               // Initialize empty subgroups array
+        guardiansContacts: guardiansContacts // Guardian contacts from youth's guardians array
       };
 
       console.log('🔍 DEBUG memberData:', JSON.stringify({
@@ -598,8 +597,7 @@ export const addRegularMemberToGroupService = {
         photoURL: 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media',
         addedBy: invitationData.inviterUid,
         needsGuardian: false,
-        guardiansContacts: [],
-        belongsToSubGroups: []
+        guardiansContacts: []
       };
       
       try {
@@ -834,8 +832,7 @@ export const addRegularMemberToGroupService = {
           photoURL: 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media',
           addedBy: invitationData.inviterUid,
           needsGuardian: false,
-          guardiansContacts: [],
-          belongsToSubGroups: []
+          guardiansContacts: []
         };
         
         try {

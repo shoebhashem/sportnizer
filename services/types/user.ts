@@ -68,7 +68,6 @@ export interface GroupAccess {
   roles: string[]; // roles in the group (e.g., ['player', 'coach', 'admin', 'guardian'])
   joinedAt: Date;
   lastModifiedAt: Date;
-  subGroups?: string[]; // Sub-group IDs user belongs to
 }
 
 export interface EventAccess {

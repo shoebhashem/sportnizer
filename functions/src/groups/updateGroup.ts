@@ -42,7 +42,6 @@ export const updateGroup = onCall(
       
       if (groupData.name) updateData.name = groupData.name.trim();
       if (groupData.description !== undefined) updateData.description = groupData.description;
-      if (groupData.subGroups) updateData.subGroups = groupData.subGroups;
       if (groupData.ageRange !== undefined) updateData.ageRange = groupData.ageRange;
       
       await groupRef.update(updateData);

@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { httpsCallable } from 'firebase/functions';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,10 +10,10 @@ import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 
 // Import services following three-layer architecture
-import { functions } from '../services/core/firebase';
 import { fetchGroupMembers } from '../services/fetchGroupMembers';
 import { groupService } from '../services/group';
 import { memberService } from '../services/member';
+import { subgroupService } from '../services/subgroup';
 import { GroupData } from '../services/types/group';
 
 // interface UnconfirmedMember {
@@ -234,38 +233,31 @@ export default function GroupSettingsScreen() {
     console.log('🚀 Starting subgroup creation...');
     
     try {
-      // Call the Firebase Function
-      console.log('📞 Calling Firebase Function: createSubGroup');
-      const createSubGroupFunction = httpsCallable(functions, 'createSubGroup');
+      // Use subgroupService instead of direct Firebase Function call
+      console.log('📞 Calling subgroupService.createSubgroup');
       
-      const payload = {
-        uid: user.uid,
-        clubId: clubId as string,
-        groupId: groupId as string,
-        subGroupName: subgroupName.trim()
-      };
-      console.log('📦 Payload:', payload);
-      
-      const result = await createSubGroupFunction(payload);
-      console.log('✅ Firebase Function result:', result);
+      const result = await subgroupService.createSubgroup(
+        clubId as string,
+        groupId as string,
+        subgroupName.trim(),
+        user.uid
+      );
+      console.log('✅ Service result:', result);
 
-      const data = result.data as { success: boolean; message?: string; error?: string; subGroupName?: string };
-      console.log('📊 Response data:', data);
-
-      if (data.success) {
+      if (result.success) {
         console.log('🎉 Success! Closing modal and showing success message');
         setShowCreateSubgroupModal(false);
         setSubgroupName('');
         
         // Show success message
-        setSuccessMessage(`Subgroup "${data.subGroupName || subgroupName.trim()}" created successfully!`);
+        setSuccessMessage(`Subgroup "${subgroupName.trim()}" created successfully!`);
         setShowSuccessModal(true);
         
         // Navigate to manage-group screen with subgroups tab active
-        router.push(`/manage-group?groupId=${groupId}&tab=subgroups` as any);
+        router.push(`/manage-group?groupId=${groupId}&clubId=${clubId}&tab=subgroups` as any);
       } else {
-        console.log('❌ Function returned error:', data.error);
-        setErrorMessage(data.error || 'Failed to create subgroup');
+        console.log('❌ Service returned error:', result.error);
+        setErrorMessage(result.error || 'Failed to create subgroup');
         setShowErrorModal(true);
       }
     } catch (error) {

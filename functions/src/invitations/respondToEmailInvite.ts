@@ -234,7 +234,6 @@ export const respondToEmailInvite = onCall(
                 joinedAt: admin.firestore.FieldValue.serverTimestamp(),
                 photoURL: '',
                 needsGuardian: false,
-                belongsToSubGroups: [],
                 guardiansContacts: [],
                 addedBy: inviteData.inviterUid
               };
@@ -287,8 +286,7 @@ export const respondToEmailInvite = onCall(
                       groupId: inviteData.groupId,
                       groupName: inviteData.groupName,
                       roles: ['player'],
-                      joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-                      subGroups: []
+                      joinedAt: admin.firestore.FieldValue.serverTimestamp()
                     });
                   }
                   
@@ -304,8 +302,7 @@ export const respondToEmailInvite = onCall(
                       groupId: inviteData.groupId,
                       groupName: inviteData.groupName,
                       roles: ['player'],
-                      joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-                      subGroups: []
+                      joinedAt: admin.firestore.FieldValue.serverTimestamp()
                     }]
                   });
                 }

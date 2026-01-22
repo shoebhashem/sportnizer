@@ -51,7 +51,7 @@ export const createGroup = onCall(
         coaches: [], // User IDs with coach role
         admins: [request.auth.uid], // User IDs with group-admin role (creator becomes admin)
         memberCount: 0,
-        subGroups: groupData.subGroups || [],
+        subGroups: [], // Array of {id, name} for each subgroup
         isActive: true,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         createdBy: request.auth.uid,

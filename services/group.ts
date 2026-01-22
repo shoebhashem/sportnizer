@@ -117,18 +117,13 @@ export const groupService = {
   /**
    * Fetch subgroups for a group
    */
+  /**
+   * @deprecated Use subgroupService.fetchSubgroups() instead
+   * This method is kept for backward compatibility but returns empty array
+   */
   async fetchSubGroups(clubId: string, groupId: string): Promise<any[]> {
-    try {
-      const result = await this.getGroup(clubId, groupId);
-      if (!result.success || !result.data) {
-        return [];
-      }
-      
-      return result.data.subGroups || [];
-    } catch (error: any) {
-      console.error('❌ Error fetching subgroups:', error);
-      return [];
-    }
+    console.warn('⚠️ groupService.fetchSubGroups is deprecated. Use subgroupService.fetchSubgroups() instead');
+    return [];
   },
 
   /**

@@ -305,7 +305,6 @@ export interface GroupMemberData {
   name: string;
   email?: string; // Optional for youth members
   needsGuardian: boolean;
-  belongsToSubGroups: string[];
   guardiansContacts: any[];
 }
 
@@ -372,17 +371,71 @@ export interface MembershipOperationResponse {
 }
 
 // Subgroup interfaces
+export interface SubGroupData {
+  id: string;
+  name: string;
+  createdBy: string;
+  createdAt: any;
+  description?: string;
+  color?: string;
+  memberCount?: number;
+}
+
 export interface CreateSubGroupRequest {
   uid: string;
   clubId: string;
   groupId: string;
   subGroupName: string;
+  description?: string;
+  color?: string;
 }
 
 export interface CreateSubGroupResponse {
   success: boolean;
   message?: string;
+  subGroupId?: string;
   subGroupName?: string;
+  error?: string;
+}
+
+export interface UpdateSubGroupRequest {
+  uid: string;
+  clubId: string;
+  groupId: string;
+  subGroupId: string;
+  name?: string;
+  description?: string;
+  color?: string;
+}
+
+export interface UpdateSubGroupResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface DeleteSubGroupRequest {
+  uid: string;
+  clubId: string;
+  groupId: string;
+  subGroupId: string;
+}
+
+export interface DeleteSubGroupResponse {
+  success: boolean;
+  message?: string;
+  deletedMemberCount?: number;
+  error?: string;
+}
+
+export interface GetSubGroupsRequest {
+  clubId: string;
+  groupId: string;
+}
+
+export interface GetSubGroupsResponse {
+  success: boolean;
+  subGroups?: SubGroupData[];
   error?: string;
 }
 
@@ -390,14 +443,13 @@ export interface CreateSubGroupResponse {
 export interface AddMemberToSubGroupRequest {
   clubId: string;
   groupId: string;
-  subGroupName: string;
+  subGroupId: string;  // Changed from subGroupName to subGroupId
   userId: string;
 }
 
 export interface AddMemberToSubGroupResponse {
   success: boolean;
   message?: string;
-  subGroupName?: string;
   error?: string;
 }
 
@@ -405,14 +457,13 @@ export interface AddMemberToSubGroupResponse {
 export interface RemoveMemberFromSubGroupRequest {
   clubId: string;
   groupId: string;
-  subGroupName: string;
+  subGroupId: string;  // Changed from subGroupName to subGroupId
   userId: string;
 }
 
 export interface RemoveMemberFromSubGroupResponse {
   success: boolean;
   message?: string;
-  subGroupName?: string;
   error?: string;
 }
 

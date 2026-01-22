@@ -39,11 +39,6 @@ export interface CreateNewClubAndGroupInput {
     name: string;                    // Required by createGroup
     description?: string;            // Optional
     sport?: string;                  // Optional - sport type for this group
-    subGroups?: {                    // Optional subgroups
-      id: string;
-      name: string;
-      description: string;
-    }[];
   };
   // User information for membership creation
   userId: string;
@@ -94,11 +89,7 @@ export interface CreateNewClubAndGroupResponse {
  *   groupData: {
  *     name: "Senior Team", 
  *     description: "First team squad",
- *     sport: "Football",
- *     subGroups: [
- *       { id: "defenders", name: "Defense", description: "Defensive players" },
- *       { id: "midfield", name: "Midfield", description: "Midfield players" }
- *     ]
+ *     sport: "Football"
  *   },
  *   userId: "user123",
  *   userDisplayName: "John Smith",
@@ -196,8 +187,7 @@ export const createNewClubAndGroup = async (
       groupName: groupData.name,
       roles: ['admin'],
       joinedAt: new Date(),
-      lastModifiedAt: new Date(),
-      subGroups: []
+      lastModifiedAt: new Date()
     };
 
     const userGroupResult = await updateUserGroupInfoFn({
