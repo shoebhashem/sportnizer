@@ -195,7 +195,7 @@ export const respondToEmailInvite = onCall(
                   userId: userId,
                   name: userInfo?.displayName || inviteData.email?.split('@')[0] || 'Unknown User',
                   email: inviteData.email || '',
-                  roles: ['member'],
+                  roles: ['player'],
                   joinedAt: admin.firestore.FieldValue.serverTimestamp(),
                   photoURL: '',
                   needsGuardian: false,
@@ -295,7 +295,7 @@ export const respondToEmailInvite = onCall(
                   clubAccess.push({
                     clubId: inviteData.clubId,
                     clubName: inviteData.clubName,
-                    role: 'member',
+                    role: 'player',
                     joinedAt: admin.firestore.FieldValue.serverTimestamp(),
                     lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
                     groupAccess: [{

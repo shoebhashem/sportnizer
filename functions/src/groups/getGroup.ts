@@ -16,7 +16,7 @@ export const getGroup = onCall(
       const { clubId, groupId } = request.data;
       validateRequiredFields(request.data, ['clubId', 'groupId']);
       
-      // 3. Perform single atomic operation
+      // 3. Perform atomic operations
       const db = admin.firestore();
       const groupDoc = await db.collection('clubs').doc(clubId).collection('groups').doc(groupId).get();
       
@@ -26,12 +26,19 @@ export const getGroup = onCall(
       
       const groupData = groupDoc.data();
       
+      // Fetch club document to get club name
+      const clubDoc = await db.collection('clubs').doc(clubId).get();
+      const clubName = clubDoc.exists ? clubDoc.data()?.name || 'Unknown Club' : 'Unknown Club';
+      
       // Verify user has access to this group (orchestration service can add more detailed access control)
       
-      // 4. Return consistent response
+      // 4. Return consistent response with clubName included
       return {
         success: true,
-        data: groupData
+        data: {
+          ...groupData,
+          clubName
+        }
       };
       
     } catch (error) {

@@ -24,7 +24,7 @@ export interface GuardianContact {
 
 export interface GroupMemberData {
   userId: string;
-  roles: ("club-admin" | "admin" | "coach" | "player" | "guardian")[]; // Updated role hierarchy
+  roles: ("club-admin" | "admin" | "coach" | "player" | "player-underage" | "guardian")[]; // Updated role hierarchy
   joinedAt: any; // Firestore timestamp
   photoURL: string;
   name: string;

@@ -117,7 +117,7 @@ export const createOrUpdateUserWithGroup = async (
       const newClubAccess = {
         clubId,
         clubName,
-        role: 'member',
+        role: 'player',
         joinedAt: new Date(),
         lastModifiedAt: new Date(),
         groupAccess: [{
@@ -151,7 +151,7 @@ export const createOrUpdateUserWithGroup = async (
       clubAccess: [{
         clubId,
         clubName,
-        role: 'member',
+        role: 'player',
         joinedAt: new Date(),
         lastModifiedAt: new Date(),
         groupAccess: [{

@@ -43,7 +43,7 @@ export interface GroupInvitationRequest {
   inviterName: string;       // Name of person sending invites (e.g., "Coach Smith")
   inviterUid: string;        // Unique ID of person sending invites (e.g., "user_def456")
   invitationType?: 'youth_member' | 'regular';  // Type of invitation (optional, defaults to 'regular')
-  role?: 'coach' | 'member';  // Role to assign (optional, defaults to 'member')
+  role?: 'coach' | 'player';  // Role to assign (optional, defaults to 'player')
   youthData?: {             // Youth member specific data (optional, required for youth invitations)
     childName: string;       // Name of the child/youth member
     dateOfBirth: string;     // Date of birth (ISO format)
@@ -253,7 +253,7 @@ export const addRegularMemberToGroupService = {
             userId: userResponse.userId,
             invitationType: request.invitationType || 'regular',
             youthData: request.youthData,
-            role: request.role || 'member'  // ✨ NEW: Pass role to invitation
+            role: request.role || 'player'  // ✨ NEW: Pass role to invitation
           });
 
           // Extract the response and process results
@@ -489,7 +489,7 @@ export const addRegularMemberToGroupService = {
           : (invitationData.email?.split('@')[0] || 'Unknown User'),
         // For youth invitations, youth members don't have email; omit the field
         ...(isYouthInvitation ? {} : { email: invitationData.email }),
-        roles: ['member'],                    // Default role: regular member
+        roles: isYouthInvitation ? ['player-underage'] : ['player'],  // Youth gets player-underage role
         joinedAt: new Date(),                // When they joined (right now)
         photoURL: isYouthInvitation 
           ? 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fchild_profile_icon.png?alt=media'
@@ -511,7 +511,7 @@ export const addRegularMemberToGroupService = {
       const clubInfo = {
         clubId: invitationData.clubId,
         clubName: invitationData.clubName,
-        role: 'member',
+        role: 'player',
         joinedAt: new Date(),
         lastModifiedAt: new Date()
       };
@@ -592,7 +592,7 @@ export const addRegularMemberToGroupService = {
         userId: guardian.guardianUid,
         name: guardian.guardianName,
         email: guardian.guardianEmail,
-        roles: ['member'],
+        roles: ['guardian'],
         joinedAt: new Date(),
         photoURL: 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media',
         addedBy: invitationData.inviterUid,
@@ -616,7 +616,7 @@ export const addRegularMemberToGroupService = {
           const guardianClubInfoResult = await updateUserClubInfoFn({
             uid: guardian.guardianUid,
             clubInfo,
-            role: 'member'
+            role: 'guardian'
           });
           
           const guardianClubInfoResponse = guardianClubInfoResult.data as { success: boolean; error?: string };
@@ -655,7 +655,7 @@ export const addRegularMemberToGroupService = {
     const userClubResult = await updateUserClubInfoFn({
       uid: userId,
       clubInfo,
-      role: 'member'
+      role: isYouthInvitation ? 'player-underage' : 'player'
     });
 
     const userClubResponse = userClubResult.data as { success: boolean; error?: string };
@@ -671,7 +671,7 @@ export const addRegularMemberToGroupService = {
       uid: userId,
       clubId: invitationData.clubId,
       groupInfo,
-      roles: ['member'],
+      roles: isYouthInvitation ? ['player-underage'] : ['player'],
       operation: 'add'
     });
 
@@ -724,7 +724,7 @@ export const addRegularMemberToGroupService = {
    * 🔧 HELPER METHOD: Call atomic functions with membership checks (for existing users)
    * - Used for existing users accepting in-app invitations
    * - Checks existing memberships before calling atomic functions using secure backend function
-   * - Handles role updates for existing members (e.g., member → coach)
+   * - Handles role updates for existing members (e.g., player → coach)
    */
   async callAtomicFunctionsWithMembershipChecks(invitationData: any, memberData: any, clubInfo: any, groupInfo: any, userId: string, invitationToken: string) {
     // 🔒 STEP 1: Check memberships using secure backend function
@@ -764,7 +764,7 @@ export const addRegularMemberToGroupService = {
     console.log(`🔍 Membership status: Club=${isClubMember}, Group=${isGroupMember}, CurrentRoles=[${currentRoles.join(', ')}]`);
 
     // 🎯 STEP 2: Check if this is a role update for existing member
-    const requestedRole = invitationData.role || 'member';
+    const requestedRole = invitationData.role || 'player';
     const isRoleUpdate = isGroupMember && !currentRoles.includes(requestedRole);
 
     if (isRoleUpdate) {
@@ -827,7 +827,7 @@ export const addRegularMemberToGroupService = {
           userId: guardian.guardianUid,
           name: guardian.guardianName,
           email: guardian.guardianEmail,
-          roles: ['member'],
+          roles: ['guardian'],
           joinedAt: new Date(),
           photoURL: 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media',
           addedBy: invitationData.inviterUid,
@@ -852,7 +852,7 @@ export const addRegularMemberToGroupService = {
             const guardianClubInfoResult = await updateUserClubInfoFn({
               uid: guardian.guardianUid,
               clubInfo,
-              role: 'member'
+              role: 'guardian'
             });
             
             const guardianClubInfoResponse = guardianClubInfoResult.data as { success: boolean; error?: string };
@@ -880,7 +880,7 @@ export const addRegularMemberToGroupService = {
       const userClubResult = await updateUserClubInfoFn({
         uid: userId,
         clubInfo,
-        role: 'member'
+        role: isYouthInvitation ? 'player-underage' : 'player'
       });
 
       const userClubResponse = userClubResult.data as { success: boolean; error?: string };
@@ -914,7 +914,7 @@ export const addRegularMemberToGroupService = {
         uid: userId,
         clubId: invitationData.clubId,
         groupInfo,
-        roles: ['member'],
+        roles: isYouthInvitation ? ['player-underage'] : ['player'],
         operation: 'add'
       });
 
@@ -925,7 +925,6 @@ export const addRegularMemberToGroupService = {
       console.log('✅ User group info updated successfully');
 
       // 👶 For youth members, update all guardians' dependent access
-      const isYouthInvitation = invitationData.invitationType === 'youth_member' && invitationData.youthData;
       if (isYouthInvitation && memberData.guardiansContacts && memberData.guardiansContacts.length > 0) {
         console.log('📞 Updating guardian dependent access for youth member...');
         const updateGuardianDependentAccessFn = httpsCallable(functions, 'updateGuardianDependentAccess');

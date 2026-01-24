@@ -20,9 +20,10 @@ export default function ManageSubgroupScreen() {
   const [loading, setLoading] = useState(true);
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
-  // Check if user can manage subgroup
+  // Check if user can manage subgroup (inherits from group permissions)
   const canManage = user && group && (
     group.createdBy === user.uid ||
+    userRoles.includes('club-admin') ||
     userRoles.includes('admin') ||
     userRoles.includes('coach')
   );
@@ -136,16 +137,19 @@ export default function ManageSubgroupScreen() {
             <Text style={styles.groupTitle}>{group.name}</Text>
             <Text style={styles.subgroupTitle}>{displaySubgroupName}</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.kebabButton}
-            onPress={() => router.push(`/subgroup-settings?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(displaySubgroupName)}` as any)}
-          >
-            <Ionicons 
-              name="ellipsis-vertical" 
-              size={24} 
-              color={theme.colors.text} 
-            />
-          </TouchableOpacity>
+          {canManage && (
+            <TouchableOpacity 
+              style={styles.kebabButton}
+              onPress={() => router.push(`/subgroup-settings?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(displaySubgroupName)}` as any)}
+            >
+              <Ionicons 
+                name="ellipsis-vertical" 
+                size={24} 
+                color={theme.colors.text} 
+              />
+            </TouchableOpacity>
+          )}
+          {!canManage && <View style={styles.kebabButton} />}
         </View>
 
         {/* Members Section */}
@@ -155,7 +159,7 @@ export default function ManageSubgroupScreen() {
           <FlatList
             data={subgroupMembers}
             renderItem={renderMemberItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.userId}
             scrollEnabled={false}
             style={styles.membersList}
           />

@@ -96,6 +96,20 @@ export default function RootLayout() {
             title: 'Add Member Type'
           }} 
         />
+        <Stack.Screen 
+          name="manage-members" 
+          options={{ 
+            headerShown: false,
+            title: 'Manage Members'
+          }} 
+        />
+        <Stack.Screen 
+          name="remove-member" 
+          options={{ 
+            headerShown: false,
+            title: 'Remove Member'
+          }} 
+        />
       </Stack>
       </AuthProvider>
     </UserProvider>

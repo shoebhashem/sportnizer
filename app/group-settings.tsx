@@ -191,17 +191,22 @@ export default function GroupSettingsScreen() {
     }
   };
 
-  const handleAddMember = async () => {
+  const handleManageMembers = async () => {
     if (group && groupId && clubId) {
       const groupName = encodeURIComponent(group.name);
-      router.push(`/add-member-type?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}` as any);
-    }
-  };
-
-  const handleAddCoach = () => {
-    if (group && groupId && clubId) {
-      const groupNameEncoded = encodeURIComponent(group.name);
-      router.push(`/add-coach?groupId=${groupId}&clubId=${clubId}&groupName=${groupNameEncoded}&clubName=Club` as any);
+      
+      // Fetch club data to get club name
+      let clubName = 'Club';
+      try {
+        const { clubService } = await import('../services');
+        const clubResult = await clubService.getClub(clubId as string);
+        clubName = clubResult.data?.name || 'Club';
+      } catch (error) {
+        console.error('Failed to fetch club name:', error);
+      }
+      
+      const encodedClubName = encodeURIComponent(clubName);
+      router.push(`/manage-members?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}&clubName=${encodedClubName}` as any);
     }
   };
 
@@ -341,22 +346,22 @@ export default function GroupSettingsScreen() {
 
         {/* Settings Options */}
         <View style={styles.optionsContainer}>
-          {/* Add Member Option - Only for Admin/Coach */}
+          {/* Manage Members Option - Only for Admin/Coach */}
           {canManage && (
             <TouchableOpacity 
               style={styles.optionItem}
-              onPress={handleAddMember}
+              onPress={handleManageMembers}
             >
               <View style={styles.optionIcon}>
                 <Ionicons 
-                  name="person-add-outline" 
+                  name="people-outline" 
                   size={24} 
                   color={theme.colors.secondary} 
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Add Member</Text>
-                <Text style={styles.optionDescription}>Invite new members to join this group</Text>
+                <Text style={styles.optionTitle}>Manage Members</Text>
+                <Text style={styles.optionDescription}>Add or remove players, coaches, and admins</Text>
               </View>
               <Ionicons 
                 name="chevron-forward" 
@@ -382,31 +387,6 @@ export default function GroupSettingsScreen() {
               <View style={styles.optionContent}>
                 <Text style={styles.optionTitle}>Create Subgroup</Text>
                 <Text style={styles.optionDescription}>Create a new subgroup within this group</Text>
-              </View>
-              <Ionicons 
-                name="chevron-forward" 
-                size={20} 
-                color={theme.colors.textSecondary} 
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Add Coach Option - Only for Admin/Coach */}
-          {canManage && (
-            <TouchableOpacity 
-              style={styles.optionItem}
-              onPress={handleAddCoach}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons 
-                  name="person-add-outline" 
-                  size={24} 
-                  color={theme.colors.secondary} 
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Add Coach</Text>
-                <Text style={styles.optionDescription}>Invite coaches or promote existing members</Text>
               </View>
               <Ionicons 
                 name="chevron-forward" 

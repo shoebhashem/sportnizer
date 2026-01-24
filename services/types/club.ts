@@ -18,7 +18,7 @@ export interface ClubData {
 
 export interface ClubMemberData {
   userId: string;
-  roles: ("club-admin" | "admin" | "coach" | "player" | "guardian")[]; // Updated role hierarchy
+  roles: ("club-admin" | "admin" | "coach" | "player" | "player-underage" | "guardian")[]; // Updated role hierarchy
   photoURL: string;
   name: string;
   email: string;

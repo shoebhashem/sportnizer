@@ -110,7 +110,6 @@ console.log('📱 GroupsScreen render - DETAILED DEBUG:', {
     dependentName: g.dependentName
   }))
 });
-const [selectedClub, setSelectedClub] = useState<string | null>(null);
 const [isRefreshing, setIsRefreshing] = useState(false);
 
 // Manual refresh function for pull-to-refresh
@@ -171,6 +170,13 @@ const handleCreateGroup = () => {
 
 const handleGroupPress = (groupId: string, clubId: string) => {
   router.push(`/manage-group?groupId=${groupId}&clubId=${clubId}`);
+};
+
+const handleClubPress = (clubId: string, clubRole: string) => {
+  // Only club-admins can view club members
+  if (clubRole === 'club-admin') {
+    router.push(`/manage-club?clubId=${clubId}` as any);
+  }
 };
 
 if (isLoading) {
@@ -236,23 +242,21 @@ return (
     ) : (
       clubs.map((club) => {
         const clubGroups = getGroupsForClub(club.clubId);
-        const isSelected = selectedClub === club.clubId;
+        const isClubAdmin = club.role === 'club-admin';
         
         return (
           <View key={club.clubId} style={styles.clubSection}>
             <TouchableOpacity
               style={[
                 styles.clubCard,
-                isSelected && styles.clubCardSelected,
+                isClubAdmin && styles.clubCardClickable,
               ]}
-              onPress={() => setSelectedClub(isSelected ? null : club.clubId)}
+              onPress={() => handleClubPress(club.clubId, club.role)}
+              disabled={!isClubAdmin}
             >
               <View style={styles.clubHeader}>
                 <Text
-                  style={[
-                    styles.clubName,
-                    isSelected && styles.clubNameSelected,
-                  ]}
+                  style={styles.clubName}
                 >
                   {club.clubName}
                 </Text>
@@ -260,10 +264,13 @@ return (
                   {clubGroups.length} group{clubGroups.length !== 1 ? 's' : ''}
                 </Text>
               </View>
+              {isClubAdmin && (
+                <Text style={styles.clubAdminHint}>Tap to view club members</Text>
+              )}
             </TouchableOpacity>
             
-            {/* Show groups when club is selected */}
-            {isSelected && clubGroups.length > 0 && (
+            {/* Always show groups */}
+            {clubGroups.length > 0 && (
               <View style={styles.groupsContainer}>
                 {clubGroups.map((group) => {
                   console.log('🔍 Rendering group:', { 
@@ -313,8 +320,8 @@ return (
               </View>
             )}
             
-            {/* Show message when club is selected but has no groups */}
-            {isSelected && clubGroups.length === 0 && (
+            {/* Show message when club has no groups */}
+            {clubGroups.length === 0 && (
               <View style={styles.noGroupsContainer}>
                 <Text style={styles.noGroupsText}>
                   No groups in this club yet. Create your first group!
@@ -371,10 +378,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     marginBottom: theme.spacing.sm,
   },
-  clubCardSelected: {
-    backgroundColor: theme.colors.success,
-    borderWidth: 2,
-    borderColor: theme.colors.secondary,
+  clubCardClickable: {
+    backgroundColor: theme.colors.secondary,
+    opacity: 0.95,
   },
   clubHeader: {
     flexDirection: "row",
@@ -387,8 +393,12 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     flex: 1,
   },
-  clubNameSelected: {
+  clubAdminHint: {
     color: theme.colors.primary,
+    fontSize: theme.typography.fontSize.small,
+    opacity: 0.7,
+    marginTop: theme.spacing.xs,
+    fontStyle: 'italic',
   },
   groupCount: {
     color: theme.colors.primary,

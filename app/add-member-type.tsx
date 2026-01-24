@@ -7,11 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 export default function AddMemberTypeScreen() {
@@ -98,9 +98,9 @@ export default function AddMemberTypeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Add Member</Text>
+          <Text style={styles.title}>Add Player</Text>
           <Text style={styles.subtitle}>
-            Choose the type of member you want to add to {groupName || 'this group'}
+            Choose the type of player you want to add to {groupName || 'this group'}
           </Text>
         </View>
 
@@ -124,27 +124,27 @@ export default function AddMemberTypeScreen() {
             </View>
           )}
 
-          {/* Regular Member Option */}
+          {/* Player Option */}
           <View style={styles.optionCard}>
-            <Text style={styles.optionTitle}>Regular Member</Text>
+            <Text style={styles.optionTitle}>Player</Text>
             <Text style={styles.optionDescription}>
-              Adult members who are eligible to respond to events and communications themselves.
+              Adult players who are eligible to respond to events and communications themselves.
             </Text>
             <Button
-              label="Add Regular Member"
+              label="Add Player"
               onPress={handleRegularMember}
               theme="primary"
             />
           </View>
 
-          {/* Child/Youth Member Option */}
+          {/* Youth Player Option */}
           <View style={styles.optionCard}>
-            <Text style={styles.optionTitle}>Child/Youth Member</Text>
+            <Text style={styles.optionTitle}>Youth Player</Text>
             <Text style={styles.optionDescription}>
-              Young members who need guardians to handle communications and make decisions regarding events.
+              Young players who need guardians to handle communications and make decisions regarding events.
             </Text>
             <Button
-              label="Add Child/Youth Member"
+              label="Add Youth Player"
               onPress={handleChildYouthMember}
               theme="primary"
             />

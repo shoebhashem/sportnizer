@@ -79,11 +79,47 @@ export const removeMemberFromGroup = onCall(
         lastModified: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(`Successfully removed member ${userId} from group ${groupId}`);
+      // 🆕 CASCADE: Remove member from all subgroups in this group
+      console.log(`Checking for subgroups to cascade removal...`);
+      
+      const subgroupsSnapshot = await groupRef.collection('subgroups').get();
+      
+      if (!subgroupsSnapshot.empty) {
+        console.log(`Found ${subgroupsSnapshot.size} subgroups - cascading removal`);
+        
+        for (const subgroupDoc of subgroupsSnapshot.docs) {
+          const subgroupId = subgroupDoc.id;
+          const subgroupMemberRef = subgroupDoc.ref
+            .collection('allMembers')
+            .doc('members');
+          
+          const subgroupMembersDoc = await subgroupMemberRef.get();
+          
+          if (subgroupMembersDoc.exists) {
+            const subgroupMembers = subgroupMembersDoc.data()?.members || [];
+            const isMemberInSubgroup = subgroupMembers.some((m: any) => m.userId === userId);
+            
+            if (isMemberInSubgroup) {
+              const updatedSubgroupMembers = subgroupMembers.filter((m: any) => m.userId !== userId);
+              
+              await subgroupMemberRef.update({
+                members: updatedSubgroupMembers,
+                memberCount: updatedSubgroupMembers.length,
+                version: admin.firestore.FieldValue.increment(1),
+                lastModified: admin.firestore.FieldValue.serverTimestamp(),
+              });
+              
+              console.log(`  ✅ Removed member from subgroup ${subgroupId}`);
+            }
+          }
+        }
+      }
+
+      console.log(`Successfully removed member ${userId} from group ${groupId} and all subgroups`);
 
       return {
         success: true,
-        message: `Member removed from group successfully`
+        message: `Member removed from group and all subgroups successfully`
       };
 
     } catch (error) {

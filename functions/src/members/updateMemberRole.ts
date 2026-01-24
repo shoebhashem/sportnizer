@@ -18,6 +18,12 @@ interface UpdateMemberRoleRequest {
   roleToAdd: string;
 }
 
+// Valid roles in the system
+const VALID_ROLES = ['club-admin', 'admin', 'coach', 'player', 'player-underage', 'guardian'];
+
+// Management roles that can be assigned via this function
+const ASSIGNABLE_ROLES = ['admin', 'coach'];
+
 export const updateMemberRole = onCall(
   {
     region: config.region,
@@ -28,6 +34,22 @@ export const updateMemberRole = onCall(
 
       // Validate required fields
       validateRequiredFields(request.data, ['clubId', 'groupId', 'userId', 'roleToAdd']);
+
+      // Validate role
+      if (!VALID_ROLES.includes(roleToAdd)) {
+        throw new HttpsError(
+          'invalid-argument',
+          `Invalid role '${roleToAdd}'. Valid roles are: ${VALID_ROLES.join(', ')}`
+        );
+      }
+
+      // Only allow assignment of management roles through this function
+      if (!ASSIGNABLE_ROLES.includes(roleToAdd)) {
+        throw new HttpsError(
+          'invalid-argument',
+          `Role '${roleToAdd}' cannot be assigned via this function. Only ${ASSIGNABLE_ROLES.join(', ')} roles can be promoted.`
+        );
+      }
 
       // Verify the user is authenticated
       if (!request.auth) {

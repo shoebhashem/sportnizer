@@ -142,7 +142,7 @@ export const respondToGroupInvite = onCall(
               userId: userId,
               name: userData?.displayName || userData?.name || userData?.email?.split('@')[0] || 'Unknown User',
               email: userData?.email || '',
-              roles: ['member'],
+              roles: ['player'],
               joinedAt: new Date(), // Use Date instead of serverTimestamp for consistency with orchestration service
               profilePictureUrl: userData?.photoURL || '',
               needsGuardian: false,
@@ -171,7 +171,7 @@ export const respondToGroupInvite = onCall(
             const clubInfo = {
               clubId: clubId,
               clubName: invitation.clubName || 'Unknown Club',
-              role: 'member',
+              role: 'player',
               joinedAt: new Date(),
               lastModifiedAt: new Date()
             };
@@ -184,7 +184,7 @@ export const respondToGroupInvite = onCall(
               data: {
                 uid: userId,
                 clubInfo: clubInfo,
-                role: 'member'
+                role: 'player'
               }
             });
 

@@ -44,8 +44,16 @@ export { addMemberToGroup } from './members/addMemberToGroup';
 export { addMemberToSubGroup } from './members/addMemberToSubGroup';
 export { checkMembership } from './members/checkMembership';
 export { createYouthMemberDocument } from './members/createYouthMemberDocument';
+export { removeMemberFromClub } from './members/removeMemberFromClub';
+export { removeMemberFromGroup } from './members/removeMemberFromGroup';
 export { removeMemberFromSubGroup } from './members/removeMemberFromSubGroup';
 export { updateMemberRole } from './members/updateMemberRole';
+
+// Member Status & Discovery Functions (Atomic)
+export { checkAndMarkGuardianInactive } from './members/checkAndMarkGuardianInactive';
+export { checkGuardianDependentStatus } from './members/checkGuardianDependentStatus';
+export { getMemberGroupMemberships } from './members/getMemberGroupMemberships';
+export { updateGuardianDependentClubRemoval } from './members/updateGuardianDependentClubRemoval';
 
 // User Document Update Functions (Atomic)
 export { updateGuardianDependentAccess } from './members/updateGuardianDependentAccess';
@@ -54,6 +62,9 @@ export { updateUserClubInfo } from './members/updateUserClubInfo';
 export { updateUserEventInfo } from './members/updateUserEventInfo';
 export { updateUserGroupInfo } from './members/updateUserGroupInfo';
 export { updateUserPollInfo } from './members/updateUserPollInfo';
+export { markUserInactive } from './users/markUserInactive';
+export { updateUserClubRemoval } from './users/updateUserClubRemoval';
+export { updateUserGroupRemoval } from './users/updateUserGroupRemoval';
 
 // Member Orchestration Functions (Service Layer)
 // TODO: Add orchestration functions here when implemented

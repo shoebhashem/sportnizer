@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Import new services  
 import { fetchGroupMembers } from '@/services/fetchGroupMembers';
 import { groupService } from '@/services/group';
+import { permissionService } from '@/services/permissions';
 import { SubGroup } from '@/services/subgroup';
 import { GroupData, GroupMemberData } from '@/services/types/group';
 
@@ -21,6 +22,7 @@ export default function ManageGroupScreen() {
   const [members, setMembers] = useState<GroupMemberData[]>([]);
   const [subgroups, setSubgroups] = useState<SubGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canManage, setCanManage] = useState(false);
   const [activeTab, setActiveTab] = useState<'members' | 'subgroups'>(
     tab === 'subgroups' ? 'subgroups' : 'members'
   );
@@ -66,6 +68,17 @@ export default function ManageGroupScreen() {
       }
       console.log(`📋 Fetched ${membersData.length} members for group ${groupId}:`, membersData);
       setMembers(membersData);
+
+      // Check if user can manage this group
+      if (user && groupId && clubId) {
+        const hasPermission = await permissionService.canManageGroup(
+          user.uid,
+          clubId as string,
+          groupId as string
+        );
+        setCanManage(hasPermission);
+        console.log(`🔒 User can manage group: ${hasPermission}`);
+      }
     } catch (error) {
       console.error('Error fetching group data:', error);
     } finally {
@@ -169,18 +182,21 @@ export default function ManageGroupScreen() {
               />
             </TouchableOpacity>
             <Text style={styles.title}>{group.name}</Text>
-            <TouchableOpacity 
-              style={styles.kebabMenuButton}
-              onPress={() => {
-                router.push(`/group-settings?groupId=${groupId}&clubId=${clubId}` as any);
-              }}
-            >
-              <Ionicons 
-                name="ellipsis-vertical" 
-                size={24} 
-                color={theme.colors.text} 
-              />
-            </TouchableOpacity>
+            {canManage && (
+              <TouchableOpacity 
+                style={styles.kebabMenuButton}
+                onPress={() => {
+                  router.push(`/group-settings?groupId=${groupId}&clubId=${clubId}` as any);
+                }}
+              >
+                <Ionicons 
+                  name="ellipsis-vertical" 
+                  size={24} 
+                  color={theme.colors.text} 
+                />
+              </TouchableOpacity>
+            )}
+            {!canManage && <View style={styles.kebabMenuButton} />}
           </View>
 
           <View style={styles.tabContainer}>

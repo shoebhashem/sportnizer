@@ -7,3 +7,7 @@ export type { CreateNewClubAndGroupInput, CreateNewClubAndGroupResponse } from '
 export { createNewGroupInExistingClub, createNewGroupInExistingClubService } from './createNewGroupInExistingClub';
 export type { CreateNewGroupInExistingClubInput, CreateNewGroupInExistingClubResponse } from './createNewGroupInExistingClub';
 
+// Member removal orchestration services
+export { removeMemberFromClubService } from './removeMemberFromClub';
+export { removeMemberFromGroupService } from './removeMemberFromGroup';
+
