@@ -18,7 +18,12 @@ export const updateUserGroupDeletion = onCall(
 
       // 2. Extract and validate parameters
       const { userId, clubId, groupId, isActive, deletionScheduledAt } = request.data;
-      validateRequiredFields(request.data, ['userId', 'clubId', 'groupId', 'isActive']);
+      validateRequiredFields(request.data, ['userId', 'clubId', 'groupId']);
+      
+      // isActive is required for the operation, but we validate it separately
+      if (isActive === undefined || isActive === null) {
+        throw new HttpsError('invalid-argument', 'isActive field is required');
+      }
       
       // 3. Get user document
       const db = admin.firestore();

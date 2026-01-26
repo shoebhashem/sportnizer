@@ -28,7 +28,42 @@ export async function permanentlyDeleteGroup(
       console.log(`Deleted ${deletedSubgroups} subgroups from group ${groupId}`);
     }
     
-    // 2. Delete allMembers collection
+    // 2. Get member IDs and update user documents
+    const membersDoc = await groupRef.collection('allMembers').doc('members').get();
+    const members = membersDoc.exists ? (membersDoc.data()?.members || []) : [];
+    const memberIds = members.map((m: any) => m.userId);
+    
+    if (memberIds.length > 0) {
+      console.log(`Removing group ${groupId} from ${memberIds.length} user documents`);
+      
+      // Update each user's clubAccess to remove this group
+      for (const userId of memberIds) {
+        try {
+          const userRef = db.collection('users').doc(userId);
+          const userDoc = await userRef.get();
+          
+          if (userDoc.exists) {
+            const clubAccess = userDoc.data()?.clubAccess || [];
+            const updatedClubAccess = clubAccess.map((club: any) => {
+              if (club.clubId === clubId) {
+                return {
+                  ...club,
+                  groupAccess: club.groupAccess.filter((g: any) => g.groupId !== groupId)
+                };
+              }
+              return club;
+            });
+            
+            await userRef.update({ clubAccess: updatedClubAccess });
+            console.log(`✓ Removed group from user ${userId}`);
+          }
+        } catch (error) {
+          console.error(`Error updating user ${userId}:`, error);
+        }
+      }
+    }
+    
+    // 3. Delete allMembers collection
     const membersSnapshot = await groupRef.collection('allMembers').get();
     if (!membersSnapshot.empty) {
       const batch = db.batch();
@@ -40,7 +75,7 @@ export async function permanentlyDeleteGroup(
       console.log(`Deleted ${deletedMembers} member documents from group ${groupId}`);
     }
     
-    // 3. Delete group document
+    // 4. Delete group document
     await groupRef.delete();
     console.log(`Permanently deleted group ${groupId} from club ${clubId}`);
     

@@ -49,6 +49,7 @@ export const updateUserClubInfo = onCall(
         clubId: clubInfo.clubId,
         clubName: clubInfo.clubName,
         role: role,
+        isActive: true,
         groupAccess: [], // Initialize empty groupAccess for the new club
         joinedAt: clubInfo.joinedAt,
         lastModifiedAt: clubInfo.lastModifiedAt,

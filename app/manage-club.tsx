@@ -58,11 +58,11 @@ export default function ManageClubScreen() {
 
     setLoading(true);
     try {
-      // Fetch club data, members, and groups
+      // Fetch club data, members, and groups (include deleted groups for admins)
       const [clubResult, membersResult, groupsResult] = await Promise.all([
         clubService.getClub(clubId),
         fetchClubMembers(clubId),
-        fetchClubGroups(clubId)
+        fetchClubGroups(clubId, true) // Include deleted groups
       ]);
 
       // Process club data
@@ -175,7 +175,11 @@ export default function ManageClubScreen() {
     
     try {
       const devForceCleanupFn = httpsCallable(functions, 'devForceCleanup');
-      const result = await devForceCleanupFn({ targetType: 'all' });
+      const result = await devForceCleanupFn({ 
+        targetType: 'group',
+        clubId: clubId,
+        groupId: selectedGroup.id
+      });
       console.log('Force cleanup result:', result.data);
       
       // Refresh groups list

@@ -66,6 +66,7 @@ export const updateUserGroupInfo = onCall(
         if (existingGroupIndex !== -1) {
           // Update existing membership with new roles
           clubGroupAccess[existingGroupIndex].roles = roles;
+          clubGroupAccess[existingGroupIndex].isActive = true;
           clubGroupAccess[existingGroupIndex].lastModifiedAt = new Date();
           console.log(`Updated existing group membership with new roles for user ${uid}, group ${groupInfo!.groupId}`);
         } else {
@@ -75,6 +76,7 @@ export const updateUserGroupInfo = onCall(
             groupName: groupInfo!.groupName,
             roles: roles,
             joinedAt: groupInfo!.joinedAt,
+            isActive: true,
             lastModifiedAt: new Date()
           });
           console.log(`Added new group membership for user ${uid}, group ${groupInfo!.groupId}`);

@@ -12,7 +12,7 @@
  */
 
 import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../core/firebase';
+import { functions } from '../core/firebase';
 
 // Firebase Function references
 const deleteGroupFn = httpsCallable<
@@ -27,9 +27,20 @@ const deleteGroupFn = httpsCallable<
 >(functions, 'deleteGroup');
 
 const updateUserGroupDeletionFn = httpsCallable<
-  { userId: string; clubId: string; groupId: string },
-  { success: boolean; message?: string }
+  { 
+    userId: string; 
+    clubId: string; 
+    groupId: string;
+    isActive: boolean;
+    deletionScheduledAt?: number;
+  },
+  { success: boolean; error?: string }
 >(functions, 'updateUserGroupDeletion');
+
+const getGroupMembersFn = httpsCallable<
+  { clubId: string; groupId: string },
+  { success: boolean; members: any[]; memberCount: number; error?: string }
+>(functions, 'getGroupMembers');
 
 export interface DeleteGroupServiceResponse {
   success: boolean;
@@ -69,19 +80,16 @@ export async function deleteGroupService(
     console.log(`[deleteGroupService] Group marked for deletion. Scheduled: ${new Date(deleteData.deletionScheduledAt).toISOString()}`);
     console.log(`[deleteGroupService] Subgroups affected: ${deleteData.subgroupsAffected}`);
 
-    // Step 2: Get all members from the group's allMembers/members document
+    // Step 2: Get all members using backend function (bypasses security rules)
     console.log('[deleteGroupService] Fetching all group members...');
-    const { doc, getDoc } = await import('firebase/firestore');
-    const membersDocRef = doc(db, `clubs/${clubId}/groups/${groupId}/allMembers/members`);
-    const membersDoc = await getDoc(membersDocRef);
+    const membersResult = await getGroupMembersFn({ clubId, groupId });
     
-    const memberIds: string[] = [];
-    if (membersDoc.exists()) {
-      const membersData = membersDoc.data();
-      // Members are stored in a 'members' array field
-      const membersArray = membersData?.members || [];
-      memberIds.push(...membersArray.map((m: any) => m.userId).filter(Boolean));
+    if (!membersResult.data.success) {
+      console.warn('[deleteGroupService] Failed to fetch members, continuing anyway:', membersResult.data.error);
     }
+    
+    const members = membersResult.data.members || [];
+    const memberIds: string[] = members.map((m: any) => m.userId).filter(Boolean);
     
     console.log(`[deleteGroupService] Found ${memberIds.length} members to update`);
 

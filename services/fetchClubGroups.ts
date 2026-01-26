@@ -25,16 +25,25 @@ export interface ClubGroupsResponse {
 /**
  * Fetch all groups within a club
  * Direct Firestore query since this is a read-only operation
- * Only active groups are returned (isActive !== false)
+ * 
+ * @param clubId - The club ID
+ * @param includeDeleted - Whether to include soft-deleted groups (default: false)
  */
-export const fetchClubGroups = async (clubId: string): Promise<ClubGroupsResponse> => {
+export const fetchClubGroups = async (
+  clubId: string,
+  includeDeleted: boolean = false
+): Promise<ClubGroupsResponse> => {
   try {
-    console.log(`📂 Fetching groups for club ${clubId}...`);
+    console.log(`📂 Fetching groups for club ${clubId} (includeDeleted: ${includeDeleted})...`);
     
     // Query all groups in the club subcollection
-    // Filter to only show active groups (isActive !== false)
     const groupsRef = collection(db, 'clubs', clubId, 'groups');
-    const q = query(groupsRef, where('isActive', '!=', false));
+    
+    // Only filter out inactive groups if includeDeleted is false
+    const q = includeDeleted 
+      ? query(groupsRef)
+      : query(groupsRef, where('isActive', '!=', false));
+    
     const querySnapshot = await getDocs(q);
     
     const groups: ClubGroupData[] = [];
@@ -48,7 +57,8 @@ export const fetchClubGroups = async (clubId: string): Promise<ClubGroupsRespons
         memberCount: data.memberCount || 0,
         createdBy: data.createdBy || '',
         createdAt: data.createdAt,
-        isActive: data.isActive !== false
+        isActive: data.isActive !== false,
+        deletionScheduledAt: data.deletionScheduledAt
       });
     });
 
