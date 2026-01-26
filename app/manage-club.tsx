@@ -1,11 +1,18 @@
 import Button from '@/components/Button';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import CountdownTimer from '@/components/CountdownTimer';
+import DeletionConfirmationModal from '@/components/DeletionConfirmationModal';
 import { getDefaultProfilePicture } from '@/constants/profilePictures';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { clubService } from '@/services/club';
+import { functions } from '@/services/core/firebase';
+import { ClubGroupData, fetchClubGroups } from '@/services/fetchClubGroups';
 import { fetchClubMembers } from '@/services/fetchClubMembers';
+import { groupService } from '@/services/group';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -34,18 +41,28 @@ export default function ManageClubScreen() {
   const { user } = useAuth();
   const [club, setClub] = useState<ClubData | null>(null);
   const [members, setMembers] = useState<ClubMemberData[]>([]);
+  const [groups, setGroups] = useState<ClubGroupData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClubAdmin, setIsClubAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState<'members' | 'groups'>('members');
+  const [showDeleteGroupModal, setShowDeleteGroupModal] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<ClubGroupData | null>(null);
+  const [isDeletingGroup, setIsDeletingGroup] = useState(false);
+  const [showUndoGroupModal, setShowUndoGroupModal] = useState(false);
+  const [isReactivatingGroup, setIsReactivatingGroup] = useState(false);
+  const [showForceCleanupModal, setShowForceCleanupModal] = useState(false);
+  const [isForceCleaning, setIsForceCleaning] = useState(false);
 
   const fetchAllData = useCallback(async () => {
     if (!clubId || typeof clubId !== 'string') return;
 
     setLoading(true);
     try {
-      // Fetch club data and members
-      const [clubResult, membersResult] = await Promise.all([
+      // Fetch club data, members, and groups
+      const [clubResult, membersResult, groupsResult] = await Promise.all([
         clubService.getClub(clubId),
-        fetchClubMembers(clubId)
+        fetchClubMembers(clubId),
+        fetchClubGroups(clubId)
       ]);
 
       // Process club data
@@ -65,6 +82,14 @@ export default function ManageClubScreen() {
       console.log(`📋 Fetched ${membersData.length} members for club ${clubId}:`, membersData);
       setMembers(membersData);
 
+      // Process groups data
+      const groupsData: ClubGroupData[] = groupsResult.success ? groupsResult.groups : [];
+      if (!groupsResult.success && groupsResult.error) {
+        console.error('❌ Failed to fetch club groups:', groupsResult.error);
+      }
+      console.log(`📂 Fetched ${groupsData.length} groups for club ${clubId}:`, groupsData);
+      setGroups(groupsData);
+
       // Check if current user is club-admin
       if (user) {
         const currentUserMember = membersData.find(m => m.userId === user.uid);
@@ -79,6 +104,89 @@ export default function ManageClubScreen() {
       setLoading(false);
     }
   }, [clubId, user]);
+
+  const handleDeleteGroup = (group: ClubGroupData) => {
+    setSelectedGroup(group);
+    setShowDeleteGroupModal(true);
+  };
+
+  const confirmDeleteGroup = async () => {
+    if (!selectedGroup || !clubId) return;
+    
+    setShowDeleteGroupModal(false);
+    setIsDeletingGroup(true);
+    
+    try {
+      const result = await groupService.deleteGroup(clubId as string, selectedGroup.id);
+
+      if (result.success) {
+        // Refresh groups list
+        await fetchAllData();
+      } else {
+        console.error('Failed to delete group:', result.error);
+      }
+    } catch (error) {
+      console.error('Error deleting group:', error);
+    } finally {
+      setIsDeletingGroup(false);
+      setSelectedGroup(null);
+    }
+  };
+
+  const handleUndoGroupDeletion = (group: ClubGroupData) => {
+    setSelectedGroup(group);
+    setShowUndoGroupModal(true);
+  };
+
+  const confirmUndoGroupDeletion = async () => {
+    if (!selectedGroup || !clubId) return;
+    
+    setShowUndoGroupModal(false);
+    setIsReactivatingGroup(true);
+    
+    try {
+      const result = await groupService.reactivateGroup(clubId as string, selectedGroup.id);
+
+      if (result.success) {
+        console.log('Group reactivated successfully');
+        // Refresh groups list
+        await fetchAllData();
+      } else {
+        console.error('Failed to reactivate group:', result.error);
+      }
+    } catch (error) {
+      console.error('Error reactivating group:', error);
+    } finally {
+      setIsReactivatingGroup(false);
+      setSelectedGroup(null);
+    }
+  };
+
+  const handleForceCleanup = (group: ClubGroupData) => {
+    setSelectedGroup(group);
+    setShowForceCleanupModal(true);
+  };
+
+  const confirmForceCleanup = async () => {
+    if (!selectedGroup || !clubId) return;
+    
+    setShowForceCleanupModal(false);
+    setIsForceCleaning(true);
+    
+    try {
+      const devForceCleanupFn = httpsCallable(functions, 'devForceCleanup');
+      const result = await devForceCleanupFn({ targetType: 'all' });
+      console.log('Force cleanup result:', result.data);
+      
+      // Refresh groups list
+      await fetchAllData();
+    } catch (error) {
+      console.error('Error force cleaning:', error);
+    } finally {
+      setIsForceCleaning(false);
+      setSelectedGroup(null);
+    }
+  };
 
   useEffect(() => {
     fetchAllData();
@@ -105,6 +213,80 @@ export default function ManageClubScreen() {
             {item.needsGuardian && ' (Child/Youth)'}
           </Text>
         </View>
+      </View>
+    );
+  };
+
+  const renderGroupItem = ({ item }: { item: ClubGroupData }) => {
+    const isScheduledForDeletion = item.isActive === false && item.deletionScheduledAt;
+    
+    return (
+      <View style={styles.groupItemContainer}>
+        <View style={styles.groupItem}>
+          <TouchableOpacity
+            style={styles.groupTouchable}
+            onPress={() => router.push(`/manage-group?groupId=${item.id}&clubId=${clubId}` as any)}
+          >
+            <View style={styles.groupInfo}>
+              <Text style={styles.groupName}>{item.name}</Text>
+              <View style={styles.groupMeta}>
+                {item.sport && (
+                  <Text style={styles.groupSport}>
+                    <Ionicons name="football-outline" size={14} color={theme.colors.textSecondary} /> {item.sport}
+                  </Text>
+                )}
+                <Text style={styles.groupMembers}>
+                  <Ionicons name="people-outline" size={14} color={theme.colors.textSecondary} /> {item.memberCount} {item.memberCount === 1 ? 'member' : 'members'}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+          {isClubAdmin && item.isActive !== false && (
+            <TouchableOpacity
+              style={styles.deleteGroupButton}
+              onPress={() => handleDeleteGroup(item)}
+            >
+              <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        {/* Deletion Status Banner for this group */}
+        {isScheduledForDeletion && (
+          <View style={styles.groupDeletionBanner}>
+            <View style={styles.deletionHeader}>
+              <Ionicons name="warning" size={20} color={theme.colors.error} />
+              <Text style={styles.deletionTitle}>Scheduled for Deletion</Text>
+            </View>
+            <Text style={styles.deletionMessage}>Will be permanently deleted in:</Text>
+            <CountdownTimer 
+              deletionScheduledAt={item.deletionScheduledAt?.toMillis?.()} 
+              compact={true}
+            />
+            {isClubAdmin && (
+              <View style={styles.groupActionButtons}>
+                <View style={styles.undoButton}>
+                  <Button
+                    label={isReactivatingGroup ? "Reactivating..." : "Undo Deletion"}
+                    onPress={() => handleUndoGroupDeletion(item)}
+                    theme="secondary"
+                    disabled={isReactivatingGroup}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.devButton}
+                  onPress={() => handleForceCleanup(item)}
+                  disabled={isForceCleaning}
+                >
+                  <Text style={styles.devButtonText}>
+                    🧪 DEV: Force Delete Now
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -167,23 +349,103 @@ export default function ManageClubScreen() {
           {!isClubAdmin && <View style={styles.kebabMenuButton} />}
         </View>
 
-        {/* Members Section */}
-        <Text style={styles.sectionTitle}>Members ({members.length})</Text>
-        
-        {members.length > 0 ? (
-          <FlatList
-            data={members}
-            renderItem={renderMemberItem}
-            keyExtractor={(item) => item.userId}
-            scrollEnabled={false}
-            style={styles.membersList}
-          />
+        {/* Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'members' && styles.activeTab]}
+            onPress={() => setActiveTab('members')}
+          >
+            <Text style={[styles.tabText, activeTab === 'members' && styles.activeTabText]}>
+              Members ({members.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'groups' && styles.activeTab]}
+            onPress={() => setActiveTab('groups')}
+          >
+            <Text style={[styles.tabText, activeTab === 'groups' && styles.activeTabText]}>
+              Groups ({groups.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Content based on active tab */}
+        {activeTab === 'members' ? (
+          // Members List
+          members.length > 0 ? (
+            <FlatList
+              data={members}
+              renderItem={renderMemberItem}
+              keyExtractor={(item) => item.userId}
+              scrollEnabled={false}
+              style={styles.membersList}
+            />
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No members in this club yet</Text>
+            </View>
+          )
         ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No members in this club yet</Text>
-          </View>
+          // Groups List
+          groups.length > 0 ? (
+            <FlatList
+              data={groups}
+              renderItem={renderGroupItem}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+              style={styles.groupsList}
+            />
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No groups in this club yet</Text>
+            </View>
+          )
         )}
       </ScrollView>
+
+      {/* Delete Group Confirmation Modal */}
+      <DeletionConfirmationModal
+        visible={showDeleteGroupModal}
+        title="Delete Group"
+        entityName={selectedGroup?.name || 'this group'}
+        entityType="group"
+        gracePeriodDays={30}
+        affectedCount={0}
+        onConfirm={confirmDeleteGroup}
+        onCancel={() => {
+          setShowDeleteGroupModal(false);
+          setSelectedGroup(null);
+        }}
+        isDeleting={isDeletingGroup}
+      />
+
+      {/* Undo Group Deletion Modal */}
+      <ConfirmationModal
+        visible={showUndoGroupModal}
+        title="Undo Deletion"
+        message={`Are you sure you want to reactivate "${selectedGroup?.name}"? This will cancel the scheduled deletion and restore the group.`}
+        confirmText={isReactivatingGroup ? "Reactivating..." : "Reactivate"}
+        cancelText="Cancel"
+        onConfirm={confirmUndoGroupDeletion}
+        onCancel={() => {
+          setShowUndoGroupModal(false);
+          setSelectedGroup(null);
+        }}
+      />
+
+      {/* Force Cleanup Modal */}
+      <ConfirmationModal
+        visible={showForceCleanupModal}
+        title="🧪 DEV: Force Hard Delete"
+        message={`⚠️ WARNING: This will IMMEDIATELY and PERMANENTLY delete "${selectedGroup?.name}" without waiting for the grace period. This action cannot be undone. Use only for testing!`}
+        confirmText={isForceCleaning ? "Deleting..." : "Force Delete Now"}
+        cancelText="Cancel"
+        onConfirm={confirmForceCleanup}
+        onCancel={() => {
+          setShowForceCleanupModal(false);
+          setSelectedGroup(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -298,5 +560,120 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: theme.spacing.md,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: theme.colors.secondary,
+  },
+  tabText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.textSecondary,
+  },
+  activeTabText: {
+    color: theme.colors.secondary,
+    fontWeight: theme.typography.fontWeight.bold,
+  },
+  groupsList: {
+    marginBottom: theme.spacing.lg,
+  },
+  groupItemContainer: {
+    marginBottom: theme.spacing.sm,
+  },
+  groupItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  groupTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing.md,
+  },
+  deleteGroupButton: {
+    padding: theme.spacing.md,
+    paddingLeft: theme.spacing.sm,
+  },
+  groupInfo: {
+    flex: 1,
+  },
+  groupName: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  groupMeta: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+  },
+  groupSport: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+  },
+  groupMembers: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+  },
+  groupDeletionBanner: {
+    backgroundColor: theme.colors.inputBackground,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    marginTop: theme.spacing.xs,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.error,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  deletionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  deletionTitle: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.error,
+    marginLeft: theme.spacing.xs,
+  },
+  deletionMessage: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.xs,
+  },
+  groupActionButtons: {
+    marginTop: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
+  undoButton: {
+    marginBottom: theme.spacing.xs,
+  },
+  devButton: {
+    backgroundColor: '#FFA500',
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
+    alignItems: 'center',
+  },
+  devButtonText: {
+    fontSize: theme.typography.fontSize.small,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.primary,
   },
 });

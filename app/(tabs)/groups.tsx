@@ -38,10 +38,16 @@ const userGroups = React.useMemo(() => {
   
   const allGroups: EnhancedGroup[] = [];
   
-  // Add direct groups (user's own memberships)
+  // Add direct groups (user's own memberships) - filter out inactive
   for (const clubAccess of userProfile.clubAccess) {
+    // Skip inactive clubs
+    if (clubAccess.isActive === false) continue;
+    
     if (clubAccess.groupAccess) {
       for (const groupAccess of clubAccess.groupAccess) {
+        // Skip inactive groups
+        if (groupAccess.isActive === false) continue;
+        
         allGroups.push({
           clubId: clubAccess.clubId,
           groupId: groupAccess.groupId,
@@ -55,13 +61,19 @@ const userGroups = React.useMemo(() => {
     }
   }
   
-  // Add dependent groups (children's memberships) - directly from dependents array
+  // Add dependent groups (children's memberships) - filter out inactive
   const dependents = userProfile.dependents || [];
   for (const dependent of dependents) {
     if (dependent.clubAccess) {
       for (const clubAccess of dependent.clubAccess) {
+        // Skip inactive clubs
+        if (clubAccess.isActive === false) continue;
+        
         if (clubAccess.groupAccess) {
           for (const groupAccess of clubAccess.groupAccess) {
+            // Skip inactive groups
+            if (groupAccess.isActive === false) continue;
+            
             allGroups.push({
               clubId: clubAccess.clubId,
               groupId: groupAccess.groupId,
@@ -295,6 +307,9 @@ return (
                           <Text style={styles.groupName}>
                             {group.groupName || `Group ${group.groupId.slice(-4)}`}
                           </Text>
+                          <Text style={styles.clubNameInGroup}>
+                            {club.clubName}
+                          </Text>
                           {group.membershipType === 'dependent' && (
                             <View style={styles.dependentBadge}>
                               <Text style={styles.badgeText}>
@@ -440,6 +455,11 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.large,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.secondary,
+  },
+  clubNameInGroup: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   directBadge: {
     backgroundColor: theme.colors.secondary,

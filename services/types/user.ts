@@ -55,6 +55,8 @@ export interface ClubAccess {
   role: 'club-admin' | 'member'; // role in the club - matches ARCHITECTURE.md
   joinedAt: Date;
   lastModifiedAt: Date;
+  isActive?: boolean; // false when club is soft-deleted
+  deletionScheduledAt?: Date; // when permanent deletion will occur
   groupAccess?: GroupAccess[]; // nested group access within this club
   eventAccess?: EventAccess[]; // nested event access within this club
   pollAccess?: PollAccess[]; // nested poll access within this club
@@ -68,6 +70,8 @@ export interface GroupAccess {
   roles: string[]; // roles in the group (e.g., ['player', 'coach', 'admin', 'guardian'])
   joinedAt: Date;
   lastModifiedAt: Date;
+  isActive?: boolean; // false when group is soft-deleted
+  deletionScheduledAt?: Date; // when permanent deletion will occur
 }
 
 export interface EventAccess {

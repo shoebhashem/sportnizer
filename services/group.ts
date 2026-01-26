@@ -3,13 +3,14 @@
 
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './core/firebase';
+import type { DeleteGroupServiceResponse, ReactivateGroupServiceResponse } from './orchestration';
+import { deleteGroupService, reactivateGroupService } from './orchestration';
 import type { GroupData } from './types/group';
 import { getUserProfile } from './userProfile';
 
 // Firebase Function references
 const createGroupFn = httpsCallable(functions, 'createGroup');
 const updateGroupFn = httpsCallable(functions, 'updateGroup');
-const deleteGroupFn = httpsCallable(functions, 'deleteGroup');
 const getGroupFn = httpsCallable(functions, 'getGroup');
 
 export const groupService = {
@@ -40,16 +41,19 @@ export const groupService = {
   },
 
   /**
-   * Delete a group
+   * Delete a group (soft delete with 30-day grace period)
+   * Uses orchestration service to handle user document updates
    */
-  async deleteGroup(clubId: string, groupId: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const result = await deleteGroupFn({ clubId, groupId });
-      return result.data as { success: boolean; error?: string };
-    } catch (error: any) {
-      console.error('❌ Error deleting group:', error);
-      return { success: false, error: error.message };
-    }
+  async deleteGroup(clubId: string, groupId: string): Promise<DeleteGroupServiceResponse> {
+    return deleteGroupService(clubId, groupId);
+  },
+
+  /**
+   * Reactivate a soft-deleted group (within 30-day grace period)
+   * Uses orchestration service to handle user document updates
+   */
+  async reactivateGroup(clubId: string, groupId: string): Promise<ReactivateGroupServiceResponse> {
+    return reactivateGroupService(clubId, groupId);
   },
 
   /**

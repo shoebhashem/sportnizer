@@ -9,9 +9,11 @@ import { SubGroup, subgroupService } from '@/services/subgroup';
 import { GroupData } from '@/services/types/group';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '../firebaseConfig';
 
 export default function SubgroupSettingsScreen() {
   const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();
@@ -33,11 +35,12 @@ export default function SubgroupSettingsScreen() {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !subgroupId || typeof subgroupId !== 'string' || !user?.uid) return;
 
     try {
-      // Fetch group, subgroup, and members data
-      const [groupResult, subgroupData, membersResult] = await Promise.all([
+      // Fetch group, subgroup, members data, and user document
+      const [groupResult, subgroupData, membersResult, userSnapshot] = await Promise.all([
         groupService.getGroup(clubId, groupId),
         subgroupService.getSubgroup(clubId, groupId, subgroupId),
-        fetchGroupMembers(clubId, groupId)
+        fetchGroupMembers(clubId, groupId),
+        getDoc(doc(db, 'users', user.uid))
       ]);
 
       if (groupResult.success && groupResult.data) {
@@ -49,24 +52,37 @@ export default function SubgroupSettingsScreen() {
         setNewName(subgroupData.name);
       }
 
-      // Process members data
-      const membersData = membersResult.success ? membersResult.members || [] : [];
+      const userData = userSnapshot.data();
 
-      // Find current user's role
+      // Find current user's role - check club-level first
       let userRole = 'member';
-      membersData.forEach((member: any) => {
-        if (member.userId === user.uid) {
-          if (member.roles.includes('admin') || member.roles.includes('club-admin')) {
-            userRole = 'admin';
-          } else if (member.roles.includes('coach')) {
-            userRole = 'coach';
-          }
+      
+      // First check club-level role from user document
+      if (userData?.clubAccess) {
+        const clubAccess = userData.clubAccess.find((c: any) => c.clubId === clubId);
+        if (clubAccess?.role === 'club-admin') {
+          userRole = 'club-admin'; // Club admin has all permissions in all groups
         }
-      });
+      }
+      
+      // If not club-admin, check group-level roles
+      if (userRole !== 'club-admin') {
+        const membersData = membersResult.success ? membersResult.members || [] : [];
+        
+        membersData.forEach((member: any) => {
+          if (member.userId === user.uid) {
+            if (member.roles.includes('admin')) {
+              userRole = 'admin';
+            } else if (member.roles.includes('coach')) {
+              userRole = 'coach';
+            }
+          }
+        });
 
-      // If user is the group creator, consider them as admin
-      if (groupResult.success && groupResult.data && groupResult.data.createdBy === user.uid && userRole === 'member') {
-        userRole = 'admin';
+        // If user is the group creator, consider them as admin
+        if (groupResult.success && groupResult.data && groupResult.data.createdBy === user.uid && userRole === 'member') {
+          userRole = 'admin';
+        }
       }
 
       setUserRole(userRole);
@@ -175,7 +191,7 @@ export default function SubgroupSettingsScreen() {
     }
   };
 
-  const canManage = userRole === 'admin' || userRole === 'coach' || userRole === 'club-admin' || group?.createdBy === user?.uid;
+  const canManage = userRole === 'club-admin' || userRole === 'admin' || userRole === 'coach' || group?.createdBy === user?.uid;
 
   if (loading) {
     return (

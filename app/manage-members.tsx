@@ -23,6 +23,7 @@ import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -33,6 +34,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '../firebaseConfig';
 import { fetchGroupMembers } from '../services/fetchGroupMembers';
 import { groupService } from '../services/group';
 import { GroupData } from '../services/types/group';
@@ -64,33 +66,46 @@ export default function ManageMembersScreen() {
     try {
       setLoading(true);
       
-      // Fetch group data
+      // Fetch group data and user document
       const groupResult = await groupService.getGroup(clubId, groupId);
       const membersResult = await fetchGroupMembers(clubId, groupId);
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data();
 
       if (groupResult.success && groupResult.data) {
         setGroup(groupResult.data);
       }
       
-      // Determine user's role
-      const membersData = membersResult.success ? membersResult.members || [] : [];
+      // Determine user's role - check club-level role first
       let role = 'member';
       
-      membersData.forEach((member: any) => {
-        if (member.userId === user.uid) {
-          if (member.roles.includes('club-admin')) {
-            role = 'club-admin';
-          } else if (member.roles.includes('admin')) {
-            role = 'admin';
-          } else if (member.roles.includes('coach')) {
-            role = 'coach';
-          }
+      // First check club-level role from user document
+      if (userData?.clubAccess) {
+        const clubAccess = userData.clubAccess.find((c: any) => c.clubId === clubId);
+        if (clubAccess?.role === 'club-admin') {
+          role = 'club-admin'; // Club admin has all permissions in all groups
         }
-      });
+      }
       
-      // If user is group creator but not found in members, consider them admin
-      if (groupResult.success && groupResult.data && groupResult.data.createdBy === user.uid && role === 'member') {
-        role = 'admin';
+      // If not club-admin, check group-level roles
+      if (role !== 'club-admin') {
+        const membersData = membersResult.success ? membersResult.members || [] : [];
+        
+        membersData.forEach((member: any) => {
+          if (member.userId === user.uid) {
+            if (member.roles.includes('admin')) {
+              role = 'admin';
+            } else if (member.roles.includes('coach')) {
+              role = 'coach';
+            }
+          }
+        });
+        
+        // If user is group creator but not found in members, consider them admin
+        if (groupResult.success && groupResult.data && groupResult.data.createdBy === user.uid && role === 'member') {
+          role = 'admin';
+        }
       }
       
       setUserRole(role);
@@ -308,39 +323,53 @@ export default function ManageMembersScreen() {
         </View>
 
         {/* Group Info */}
-        <View style={styles.groupInfoContainer}>
+        <View style={styles.groupInfoCard}>
           <Text style={styles.groupName}>{group?.name || groupName}</Text>
           <Text style={styles.yourRole}>Your Role: {userRole}</Text>
         </View>
 
-        {/* Actions Grid */}
-        <View style={styles.actionsContainer}>
+        {/* Actions List */}
+        <View style={styles.optionsContainer}>
           {getVisibleActions().map((action) => (
             <TouchableOpacity
               key={action.type}
               style={[
-                styles.actionCard,
-                action.theme === 'danger' && styles.actionCardDanger,
-                action.theme === 'secondary' && styles.actionCardSecondary,
+                styles.optionItem,
+                action.theme === 'danger' && styles.dangerOption,
               ]}
               onPress={() => handleAction(action.type)}
               activeOpacity={0.7}
             >
-              <View style={styles.actionIconContainer}>
+              <View style={[
+                styles.optionIcon,
+                action.theme === 'danger' && styles.dangerIconBg,
+              ]}>
                 <Ionicons 
                   name={action.icon as any} 
-                  size={32} 
+                  size={24} 
                   color={
                     action.theme === 'danger' 
                       ? theme.colors.error 
-                      : action.theme === 'secondary'
-                      ? theme.colors.secondary
-                      : theme.colors.primary
+                      : theme.colors.secondary
                   } 
                 />
               </View>
-              <Text style={styles.actionTitle}>{action.title}</Text>
-              <Text style={styles.actionDescription}>{action.description}</Text>
+              <View style={styles.optionContent}>
+                <Text style={[
+                  styles.optionTitle,
+                  action.theme === 'danger' && styles.dangerText,
+                ]}>{action.title}</Text>
+                <Text style={styles.optionDescription}>{action.description}</Text>
+              </View>
+              <Ionicons 
+                name="chevron-forward" 
+                size={20} 
+                color={
+                  action.theme === 'danger' 
+                    ? theme.colors.error 
+                    : theme.colors.textSecondary
+                } 
+              />
             </TouchableOpacity>
           ))}
         </View>
@@ -390,61 +419,66 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
-  groupInfoContainer: {
-    backgroundColor: theme.colors.secondary,
+  groupInfoCard: {
+    backgroundColor: theme.colors.cardBackground,
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.medium,
-    marginBottom: theme.spacing.xl,
-    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
   },
   groupName: {
     fontSize: theme.typography.fontSize.large,
-    color: theme.colors.primary,
+    color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.bold,
     marginBottom: theme.spacing.xs,
   },
   yourRole: {
     fontSize: theme.typography.fontSize.small,
-    color: theme.colors.primary,
+    color: theme.colors.textSecondary,
     textTransform: 'capitalize',
   },
-  actionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-  },
-  actionCard: {
-    width: '48%',
-    backgroundColor: theme.colors.secondary,
+  optionsContainer: {
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.lg,
+    overflow: 'hidden',
+  },
+  optionItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 160,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
-  actionCardDanger: {
-    borderColor: theme.colors.error,
+  optionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.secondaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
   },
-  actionCardSecondary: {
-    borderColor: theme.colors.secondary,
+  dangerIconBg: {
+    backgroundColor: `${theme.colors.error}20`,
   },
-  actionIconContainer: {
-    marginBottom: theme.spacing.md,
+  optionContent: {
+    flex: 1,
   },
-  actionTitle: {
+  optionTitle: {
     fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.primary,
-    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.semibold,
     marginBottom: theme.spacing.xs,
-    textAlign: 'center',
   },
-  actionDescription: {
+  optionDescription: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
     lineHeight: 18,
+  },
+  dangerOption: {
+    borderBottomColor: `${theme.colors.error}30`,
+  },
+  dangerText: {
+    color: theme.colors.error,
   },
   loadingContainer: {
     flex: 1,

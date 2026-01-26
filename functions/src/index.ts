@@ -17,7 +17,9 @@ export { createClub } from './clubs/createClub';
 export { deleteClub } from './clubs/deleteClub';
 export { getClub } from './clubs/getClub';
 export { getClubMembers } from './clubs/getClubMembers';
+export { reactivateClub } from './clubs/reactivateClub';
 export { updateClub } from './clubs/updateClub';
+export { updateUserClubDeletion } from './clubs/updateUserClubDeletion';
 
 // Group Management Functions (Atomic)
 export { createGroup } from './groups/createGroup';
@@ -29,8 +31,10 @@ export { getGroupMembers } from './groups/getGroupMembers';
 export { getSubgroup } from './groups/getSubgroup';
 export { getSubgroupMembers } from './groups/getSubgroupMembers';
 export { getSubGroups } from './groups/getSubGroups';
+export { reactivateGroup } from './groups/reactivateGroup';
 export { updateGroup } from './groups/updateGroup';
 export { updateSubGroup } from './groups/updateSubGroup';
+export { updateUserGroupDeletion } from './groups/updateUserGroupDeletion';
 
 // Event Management Functions (Atomic)
 export { createEvent } from './events/createEvent';
@@ -88,3 +92,8 @@ export { validateRecipientSelection } from './recipients/validateRecipientSelect
 // Utility Functions
 export { fixEmptyUserDocument } from './utils/fixEmptyUserDocument';
 
+// Scheduled Functions
+export { cleanupDeletedEntities } from './scheduled/cleanupDeletedEntities';
+
+// Admin/Development Functions
+export { devForceCleanup } from './admin/devForceCleanup';

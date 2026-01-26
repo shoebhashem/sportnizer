@@ -3,12 +3,13 @@
 
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './core/firebase';
+import type { DeleteClubServiceResponse, ReactivateClubServiceResponse } from './orchestration';
+import { deleteClubService, reactivateClubService } from './orchestration';
 import type { ClubData } from './types/club';
 
 // Firebase Function references
 const createClubFn = httpsCallable(functions, 'createClub');
 const updateClubFn = httpsCallable(functions, 'updateClub');
-const deleteClubFn = httpsCallable(functions, 'deleteClub');
 const getClubFn = httpsCallable(functions, 'getClub');
 
 export const clubService = {
@@ -39,16 +40,25 @@ export const clubService = {
   },
 
   /**
-   * Delete a club
+   * Delete a club (soft delete with 30-day grace period)
+   * Uses orchestration service to handle user document updates
+   * 
+   * @param clubId - Club ID to delete
+   * @param verificationToken - Optional JWT token from email verification (future implementation)
    */
-  async deleteClub(clubId: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const result = await deleteClubFn({ clubId });
-      return result.data as { success: boolean; error?: string };
-    } catch (error: any) {
-      console.error('❌ Error deleting club:', error);
-      return { success: false, error: error.message };
-    }
+  async deleteClub(clubId: string, verificationToken?: string): Promise<DeleteClubServiceResponse> {
+    return deleteClubService(clubId, verificationToken);
+  },
+
+  /**
+   * Reactivate a soft-deleted club (within 30-day grace period)
+   * Uses orchestration service to handle user document updates
+   * 
+   * @param clubId - Club ID to reactivate
+   * @param verificationToken - Optional JWT token from email verification (future implementation)
+   */
+  async reactivateClub(clubId: string, verificationToken?: string): Promise<ReactivateClubServiceResponse> {
+    return reactivateClubService(clubId, verificationToken);
   },
 
   /**

@@ -9,6 +9,9 @@ export interface ClubData {
   admins: string[]; // User IDs with club-admin role
   memberCount: number;
   isActive: boolean;
+  deletionScheduledAt?: any; // Firestore Timestamp - when permanent deletion will occur
+  deletedBy?: string; // User ID who initiated deletion
+  deletedAt?: any; // Firestore Timestamp - when soft delete occurred
   createdAt: any; // Firestore Timestamp
   createdBy: string;
   lastModifiedAt: any; // Firestore Timestamp

@@ -1,18 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { doc, getDoc } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import ConfirmationModal from '../components/ConfirmationModal';
+import CountdownTimer from '../components/CountdownTimer';
 import Input from '../components/Input';
 import { theme } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { db } from '../firebaseConfig';
 
 // Import services following three-layer architecture
 import { fetchGroupMembers } from '../services/fetchGroupMembers';
 import { groupService } from '../services/group';
-import { memberService } from '../services/member';
 import { subgroupService } from '../services/subgroup';
 import { GroupData } from '../services/types/group';
 
@@ -31,24 +33,27 @@ export default function GroupSettingsScreen() {
   // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
   const [userRole, setUserRole] = useState<string>('member');
   const [loading, setLoading] = useState(true);
-  const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [adminCount, setAdminCount] = useState(0);
+  // const [adminCount, setAdminCount] = useState(0); // Commented out - for future use (Leave Group validation)
   const [showCreateSubgroupModal, setShowCreateSubgroupModal] = useState(false);
   const [subgroupName, setSubgroupName] = useState('');
   const [creatingSubgroup, setCreatingSubgroup] = useState(false);
+  const [isReactivating, setIsReactivating] = useState(false);
+  const [showUndoModal, setShowUndoModal] = useState(false);
   
   const fetchGroupDataFromServices = useCallback(async () => {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !user?.uid) return;
     
     try {
-      // Fetch group data using services following three-layer architecture
+      // Fetch group data, members data, and user document
       const groupResult = await groupService.getGroup(clubId, groupId);
       const membersResult = await fetchGroupMembers(clubId, groupId);
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data();
 
       if (groupResult.success && groupResult.data) {
         setGroup(groupResult.data);
@@ -58,46 +63,64 @@ export default function GroupSettingsScreen() {
       const membersData = membersResult.success ? membersResult.members || [] : [];
       // setMembers(membersData); // Commented out - not used in UI yet
 
-      // Find current user's role and count admins
+      // Find current user's role - check club-level first
       let userRole = 'member';
-      let adminCount = 0;
+      // let adminCount = 0; // Commented out - for future use (Leave Group validation)
       // const unconfirmedMembers: UnconfirmedMember[] = []; // Commented out - not used yet
       
-      membersData.forEach((member: any) => {
-        if (member.userId === user.uid) {
-          // Check user's roles
-          if (member.roles.includes('admin')) {
-            userRole = 'admin';
-          } else if (member.roles.includes('coach')) {
-            userRole = 'coach';
-          } else {
-            userRole = 'member';
-          }
+      // First check club-level role from user document
+      if (userData?.clubAccess) {
+        const clubAccess = userData.clubAccess.find((c: any) => c.clubId === clubId);
+        if (clubAccess?.role === 'club-admin') {
+          userRole = 'club-admin'; // Club admin has all permissions in all groups
         }
-        
-        // Count admins
-        if (member.roles.includes('admin')) {
-          adminCount++;
-        }
-        
-        // Collect unconfirmed members (if they have this property)
-        // Note: We may need to add this to GroupMemberData interface if needed
-        // if (member.isConfirmed === false) {
-        //   unconfirmedMembers.push({
-        //     id: member.userId,
-        //     name: member.name,
-        //     // ... other fields
-        //   });
-        // }
-      });
+      }
       
-      // If user is the group creator but not found in members, consider them as admin
-      if (groupResult.success && groupResult.data && groupResult.data.createdBy === user.uid && userRole === 'member') {
-        userRole = 'admin';
+      // If not club-admin, check group-level roles and count admins
+      if (userRole !== 'club-admin') {
+        membersData.forEach((member: any) => {
+          if (member.userId === user.uid) {
+            // Check user's roles
+            if (member.roles.includes('admin')) {
+              userRole = 'admin';
+            } else if (member.roles.includes('coach')) {
+              userRole = 'coach';
+            } else {
+              userRole = 'member';
+            }
+          }
+          
+          // Count admins (commented out - for future use)
+          // if (member.roles.includes('admin')) {
+          //   adminCount++;
+          // }
+          
+          // Collect unconfirmed members (if they have this property)
+          // Note: We may need to add this to GroupMemberData interface if needed
+          // if (member.isConfirmed === false) {
+          //   unconfirmedMembers.push({
+          //     id: member.userId,
+          //     name: member.name,
+          //     // ... other fields
+          //   });
+          // }
+        });
+        
+        // If user is the group creator but not found in members, consider them as admin
+        if (groupResult.success && groupResult.data && groupResult.data.createdBy === user.uid && userRole === 'member') {
+          userRole = 'admin';
+        }
+      } else {
+        // Club admin: still count group admins for validation (commented out - for future use)
+        // membersData.forEach((member: any) => {
+        //   if (member.roles.includes('admin')) {
+        //     adminCount++;
+        //   }
+        // });
       }
       
       setUserRole(userRole);
-      setAdminCount(adminCount);
+      // setAdminCount(adminCount); // Commented out - for future use
     } catch (error) {
       console.error('Error fetching group data:', error);
       setErrorMessage('Failed to load group data');
@@ -118,75 +141,73 @@ export default function GroupSettingsScreen() {
     }, [fetchGroupDataFromServices])
   );
 
-  const handleLeaveGroup = () => {
-    // Check if user is the last admin
-    if (userRole === 'admin' && adminCount <= 1) {
-      setErrorMessage('You cannot leave the group as you are the only admin. Please assign another admin first or delete the group.');
-      setShowErrorModal(true);
-      return;
-    }
-    
-    setShowLeaveModal(true);
+  const handleUndoDeletion = () => {
+    setShowUndoModal(true);
   };
 
-  const confirmLeaveGroup = async () => {
-    if (!user?.uid || !clubId || !groupId) return;
-    
-    setShowLeaveModal(false);
-    
-    try {
-      // Use memberService to remove member from group (follows three-layer architecture)
-      const result = await memberService.removeMemberFromGroup(
-        clubId as string, 
-        groupId as string, 
-        user.uid
-      );
-
-      if (result.success) {
-        // Show success modal
-        setSuccessMessage('You have left the group successfully');
-        setShowSuccessModal(true);
-        
-        // Refresh the data
-        await fetchGroupDataFromServices();
-      } else {
-        setErrorMessage(result.error || 'Failed to leave group. Please try again.');
-        setShowErrorModal(true);
-      }
-    } catch (error) {
-      console.error('Error leaving group:', error);
-      setErrorMessage('Failed to leave group. Please try again.');
-      setShowErrorModal(true);
-    }
-  };
-
-  const handleDeleteGroup = () => {
-    setShowDeleteModal(true);
-  };
-
-  const confirmDeleteGroup = async () => {
-    setShowDeleteModal(false);
+  const confirmUndoDeletion = async () => {
+    setShowUndoModal(false);
+    setIsReactivating(true);
     
     if (!clubId || !groupId || !user?.uid) return;
     
     try {
-      // Use groupService to delete group (follows three-layer architecture)
-      const result = await groupService.deleteGroup(clubId as string, groupId as string);
+      const result = await groupService.reactivateGroup(clubId as string, groupId as string);
 
       if (result.success) {
-        // Show success modal
-        setSuccessMessage('Group has been deleted successfully');
+        setSuccessMessage(
+          `Group reactivated successfully! ` +
+          (result.subgroupsReactivated ? `${result.subgroupsReactivated} subgroups were also reactivated.` : '')
+        );
         setShowSuccessModal(true);
         
-        // Navigate back to groups list after successful deletion
-        router.back();
+        // Refresh group data to show active status
+        await fetchGroupDataFromServices();
       } else {
-        setErrorMessage(result.error || 'Failed to delete group. Please try again.');
+        setErrorMessage(result.error || 'Failed to reactivate group. The grace period may have expired.');
         setShowErrorModal(true);
       }
     } catch (error) {
-      console.error('Error deleting group:', error);
-      setErrorMessage('Failed to delete group. Please try again.');
+      console.error('Error reactivating group:', error);
+      setErrorMessage('Failed to reactivate group. Please try again.');
+      setShowErrorModal(true);
+    } finally {
+      setIsReactivating(false);
+    }
+  };
+
+  // 🧪 DEV ONLY: Force hard delete for testing
+  const handleForceCleanup = async () => {
+    if (!confirm('⚠️ DEV TESTING: This will PERMANENTLY delete all soft-deleted entities. Continue?')) {
+      return;
+    }
+
+    try {
+      console.log('🧪 Calling devForceCleanup...');
+      const { httpsCallable } = await import('firebase/functions');
+      const { functions } = await import('../services/core/firebase');
+      
+      const devForceCleanupFn = httpsCallable(functions, 'devForceCleanup');
+      const result = await devForceCleanupFn({ targetType: 'all' });
+      
+      const data = result.data as any;
+      console.log('✅ Force cleanup result:', data);
+      
+      setSuccessMessage(
+        `Hard delete completed!\n` +
+        `Groups deleted: ${data.deletedGroups || 0}\n` +
+        `Clubs deleted: ${data.deletedClubs || 0}`
+      );
+      setShowSuccessModal(true);
+      
+      // Navigate back since group is now permanently deleted
+      setTimeout(() => {
+        router.back();
+      }, 2000);
+      
+    } catch (error: any) {
+      console.error('❌ Error in force cleanup:', error);
+      setErrorMessage(`Force cleanup failed: ${error.message}`);
       setShowErrorModal(true);
     }
   };
@@ -286,9 +307,10 @@ export default function GroupSettingsScreen() {
     });
   };
 
-  const isAdmin = userRole === 'admin';
+  const isAdmin = userRole === 'club-admin' || userRole === 'admin';
   const isGroupCreator = group?.createdBy === user?.uid;
-  const canManage = userRole === 'admin' || userRole === 'coach' || isGroupCreator;
+  const canManage = userRole === 'club-admin' || userRole === 'admin' || userRole === 'coach' || isGroupCreator;
+  const isScheduledForDeletion = !group?.isActive && group?.deletionScheduledAt;
 
   if (loading) {
     return (
@@ -343,6 +365,41 @@ export default function GroupSettingsScreen() {
           <Text style={styles.groupName}>{group.name}</Text>
           <Text style={styles.yourRole}>Your Role: {userRole}</Text>
         </View>
+
+        {/* Deletion Status Banner */}
+        {isScheduledForDeletion && (
+          <View style={styles.deletionBanner}>
+            <View style={styles.deletionHeader}>
+              <Ionicons name="warning" size={24} color={theme.colors.error} />
+              <Text style={styles.deletionTitle}>Scheduled for Deletion</Text>
+            </View>
+            <Text style={styles.deletionMessage}>
+              This group will be permanently deleted in:
+            </Text>
+            <CountdownTimer 
+              deletionScheduledAt={group.deletionScheduledAt?.toMillis?.()} 
+              compact={false}
+            />
+            {isAdmin && (
+              <View style={styles.undoButtonContainer}>
+                <Button
+                  label={isReactivating ? "Reactivating..." : "Undo Deletion"}
+                  onPress={handleUndoDeletion}
+                  theme="secondary"
+                  disabled={isReactivating}
+                />
+                {/* 🧪 DEV TESTING BUTTON - Remove in production */}
+                <View style={{ marginTop: 12 }}>
+                  <Button
+                    label="🧪 DEV: Force Hard Delete Now"
+                    onPress={handleForceCleanup}
+                    theme="primary"
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Settings Options */}
         <View style={styles.optionsContainer}>
@@ -420,78 +477,18 @@ export default function GroupSettingsScreen() {
               />
             </TouchableOpacity>
           )}
-
-          {/* Leave Group Option */}
-          <TouchableOpacity 
-            style={styles.optionItem}
-            onPress={handleLeaveGroup}
-          >
-            <View style={styles.optionIcon}>
-              <Ionicons 
-                name="exit-outline" 
-                size={24} 
-                color={theme.colors.error} 
-              />
-            </View>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionTitle}>Leave Group</Text>
-              <Text style={styles.optionDescription}>Remove yourself from this group</Text>
-            </View>
-            <Ionicons 
-              name="chevron-forward" 
-              size={20} 
-              color={theme.colors.textSecondary} 
-            />
-          </TouchableOpacity>
-
-          {/* Delete Group Option - Only for Admin */}
-          {isAdmin && (
-            <TouchableOpacity 
-              style={[styles.optionItem, styles.dangerOption]}
-              onPress={handleDeleteGroup}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons 
-                  name="trash-outline" 
-                  size={24} 
-                  color={theme.colors.error} 
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={[styles.optionTitle, styles.dangerText]}>Delete Group</Text>
-                <Text style={styles.optionDescription}>Permanently delete this group</Text>
-              </View>
-              <Ionicons 
-                name="chevron-forward" 
-                size={20} 
-                color={theme.colors.error} 
-              />
-            </TouchableOpacity>
-          )}
         </View>
       </ScrollView>
 
-      {/* Leave Group Confirmation Modal */}
+      {/* Undo Deletion Confirmation Modal */}
       <ConfirmationModal
-        visible={showLeaveModal}
-        title="Leave Group"
-        message={`Are you sure you want to leave "${group?.name || 'this group'}"?`}
-        confirmText="Leave"
+        visible={showUndoModal}
+        title="Undo Deletion"
+        message={`Are you sure you want to reactivate "${group?.name || 'this group'}"? This will restore the group and all its subgroups.`}
+        confirmText={isReactivating ? "Reactivating..." : "Reactivate"}
         cancelText="Cancel"
-        onConfirm={confirmLeaveGroup}
-        onCancel={() => setShowLeaveModal(false)}
-        confirmButtonTheme="secondary"
-      />
-
-      {/* Delete Group Confirmation Modal */}
-      <ConfirmationModal
-        visible={showDeleteModal}
-        title="Delete Group"
-        message={`Are you sure you want to permanently delete "${group?.name || 'this group'}"? This will also delete all future events for all members in this group and cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={confirmDeleteGroup}
-        onCancel={() => setShowDeleteModal(false)}
+        onConfirm={confirmUndoDeletion}
+        onCancel={() => setShowUndoModal(false)}
         confirmButtonTheme="primary"
       />
 
@@ -836,5 +833,33 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.secondary,
+  },
+  deletionBanner: {
+    backgroundColor: theme.colors.error + '15',
+    borderWidth: 2,
+    borderColor: theme.colors.error,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.lg,
+    marginHorizontal: theme.layout.containerPadding,
+    marginBottom: theme.spacing.lg,
+  },
+  deletionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  deletionTitle: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.error,
+  },
+  deletionMessage: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+  },
+  undoButtonContainer: {
+    marginTop: theme.spacing.md,
   },
 });

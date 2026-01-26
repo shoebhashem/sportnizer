@@ -11,3 +11,16 @@ export type { CreateNewGroupInExistingClubInput, CreateNewGroupInExistingClubRes
 export { removeMemberFromClubService } from './removeMemberFromClub';
 export { removeMemberFromGroupService } from './removeMemberFromGroup';
 
+// Group & Club deletion orchestration services
+export { deleteGroupService } from './deleteGroupService';
+export type { DeleteGroupServiceResponse } from './deleteGroupService';
+
+export { deleteClubService } from './deleteClubService';
+export type { DeleteClubServiceResponse } from './deleteClubService';
+
+export { reactivateGroupService } from './reactivateGroupService';
+export type { ReactivateGroupServiceResponse } from './reactivateGroupService';
+
+export { reactivateClubService } from './reactivateClubService';
+export type { ReactivateClubServiceResponse } from './reactivateClubService';
+

@@ -10,7 +10,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../core/firebase';
 import { isUserClubAdmin } from '../fetchUserAccess';
-import type { GroupAccess } from '../types';
 
 // Response type for atomic functions
 interface AtomicFunctionResponse {
@@ -118,52 +117,16 @@ export const createNewGroupInExistingClub = async (
     const groupId = groupResult.data.groupId;
     console.log(`✅ Group created with ID: ${groupId}`);
 
-    // Step 3: Add creator as group member with admin role (atomic operation)
-    console.log('3️⃣ Adding creator as group admin...');
-    const memberResult = await addMemberToGroupFn({
-      clubId,
-      groupId,
-      memberData: {
-        userId,
-        roles: ['admin'],
-        photoURL: userPhotoURL || '',
-        name: userDisplayName,
-        email: userEmail,
-        addedBy: userId, // Self-added
-        needsGuardian: false,
-        guardiansContacts: []
-      }
-    });
-
-    if (!memberResult.data.success) {
-      throw new Error(`Group membership failed: ${memberResult.data.error}`);
-    }
-
-    console.log('✅ Creator added as group admin');
-
-    // Step 4: Update user's group access within existing club access (atomic operation)
-    console.log('4️⃣ Updating user group access within club...');
-    const groupInfo: GroupAccess = {
-      groupId,
-      groupName: groupData.name,
-      roles: ['admin'],
-      joinedAt: new Date(),
-      lastModifiedAt: new Date()
-    };
-
-    const userGroupResult = await updateUserGroupInfoFn({
-      uid: userId,
-      clubId,
-      groupInfo,
-      roles: ['admin'],
-      operation: 'add'
-    });
-
-    if (!userGroupResult.data.success) {
-      throw new Error(`User group info update failed: ${userGroupResult.data.error}`);
-    }
-
-    console.log('✅ User group access updated within existing club');
+    // NOTE: Club admins who create groups are NOT automatically added as members
+    // They can be added later through the normal add member flow (Add Player/Coach/Admin)
+    
+    // Step 3: REMOVED - No longer auto-adding creator as group member
+    // Previously: Added creator with admin role via addMemberToGroupFn
+    // Reason: Club admins should explicitly add themselves if they want to be members
+    
+    // Step 4: REMOVED - No longer updating user's group access
+    // Previously: Updated user document with group access via updateUserGroupInfoFn
+    // Reason: User access is only updated when explicitly added as member
 
     console.log('🎉 createNewGroupInExistingClub orchestration completed successfully!');
     
