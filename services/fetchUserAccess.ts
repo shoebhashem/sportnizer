@@ -130,11 +130,6 @@ export const fetchUserProfile = async (userId: string, retryCount = 0): Promise<
     };
 
   } catch (error: any) {
-    console.error('❌ Error fetching user profile:', error);
-    console.error('❌ Error code:', error.code);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Full error:', JSON.stringify(error, null, 2));
-    
     // If user profile not found and we haven't exhausted retries, try again
     // This handles race condition where auth user is created but Firestore document isn't ready yet
     if (error.code === 'functions/not-found' && retryCount < MAX_RETRIES) {
@@ -144,6 +139,11 @@ export const fetchUserProfile = async (userId: string, retryCount = 0): Promise<
       await new Promise(resolve => setTimeout(resolve, delayMs));
       return fetchUserProfile(userId, retryCount + 1);
     }
+    
+    // Log full error only after all retries are exhausted or for unexpected errors
+    console.error('❌ Error fetching user profile:', error);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error message:', error.message);
     
     return { 
       success: false, 

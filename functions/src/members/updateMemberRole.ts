@@ -15,14 +15,16 @@ interface UpdateMemberRoleRequest {
   clubId: string;
   groupId: string;
   userId: string;
-  roleToAdd: string;
+  operation: 'add' | 'remove';
+  roleToAdd?: string;  // Required when operation='add'
+  roleToRemove?: string;  // Required when operation='remove'
 }
 
 // Valid roles in the system
 const VALID_ROLES = ['club-admin', 'admin', 'coach', 'player', 'player-underage', 'guardian'];
 
-// Management roles that can be assigned via this function
-const ASSIGNABLE_ROLES = ['admin', 'coach'];
+// Roles that can be managed via this function (all group roles)
+const MANAGEABLE_ROLES = ['admin', 'coach', 'player', 'player-underage'];
 
 export const updateMemberRole = onCall(
   {
@@ -30,24 +32,34 @@ export const updateMemberRole = onCall(
   },
   async (request) => {
     try {
-      const { clubId, groupId, userId, roleToAdd }: UpdateMemberRoleRequest = request.data;
+      const { clubId, groupId, userId, operation, roleToAdd, roleToRemove }: UpdateMemberRoleRequest = request.data;
 
       // Validate required fields
-      validateRequiredFields(request.data, ['clubId', 'groupId', 'userId', 'roleToAdd']);
+      validateRequiredFields(request.data, ['clubId', 'groupId', 'userId', 'operation']);
+
+      // Validate operation-specific fields
+      if (operation === 'add' && !roleToAdd) {
+        throw new HttpsError('invalid-argument', 'roleToAdd is required when operation is "add"');
+      }
+      if (operation === 'remove' && !roleToRemove) {
+        throw new HttpsError('invalid-argument', 'roleToRemove is required when operation is "remove"');
+      }
+
+      const targetRole = operation === 'add' ? roleToAdd : roleToRemove;
 
       // Validate role
-      if (!VALID_ROLES.includes(roleToAdd)) {
+      if (!VALID_ROLES.includes(targetRole!)) {
         throw new HttpsError(
           'invalid-argument',
-          `Invalid role '${roleToAdd}'. Valid roles are: ${VALID_ROLES.join(', ')}`
+          `Invalid role '${targetRole}'. Valid roles are: ${VALID_ROLES.join(', ')}`
         );
       }
 
-      // Only allow assignment of management roles through this function
-      if (!ASSIGNABLE_ROLES.includes(roleToAdd)) {
+      // Only allow management of group roles through this function
+      if (!MANAGEABLE_ROLES.includes(targetRole!)) {
         throw new HttpsError(
           'invalid-argument',
-          `Role '${roleToAdd}' cannot be assigned via this function. Only ${ASSIGNABLE_ROLES.join(', ')} roles can be promoted.`
+          `Role '${targetRole}' cannot be managed via this function. Only ${MANAGEABLE_ROLES.join(', ')} roles can be added/removed.`
         );
       }
 
@@ -56,7 +68,7 @@ export const updateMemberRole = onCall(
         throw new HttpsError('unauthenticated', 'User must be authenticated');
       }
 
-      console.log(`🔄 Adding role '${roleToAdd}' to user ${userId} in group ${groupId}`);
+      console.log(`🔄 ${operation === 'add' ? 'Adding' : 'Removing'} role '${targetRole}' ${operation === 'add' ? 'to' : 'from'} user ${userId} in group ${groupId}`);
 
       const db = admin.firestore();
 
@@ -83,20 +95,42 @@ export const updateMemberRole = onCall(
       const member = members[memberIndex];
       const currentRoles = member.roles || [];
 
-      // Check if role already exists
-      if (currentRoles.includes(roleToAdd)) {
-        console.log(`ℹ️ User ${userId} already has role '${roleToAdd}'`);
-        return {
-          success: true,
-          message: `User already has the ${roleToAdd} role`,
-          alreadyHasRole: true
-        };
-      }
+      if (operation === 'add') {
+        // Check if role already exists
+        if (currentRoles.includes(roleToAdd!)) {
+          console.log(`ℹ️ User ${userId} already has role '${roleToAdd}'`);
+          return {
+            success: true,
+            message: `User already has the ${roleToAdd} role`,
+            alreadyHasRole: true
+          };
+        }
 
-      // Add the new role
-      members[memberIndex].roles = [...currentRoles, roleToAdd];
-      // Note: Can't use FieldValue.serverTimestamp() inside arrays
-      members[memberIndex].lastModifiedAt = new Date();
+        // Add the new role
+        members[memberIndex].roles = [...currentRoles, roleToAdd!];
+        members[memberIndex].lastModifiedAt = new Date();
+
+        console.log(`✅ Added '${roleToAdd}' to group member roles`);
+      } else {
+        // Remove operation
+        const roleIndex = currentRoles.indexOf(roleToRemove!);
+        if (roleIndex === -1) {
+          console.log(`ℹ️ User ${userId} does not have role '${roleToRemove}'`);
+          return {
+            success: true,
+            message: `User does not have the ${roleToRemove} role`,
+            roleNotFound: true
+          };
+        }
+
+        // Remove ONE instance of the role (to handle duplicates correctly)
+        const updatedRoles = [...currentRoles];
+        updatedRoles.splice(roleIndex, 1);
+        members[memberIndex].roles = updatedRoles;
+        members[memberIndex].lastModifiedAt = new Date();
+
+        console.log(`✅ Removed '${roleToRemove}' from group member roles`);
+      }
 
       // Update Firestore
       await groupMembersRef.update({
@@ -104,8 +138,6 @@ export const updateMemberRole = onCall(
         version: admin.firestore.FieldValue.increment(1),
         lastModified: admin.firestore.FieldValue.serverTimestamp()
       });
-
-      console.log(`✅ Updated group member document with new role`);
 
       // STEP 2: Update club member document (if exists)
       try {
@@ -119,18 +151,37 @@ export const updateMemberRole = onCall(
 
           if (clubMemberIndex >= 0) {
             const clubMemberRoles = clubMembers[clubMemberIndex].roles || [];
-            if (!clubMemberRoles.includes(roleToAdd)) {
-              clubMembers[clubMemberIndex].roles = [...clubMemberRoles, roleToAdd];
-              // Note: Can't use FieldValue.serverTimestamp() inside arrays
-              clubMembers[clubMemberIndex].lastModifiedAt = new Date();
+            
+            if (operation === 'add') {
+              if (!clubMemberRoles.includes(roleToAdd!)) {
+                clubMembers[clubMemberIndex].roles = [...clubMemberRoles, roleToAdd!];
+                clubMembers[clubMemberIndex].lastModifiedAt = new Date();
 
-              await clubMembersRef.update({
-                members: clubMembers,
-                version: admin.firestore.FieldValue.increment(1),
-                lastModified: admin.firestore.FieldValue.serverTimestamp()
-              });
+                await clubMembersRef.update({
+                  members: clubMembers,
+                  version: admin.firestore.FieldValue.increment(1),
+                  lastModified: admin.firestore.FieldValue.serverTimestamp()
+                });
 
-              console.log(`✅ Updated club member document with new role`);
+                console.log(`✅ Added '${roleToAdd}' to club member roles`);
+              }
+            } else {
+              // Remove operation - remove ONE instance
+              const roleIndex = clubMemberRoles.indexOf(roleToRemove!);
+              if (roleIndex > -1) {
+                const updatedRoles = [...clubMemberRoles];
+                updatedRoles.splice(roleIndex, 1);
+                clubMembers[clubMemberIndex].roles = updatedRoles;
+                clubMembers[clubMemberIndex].lastModifiedAt = new Date();
+
+                await clubMembersRef.update({
+                  members: clubMembers,
+                  version: admin.firestore.FieldValue.increment(1),
+                  lastModified: admin.firestore.FieldValue.serverTimestamp()
+                });
+
+                console.log(`✅ Removed '${roleToRemove}' from club member roles`);
+              }
             }
           }
         }
@@ -139,32 +190,59 @@ export const updateMemberRole = onCall(
         // Don't fail the entire operation if club update fails
       }
 
-      // STEP 3: Update user's groupsJoined array
+      // STEP 3: Update user's clubAccess[].groupAccess[] array
       try {
         const userRef = db.collection('users').doc(userId);
         const userDoc = await userRef.get();
 
         if (userDoc.exists) {
           const userData = userDoc.data();
-          const groupsJoined = userData?.groupsJoined || [];
+          const clubAccess = userData?.clubAccess || [];
           
-          // Find the group in user's groupsJoined array
-          const groupIndex = groupsJoined.findIndex((g: any) => g.groupId === groupId);
+          // Find the club in user's clubAccess array
+          const clubIndex = clubAccess.findIndex((c: any) => c.clubId === clubId);
           
-          if (groupIndex >= 0) {
-            const userGroupRoles = groupsJoined[groupIndex].roles || [];
-            if (!userGroupRoles.includes(roleToAdd)) {
-              groupsJoined[groupIndex].roles = [...userGroupRoles, roleToAdd];
+          if (clubIndex >= 0) {
+            const groupAccess = clubAccess[clubIndex].groupAccess || [];
+            const groupIndex = groupAccess.findIndex((g: any) => g.groupId === groupId);
+            
+            if (groupIndex >= 0) {
+              const userGroupRoles = groupAccess[groupIndex].roles || [];
               
-              await userRef.update({
-                groupsJoined,
-                lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
-              });
+              if (operation === 'add') {
+                if (!userGroupRoles.includes(roleToAdd!)) {
+                  clubAccess[clubIndex].groupAccess[groupIndex].roles = [...userGroupRoles, roleToAdd!];
+                  clubAccess[clubIndex].groupAccess[groupIndex].lastModifiedAt = new Date();
+                  
+                  await userRef.update({
+                    clubAccess,
+                    lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
+                  });
 
-              console.log(`✅ Updated user document with new role`);
+                  console.log(`✅ Added '${roleToAdd}' to user document`);
+                }
+              } else {
+                // Remove operation
+                const roleIndex = userGroupRoles.indexOf(roleToRemove!);
+                if (roleIndex > -1) {
+                  const updatedRoles = [...userGroupRoles];
+                  updatedRoles.splice(roleIndex, 1);
+                  clubAccess[clubIndex].groupAccess[groupIndex].roles = updatedRoles;
+                  clubAccess[clubIndex].groupAccess[groupIndex].lastModifiedAt = new Date();
+                  
+                  await userRef.update({
+                    clubAccess,
+                    lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
+                  });
+
+                  console.log(`✅ Removed '${roleToRemove}' from user document`);
+                }
+              }
+            } else {
+              console.warn(`⚠️ Group ${groupId} not found in user's clubAccess[].groupAccess array`);
             }
           } else {
-            console.warn(`⚠️ Group ${groupId} not found in user's groupsJoined array`);
+            console.warn(`⚠️ Club ${clubId} not found in user's clubAccess array`);
           }
         }
       } catch (userError) {
@@ -172,7 +250,7 @@ export const updateMemberRole = onCall(
         // Don't fail the entire operation if user update fails
       }
 
-      console.log(`✨ Successfully added role '${roleToAdd}' to user ${userId}`);
+      console.log(`✨ Successfully ${operation === 'add' ? 'added' : 'removed'} role '${targetRole}' ${operation === 'add' ? 'to' : 'from'} user ${userId}`);
 
       // STEP 4: Create notification for role update
       try {
@@ -196,7 +274,9 @@ export const updateMemberRole = onCall(
           await createNotificationDirect(userId, {
             type: 'group_invitation',
             title: 'Role Update',
-            message: `You have been promoted to ${roleToAdd} role in ${groupName}`,
+            message: operation === 'add' 
+              ? `You have been promoted to ${targetRole} role in ${groupName}`
+              : `Your ${targetRole} role has been removed from ${groupName}`,
             clubId,
             clubName,
             groupId,
@@ -204,8 +284,9 @@ export const updateMemberRole = onCall(
             priority: 'high',
             metadata: {
               action: 'role_update',
-              newRole: roleToAdd,
-              existingRoles: currentRoles
+              operation,
+              role: targetRole,
+              previousRoles: currentRoles
             }
           } as any);
           
@@ -216,10 +297,14 @@ export const updateMemberRole = onCall(
         // Don't fail the entire operation if notification creation fails
       }
 
+      const updatedRoles = operation === 'add' 
+        ? [...currentRoles, targetRole!]
+        : currentRoles.filter((r: string) => r !== targetRole);
+
       return {
         success: true,
-        message: `Successfully added ${roleToAdd} role`,
-        updatedRoles: [...currentRoles, roleToAdd]
+        message: `Successfully ${operation === 'add' ? 'added' : 'removed'} ${targetRole} role`,
+        updatedRoles
       };
 
     } catch (error: any) {

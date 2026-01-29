@@ -3,33 +3,34 @@
  * ====================
  * 
  * Generic screen for removing any member type (player, youth, coach, admin).
- * Handles guardian validation and provides context-aware confirmation modals.
+ * Supports multi-select with batch removal and detailed result feedback.
  * 
  * FEATURES:
  * - Member list filtered by type (player/youth/coach/admin)
  * - Search functionality
- * - Radio button selection
- * - Guardian/dependent status checking
- * - Three modal variants:
- *   1. Youth removal (shows guardian info)
- *   2. Guardian blocked (shows dependent list)
- *   3. Standard removal (shows club admin contacts)
+ * - Multi-select with checkboxes
+ * - Batch removal processing
+ * - Detailed success/error reporting
  * 
  * FLOW:
  * 1. Fetch members filtered by type
- * 2. User selects member → validate guardian status
- * 3. Show appropriate confirmation modal
- * 4. Call orchestration service (club or group removal)
- * 5. Navigate back with success message
+ * 2. User selects multiple members via checkboxes
+ * 3. Click Continue → Show confirmation modal with member list
+ * 4. Click Confirm → Loop through and call orchestration service for each member
+ * 5. Show results modal with success/failure counts
+ * 6. Navigate back (auto-close on full success)
+ * 
+ * SIMPLIFIED LOGIC:
+ * - No guardian status pre-checks (backend handles guardian cascade)
+ * - Backend automatically removes guardian roles when youth leaves
+ * - Backend automatically marks inactive when roles[] becomes empty
  */
 
 import Button from '@/components/Button';
-import ConfirmationModal from '@/components/ConfirmationModal';
 import { theme } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -42,8 +43,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { functions } from '../firebaseConfig';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchGroupMembers } from '../services/fetchGroupMembers';
 import { removeMemberFromClubService } from '../services/orchestration/removeMemberFromClub';
 import { removeMemberFromGroupService } from '../services/orchestration/removeMemberFromGroup';
@@ -59,53 +59,23 @@ interface GroupMemberData {
   photoURL?: string;
 }
 
-interface GuardianInfo {
-  name: string;
-  email: string;
-}
-
-interface DependentInfo {
-  name: string;
-  email: string;
-  clubName: string;
-}
-
-interface GuardianDependentStatus {
-  isYouth: boolean;
-  isGuardian: boolean;
-  guardians: GuardianInfo[];
-  dependentsInClub: DependentInfo[];
-  hasOtherClubs: boolean;
-}
-
-interface ModalContent {
-  variant: 'youth' | 'guardian-blocked' | 'standard';
-  title: string;
-  message: string;
-  guardians?: GuardianInfo[];
-  dependents?: DependentInfo[];
-  clubAdminContacts?: string[];
-  confirmText: string;
-  confirmDisabled?: boolean;
-}
-
 export default function RemoveMemberScreen() {
-  const { groupId, clubId, memberType, removalLevel, groupName, clubName } = useLocalSearchParams();
+  const { groupId, clubId, memberType, removeType, removalLevel, groupName, clubName } = useLocalSearchParams();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  
+  // Support both 'memberType' and 'removeType' parameters (backward compatibility)
+  const actualMemberType = (memberType || removeType) as string;
   
   const [members, setMembers] = useState<GroupMemberData[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<GroupMemberData[]>([]);
-  const [selectedMember, setSelectedMember] = useState<GroupMemberData | null>(null);
+  const [selectedMembers, setSelectedMembers] = useState<GroupMemberData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState(false);
-  const [userRole] = useState<string>('member');
-  const [guardianStatus, setGuardianStatus] = useState<GuardianDependentStatus | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [modalContent, setModalContent] = useState<ModalContent | null>(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
+  const [removalResults, setRemovalResults] = useState<{success: number; failed: number; errors: string[]}>({success: 0, failed: 0, errors: []});
+  const [showResultModal, setShowResultModal] = useState(false);
 
   const fetchMembers = useCallback(async () => {
     if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !user?.uid) return;
@@ -115,24 +85,28 @@ export default function RemoveMemberScreen() {
       const result = await fetchGroupMembers(clubId, groupId);
       
       if (result.success && result.members) {
+        console.log('📋 All fetched members:', result.members.length);
+        console.log('📋 Member type filter:', actualMemberType);
+        console.log('📋 First member data:', JSON.stringify(result.members[0], null, 2));
+        
         // Filter by member type
         const filtered = result.members.filter((m: GroupMemberData) => {
-          if (memberType === 'player') {
-            return m.roles.includes('player') && !m.needsGuardian;
-          } else if (memberType === 'youth') {
+          if (actualMemberType === 'player') {
+            return m.roles.includes('player');
+          } else if (actualMemberType === 'youth') {
             return m.roles.includes('player-underage') || m.needsGuardian;
-          } else if (memberType === 'coach') {
+          } else if (actualMemberType === 'coach') {
             return m.roles.includes('coach');
-          } else if (memberType === 'admin') {
+          } else if (actualMemberType === 'admin') {
             return m.roles.includes('admin') || m.roles.includes('club-admin');
           }
           return false;
         });
         
-        // Exclude current user
-        const excludeSelf = filtered.filter((m: GroupMemberData) => m.userId !== user?.uid);
+        console.log('📋 Filtered members:', filtered.length);
+        console.log('📋 Filtered member data:', JSON.stringify(filtered, null, 2));
         
-        setMembers(excludeSelf);
+        setMembers(filtered);
       } else {
         console.error('Failed to fetch members:', result.error);
       }
@@ -165,148 +139,90 @@ export default function RemoveMemberScreen() {
     filterMembers();
   }, [filterMembers]);
 
-  const handleMemberSelect = async (member: GroupMemberData) => {
-    setSelectedMember(member);
-    
-    // Check guardian/dependent status
-    try {
-      const checkFunction = httpsCallable(functions, 'checkGuardianDependentStatus');
-      const result = await checkFunction({
-        userId: member.userId,
-        clubId: clubId as string,
-      });
-      
-      const status = result.data as GuardianDependentStatus;
-      setGuardianStatus(status);
-      
-      // Build modal content based on status
-      buildModalContent(member, status);
-    } catch (error) {
-      console.error('Error checking guardian status:', error);
-      setErrorMessage('Failed to validate member status. Please try again.');
-      setShowErrorModal(true);
-    }
+  const handleMemberToggle = (member: GroupMemberData) => {
+    setSelectedMembers(prev => {
+      const isAlreadySelected = prev.some(m => m.userId === member.userId);
+      if (isAlreadySelected) {
+        // Remove from selection
+        return prev.filter(m => m.userId !== member.userId);
+      } else {
+        // Add to selection
+        return [...prev, member];
+      }
+    });
   };
 
-  const buildModalContent = async (member: GroupMemberData, status: GuardianDependentStatus) => {
-    const level = (removalLevel as RemovalLevel) || 'group';
-    const scope = level === 'club' ? 'club' : 'group';
-    
-    // Variant 1: Guardian with dependents in club (BLOCKED)
-    if (status.isGuardian && status.dependentsInClub.length > 0) {
-      setModalContent({
-        variant: 'guardian-blocked',
-        title: 'Cannot Remove Guardian',
-        message: `${member.name} is a guardian for ${status.dependentsInClub.length} youth member(s) in this ${scope}. Remove the dependents first or assign a different guardian.`,
-        dependents: status.dependentsInClub,
-        confirmText: 'OK',
-        confirmDisabled: true,
-      });
-      setShowConfirmModal(true);
-      return;
-    }
-    
-    // Variant 2: Youth player (show guardian info)
-    if (status.isYouth && status.guardians.length > 0) {
-      setModalContent({
-        variant: 'youth',
-        title: `Remove ${member.name}?`,
-        message: `This will remove ${member.name} from ${scope === 'club' ? clubName : groupName}. The guardian(s) will be notified.`,
-        guardians: status.guardians,
-        confirmText: 'Remove Member',
-        confirmDisabled: false,
-      });
-      setShowConfirmModal(true);
-      return;
-    }
-    
-    // Variant 3: Standard removal (fetch club admin contacts for escalation)
-    try {
-      // If group-level removal, get club admin contacts for escalation message
-      let clubAdminContacts: string[] = [];
-      
-      if (level === 'group') {
-        const getContactsFunction = httpsCallable(functions, 'getClubAdminContacts');
-        const contactsResult = await getContactsFunction({ clubId: clubId as string });
-        clubAdminContacts = (contactsResult.data as any).contacts || [];
-      }
-      
-      setModalContent({
-        variant: 'standard',
-        title: `Remove ${member.name}?`,
-        message: level === 'club' 
-          ? `This will remove ${member.name} from all groups in ${clubName}. This action cannot be undone.`
-          : `This will remove ${member.name} from ${groupName}. They will remain in the club and other groups.${clubAdminContacts.length > 0 ? ' Club admins will be notified.' : ''}`,
-        clubAdminContacts: clubAdminContacts,
-        confirmText: 'Remove Member',
-        confirmDisabled: false,
-      });
-      setShowConfirmModal(true);
-    } catch (error) {
-      console.error('Error building modal content:', error);
-      setErrorMessage('Failed to prepare removal. Please try again.');
-      setShowErrorModal(true);
-    }
+  const handleContinue = () => {
+    if (selectedMembers.length === 0) return;
+    setIsConfirmModalVisible(true);
   };
 
   const handleConfirmRemoval = async () => {
-    if (!selectedMember || !modalContent || modalContent.confirmDisabled) {
-      setShowConfirmModal(false);
+    if (selectedMembers.length === 0) {
+      setIsConfirmModalVisible(false);
       return;
     }
     
-    setShowConfirmModal(false);
+    setIsConfirmModalVisible(false);
     setRemoving(true);
     
-    try {
-      const level = (removalLevel as RemovalLevel) || 'group';
-      let result;
-      
-      if (level === 'club') {
-        // Club-level removal
-        result = await removeMemberFromClubService(
-          clubId as string,
-          selectedMember.userId,
-          userRole
-        );
-      } else {
-        // Group-level removal
-        result = await removeMemberFromGroupService(
-          clubId as string,
-          groupId as string,
-          selectedMember.userId,
-          userRole
-        );
+    const results = {success: 0, failed: 0, errors: [] as string[]};
+    const level = (removalLevel as RemovalLevel) || 'group';
+    
+    // Process each selected member
+    for (const member of selectedMembers) {
+      try {
+        let result;
+        
+        if (level === 'club') {
+          result = await removeMemberFromClubService(
+            clubId as string,
+            member.userId
+          );
+        } else {
+          const roleToRemove = getRoleToRemove();
+          result = await removeMemberFromGroupService(
+            clubId as string,
+            groupId as string,
+            member.userId,
+            roleToRemove
+          );
+        }
+        
+        console.log(`[DEBUG] Result for ${member.name}:`, JSON.stringify(result, null, 2));
+        
+        if (result.success) {
+          results.success++;
+        } else {
+          results.failed++;
+          const errorMsg = result.error || result.message || 'Unknown error';
+          console.log(`[DEBUG] Error message: ${errorMsg}`);
+          results.errors.push(`${member.name}: ${errorMsg}`);
+        }
+      } catch (error: any) {
+        console.error(`Error removing ${member.name}:`, error);
+        results.failed++;
+        results.errors.push(`${member.name}: ${error.message || 'Unexpected error'}`);
       }
-      
-      if (result.success) {
-        setShowSuccessModal(true);
-        // Navigate back after 2 seconds
-        setTimeout(() => {
-          router.back();
-        }, 2000);
-      } else {
-        setErrorMessage(result.message || 'Failed to remove member');
-        setShowErrorModal(true);
-      }
-    } catch (error: any) {
-      console.error('Error removing member:', error);
-      setErrorMessage(error.message || 'An unexpected error occurred');
-      setShowErrorModal(true);
-    } finally {
-      setRemoving(false);
     }
+    
+    setRemovalResults(results);
+    setRemoving(false);
+    setShowResultModal(true);
+    
+    // Clear selection after showing results
+    setSelectedMembers([]);
+    
+    // Refresh member list
+    await fetchMembers();
   };
 
   const handleCancelConfirm = () => {
-    setShowConfirmModal(false);
-    setSelectedMember(null);
-    setGuardianStatus(null);
-    setModalContent(null);
+    setIsConfirmModalVisible(false);
   };
 
   const getMemberTypeLabel = () => {
-    switch (memberType) {
+    switch (actualMemberType) {
       case 'player': return 'Player';
       case 'youth': return 'Youth Player';
       case 'coach': return 'Coach';
@@ -315,17 +231,40 @@ export default function RemoveMemberScreen() {
     }
   };
 
+  const getRoleLabel = () => {
+    switch (actualMemberType) {
+      case 'player': return 'player role';
+      case 'youth': return 'youth player role';
+      case 'coach': return 'coach role';
+      case 'admin': return 'admin role';
+      default: return 'member';
+    }
+  };
+
+  /**
+   * Map member type to role string for removal
+   */
+  const getRoleToRemove = (): string | undefined => {
+    switch (actualMemberType) {
+      case 'player': return 'player';
+      case 'youth': return 'player-underage';
+      case 'coach': return 'coach';
+      case 'admin': return 'admin';
+      default: return undefined; // Remove all roles if type not recognized
+    }
+  };
+
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
-    const isSelected = selectedMember?.userId === item.userId;
+    const isSelected = selectedMembers.some(m => m.userId === item.userId);
     
     return (
       <TouchableOpacity
         style={[styles.memberItem, isSelected && styles.memberItemSelected]}
-        onPress={() => handleMemberSelect(item)}
+        onPress={() => handleMemberToggle(item)}
         disabled={removing}
       >
-        <View style={styles.radioButton}>
-          {isSelected && <View style={styles.radioButtonInner} />}
+        <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+          {isSelected && <Ionicons name="checkmark" size={16} color={theme.colors.primary} />}
         </View>
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{item.name}</Text>
@@ -343,11 +282,14 @@ export default function RemoveMemberScreen() {
   };
 
   const renderConfirmModal = () => {
-    if (!modalContent) return null;
+    const level = (removalLevel as RemovalLevel) || 'group';
+    const scope = level === 'club' ? clubName : groupName;
+    const memberCount = selectedMembers.length;
+    const roleLabel = getRoleLabel();
     
     return (
       <Modal
-        visible={showConfirmModal}
+        visible={isConfirmModalVisible}
         transparent
         animationType="fade"
         onRequestClose={handleCancelConfirm}
@@ -356,82 +298,56 @@ export default function RemoveMemberScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Ionicons 
-                name={modalContent.variant === 'guardian-blocked' ? 'warning' : 'information-circle'} 
+                name="warning" 
                 size={48} 
-                color={modalContent.variant === 'guardian-blocked' ? '#FF6B6B' : theme.colors.secondary} 
+                color="#FF6B6B" 
               />
-              <Text style={styles.modalTitle}>{modalContent.title}</Text>
+              <Text style={styles.modalTitle}>
+                Remove {memberCount} {getMemberTypeLabel()}{memberCount > 1 ? 's' : ''}?
+              </Text>
             </View>
             
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalMessage}>{modalContent.message}</Text>
+              <Text style={styles.modalMessage}>
+                {level === 'club' 
+                  ? `This will remove ${roleLabel} from ${memberCount} member${memberCount > 1 ? 's' : ''} in all groups within ${scope}. This action cannot be undone.`
+                  : `This will remove ${roleLabel} from ${memberCount} member${memberCount > 1 ? 's' : ''} in ${scope}. They will remain in the club and other groups.`}
+              </Text>
               
-              {/* Variant: Youth - Show guardians */}
-              {modalContent.variant === 'youth' && modalContent.guardians && modalContent.guardians.length > 0 && (
-                <View style={styles.infoSection}>
-                  <Text style={styles.infoSectionTitle}>Guardian(s):</Text>
-                  {modalContent.guardians.map((guardian, index) => (
-                    <View key={index} style={styles.infoItem}>
-                      <Ionicons name="person" size={16} color={theme.colors.textSecondary} />
-                      <Text style={styles.infoText}>{guardian.name} ({guardian.email})</Text>
+              <View style={styles.infoSection}>
+                <Text style={styles.infoSectionTitle}>{getMemberTypeLabel()}s to remove:</Text>
+                {selectedMembers.map((member) => (
+                  <View key={member.userId} style={styles.infoItem}>
+                    <Ionicons name="person" size={16} color={theme.colors.textSecondary} />
+                    <View style={styles.dependentInfo}>
+                      <Text style={styles.infoText}>{member.name}</Text>
+                      <Text style={styles.infoSubtext}>{member.email}</Text>
                     </View>
-                  ))}
-                </View>
-              )}
-              
-              {/* Variant: Guardian Blocked - Show dependents */}
-              {modalContent.variant === 'guardian-blocked' && modalContent.dependents && modalContent.dependents.length > 0 && (
-                <View style={styles.infoSection}>
-                  <Text style={styles.infoSectionTitle}>Dependent Youth Members:</Text>
-                  {modalContent.dependents.map((dependent, index) => (
-                    <View key={index} style={styles.infoItem}>
-                      <Ionicons name="person" size={16} color={theme.colors.textSecondary} />
-                      <View style={styles.dependentInfo}>
-                        <Text style={styles.infoText}>{dependent.name}</Text>
-                        <Text style={styles.infoSubtext}>{dependent.email}</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              )}
-              
-              {/* Variant: Standard - Show club admin contacts (for escalation) */}
-              {modalContent.variant === 'standard' && modalContent.clubAdminContacts && modalContent.clubAdminContacts.length > 0 && (
-                <View style={styles.infoSection}>
-                  <Text style={styles.infoSectionTitle}>Club admins will be notified:</Text>
-                  {modalContent.clubAdminContacts.map((contact, index) => (
-                    <View key={index} style={styles.infoItem}>
-                      <Ionicons name="mail" size={16} color={theme.colors.textSecondary} />
-                      <Text style={styles.infoText}>{contact}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
+                  </View>
+                ))}
+              </View>
             </ScrollView>
             
             <View style={styles.modalActions}>
-              {!modalContent.confirmDisabled && (
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalButtonCancel]}
-                  onPress={handleCancelConfirm}
-                >
-                  <Text style={styles.modalButtonTextCancel}>Cancel</Text>
-                </TouchableOpacity>
-              )}
               <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  modalContent.confirmDisabled ? styles.modalButtonDisabled : styles.modalButtonConfirm
-                ]}
-                onPress={modalContent.confirmDisabled ? handleCancelConfirm : handleConfirmRemoval}
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={handleCancelConfirm}
                 disabled={removing}
               >
-                <Text style={[
-                  styles.modalButtonText,
-                  modalContent.confirmDisabled && styles.modalButtonTextDisabled
-                ]}>
-                  {modalContent.confirmText}
-                </Text>
+                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={handleConfirmRemoval}
+                disabled={removing}
+              >
+                {removing ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <Text style={styles.modalButtonText}>
+                    Remove {memberCount > 1 ? `${memberCount} ${getMemberTypeLabel()}s` : getMemberTypeLabel()}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -484,7 +400,7 @@ export default function RemoveMemberScreen() {
 
       <View style={styles.content}>
         <Text style={styles.instructionText}>
-          Select a {getMemberTypeLabel().toLowerCase()} to remove:
+          Select {getMemberTypeLabel().toLowerCase()}(s) to remove:
         </Text>
 
         {filteredMembers.length > 0 ? (
@@ -493,7 +409,10 @@ export default function RemoveMemberScreen() {
             renderItem={renderMemberItem}
             keyExtractor={(item) => item.userId}
             style={styles.membersList}
-            contentContainerStyle={styles.membersListContent}
+            contentContainerStyle={[
+              styles.membersListContent,
+              selectedMembers.length > 0 && styles.membersListContentWithActions
+            ]}
           />
         ) : (
           <View style={styles.emptyState}>
@@ -503,53 +422,92 @@ export default function RemoveMemberScreen() {
             </Text>
           </View>
         )}
+      </View>
 
-        {selectedMember && (
-          <View style={styles.actionContainer}>
+      {selectedMembers.length > 0 && (
+        <View style={[styles.actionContainer, { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) }]}>
+          <View style={styles.actionButton}>
             <Button
               label="Cancel"
-              onPress={() => setSelectedMember(null)}
+              onPress={() => setSelectedMembers([])}
               theme="secondary"
               disabled={removing}
             />
+          </View>
+          <View style={styles.actionButton}>
             <Button
-              label={removing ? 'Removing...' : 'Continue'}
-              onPress={() => buildModalContent(selectedMember, guardianStatus!)}
+              label={removing ? 'Removing...' : `Continue (${selectedMembers.length})`}
+              onPress={handleContinue}
               theme="primary"
               disabled={removing}
               loading={removing}
             />
           </View>
-        )}
-      </View>
+        </View>
+      )}
 
       {renderConfirmModal()}
 
-      {/* Success Modal */}
-      <ConfirmationModal
-        visible={showSuccessModal}
-        title="Member Removed"
-        message={`${selectedMember?.name} has been successfully removed.`}
-        confirmText="OK"
-        onConfirm={() => {
-          setShowSuccessModal(false);
-          router.back();
+      {/* Results Modal */}
+      <Modal
+        visible={showResultModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowResultModal(false);
+          if (removalResults.failed === 0) {
+            router.back();
+          }
         }}
-        onCancel={() => {
-          setShowSuccessModal(false);
-          router.back();
-        }}
-      />
-
-      {/* Error Modal */}
-      <ConfirmationModal
-        visible={showErrorModal}
-        title="Error"
-        message={errorMessage}
-        confirmText="OK"
-        onConfirm={() => setShowErrorModal(false)}
-        onCancel={() => setShowErrorModal(false)}
-      />
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Ionicons 
+                name={removalResults.failed === 0 ? 'checkmark-circle' : 'warning'} 
+                size={48} 
+                color={removalResults.failed === 0 ? theme.colors.secondary : '#FF6B6B'} 
+              />
+              <Text style={styles.modalTitle}>
+                {removalResults.failed === 0 ? `${getMemberTypeLabel()}s Removed` : 'Removal Complete'}
+              </Text>
+            </View>
+            
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalMessage}>
+                {removalResults.success > 0 && `Successfully removed ${getRoleLabel()} from ${removalResults.success} member${removalResults.success > 1 ? 's' : ''}.`}
+                {removalResults.failed > 0 && `\n\nFailed to remove ${getRoleLabel()} from ${removalResults.failed} member${removalResults.failed > 1 ? 's' : ''}.`}
+              </Text>
+              
+              {removalResults.errors.length > 0 && (
+                <View style={styles.infoSection}>
+                  <Text style={styles.infoSectionTitle}>Errors:</Text>
+                  {removalResults.errors.map((error, index) => (
+                    <View key={index} style={styles.errorItem}>
+                      <Ionicons name="close-circle" size={16} color="#FF6B6B" />
+                      <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={() => {
+                  setShowResultModal(false);
+                  if (removalResults.failed === 0) {
+                    router.back();
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -619,6 +577,9 @@ const styles = StyleSheet.create({
   membersListContent: {
     paddingBottom: theme.spacing.xl,
   },
+  membersListContentWithActions: {
+    paddingBottom: 100, // Extra padding when action buttons are visible
+  },
   memberItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -633,21 +594,19 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.secondary,
     backgroundColor: `${theme.colors.secondary}10`,
   },
-  radioButton: {
+  checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: 4,
     borderWidth: 2,
     borderColor: theme.colors.textSecondary,
     marginRight: theme.spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  radioButtonInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  checkboxSelected: {
     backgroundColor: theme.colors.secondary,
+    borderColor: theme.colors.secondary,
   },
   memberInfo: {
     flex: 1,
@@ -694,9 +653,19 @@ const styles = StyleSheet.create({
   actionContainer: {
     flexDirection: 'row',
     gap: theme.spacing.md,
-    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.layout.containerPadding,
+    paddingTop: theme.spacing.lg,
+    // paddingBottom will be set dynamically using insets
+    backgroundColor: theme.colors.primary,
     borderTopWidth: 1,
     borderTopColor: theme.colors.inputBorder,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  actionButton: {
+    flex: 1,
   },
   cancelButton: {
     flex: 1,
@@ -830,5 +799,20 @@ const styles = StyleSheet.create({
   },
   modalButtonTextDisabled: {
     color: theme.colors.primary,
+  },
+  errorItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: '#FFF5F5',
+    borderRadius: theme.borderRadius.small,
+    marginBottom: theme.spacing.xs,
+  },
+  errorText: {
+    fontSize: theme.typography.fontSize.small,
+    color: '#FF6B6B',
+    marginLeft: theme.spacing.sm,
+    flex: 1,
   },
 });

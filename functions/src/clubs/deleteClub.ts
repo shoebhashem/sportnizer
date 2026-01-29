@@ -58,6 +58,14 @@ export const deleteClub = onCall(
         version: admin.firestore.FieldValue.increment(1)
       });
       
+      // Decrement user's active clubs counter (subscription limit tracking)
+      const userRef = db.collection('users').doc(request.auth.uid);
+      await userRef.update({
+        activeClubsAsAdmin: admin.firestore.FieldValue.increment(-1)
+      });
+      
+      console.log(`Soft deleted club ${clubId}. Decremented user's activeClubsAsAdmin.`);
+      
       // 5. Cascade soft delete to all groups (which will cascade to subgroups)
       const groupsSnapshot = await clubRef.collection('groups').get();
       if (!groupsSnapshot.empty) {

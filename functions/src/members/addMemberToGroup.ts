@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { AddMemberToGroupRequest, FunctionResponse } from '../types/interfaces';
 import { config } from '../utils/config';
+import { checkMemberLimit, DEFAULT_LIMITS } from '../utils/limits';
 import { validateRequiredFields } from '../utils/validation';
 
 export const addMemberToGroup = onCall(
@@ -70,23 +71,120 @@ export const addMemberToGroup = onCall(
       const groupMembersData = groupMembersDoc.data();
       const currentMembers = groupMembersData?.members || [];
 
-      // Check if user is already a member of the group
-      const existingMember = currentMembers.find((m: any) => m.userId === memberData.userId);
-      if (existingMember) {
-        return {
-          success: false,
-          error: 'User is already a member of this group'
-        };
-      }
+      // Check member limit before adding/reactivating
+      const groupData = groupDoc.data();
+      const maxMembers = groupData?.maxMembers || DEFAULT_LIMITS.maxMembers;
+      const currentMemberCount = groupMembersData?.memberCount || 0;
 
-      // Add member to group using arrayUnion
-      await groupMemberRef.update({
-        members: admin.firestore.FieldValue.arrayUnion(memberData),
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        memberCount: admin.firestore.FieldValue.increment(1),
-        version: admin.firestore.FieldValue.increment(1), // Increment version
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      // 🆕 REACTIVATION LOGIC: Check if user already exists (including inactive members)
+      const existingMember = currentMembers.find((m: any) => m.userId === memberData.userId);
+      
+      if (existingMember) {
+        // Check if member is inactive
+        if (existingMember.isActive === false) {
+          const now = new Date();
+          const scheduledDeletion = existingMember.scheduledForDeletion ? 
+            (existingMember.scheduledForDeletion.toDate ? existingMember.scheduledForDeletion.toDate() : new Date(existingMember.scheduledForDeletion)) : 
+            null;
+          
+          // Check if within grace period (30 days)
+          if (scheduledDeletion && now < scheduledDeletion) {
+            console.log(`♻️ Reactivating member ${memberData.userId} - within grace period`);
+            
+            // Check member limit before reactivating
+            const limitCheck = checkMemberLimit(currentMemberCount, maxMembers);
+            if (!limitCheck.allowed) {
+              throw new HttpsError('resource-exhausted', limitCheck.message);
+            }
+            
+            // Reactivate the member by merging new roles with existing data
+            const memberIndex = currentMembers.findIndex((m: any) => m.userId === memberData.userId);
+            if (memberIndex >= 0) {
+              // Merge roles (avoid duplicates)
+              const existingRoles = existingMember.roles || [];
+              const newRoles = memberData.roles || [];
+              const mergedRoles = [...new Set([...existingRoles, ...newRoles])];
+              
+              currentMembers[memberIndex] = {
+                ...existingMember,
+                ...memberData,
+                roles: mergedRoles,
+                isActive: true,
+                inactiveSince: null,
+                scheduledForDeletion: null,
+                reactivatedAt: now,
+                reactivationCount: (existingMember.reactivationCount || 0) + 1,
+                lastModifiedAt: now
+              };
+              
+              await groupMemberRef.update({
+                members: currentMembers,
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                memberCount: admin.firestore.FieldValue.increment(1),
+                version: admin.firestore.FieldValue.increment(1),
+                lastModified: admin.firestore.FieldValue.serverTimestamp(),
+              });
+              
+              console.log(`✅ Member reactivated with roles: [${mergedRoles.join(', ')}]`);
+            }
+          } else {
+            // Grace period expired - treat as new member (overwrite inactive entry)
+            console.log(`⚠️ Member ${memberData.userId} grace period expired - treating as new member`);
+            
+            // Check member limit before re-adding
+            const limitCheck = checkMemberLimit(currentMemberCount, maxMembers);
+            if (!limitCheck.allowed) {
+              throw new HttpsError('resource-exhausted', limitCheck.message);
+            }
+            
+            const memberIndex = currentMembers.findIndex((m: any) => m.userId === memberData.userId);
+            if (memberIndex >= 0) {
+              currentMembers[memberIndex] = {
+                ...memberData,
+                isActive: true,
+                inactiveSince: null,
+                scheduledForDeletion: null,
+                reactivatedAt: now,
+                reactivationCount: (existingMember.reactivationCount || 0) + 1,
+                lastModifiedAt: now
+              };
+              
+              await groupMemberRef.update({
+                members: currentMembers,
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                memberCount: admin.firestore.FieldValue.increment(1),
+                version: admin.firestore.FieldValue.increment(1),
+                lastModified: admin.firestore.FieldValue.serverTimestamp(),
+              });
+            }
+          }
+        } else {
+          // Member is already active
+          return {
+            success: false,
+            error: 'User is already a member of this group'
+          };
+        }
+      } else {
+        // New member - check limit before adding
+        const limitCheck = checkMemberLimit(currentMemberCount, maxMembers);
+        if (!limitCheck.allowed) {
+          throw new HttpsError('resource-exhausted', limitCheck.message);
+        }
+        
+        // Add to group
+        await groupMemberRef.update({
+          members: admin.firestore.FieldValue.arrayUnion({
+            ...memberData,
+            isActive: true,
+            lastModifiedAt: new Date()
+          }),
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+          memberCount: admin.firestore.FieldValue.increment(1),
+          version: admin.firestore.FieldValue.increment(1),
+          lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
 
       // Update group member count
       await groupRef.update({

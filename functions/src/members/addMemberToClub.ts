@@ -45,23 +45,99 @@ export const addMemberToClub = onCall(
       const clubMembersData = clubMembersDoc.data();
       const currentMembers = clubMembersData?.members || [];
 
-      // Check if user is already a member of the club
-      const existingMember = currentMembers.find((m: any) => m.userId === memberData.userId);
-      if (existingMember) {
-        return {
-          success: false,
-          error: 'User is already a member of this club'
-        };
+      // 🆕 REACTIVATION & ROLE ACCUMULATION LOGIC: Check if user already exists (including inactive)
+      const existingMemberIndex = currentMembers.findIndex((m: any) => m.userId === memberData.userId);
+      
+      if (existingMemberIndex !== -1) {
+        const existingMember = currentMembers[existingMemberIndex];
+        
+        // Check if member is inactive and reactivate
+        if (existingMember.isActive === false) {
+          const now = new Date();
+          const scheduledDeletion = existingMember.scheduledForDeletion ? 
+            (existingMember.scheduledForDeletion.toDate ? existingMember.scheduledForDeletion.toDate() : new Date(existingMember.scheduledForDeletion)) : 
+            null;
+          
+          if (scheduledDeletion && now < scheduledDeletion) {
+            console.log(`♻️ Reactivating club member ${memberData.userId} - within grace period`);
+            
+            // Merge roles (avoid duplicates within new roles, but allow accumulation)
+            const existingRoles = existingMember.roles || [];
+            const newRoles = memberData.roles || [];
+            const mergedRoles = [...existingRoles, ...newRoles];
+            
+            currentMembers[existingMemberIndex] = {
+              ...existingMember,
+              ...memberData,
+              roles: mergedRoles,
+              isActive: true,
+              inactiveSince: null,
+              scheduledForDeletion: null,
+              reactivatedAt: now,
+              reactivationCount: (existingMember.reactivationCount || 0) + 1,
+              lastModifiedAt: now
+            };
+          } else {
+            console.log(`♻️ Reactivating club member ${memberData.userId} - grace period expired`);
+            
+            currentMembers[existingMemberIndex] = {
+              ...memberData,
+              isActive: true,
+              inactiveSince: null,
+              scheduledForDeletion: null,
+              reactivatedAt: now,
+              reactivationCount: (existingMember.reactivationCount || 0) + 1,
+              lastModifiedAt: now
+            };
+          }
+          
+          // Update with modified array
+          await clubMemberRef.update({
+            members: currentMembers,
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+            memberCount: admin.firestore.FieldValue.increment(1),
+            version: admin.firestore.FieldValue.increment(1),
+            lastModified: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          
+          console.log(`✅ Club member reactivated with roles: [${currentMembers[existingMemberIndex].roles.join(', ')}]`);
+        } else {
+          // Member is already active - add roles (role accumulation)
+          console.log(`📊 Member ${memberData.userId} already active - adding roles`);
+          
+          const existingRoles = existingMember.roles || [];
+          const newRoles = memberData.roles || [];
+          const accumulatedRoles = [...existingRoles, ...newRoles];
+          
+          currentMembers[existingMemberIndex].roles = accumulatedRoles;
+          currentMembers[existingMemberIndex].lastModifiedAt = new Date();
+          
+          // Update with modified array
+          await clubMemberRef.update({
+            members: currentMembers,
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+            version: admin.firestore.FieldValue.increment(1),
+            lastModified: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          
+          console.log(`✅ Roles added to existing member: [${accumulatedRoles.join(', ')}]`);
+        }
+      } else {
+        // New member - add to club
+        await clubMemberRef.update({
+          members: admin.firestore.FieldValue.arrayUnion({
+            ...memberData,
+            isActive: true,
+            lastModifiedAt: new Date()
+          }),
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+          memberCount: admin.firestore.FieldValue.increment(1),
+          version: admin.firestore.FieldValue.increment(1),
+          lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        
+        console.log(`✅ New member added to club with roles: [${memberData.roles.join(', ')}]`);
       }
-
-      // Add member to club using arrayUnion
-      await clubMemberRef.update({
-        members: admin.firestore.FieldValue.arrayUnion(memberData),
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        memberCount: admin.firestore.FieldValue.increment(1),
-        version: admin.firestore.FieldValue.increment(1), // Increment version
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
-      });
 
       // Update club total count
       await admin.firestore().collection('clubs').doc(clubId).update({

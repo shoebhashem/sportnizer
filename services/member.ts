@@ -59,10 +59,11 @@ export const memberService = {
 
   /**
    * Remove member from group
+   * @param roleToRemove - Optional: Specific role to remove. If not provided, removes all roles.
    */
-  async removeMemberFromGroup(clubId: string, groupId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  async removeMemberFromGroup(clubId: string, groupId: string, userId: string, roleToRemove?: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const result = await removeMemberFromGroupFn({ clubId, groupId, userId });
+      const result = await removeMemberFromGroupFn({ clubId, groupId, userId, roleToRemove });
       return result.data as { success: boolean; error?: string };
     } catch (error: any) {
       console.error('❌ Error removing member from group:', error);

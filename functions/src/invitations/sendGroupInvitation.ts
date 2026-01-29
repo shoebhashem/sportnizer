@@ -112,9 +112,15 @@ export const sendGroupInvitation = onCall(
             try {
               const notificationType = invitationType === 'youth_member' ? 'youth_member_invitation' : 'group_invitation';
               const notificationTitle = invitationType === 'youth_member' ? 'New Child Invitation' : 'Group Invitation';
-              const notificationMessage = invitationType === 'youth_member' 
-                ? `Add ${youthData?.childName || 'child'} to ${groupName}`
-                : `${inviterName} invited you to join ${groupName}`;
+              
+              // Create role-aware notification message
+              let notificationMessage: string;
+              if (invitationType === 'youth_member') {
+                notificationMessage = `Add ${youthData?.childName || 'child'} to ${groupName}`;
+              } else {
+                const roleLabel = role === 'coach' ? 'coach' : role === 'admin' ? 'admin' : 'player';
+                notificationMessage = `${inviterName} invited you to join ${groupName} as ${roleLabel}`;
+              }
               
               const notificationId = await createNotificationDirect(existingUserId, {
                 type: notificationType,

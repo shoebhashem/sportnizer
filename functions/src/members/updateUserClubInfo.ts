@@ -34,26 +34,72 @@ export const updateUserClubInfo = onCall(
       const userData = userDoc.data();
       let clubAccess = userData?.clubAccess || []; // Support backward compatibility
 
-      // Check if club membership already exists
+      // 🆕 REACTIVATION LOGIC: Check if club membership already exists (including inactive)
       const existingClubIndex = clubAccess.findIndex((club: any) => club.clubId === clubInfo.clubId);
       
       if (existingClubIndex !== -1) {
-        return {
-          success: false,
-          error: 'User is already a member of this club'
-        };
+        const existingClub = clubAccess[existingClubIndex];
+        
+        // Check if club is inactive and reactivate if within grace period
+        if (existingClub.isActive === false) {
+          const now = new Date();
+          const scheduledDeletion = existingClub.scheduledForDeletion ?
+            (existingClub.scheduledForDeletion.toDate ? 
+              existingClub.scheduledForDeletion.toDate() : 
+              new Date(existingClub.scheduledForDeletion)) : 
+            null;
+          
+          if (scheduledDeletion && now < scheduledDeletion) {
+            console.log(`♻️ Reactivating club membership for user ${uid} in club ${clubInfo.clubId} - within grace period`);
+            
+            clubAccess[existingClubIndex] = {
+              ...existingClub,
+              role: role === 'club-admin' ? 'club-admin' : 'member',
+              isActive: true,
+              inactiveSince: null,
+              scheduledForDeletion: null,
+              reactivatedAt: now,
+              reactivationCount: (existingClub.reactivationCount || 0) + 1,
+              lastModifiedAt: now
+            };
+          } else {
+            console.log(`♻️ Reactivating club membership for user ${uid} in club ${clubInfo.clubId} - grace period expired`);
+            
+            clubAccess[existingClubIndex] = {
+              clubId: clubInfo.clubId,
+              clubName: clubInfo.clubName,
+              role: role === 'club-admin' ? 'club-admin' : 'member',
+              isActive: true,
+              inactiveSince: null,
+              scheduledForDeletion: null,
+              groupAccess: existingClub.groupAccess || [],
+              joinedAt: clubInfo.joinedAt,
+              reactivatedAt: now,
+              reactivationCount: (existingClub.reactivationCount || 0) + 1,
+              lastModifiedAt: now
+            };
+          }
+        } else {
+          // Club is already active
+          return {
+            success: false,
+            error: 'User is already a member of this club'
+          };
+        }
+      } else {
+        // Add new club membership with new structure
+        // Note: role field is permission-based: only 'club-admin' or 'member'
+        // Actual operational roles (player, coach, guardian, etc.) are stored in member lists
+        clubAccess.push({
+          clubId: clubInfo.clubId,
+          clubName: clubInfo.clubName,
+          role: role === 'club-admin' ? 'club-admin' : 'member',
+          isActive: true,
+          groupAccess: [], // Initialize empty groupAccess for the new club
+          joinedAt: clubInfo.joinedAt,
+          lastModifiedAt: clubInfo.lastModifiedAt,
+        });
       }
-
-      // Add new club membership with new structure
-      clubAccess.push({
-        clubId: clubInfo.clubId,
-        clubName: clubInfo.clubName,
-        role: role,
-        isActive: true,
-        groupAccess: [], // Initialize empty groupAccess for the new club
-        joinedAt: clubInfo.joinedAt,
-        lastModifiedAt: clubInfo.lastModifiedAt,
-      });
 
       // Update user document with new structure and increment version
       await userRef.update({

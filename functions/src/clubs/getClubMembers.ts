@@ -53,9 +53,12 @@ export const getClubMembers = onCall(
       }
 
       const data = membersDoc.data();
-      const members = data?.members || [];
+      const allMembers = data?.members || [];
 
-      console.log(`Successfully retrieved ${members.length} members for club ${clubId}`);
+      // 🆕 FILTER: Only return active members (exclude soft-deleted members)
+      const members = allMembers.filter((m: any) => m.isActive !== false);
+
+      console.log(`Successfully retrieved ${members.length} active members (${allMembers.length - members.length} inactive) for club ${clubId}`);
 
       return {
         success: true,

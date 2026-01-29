@@ -17,6 +17,8 @@ export interface GroupData {
   createdBy: string;
   lastModifiedAt: any; // Firestore Timestamp
   version: number;
+  // Subscription limits
+  maxMembers?: number; // Maximum members allowed in this group (default: 30)
 }
 
 export interface GuardianContact {

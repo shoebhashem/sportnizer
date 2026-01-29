@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
+import { checkGroupLimit, DEFAULT_LIMITS } from '../utils/limits';
 import { validateRequiredFields } from '../utils/validation';
 
 export const createGroup = onCall(
@@ -22,24 +23,75 @@ export const createGroup = onCall(
         throw new HttpsError('invalid-argument', 'Group name cannot be empty');
       }
 
-      // 3. Perform single atomic operation
+      // 3. Verify club exists and check group creation limit
       const db = admin.firestore();
       
       // Verify club exists
-      const clubDoc = await db.collection('clubs').doc(clubId).get();
+      const clubRef = db.collection('clubs').doc(clubId);
+      const clubDoc = await clubRef.get();
       if (!clubDoc.exists) {
         throw new HttpsError('not-found', 'Club not found');
       }
+      
+      const clubData = clubDoc.data();
+      const activeGroupCount = clubData?.activeGroupCount || 0;
+      const maxGroups = clubData?.maxGroups || DEFAULT_LIMITS.maxGroups;
       
       // Check if group with this name already exists in this club
       const existingGroupQuery = await db.collection('clubs').doc(clubId).collection('groups')
         .where('name', '==', trimmedName).get();
 
       if (!existingGroupQuery.empty) {
+        const existingGroup = existingGroupQuery.docs[0];
+        const existingGroupData = existingGroup.data();
+        
+        // REACTIVATION SCENARIO: Group exists but is soft-deleted
+        if (existingGroupData.isActive === false) {
+          console.log(`Attempting to reactivate soft-deleted group ${existingGroup.id}`);
+          
+          // CRITICAL: Check limit for reactivation (same as creation)
+          const limitCheck = checkGroupLimit(activeGroupCount, maxGroups, 'reactivate');
+          if (!limitCheck.allowed) {
+            throw new HttpsError('resource-exhausted', limitCheck.message);
+          }
+          
+          // Reactivate the group
+          await existingGroup.ref.update({
+            isActive: true,
+            deletionScheduledAt: admin.firestore.FieldValue.delete(),
+            deletedBy: admin.firestore.FieldValue.delete(),
+            deletedAt: admin.firestore.FieldValue.delete(),
+            lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+            // Update description and sport if provided
+            ...(groupData.description && { description: groupData.description }),
+            ...(groupData.sport && { sport: groupData.sport }),
+          });
+          
+          // Increment club's active group counter
+          await clubRef.update({
+            activeGroupCount: admin.firestore.FieldValue.increment(1)
+          });
+          
+          console.log(`Reactivated group ${existingGroup.id}. Club now has ${activeGroupCount + 1} active groups.`);
+          
+          return {
+            success: true,
+            groupId: existingGroup.id
+          };
+        }
+        
+        // Group exists and is active - cannot create duplicate
         throw new HttpsError('already-exists', `A group with the name "${trimmedName}" already exists in this club.`);
       }
       
-      // Create new group document
+      // NEW GROUP CREATION
+      // Validate group creation limit
+      const limitCheck = checkGroupLimit(activeGroupCount, maxGroups, 'create');
+      if (!limitCheck.allowed) {
+        throw new HttpsError('resource-exhausted', limitCheck.message);
+      }
+      
+      // Create new group document with subscription limits
       const groupRef = db.collection('clubs').doc(clubId).collection('groups').doc();
       
       await groupRef.set({
@@ -56,7 +108,9 @@ export const createGroup = onCall(
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         createdBy: request.auth.uid,
         lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-        version: 1
+        version: 1,
+        // Subscription limits
+        maxMembers: DEFAULT_LIMITS.maxMembers, // Free tier default: 30
       });
 
       // Initialize the allMembers document to ensure it exists for future operations
@@ -69,7 +123,12 @@ export const createGroup = onCall(
         version: 1
       });
       
-      console.log(`Created group ${groupRef.id} with initialized members document`);
+      // Increment club's active group counter
+      await clubRef.update({
+        activeGroupCount: admin.firestore.FieldValue.increment(1)
+      });
+      
+      console.log(`Created group ${groupRef.id} with initialized members document. Club now has ${activeGroupCount + 1} active groups.`);
       
       // 4. Return consistent response
       return {

@@ -10,7 +10,7 @@ export const updateUserGroupInfo = onCall(
   },
   async (request): Promise<FunctionResponse> => {
     try {
-      const { uid, clubId, groupInfo, roles, operation }: UpdateUserGroupInfoRequest = request.data;
+      const { uid, clubId, groupInfo, roles, operation, updateClubMemberListRoles }: UpdateUserGroupInfoRequest & { updateClubMemberListRoles?: boolean } = request.data;
 
       // Validate required fields
       validateRequiredFields(request.data, ['uid', 'clubId', 'operation']);
@@ -53,6 +53,32 @@ export const updateUserGroupInfo = onCall(
       if (operation === 'add') {
         console.log(`Adding group info for user ${uid}, group ${groupInfo!.groupId} in club ${clubId} with roles:`, roles);
 
+        // 🆕 REACTIVATION LOGIC: Check if club access is inactive and reactivate if within grace period
+        const now = new Date();
+        if (clubAccess[existingClubIndex].isActive === false) {
+          const scheduledDeletion = clubAccess[existingClubIndex].scheduledForDeletion ?
+            (clubAccess[existingClubIndex].scheduledForDeletion.toDate ? 
+              clubAccess[existingClubIndex].scheduledForDeletion.toDate() : 
+              new Date(clubAccess[existingClubIndex].scheduledForDeletion)) : 
+            null;
+          
+          if (scheduledDeletion && now < scheduledDeletion) {
+            console.log(`♻️ Reactivating club access for user ${uid} in club ${clubId} - within grace period`);
+            clubAccess[existingClubIndex].isActive = true;
+            clubAccess[existingClubIndex].inactiveSince = null;
+            clubAccess[existingClubIndex].scheduledForDeletion = null;
+            clubAccess[existingClubIndex].reactivatedAt = now;
+            clubAccess[existingClubIndex].reactivationCount = (clubAccess[existingClubIndex].reactivationCount || 0) + 1;
+          } else {
+            console.log(`♻️ Reactivating club access for user ${uid} in club ${clubId} - grace period expired`);
+            clubAccess[existingClubIndex].isActive = true;
+            clubAccess[existingClubIndex].inactiveSince = null;
+            clubAccess[existingClubIndex].scheduledForDeletion = null;
+            clubAccess[existingClubIndex].reactivatedAt = now;
+            clubAccess[existingClubIndex].reactivationCount = (clubAccess[existingClubIndex].reactivationCount || 0) + 1;
+          }
+        }
+
         // Get the club's groupAccess array (initialize if it doesn't exist)
         if (!clubAccess[existingClubIndex].groupAccess) {
           clubAccess[existingClubIndex].groupAccess = [];
@@ -60,15 +86,59 @@ export const updateUserGroupInfo = onCall(
         
         const clubGroupAccess = clubAccess[existingClubIndex].groupAccess;
 
-        // Check if group membership already exists in this club
+        // 🆕 Check if group membership already exists (including inactive)
         const existingGroupIndex = clubGroupAccess.findIndex((group: any) => group.groupId === groupInfo!.groupId);
         
         if (existingGroupIndex !== -1) {
-          // Update existing membership with new roles
-          clubGroupAccess[existingGroupIndex].roles = roles;
-          clubGroupAccess[existingGroupIndex].isActive = true;
-          clubGroupAccess[existingGroupIndex].lastModifiedAt = new Date();
-          console.log(`Updated existing group membership with new roles for user ${uid}, group ${groupInfo!.groupId}`);
+          const existingGroup = clubGroupAccess[existingGroupIndex];
+          
+          // Check if group is inactive and reactivate if within grace period
+          if (existingGroup.isActive === false) {
+            const scheduledDeletion = existingGroup.scheduledForDeletion ?
+              (existingGroup.scheduledForDeletion.toDate ? 
+                existingGroup.scheduledForDeletion.toDate() : 
+                new Date(existingGroup.scheduledForDeletion)) : 
+              null;
+            
+            if (scheduledDeletion && now < scheduledDeletion) {
+              console.log(`♻️ Reactivating group membership for user ${uid}, group ${groupInfo!.groupId} - within grace period`);
+              
+              // Merge roles (avoid duplicates)
+              const existingRoles = existingGroup.roles || [];
+              const mergedRoles = [...new Set([...existingRoles, ...roles!])];
+              
+              clubGroupAccess[existingGroupIndex] = {
+                ...existingGroup,
+                roles: mergedRoles,
+                isActive: true,
+                inactiveSince: null,
+                scheduledForDeletion: null,
+                reactivatedAt: now,
+                reactivationCount: (existingGroup.reactivationCount || 0) + 1,
+                lastModifiedAt: now
+              };
+            } else {
+              console.log(`♻️ Reactivating group membership for user ${uid}, group ${groupInfo!.groupId} - grace period expired`);
+              clubGroupAccess[existingGroupIndex] = {
+                groupId: groupInfo!.groupId,
+                groupName: groupInfo!.groupName,
+                roles: roles,
+                joinedAt: groupInfo!.joinedAt,
+                isActive: true,
+                inactiveSince: null,
+                scheduledForDeletion: null,
+                reactivatedAt: now,
+                reactivationCount: (existingGroup.reactivationCount || 0) + 1,
+                lastModifiedAt: now
+              };
+            }
+          } else {
+            // Update existing active membership with new roles
+            clubGroupAccess[existingGroupIndex].roles = roles;
+            clubGroupAccess[existingGroupIndex].isActive = true;
+            clubGroupAccess[existingGroupIndex].lastModifiedAt = now;
+            console.log(`Updated existing group membership with new roles for user ${uid}, group ${groupInfo!.groupId}`);
+          }
         } else {
           // Add new group membership to the club's groupAccess array
           clubGroupAccess.push({
@@ -77,9 +147,68 @@ export const updateUserGroupInfo = onCall(
             roles: roles,
             joinedAt: groupInfo!.joinedAt,
             isActive: true,
-            lastModifiedAt: new Date()
+            lastModifiedAt: now
           });
           console.log(`Added new group membership for user ${uid}, group ${groupInfo!.groupId}`);
+        }
+
+        // Optionally update club member list roles (for existing club members joining new group)
+        if (updateClubMemberListRoles && roles && roles.length > 0) {
+          try {
+            const db = admin.firestore();
+            const clubMembersRef = db.collection('clubs').doc(clubId).collection('allMembers').doc('members');
+            const clubMembersDoc = await clubMembersRef.get();
+
+            if (clubMembersDoc.exists) {
+              const clubMembers = clubMembersDoc.data()?.members || [];
+              const clubMemberIndex = clubMembers.findIndex((m: any) => m.userId === uid);
+
+              if (clubMemberIndex >= 0) {
+                const clubMember = clubMembers[clubMemberIndex];
+                
+                // 🆕 REACTIVATION: Check if club member is inactive and reactivate
+                if (clubMember.isActive === false) {
+                  const scheduledDeletion = clubMember.scheduledForDeletion ?
+                    (clubMember.scheduledForDeletion.toDate ? 
+                      clubMember.scheduledForDeletion.toDate() : 
+                      new Date(clubMember.scheduledForDeletion)) : 
+                    null;
+                  
+                  if (scheduledDeletion && now < scheduledDeletion) {
+                    console.log(`♻️ Reactivating club member ${uid} - within grace period`);
+                    clubMembers[clubMemberIndex].isActive = true;
+                    clubMembers[clubMemberIndex].inactiveSince = null;
+                    clubMembers[clubMemberIndex].scheduledForDeletion = null;
+                    clubMembers[clubMemberIndex].reactivatedAt = now;
+                    clubMembers[clubMemberIndex].reactivationCount = (clubMember.reactivationCount || 0) + 1;
+                  } else {
+                    console.log(`♻️ Reactivating club member ${uid} - grace period expired`);
+                    clubMembers[clubMemberIndex].isActive = true;
+                    clubMembers[clubMemberIndex].inactiveSince = null;
+                    clubMembers[clubMemberIndex].scheduledForDeletion = null;
+                    clubMembers[clubMemberIndex].reactivatedAt = now;
+                    clubMembers[clubMemberIndex].reactivationCount = (clubMember.reactivationCount || 0) + 1;
+                  }
+                }
+                
+                // Add each role to club member list (allows duplicates for tracking multiple group memberships)
+                const currentRoles = clubMembers[clubMemberIndex].roles || [];
+                clubMembers[clubMemberIndex].roles = [...currentRoles, ...roles];
+                clubMembers[clubMemberIndex].lastModifiedAt = now;
+
+                await clubMembersRef.update({
+                  members: clubMembers,
+                  version: admin.firestore.FieldValue.increment(1),
+                  lastModified: admin.firestore.FieldValue.serverTimestamp()
+                });
+
+                console.log(`✅ Added roles [${roles.join(', ')}] to club member list`);
+              }
+            }
+          } catch (clubUpdateError) {
+            console.warn('⚠️ Failed to update club member list roles:', clubUpdateError);
+            // Don't fail the entire operation if club member list update fails
+          }
         }
 
       } else if (operation === 'remove') {
@@ -99,7 +228,49 @@ export const updateUserGroupInfo = onCall(
         }
 
         // Remove group membership from the club's groupAccess array
+        const removedGroup = clubGroupAccess[existingGroupIndex];
+        const removedRoles = removedGroup.roles || [];
         clubAccess[existingClubIndex].groupAccess = clubGroupAccess.filter((group: any) => group.groupId !== groupInfo!.groupId);
+
+        // Optionally update club member list roles (remove roles for this group)
+        if (updateClubMemberListRoles && removedRoles.length > 0) {
+          try {
+            const db = admin.firestore();
+            const clubMembersRef = db.collection('clubs').doc(clubId).collection('allMembers').doc('members');
+            const clubMembersDoc = await clubMembersRef.get();
+
+            if (clubMembersDoc.exists) {
+              const clubMembers = clubMembersDoc.data()?.members || [];
+              const clubMemberIndex = clubMembers.findIndex((m: any) => m.userId === uid);
+
+              if (clubMemberIndex >= 0) {
+                // Remove ONE instance of each role from club member list
+                let currentRoles = clubMembers[clubMemberIndex].roles || [];
+                
+                for (const role of removedRoles) {
+                  const roleIndex = currentRoles.indexOf(role);
+                  if (roleIndex > -1) {
+                    currentRoles = [...currentRoles.slice(0, roleIndex), ...currentRoles.slice(roleIndex + 1)];
+                  }
+                }
+                
+                clubMembers[clubMemberIndex].roles = currentRoles;
+                clubMembers[clubMemberIndex].lastModifiedAt = new Date();
+
+                await clubMembersRef.update({
+                  members: clubMembers,
+                  version: admin.firestore.FieldValue.increment(1),
+                  lastModified: admin.firestore.FieldValue.serverTimestamp()
+                });
+
+                console.log(`✅ Removed roles [${removedRoles.join(', ')}] from club member list`);
+              }
+            }
+          } catch (clubUpdateError) {
+            console.warn('⚠️ Failed to update club member list roles:', clubUpdateError);
+            // Don't fail the entire operation if club member list update fails
+          }
+        }
 
       } else {
         throw new HttpsError('invalid-argument', 'operation must be either "add" or "remove"');

@@ -51,6 +51,7 @@ export { createYouthMemberDocument } from './members/createYouthMemberDocument';
 export { removeMemberFromClub } from './members/removeMemberFromClub';
 export { removeMemberFromGroup } from './members/removeMemberFromGroup';
 export { removeMemberFromSubGroup } from './members/removeMemberFromSubGroup';
+export { updateClubMemberRole } from './members/updateClubMemberRole';
 export { updateMemberRole } from './members/updateMemberRole';
 
 // Member Status & Discovery Functions (Atomic)

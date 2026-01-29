@@ -295,6 +295,12 @@ export interface ClubMemberData {
   lastModifiedAt: Date;
   needsGuardian: boolean;
   guardiansContacts: any[];
+  // 🆕 Soft delete fields
+  isActive?: boolean;  // false = soft deleted, undefined/true = active
+  inactiveSince?: Date | null;  // When member was marked inactive
+  scheduledForDeletion?: Date | null;  // When permanent deletion is scheduled (30 days from inactiveSince)
+  reactivatedAt?: Date;  // When member was last reactivated
+  reactivationCount?: number;  // How many times member has been reactivated
 }
 
 export interface GroupMemberData {
@@ -306,6 +312,12 @@ export interface GroupMemberData {
   email?: string; // Optional for youth members
   needsGuardian: boolean;
   guardiansContacts: any[];
+  // 🆕 Soft delete fields
+  isActive?: boolean;  // false = soft deleted, undefined/true = active
+  inactiveSince?: Date | null;  // When member was marked inactive
+  scheduledForDeletion?: Date | null;  // When permanent deletion is scheduled (30 days from inactiveSince)
+  reactivatedAt?: Date;  // When member was last reactivated
+  reactivationCount?: number;  // How many times member has been reactivated
 }
 
 export interface UserClubMembership {
@@ -314,6 +326,12 @@ export interface UserClubMembership {
   role: string;
   joinedAt: Date;
   lastModifiedAt: Date;
+  // 🆕 Soft delete fields
+  isActive?: boolean;  // false = soft deleted, undefined/true = active
+  inactiveSince?: Date | null;  // When club membership was marked inactive
+  scheduledForDeletion?: Date | null;  // When permanent deletion is scheduled
+  reactivatedAt?: Date;  // When membership was last reactivated
+  reactivationCount?: number;  // How many times reactivated
 }
 
 export interface UserGroupMembership {
@@ -322,6 +340,12 @@ export interface UserGroupMembership {
   roles: string[]; // User's roles in this group
   joinedAt: Date;
   lastModifiedAt: Date;
+  // 🆕 Soft delete fields
+  isActive?: boolean;  // false = soft deleted, undefined/true = active
+  inactiveSince?: Date | null;  // When membership was marked inactive
+  scheduledForDeletion?: Date | null;  // When permanent deletion is scheduled
+  reactivatedAt?: Date;  // When membership was last reactivated
+  reactivationCount?: number;  // How many times reactivated
 }
 
 export interface AddMemberToClubRequest {
@@ -472,6 +496,7 @@ export interface RemoveMemberFromGroupRequest {
   clubId: string;
   groupId: string;
   userId: string;
+  roleToRemove?: string; // Optional: Specific role to remove (for role de-accumulation)
 }
 
 export interface RemoveMemberFromGroupResponse {

@@ -47,6 +47,8 @@ export default function Input({
           secureTextEntry={actuallySecure}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          autoComplete="off"
+          textContentType={isPassword ? 'oneTimeCode' : 'none'}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />
@@ -63,9 +65,7 @@ export default function Input({
           </Pressable>
         )}
       </View>
-      {error && typeof error === 'string' && error.trim() && (
-        <Text style={styles.errorText}>{error}</Text>
-      )}
+      {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
 }

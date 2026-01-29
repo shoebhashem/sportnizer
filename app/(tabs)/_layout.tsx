@@ -1,14 +1,32 @@
 import AuthGuard from '@/components/AuthGuard';
 import UserAvatar from '@/components/UserAvatar';
 import { theme } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/contexts/UserContext';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
-  const { userProfile } = useUserProfile();
+  const { user } = useAuth();
+  const { userProfile, isLoading } = useUserProfile();
+  
+  // Wait for userProfile to load before making redirect decisions
+  if (isLoading) {
+    return null; // or a loading spinner
+  }
+  
+  // Redirect based on auth state and club membership
+  if (!user) {
+    // Not authenticated - show welcome screen
+    return <Redirect href="/welcome" />;
+  }
+  
+  if (!userProfile?.clubAccess || userProfile.clubAccess.length === 0) {
+    // Authenticated but no clubs - redirect directly to create club form
+    return <Redirect href="/create-club-form" />;
+  }
   
   // Extract groups from nested groupAccess within each club
   const userGroups = React.useMemo(() => {

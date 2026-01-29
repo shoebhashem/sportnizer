@@ -12,9 +12,9 @@ import { signUpUser } from '../services/auth/authService';
 import { addRegularMemberToGroupService } from '../services/orchestration/addRegularMemberToGroup';
 
 export default function SignupScreen() {
-  const { invite, verified } = useLocalSearchParams<{ invite?: string; verified?: string }>();
+  const { invite, verified, action } = useLocalSearchParams<{ invite?: string; verified?: string; action?: string }>();
   
-  console.log('🔍 SignupScreen mounted with params:', { invite, verified });
+  console.log('🔍 SignupScreen mounted with params:', { invite, verified, action });
   console.log('🎫 Invitation token type:', typeof invite, 'value:', invite);
   
   const [fullName, setFullName] = useState('');
@@ -267,14 +267,21 @@ export default function SignupScreen() {
         } 
         
         // Regular signup flow
-        setModalMessage(result.message || 'Account created successfully!');
-        setSuccessModalVisible(true);
+        let successMessage = result.message || 'Account created successfully!';
+        
+        // If this is club creation flow, update the message
+        if (action === 'createClub' && result.requiresEmailVerification) {
+          successMessage = result.message + `\n\nAfter verifying your email and logging in, you'll be able to create your club.`;
+        }
         
         // If there is an invitation token and regular email verification is required, inform user
         if (invite && result.requiresEmailVerification) {
           // Update message to mention invitation will be processed after verification
-          setModalMessage(result.message + `\n\nAfter verifying your email, your invitation to ${invitationInfo?.groupName || 'the group'} will be automatically processed.`);
+          successMessage = result.message + `\n\nAfter verifying your email, your invitation to ${invitationInfo?.groupName || 'the group'} will be automatically processed.`;
         }
+        
+        setModalMessage(successMessage);
+        setSuccessModalVisible(true);
       } else {
         // Show error
         let errorMessage = 'An error occurred. Please try again.';
@@ -317,6 +324,10 @@ export default function SignupScreen() {
     
     // If this is email verification success or invited user success, redirect to login
     if (verified === 'success' || verified === 'already' || (invite && modalMessage.includes('🎉 Welcome to Sportnizer'))) {
+      router.replace('/login');
+    } else if (action === 'createClub') {
+      // Store the club creation intent in the modal message so user knows what to do next
+      // After email verification, they should log in and will be redirected to create club
       router.replace('/login');
     } else {
       // For regular signup success (pending email verification), stay on signup screen

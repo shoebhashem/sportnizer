@@ -3,6 +3,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { CreateUserAccountRequest, CreateUserAccountResponse } from '../types/interfaces';
 import { config } from '../utils/config';
 import { emailTransporter, emailVerificationTemplate } from '../utils/email';
+import { DEFAULT_LIMITS } from '../utils/limits';
 import { cleanupExpiredTokens } from '../utils/userManagement';
 import { validateRequiredFields } from '../utils/validation';
 
@@ -57,6 +58,9 @@ export const createUserAccount = onCall(
         verificationStatus: isInvitedUser ? 'verified' : 'pending', // Pre-verify invited users
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         lastActive: admin.firestore.FieldValue.serverTimestamp(),
+        // Subscription limits (usage tracking)
+        activeClubsAsAdmin: 0, // No clubs created yet
+        maxClubsAsAdmin: DEFAULT_LIMITS.maxClubsAsAdmin, // Free tier default: 1
       };
 
       // Save user profile to Firestore

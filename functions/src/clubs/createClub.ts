@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
+import { checkClubLimit, DEFAULT_LIMITS } from '../utils/limits';
 import { validateRequiredFields } from '../utils/validation';
 
 export const createClub = onCall(
@@ -22,9 +23,26 @@ export const createClub = onCall(
         throw new HttpsError('invalid-argument', 'Club name cannot be empty');
       }
 
-      // 3. Perform single atomic operation
+      // 3. Check user's club creation limit
       const db = admin.firestore();
+      const userRef = db.collection('users').doc(request.auth.uid);
+      const userDoc = await userRef.get();
       
+      if (!userDoc.exists) {
+        throw new HttpsError('not-found', 'User profile not found');
+      }
+      
+      const userData = userDoc.data();
+      const activeClubsAsAdmin = userData?.activeClubsAsAdmin || 0;
+      const maxClubsAsAdmin = userData?.maxClubsAsAdmin || DEFAULT_LIMITS.maxClubsAsAdmin;
+      
+      // Validate club creation limit
+      const limitCheck = checkClubLimit(activeClubsAsAdmin, maxClubsAsAdmin, 'create');
+      if (!limitCheck.allowed) {
+        throw new HttpsError('resource-exhausted', limitCheck.message);
+      }
+      
+      // 4. Perform single atomic operation
       // Check if club with this name already exists (case-insensitive)
       const clubsRef = db.collection('clubs');
       const existingClubQuery = await clubsRef.where('name', '==', trimmedName).get();
@@ -36,19 +54,21 @@ export const createClub = onCall(
       // Generate new club document
       const clubRef = clubsRef.doc();
       
-      // Create club document
+      // Create club document with subscription limits
       await clubRef.set({
         id: clubRef.id,
         name: trimmedName,
         description: clubData.description || '',
         location: clubData.location || '',
         admins: [request.auth.uid], // User IDs with club-admin role
-        memberCount: 0, // Will be updated when members are added
         isActive: true,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         createdBy: request.auth.uid,
         lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-        version: 1
+        version: 1,
+        // Subscription limits (usage tracking)
+        activeGroupCount: 0, // No groups yet
+        maxGroups: DEFAULT_LIMITS.maxGroups, // Free tier default: 10
       });
 
       // Initialize the allMembers document to ensure it exists for future operations
@@ -61,9 +81,14 @@ export const createClub = onCall(
         version: 1
       });
       
-      console.log(`Created club ${clubRef.id} with initialized members document`);
+      // Increment user's active clubs counter
+      await userRef.update({
+        activeClubsAsAdmin: admin.firestore.FieldValue.increment(1)
+      });
       
-      // 4. Return consistent response
+      console.log(`Created club ${clubRef.id} with initialized members document. User now has ${activeClubsAsAdmin + 1} active clubs.`);
+      
+      // 5. Return consistent response
       return {
         success: true,
         clubId: clubRef.id

@@ -10,6 +10,7 @@ interface InvitationModalProps {
   onAccept: () => void;
   onReject: () => void;
   loading?: boolean;
+  role?: string; // Role being assigned (coach, player, admin, etc.)
   youthData?: {
     childName: string;
     dateOfBirth: string;
@@ -29,11 +30,24 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
   onAccept,
   onReject,
   loading = false,
+  role,
   youthData,
   metadata
 }) => {
   const isRoleUpdate = metadata?.action === 'role_update';
-  const newRole = metadata?.newRole || 'member';
+  const newRole = metadata?.newRole || role || 'member';
+  
+  // Get user-friendly role label
+  const getRoleLabel = (roleStr: string) => {
+    switch (roleStr) {
+      case 'coach': return 'coach';
+      case 'admin': return 'admin';
+      case 'player': return 'player';
+      case 'player-underage': return 'youth player';
+      case 'guardian': return 'guardian';
+      default: return 'member';
+    }
+  };
   
   return (
     <Modal
@@ -64,7 +78,7 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
           ) : isRoleUpdate ? (
             <>
               <Text style={styles.message}>
-                You are being promoted to <Text style={styles.bold}>{newRole}</Text> role in{' '}
+                You are being promoted to <Text style={styles.bold}>{getRoleLabel(newRole)}</Text> role in{' '}
                 <Text style={styles.bold}>{groupName}</Text>.
               </Text>
               
@@ -76,7 +90,8 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
             <>
               <Text style={styles.message}>
                 <Text style={styles.bold}>{inviterName}</Text> has invited you to join the group{' '}
-                <Text style={styles.bold}>{groupName}</Text>.
+                <Text style={styles.bold}>{groupName}</Text>
+                {role && ` as ${getRoleLabel(role)}`}.
               </Text>
               
               <Text style={styles.question}>

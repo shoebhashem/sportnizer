@@ -9,6 +9,7 @@ import Button from '../../components/Button';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import InvitationModal from '../../components/InvitationModal';
 import NotificationBell from '../../components/NotificationBell';
+import { useUser } from '../../contexts/UserContext';
 import { getCurrentUser } from '../../services/auth/authService';
 import { acceptGroupInvite, fetchGroupInvites, GroupInviteInfo, rejectGroupInvite } from '../../services/fetchGroupInvites';
 import { HomeAnnouncement, HomeEvent, HomePoll, NewsFlowItem } from '../../services/types';
@@ -22,6 +23,7 @@ interface ModalState {
 
 export default function Index() {
   const router = useRouter();
+  const { userProfile } = useUser();
   const [activeTab, setActiveTab] = useState<'events' | 'newsflow'>('events');
   const [events, setEvents] = useState<HomeEvent[]>([]);
   const [newsItems, setNewsItems] = useState<NewsFlowItem[]>([]);
@@ -527,6 +529,42 @@ export default function Index() {
         </TouchableOpacity>
       </View>
 
+      {/* Club Container */}
+      {userProfile?.clubAccess && userProfile.clubAccess.length > 0 && (
+        <View style={styles.clubSection}>
+          {userProfile.clubAccess.map((club) => (
+            <TouchableOpacity
+              key={club.clubId}
+              style={styles.clubContainer}
+              onPress={() => {
+                if (club.role === 'club-admin') {
+                  router.push(`/manage-club?clubId=${club.clubId}`);
+                }
+              }}
+              disabled={club.role !== 'club-admin'}
+            >
+              <View style={styles.clubHeader}>
+                <View style={styles.clubIcon}>
+                  <Ionicons name="trophy" size={24} color={theme.colors.secondary} />
+                </View>
+                <View style={styles.clubInfo}>
+                  <Text style={styles.clubName}>{club.clubName}</Text>
+                  {club.role === 'club-admin' && (
+                    <View style={styles.adminBadge}>
+                      <Ionicons name="shield-checkmark" size={12} color={theme.colors.secondary} />
+                      <Text style={styles.adminText}>Admin • Tap to manage</Text>
+                    </View>
+                  )}
+                </View>
+                {club.role === 'club-admin' && (
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       {/* Content */}
       <ScrollView 
         style={styles.content}
@@ -619,6 +657,7 @@ export default function Index() {
           visible={isInviteModalVisible}
           groupName={currentInvite.groupName}
           inviterName={currentInvite.invitedByName || 'Someone'}
+          role={currentInvite.metadata?.role}
           onAccept={handleAcceptInvite}
           onReject={handleRejectInvite}
           loading={inviteLoading}
@@ -868,6 +907,53 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
   },
+  
+  // Club Section Styles
+  clubSection: {
+    marginHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  clubContainer: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  clubHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  clubIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.md,
+  },
+  clubInfo: {
+    flex: 1,
+  },
+  clubName: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  adminText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.secondary,
+    marginLeft: theme.spacing.xs,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  
   eventHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

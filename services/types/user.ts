@@ -17,6 +17,9 @@ export interface UserProfile {
   };
   // Updated to new access-based structure
   clubAccess: ClubAccess[];
+  // Subscription limits (usage tracking)
+  activeClubsAsAdmin?: number; // Count of clubs where user is admin with isActive=true
+  maxClubsAsAdmin?: number; // Maximum clubs user can be admin of (default: 1)
   groupsCreated?: number;
   events: EventInvitation[];
   eventsResponses: any[]; // TODO: Define proper EventResponses type

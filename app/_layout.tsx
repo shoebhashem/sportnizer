@@ -14,6 +14,18 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="signup" options={{ headerShown: false }} />
+          <Stack.Screen name="welcome" options={{ headerShown: false }} />
+          <Stack.Screen 
+            name="create-club-form" 
+            options={{ 
+              headerShown: true,
+              title: 'Create Club',
+              headerStyle: {
+                backgroundColor: theme.colors.primary,
+              },
+              headerTintColor: theme.colors.white,
+            }} 
+          />
         <Stack.Screen 
           name="create-group" 
           options={{ 

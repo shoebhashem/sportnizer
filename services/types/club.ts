@@ -16,6 +16,9 @@ export interface ClubData {
   createdBy: string;
   lastModifiedAt: any; // Firestore Timestamp
   version: number;
+  // Subscription limits (usage tracking)
+  activeGroupCount?: number; // Count of groups with isActive=true
+  maxGroups?: number; // Maximum groups allowed in this club (default: 10)
 }
 
 

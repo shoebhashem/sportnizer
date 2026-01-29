@@ -1,11 +1,11 @@
 import Button from '@/components/Button';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Input from '@/components/Input';
+import InvitationModal from '@/components/InvitationModal';
 import { theme } from '@/constants/theme';
-import { functions } from '@/services/core/firebase';
+import { useUser } from '@/contexts/UserContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
-import { httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import { resendVerificationEmail, signInUser } from '../services/auth/authServic
 
 export default function LoginScreen() {
   const { invite } = useLocalSearchParams<{ invite?: string }>();
+  const { refreshUserProfile, firebaseUser } = useUser();
   
   // Clean up expired invitations on component mount
   useEffect(() => {
@@ -56,84 +57,125 @@ export default function LoginScreen() {
   const [resendSuccessModalVisible, setResendSuccessModalVisible] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
+  const [invitationModalVisible, setInvitationModalVisible] = useState(false);
+  const [invitationLoading, setInvitationLoading] = useState(false);
+  const [invitationInfo, setInvitationInfo] = useState<{
+    groupName: string;
+    inviterName: string;
+    role?: string;
+  } | null>(null);
+  const [currentInviteToken, setCurrentInviteToken] = useState<string | null>(null);
 
-
-  // Handle invitation tokens according to documented Phase 2/3 architecture
+  // Load invitation info if invite token is present
   useEffect(() => {
-    const handleInvitationFlow = async () => {
-      if (invite) {
-        console.log('🔍 Processing invitation token with proper user detection');
+    const loadInvitationInfo = async () => {
+      // Check URL parameter first, then AsyncStorage as fallback
+      let inviteToken = invite;
+      
+      if (!inviteToken) {
+        // Check AsyncStorage for pending invitation
+        console.log('🔍 No URL invite parameter, checking AsyncStorage...');
         try {
-          // Step 1: Validate invitation token
-          const validateInvitationFunction = httpsCallable(functions, 'validateInvitationToken');
-          const validationResult = await validateInvitationFunction({ invitationToken: invite });
-          const validationData = validationResult.data as { success: boolean; isValid: boolean; invitationData?: any; error?: string };
+          const storedInvitationString = await AsyncStorage.getItem('pendingInvitation');
+          console.log('🔍 AsyncStorage raw value:', storedInvitationString);
           
-          if (!validationData.success || !validationData.isValid || !validationData.invitationData) {
-            console.warn('⚠️ Invalid invitation token:', validationData.error);
-            return;
-          }
-
-          const invitation = validationData.invitationData;
-          
-          // Step 2: Check if user exists in Firestore (following architecture)
-          console.log('🔍 Checking if user exists in Firestore for email:', invitation.email);
-          const getUserByEmailFunction = httpsCallable(functions, 'getUserByEmail');
-          const userLookupResult = await getUserByEmailFunction({ email: invitation.email });
-          const userLookupData = userLookupResult.data as { success: boolean; userExists: boolean; userId?: string };
-          
-          if (userLookupData.success && userLookupData.userExists) {
-            // Existing Firestore user - keep on login for immediate processing after login
-            console.log('✅ Existing Firestore user found - staying on login page');
-            
-            // Store invitation for post-login processing  
-            await AsyncStorage.setItem('pendingInvitation', JSON.stringify({
-              token: invite,
-              expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
-              groupName: invitation.groupName || 'the group', 
-              inviterName: invitation.inviterName || 'a team member',
-              isExistingUser: true,
-              userId: userLookupData.userId
-            }));
-            
-            // Pre-fill email for convenience
-            setEmail(invitation.email);
-          } else {
-            // Non-existing user - redirect to signup (Phase 2)
-            console.log('� Non-existing user - redirecting to signup');
-            
-            // Mark invitation as clicked
+          if (storedInvitationString) {
+            // Try to parse as JSON (new format with expiration)
             try {
-              const markInvitationUsedFunction = httpsCallable(functions, 'markInvitationUsed');
-              await markInvitationUsedFunction({
-                invitationToken: invite,
-                userId: null, // User doesn't exist yet
-                status: 'clicked'
-              });
-              console.log('✅ Marked invitation as clicked');
-            } catch (error) {
-              console.error('❌ Error marking invitation as clicked:', error);
+              const storedInvitation = JSON.parse(storedInvitationString);
+              console.log('🔍 Parsed stored invitation:', storedInvitation);
+              
+              // Check if token has expired
+              if (storedInvitation.expiresAt && Date.now() > storedInvitation.expiresAt) {
+                console.log('⚠️ Stored invitation token has expired, removing it');
+                await AsyncStorage.removeItem('pendingInvitation');
+              } else {
+                console.log('🔍 Found valid stored invitation token');
+                // Decode the base64 encoded token
+                try {
+                  const decodedToken = atob(storedInvitation.token);
+                  console.log('🔍 Decoded token:', decodedToken.substring(0, 10) + '...');
+                  inviteToken = decodedToken;
+                } catch {
+                  // If decoding fails, use token as-is (backward compatibility)
+                  console.log('🔍 Using token as-is (no base64)');
+                  inviteToken = storedInvitation.token;
+                }
+              }
+            } catch {
+              // Handle old format (plain string) for backward compatibility
+              console.log('🔍 Found legacy stored invitation token:', storedInvitationString);
+              inviteToken = storedInvitationString;
             }
-            
-            // Store invitation for post-signup processing
-            await AsyncStorage.setItem('pendingInvitation', JSON.stringify({
-              token: invite,
-              expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
-              groupName: invitation.groupName || 'the group',
-              inviterName: invitation.inviterName || 'a team member', 
-              isExistingUser: false
-            }));
-            
-            router.replace(`/signup?invite=${encodeURIComponent(invite)}&email=${encodeURIComponent(invitation.email)}`);
-            return;
+          } else {
+            console.log('ℹ️ No stored invitation found in AsyncStorage');
           }
         } catch (error) {
-          console.error('❌ Error processing invitation flow:', error);
+          console.error('❌ Error reading stored invitation:', error);
         }
+      } else {
+        console.log('🔍 Using URL invite parameter:', invite);
+      }
+      
+      if (inviteToken) {
+        // Basic validation - invitation tokens should be non-empty strings
+        if (typeof inviteToken === 'string' && inviteToken.trim().length > 0) {
+          console.log('🔍 Login screen processing invitation token:', inviteToken.substring(0, 10) + '...');
+          try {
+            console.log('Loading invitation details for token');
+            
+            // Fetch actual invitation details
+            const response = await fetch(`${process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL}/getInvitationDetails?token=${encodeURIComponent(inviteToken)}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+          
+          console.log('✅ Invitation API response status:', response.status);
+          const result = await response.json();
+          console.log('✅ Invitation API response data:', result);
+          
+          if (result.success && result.invitation) {
+            const invitationData = {
+              groupName: result.invitation.groupName || 'the group',
+              inviterName: result.invitation.inviterName || 'a team member',
+              role: result.invitation.role, // Include role from invitation
+            };
+            console.log('✅ Setting invitation info:', invitationData);
+            setInvitationInfo(invitationData);
+            
+            // Store the current invitation token for processing
+            setCurrentInviteToken(inviteToken);
+          } else {
+            // Fallback to placeholder data if API fails
+            console.warn('⚠️ Failed to fetch invitation details, using fallback');
+            const fallbackData = {
+              groupName: 'the group',
+              inviterName: 'a team member',
+            };
+            setInvitationInfo(fallbackData);
+            setCurrentInviteToken(inviteToken);
+          }
+        } catch (error) {
+          console.error('❌ Error loading invitation info:', error);
+          // Fallback to placeholder data if API fails
+          const fallbackData = {
+            groupName: 'the group',
+            inviterName: 'a team member',
+          };
+          setInvitationInfo(fallbackData);
+          setCurrentInviteToken(inviteToken);
+        }
+        } else {
+          console.log('⚠️ Invalid invitation token format');
+        }
+      } else {
+        console.log('ℹ️ No invitation token found in login screen');
       }
     };
 
-    handleInvitationFlow();
+    loadInvitationInfo();
   }, [invite]);
 
   const validateEmail = (email: string) => {
@@ -187,50 +229,28 @@ export default function LoginScreen() {
         // Reset resend button state on successful sign in
         setShowResendButton(false);
         
-        // Check for pending invitations after successful login
-        try {
-          const storedInvitationString = await AsyncStorage.getItem('pendingInvitation');
-          if (storedInvitationString) {
-            const storedInvitation = JSON.parse(storedInvitationString);
-            console.log('🔍 Found pending invitation after login:', storedInvitation);
-            
-            if (storedInvitation.isExistingUser && storedInvitation.token) {
-              console.log('✅ Processing invitation for existing user after login');
-              
-              // Add user to group using atomic functions
-              const addMemberToGroupFunction = httpsCallable(functions, 'addMemberToGroup');
-              const addMemberResult = await addMemberToGroupFunction({
-                invitationToken: storedInvitation.token
-              });
-              const addMemberData = addMemberResult.data as { success: boolean; error?: string };
-              
-              if (addMemberData.success) {
-                // Mark invitation as accepted
-                const markInvitationUsedFunction = httpsCallable(functions, 'markInvitationUsed');
-                await markInvitationUsedFunction({
-                  invitationToken: storedInvitation.token,
-                  userId: result.user?.uid || storedInvitation.userId,
-                  status: 'accepted'
-                });
-                
-                // Clear stored invitation
-                await AsyncStorage.removeItem('pendingInvitation');
-                
-                console.log('✅ Successfully joined group after login');
-                setErrorMessage(`✅ Successfully signed in and joined ${storedInvitation.groupName}!\n\nWelcome to your new group.`);
-                setErrorModalVisible(true);
-                return;
-              } else {
-                console.error('❌ Failed to add user to group:', addMemberData.error);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error processing pending invitation:', error);
-        }
+        console.log('🔍 Login successful. Checking invitation state:', {
+          hasInvite: !!invite,
+          hasCurrentInviteToken: !!currentInviteToken,
+          hasInvitationInfo: !!invitationInfo,
+          invite,
+          currentInviteToken,
+          invitationInfo
+        });
         
-        console.log('✅ Login successful, navigating to main app');
-        router.replace('/(tabs)');
+        // If there's an invitation token, show the invitation modal
+        if ((invite || currentInviteToken) && invitationInfo) {
+          console.log('✅ Showing invitation modal for:', invitationInfo.groupName);
+          // Longer delay to ensure user context is fully loaded with firebaseUser
+          setTimeout(() => {
+            console.log('🔍 Setting invitation modal visible. Current firebaseUser:', firebaseUser ? 'exists' : 'null');
+            setInvitationModalVisible(true);
+          }, 1500);
+        } else {
+          console.log('➡️ No invitation found, navigating to tabs or create club');
+          // Navigate to main app (tabs) - the tabs layout will redirect to welcome/create-club if no clubs
+          router.replace('/(tabs)');
+        }
       } else {
         // Show error
         let errorMessage = 'An error occurred. Please try again.';
@@ -271,7 +291,106 @@ export default function LoginScreen() {
     }
   };
 
+  const handleInvitationAccept = async () => {
+    const tokenToUse = invite || currentInviteToken;
+    if (!tokenToUse || !invitationInfo) return;
+    
+    setInvitationLoading(true);
+    
+    // Wait for firebaseUser to be available (with timeout)
+    let userUid = firebaseUser?.uid;
+    let attempts = 0;
+    const maxAttempts = 10; // 5 seconds total
+    
+    while (!userUid && attempts < maxAttempts) {
+      console.log(`🔍 Waiting for firebaseUser... attempt ${attempts + 1}`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      userUid = firebaseUser?.uid;
+      attempts++;
+    }
+    
+    console.log('🔍 Debug invitation accept:', {
+      tokenToUse: tokenToUse.substring(0, 10) + '...',
+      firebaseUser: firebaseUser ? 'exists' : 'null',
+      userUid,
+      attempts,
+      invitationInfo
+    });
+    
+    if (!userUid) {
+      setErrorMessage('Unable to get user information. Please try signing in again.');
+      setInvitationModalVisible(false);
+      setErrorModalVisible(true);
+      setInvitationLoading(false);
+      return;
+    }
+    
+    try {
+      console.log('Accepting invitation for user UID:', userUid);
+      const response = await fetch(`${process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL}/respondToInvitation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invitationToken: tokenToUse,
+          uid: userUid,
+          action: 'accept'
+        }),
+      });
 
+      console.log('Response status:', response.status);
+      const result = await response.json();
+      console.log('Invitation acceptance result:', result);
+
+      if (result.success) {
+        console.log('Successfully joined group!');
+        
+        // Clear stored invitation after successful acceptance
+        try {
+          await AsyncStorage.removeItem('pendingInvitation');
+          console.log('✅ Cleared stored invitation token');
+        } catch (error) {
+          console.error('Error clearing stored invitation:', error);
+        }
+        
+        // Refresh user profile to update the groups list
+        await refreshUserProfile();
+        
+        setInvitationModalVisible(false);
+        // Show success message before navigating
+        setErrorMessage(`Successfully joined the group! Welcome!`);
+        setErrorModalVisible(true);
+        // Navigate after user closes the success message
+      } else {
+        console.error('Failed to accept invitation:', result.error);
+        setErrorMessage(result.error || 'Failed to join group. Please try again.');
+        setInvitationModalVisible(false);
+        setErrorModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      setErrorMessage('An error occurred while joining the group. Please try again.');
+      setInvitationModalVisible(false);
+      setErrorModalVisible(true);
+    } finally {
+      setInvitationLoading(false);
+    }
+  };
+
+  const handleInvitationReject = async () => {
+    // Clear stored invitation when rejecting
+    try {
+      await AsyncStorage.removeItem('pendingInvitation');
+      console.log('✅ Cleared stored invitation token after rejection');
+    } catch (error) {
+      console.error('Error clearing stored invitation:', error);
+    }
+    
+    setInvitationModalVisible(false);
+    // Navigate to main app without processing invitation
+    router.replace('/(tabs)');
+  };
 
   const handleCreateAccount = () => {
     // Reset resend button state when navigating to signup
@@ -418,7 +537,17 @@ export default function LoginScreen() {
         confirmButtonTheme="primary"
       />
 
-
+      {invitationInfo && (
+        <InvitationModal
+          visible={invitationModalVisible}
+          groupName={invitationInfo.groupName}
+          inviterName={invitationInfo.inviterName}
+          role={invitationInfo.role}
+          onAccept={handleInvitationAccept}
+          onReject={handleInvitationReject}
+          loading={invitationLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }

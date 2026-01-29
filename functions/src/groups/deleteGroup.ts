@@ -49,6 +49,14 @@ export const deleteGroup = onCall(
         version: admin.firestore.FieldValue.increment(1)
       });
       
+      // Decrement club's active group counter (subscription limit tracking)
+      const clubRef = db.collection('clubs').doc(clubId);
+      await clubRef.update({
+        activeGroupCount: admin.firestore.FieldValue.increment(-1)
+      });
+      
+      console.log(`Soft deleted group ${groupId}. Decremented club's activeGroupCount.`);
+      
       // 5. Cascade soft delete to all subgroups
       const subgroupsSnapshot = await groupRef.collection('subgroups').get();
       if (!subgroupsSnapshot.empty) {

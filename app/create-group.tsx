@@ -6,21 +6,21 @@ import { theme } from "@/constants/theme";
 import { useUser } from "@/contexts/UserContext";
 import { SPORT_TYPES } from "@/services/constants";
 import {
-  createNewClubAndGroup,
-  createNewGroupInExistingClub,
-  type CreateNewClubAndGroupInput,
-  type CreateNewGroupInExistingClubInput
+    createNewClubAndGroup,
+    createNewGroupInExistingClub,
+    type CreateNewClubAndGroupInput,
+    type CreateNewGroupInExistingClubInput
 } from "@/services/orchestration";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 
 type CreateMode = "existing-club" | "new-club";
@@ -220,9 +220,21 @@ export default function CreateGroupScreen() {
           showModal("Error", result.error || "Failed to create group", "OK", undefined, true);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in handleSubmit:", error);
-      showModal("Error", "An unexpected error occurred. Please try again.", "OK", () => router.push('/(tabs)/groups'), true);
+      
+      // Handle resource limit errors specifically
+      if (error.code === 'functions/resource-exhausted') {
+        showModal(
+          "Group Limit Reached", 
+          error.message || "This club has reached its group creation limit. Please contact support@sportnizer.com to upgrade your plan.", 
+          "OK", 
+          undefined, 
+          true
+        );
+      } else {
+        showModal("Error", "An unexpected error occurred. Please try again.", "OK", () => router.push('/(tabs)/groups'), true);
+      }
     } finally {
       setLoading(false);
     }
