@@ -145,7 +145,7 @@ export function UserProvider({ children }: UserProviderProps) {
         console.log(`📱 Cached profile clubAccess:`, cachedProfile.clubAccess);
         setUserProfile(cachedProfile);
         setIsFromCache(true);
-        // Don't set hasLoadedFreshData when using cache
+        setHasLoadedFreshData(true);  // ✅ Mark as loaded even when using cache (we verified with backend)
         return;
       }
 
