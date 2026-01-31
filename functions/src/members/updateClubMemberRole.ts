@@ -127,48 +127,6 @@ export const updateClubMemberRole = onCall(
         console.log(`✅ Removed '${roleToRemove}' from club member roles`);
       }
 
-      // STEP 2: Update user document clubAccess[].role (permission level)
-      // Only update if the role is club-admin (permission-based role)
-      if (targetRole === 'club-admin') {
-        try {
-          const userRef = db.collection('users').doc(userId);
-          const userDoc = await userRef.get();
-
-          if (userDoc.exists) {
-            const userData = userDoc.data();
-            const clubAccess = userData?.clubAccess || [];
-            
-            const clubIndex = clubAccess.findIndex((c: any) => c.clubId === clubId);
-            
-            if (clubIndex >= 0) {
-              if (operation === 'add') {
-                // Promote to club-admin
-                clubAccess[clubIndex].role = 'club-admin';
-                clubAccess[clubIndex].lastModifiedAt = new Date();
-                
-                console.log(`✅ Updated user document - promoted to club-admin`);
-              } else {
-                // Demote from club-admin to member
-                clubAccess[clubIndex].role = 'member';
-                clubAccess[clubIndex].lastModifiedAt = new Date();
-                
-                console.log(`✅ Updated user document - demoted to member`);
-              }
-              
-              await userRef.update({
-                clubAccess,
-                lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
-              });
-            } else {
-              console.warn(`⚠️ Club ${clubId} not found in user's clubAccess array`);
-            }
-          }
-        } catch (userError) {
-          console.warn('⚠️ Failed to update user document:', userError);
-          // Don't fail the entire operation if user update fails
-        }
-      }
-
       console.log(`✨ Successfully ${operation === 'add' ? 'added' : 'removed'} club-level role '${targetRole}' ${operation === 'add' ? 'to' : 'from'} user ${userId}`);
 
       const updatedRoles = operation === 'add' 

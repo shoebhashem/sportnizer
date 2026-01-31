@@ -238,6 +238,12 @@ export default function LoginScreen() {
           invitationInfo
         });
         
+        // ✅ CRITICAL FIX: Refresh user profile to get fresh data from Firestore
+        // This ensures newly added club memberships are loaded before navigation
+        console.log('🔄 Refreshing user profile before navigation...');
+        await refreshUserProfile();
+        console.log('✅ User profile refreshed');
+        
         // If there's an invitation token, show the invitation modal
         if ((invite || currentInviteToken) && invitationInfo) {
           console.log('✅ Showing invitation modal for:', invitationInfo.groupName);

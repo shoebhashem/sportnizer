@@ -185,6 +185,7 @@ export default function AddChildMemberScreen() {
         inviterName: user.displayName || user.email || 'Admin',
         inviterUid: user.uid,
         invitationType: 'youth_member',
+        role: 'player-underage',
         youthData: {
           childName: childName.trim(),
           dateOfBirth: dateOfBirth,

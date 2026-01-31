@@ -10,24 +10,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const { user } = useAuth();
-  const { userProfile, isLoading } = useUserProfile();
+  const { userProfile, isLoading, hasLoadedFreshData } = useUserProfile();
   
-  // Wait for userProfile to load before making redirect decisions
-  if (isLoading) {
-    return null; // or a loading spinner
-  }
-  
-  // Redirect based on auth state and club membership
-  if (!user) {
-    // Not authenticated - show welcome screen
-    return <Redirect href="/welcome" />;
-  }
-  
-  if (!userProfile?.clubAccess || userProfile.clubAccess.length === 0) {
-    // Authenticated but no clubs - redirect directly to create club form
-    return <Redirect href="/create-club-form" />;
-  }
-  
+  // ✅ MOVE ALL HOOKS TO THE TOP - BEFORE ANY CONDITIONAL RETURNS
   // Extract groups from nested groupAccess within each club
   const userGroups = React.useMemo(() => {
     if (!userProfile?.clubAccess) return [];
@@ -49,6 +34,33 @@ export default function TabLayout() {
       role.toLowerCase() === 'admin' || role.toLowerCase() === 'coach'
     )
   );
+  
+  // NOW DO CONDITIONAL RETURNS - AFTER ALL HOOKS
+  // Wait for userProfile to load before making redirect decisions
+  if (isLoading) {
+    return null; // or a loading spinner
+  }
+  
+  // Redirect based on auth state and club membership
+  if (!user) {
+    // Not authenticated - show welcome screen
+    return <Redirect href="/welcome" />;
+  }
+  
+  // ⚠️ CRITICAL: Wait for fresh data to be loaded before checking clubAccess
+  // This prevents redirecting to create-club-form when user was just added to a club
+  // during signup (the profile needs to be refreshed from Firestore first)
+  if (!hasLoadedFreshData && user) {
+    // Still loading fresh data - show loading state
+    console.log('⏳ TabLayout waiting for fresh user data...');
+    return null;
+  }
+  
+  if (!userProfile?.clubAccess || userProfile.clubAccess.length === 0) {
+    // Authenticated but no clubs - redirect directly to create club form
+    console.log('🔄 TabLayout: No clubs found, redirecting to create-club-form');
+    return <Redirect href="/create-club-form" />;
+  }
   
   return (
     <AuthGuard>

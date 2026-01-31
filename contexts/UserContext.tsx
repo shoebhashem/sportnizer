@@ -2,12 +2,12 @@
 
 import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import React, {
-  createContext,
-  ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
+    createContext,
+    ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
 } from "react";
 import { auth } from "../services/core/firebase";
 import { storage } from "../utils/CrossPlatformStorage";
@@ -24,6 +24,7 @@ interface UserContextType {
   isAuthenticated: boolean;
   isFromCache: boolean;
   lastCacheUpdate: Date | null;
+  hasLoadedFreshData: boolean;  // Track if we've fetched fresh data from Firestore at least once
 
   // User profile management (READ-ONLY)
   refreshUserProfile: () => Promise<void>;
@@ -52,6 +53,7 @@ export function UserProvider({ children }: UserProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isFromCache, setIsFromCache] = useState(false);
   const [lastCacheUpdate, setLastCacheUpdate] = useState<Date | null>(null);
+  const [hasLoadedFreshData, setHasLoadedFreshData] = useState(false);
 
   const isAuthenticated = !!firebaseUser;
 
@@ -64,6 +66,7 @@ export function UserProvider({ children }: UserProviderProps) {
     ]);
     setIsFromCache(false);
     setLastCacheUpdate(null);
+    setHasLoadedFreshData(false);
     console.log('🗑️ User cache cleared');
   }, []);
 
@@ -111,6 +114,7 @@ export function UserProvider({ children }: UserProviderProps) {
     setFirebaseUser(null);
     setIsFromCache(false);
     setLastCacheUpdate(null);
+    setHasLoadedFreshData(false);
     await clearCache();
   }, [clearCache]);
 
@@ -141,6 +145,7 @@ export function UserProvider({ children }: UserProviderProps) {
         console.log(`📱 Cached profile clubAccess:`, cachedProfile.clubAccess);
         setUserProfile(cachedProfile);
         setIsFromCache(true);
+        // Don't set hasLoadedFreshData when using cache
         return;
       }
 
@@ -152,6 +157,7 @@ export function UserProvider({ children }: UserProviderProps) {
       await saveToCache(userResponse.profile);
       setUserProfile(userResponse.profile);
       setIsFromCache(false);
+      setHasLoadedFreshData(true);  // Mark that we've loaded fresh data
       
     } catch (error) {
       console.error("❌ Error checking/fetching user profile:", error);
@@ -180,9 +186,12 @@ export function UserProvider({ children }: UserProviderProps) {
         console.log('🔐 UserContext - User authenticated, fetching profile...');
         await checkAndFetchUserProfile();
       } else {
+        console.log('🔐 UserContext - No user, clearing data and setting loading to false');
         setUserProfile(null);
         setIsFromCache(false);
         setLastCacheUpdate(null);
+        setHasLoadedFreshData(false);
+        setIsLoading(false); // ✅ CRITICAL: Set loading to false when no user
         await clearCache();
       }
     });
@@ -202,6 +211,7 @@ export function UserProvider({ children }: UserProviderProps) {
     isAuthenticated,
     isFromCache,
     lastCacheUpdate,
+    hasLoadedFreshData,
     refreshUserProfile,
     clearUserData,
   };
@@ -219,6 +229,6 @@ export function useUser() {
 }
 
 export function useUserProfile() {
-  const { userProfile, isLoading } = useUser();
-  return { userProfile, isLoading };
+  const { userProfile, isLoading, hasLoadedFreshData } = useUser();
+  return { userProfile, isLoading, hasLoadedFreshData };
 }

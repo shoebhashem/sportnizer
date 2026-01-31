@@ -57,8 +57,11 @@ export const checkMembership = onCall(
         if (clubMembersDoc.exists) {
           const membersData = clubMembersDoc.data();
           const membersArray = membersData?.members || [];
-          // Check if user ID exists in the members array (removed email check to prevent false positives)
-          isClubMember = membersArray.some((member: any) => member.userId === userId);
+          // Check if user ID exists in the members array and is active
+          // IMPORTANT: Only count ACTIVE members (inactive members are treated as non-members)
+          isClubMember = membersArray.some((member: any) => 
+            member.userId === userId && member.isActive !== false
+          );
         }
       } catch (error) {
         console.error('Error checking club membership:', error);
@@ -79,8 +82,9 @@ export const checkMembership = onCall(
             const membersData = groupMembersDoc.data();
             const membersArray = membersData?.members || [];
             // Find the member and get their roles
+            // IMPORTANT: Only count ACTIVE members (inactive members are treated as non-members)
             const member = membersArray.find((m: any) => m.userId === userId);
-            if (member) {
+            if (member && member.isActive !== false) {
               isGroupMember = true;
               currentRoles = member.roles || [];
             }

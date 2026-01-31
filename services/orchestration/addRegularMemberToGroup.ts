@@ -43,7 +43,7 @@ export interface GroupInvitationRequest {
   inviterName: string;       // Name of person sending invites (e.g., "Coach Smith")
   inviterUid: string;        // Unique ID of person sending invites (e.g., "user_def456")
   invitationType?: 'youth_member' | 'regular';  // Type of invitation (optional, defaults to 'regular')
-  role?: 'coach' | 'player';  // Role to assign (optional, defaults to 'player')
+  role?: 'player' | 'player-underage' | 'coach' | 'admin';  // Role to assign (optional, defaults to 'player')
   youthData?: {             // Youth member specific data (optional, required for youth invitations)
     childName: string;       // Name of the child/youth member
     dateOfBirth: string;     // Date of birth (ISO format)
@@ -873,7 +873,19 @@ export const addRegularMemberToGroupService = {
         console.log(`  → Checking guardian: ${guardian.guardianName}`);
         
         // Check if this specific guardian is already in the club
-        const isThisGuardianInClub = await checkMembership(guardian.guardianUid, invitationData.clubId);
+        const checkGuardianMembershipFn = httpsCallable(functions, 'checkMembership');
+        const guardianMembershipResult = await checkGuardianMembershipFn({
+          userId: guardian.guardianUid,
+          clubId: invitationData.clubId
+        });
+        
+        const guardianMembershipData = guardianMembershipResult.data as { 
+          success: boolean; 
+          isClubMember: boolean;
+          error?: string;
+        };
+        
+        const isThisGuardianInClub = guardianMembershipData.isClubMember;
       
       if (!isThisGuardianInClub) {
         console.log('📞 Adding guardian to club...');
@@ -924,7 +936,28 @@ export const addRegularMemberToGroupService = {
           // Don't throw - guardian addition is supplementary
         }
       } else {
-        console.log(`ℹ️ Guardian ${guardian.guardianName} already a club member, skipping`);
+        // Guardian already in club - add 'guardian' role to their existing entry
+        console.log(`ℹ️ Guardian ${guardian.guardianName} already a club member, adding 'guardian' role...`);
+        
+        try {
+          const updateClubMemberRoleFn = httpsCallable(functions, 'updateClubMemberRole');
+          const roleResult = await updateClubMemberRoleFn({
+            clubId: invitationData.clubId,
+            userId: guardian.guardianUid,
+            operation: 'add',
+            roleToAdd: 'guardian'
+          });
+          
+          const roleResponse = roleResult.data as { success: boolean; error?: string };
+          if (roleResponse.success) {
+            console.log('✅ Guardian role added successfully');
+          } else {
+            console.log('⚠️ Failed to add guardian role:', roleResponse.error);
+          }
+        } catch (roleError) {
+          console.error('⚠️ Error adding guardian role:', roleError);
+          // Don't throw - guardian role addition is supplementary
+        }
       }
       }
     }

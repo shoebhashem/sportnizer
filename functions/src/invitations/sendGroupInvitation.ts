@@ -96,7 +96,7 @@ export const sendGroupInvitation = onCall(
             userId: existingUserId,
             
             // Role assignment
-            role: role || 'member',  // Store role for later assignment
+            role: role || 'player',  // Store role for later assignment (default to 'player')
             
             // Youth-specific fields (optional)
             invitationType: invitationType || 'regular',
@@ -118,7 +118,11 @@ export const sendGroupInvitation = onCall(
               if (invitationType === 'youth_member') {
                 notificationMessage = `Add ${youthData?.childName || 'child'} to ${groupName}`;
               } else {
-                const roleLabel = role === 'coach' ? 'coach' : role === 'admin' ? 'admin' : 'player';
+                // Get user-friendly role label
+                const roleLabel = role === 'coach' ? 'coach' 
+                                : role === 'admin' ? 'admin'
+                                : role === 'player-underage' ? 'youth player'
+                                : 'player';
                 notificationMessage = `${inviterName} invited you to join ${groupName} as ${roleLabel}`;
               }
               
@@ -136,7 +140,7 @@ export const sendGroupInvitation = onCall(
                 priority: 'normal',
                 metadata: {
                   action: 'new_member',
-                  role: role || 'member'
+                  role: role || 'player'
                 }
               } as Omit<CreateNotificationRequest, 'userId'>);
               
