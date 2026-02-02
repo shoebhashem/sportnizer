@@ -608,6 +608,11 @@ export const addRegularMemberToGroupService = {
    * - Preserves the original working logic
    */
   async callAtomicFunctionsDirectly(invitationData: any, memberData: any, clubInfo: any, groupInfo: any, userId: string, invitationToken: string) {
+    // Extract role from invitation data
+    const role = invitationData.role;
+    const isYouthRole = role === 'player-underage';
+    const hasYouthData = !!invitationData.youthData;
+    
     // 🏛️ Add user to the club's member list
     console.log('📞 Calling addMemberToClub atomic function...');
     const addMemberToClubFn = httpsCallable(functions, 'addMemberToClub');
@@ -624,8 +629,6 @@ export const addRegularMemberToGroupService = {
     
     // 👨‍👩‍👧 For youth roles, also add ALL guardians as club members
     // One guardian role is added per youth's group membership
-    const isYouthRole = invitationData.role === 'player-underage';
-    const hasYouthData = !!invitationData.youthData;
     if (isYouthRole && hasYouthData && memberData.guardiansContacts && memberData.guardiansContacts.length > 0) {
       console.log(`📞 Adding ${memberData.guardiansContacts.length} guardian(s) to club...`);
       
