@@ -1,14 +1,15 @@
-import { theme } from '@/constants/theme';
-import { getCurrentUser } from '@/services/auth/authService';
+import { theme } from "@/constants/theme";
+import { getCurrentUser } from "@/services/auth/authService";
 import {
     dismissNotification,
     markAllNotificationsAsRead,
     markNotificationAsRead,
     subscribeToUserNotifications,
-    type NotificationData
-} from '@/services/fetchNotifications';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useEffect, useState } from 'react';
+    type NotificationData,
+} from "@/services/fetchNotifications";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -18,14 +19,14 @@ import {
     Text,
     TouchableOpacity,
     View,
-} from 'react-native';
+} from "react-native";
 
 /**
  * 🔔 NotificationBell Component
- * 
+ *
  * Real-time notification bell with badge counter and dropdown list.
  * Displays group invitations and other notifications with live updates.
- * 
+ *
  * Features:
  * - Real-time Firestore listener for instant updates
  * - Unread badge counter
@@ -46,6 +47,7 @@ export default function NotificationBell({
   iconSize = 24,
   iconColor = theme.colors.white,
 }: NotificationBellProps) {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
@@ -70,17 +72,19 @@ export default function NotificationBell({
       currentUserId,
       (updatedNotifications) => {
         setNotifications(updatedNotifications);
-        
+
         // Update unread count
-        const unread = updatedNotifications.filter(n => !n.read && !n.dismissed).length;
+        const unread = updatedNotifications.filter(
+          (n) => !n.read && !n.dismissed,
+        ).length;
         setUnreadCount(unread);
-        
+
         setLoading(false);
       },
       (error) => {
-        console.error('Error subscribing to notifications:', error);
+        console.error("Error subscribing to notifications:", error);
         setLoading(false);
-      }
+      },
     );
 
     // Cleanup subscription on unmount
@@ -98,28 +102,39 @@ export default function NotificationBell({
 
     // Handle different notification types
     switch (notification.type) {
-      case 'group_invitation':
-      case 'youth_member_invitation':
+      case "group_invitation":
+      case "youth_member_invitation":
         if (onInvitationPress && notification.invitationToken) {
-          onInvitationPress(notification.invitationToken, notification.metadata);
+          onInvitationPress(
+            notification.invitationToken,
+            notification.metadata,
+          );
           setModalVisible(false);
         }
         break;
-      
-      case 'announcement':
+
+      case "announcement":
         // Navigate to announcement details
-        console.log('Navigate to announcement:', notification);
+        console.log("Navigate to announcement:", notification);
         setModalVisible(false);
         break;
-      
-      case 'event':
+
+      case "event":
         // Navigate to event details
-        console.log('Navigate to event:', notification);
+        if (notification.sourceId && notification.clubId) {
+          router.push({
+            pathname: "/event-details" as any,
+            params: {
+              eventId: notification.sourceId,
+              clubId: notification.clubId,
+            },
+          });
+        }
         setModalVisible(false);
         break;
-      
+
       default:
-        console.log('Notification clicked:', notification);
+        console.log("Notification clicked:", notification);
         setModalVisible(false);
     }
   };
@@ -127,9 +142,9 @@ export default function NotificationBell({
   // Handle dismiss
   const handleDismiss = async (notificationId: string, e: any) => {
     e.stopPropagation(); // Prevent triggering the notification press
-    
+
     if (!currentUserId) return;
-    
+
     await dismissNotification(currentUserId, notificationId);
   };
 
@@ -140,47 +155,49 @@ export default function NotificationBell({
   };
 
   // Get icon for notification type
-  const getNotificationIcon = (type: string): keyof typeof FontAwesome.glyphMap => {
+  const getNotificationIcon = (
+    type: string,
+  ): keyof typeof FontAwesome.glyphMap => {
     switch (type) {
-      case 'group_invitation':
-        return 'user-plus';
-      case 'youth_member_invitation':
-        return 'child';
-      case 'announcement':
-        return 'bullhorn';
-      case 'event':
-        return 'calendar';
-      case 'poll':
-        return 'question-circle';
-      case 'role_changed':
-        return 'shield';
-      case 'member_joined':
-        return 'users';
-      case 'event_cancelled':
-        return 'calendar-times-o';
+      case "group_invitation":
+        return "user-plus";
+      case "youth_member_invitation":
+        return "child";
+      case "announcement":
+        return "bullhorn";
+      case "event":
+        return "calendar";
+      case "poll":
+        return "question-circle";
+      case "role_changed":
+        return "shield";
+      case "member_joined":
+        return "users";
+      case "event_cancelled":
+        return "calendar-times-o";
       default:
-        return 'bell';
+        return "bell";
     }
   };
 
   // Format timestamp - handles both Firestore Timestamp and Date objects
   const formatTimestamp = (timestamp: any): string => {
-    if (!timestamp) return 'Unknown time';
-    
+    if (!timestamp) return "Unknown time";
+
     // Convert Firestore Timestamp to JavaScript Date
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return 'Just now';
+    if (minutes < 1) return "Just now";
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
     if (days < 7) return `${days}d ago`;
-    
+
     return date.toLocaleDateString();
   };
 
@@ -195,12 +212,16 @@ export default function NotificationBell({
         <FontAwesome
           name={getNotificationIcon(item.type)}
           size={20}
-          color={item.read ? theme.colors.textSecondary : theme.colors.secondary}
+          color={
+            item.read ? theme.colors.textSecondary : theme.colors.secondary
+          }
         />
       </View>
-      
+
       <View style={styles.notificationContent}>
-        <Text style={[styles.notificationTitle, !item.read && styles.unreadText]}>
+        <Text
+          style={[styles.notificationTitle, !item.read && styles.unreadText]}
+        >
           {item.title}
         </Text>
         <Text style={styles.notificationBody} numberOfLines={2}>
@@ -216,7 +237,11 @@ export default function NotificationBell({
         onPress={(e) => handleDismiss(item.id, e)}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
-        <FontAwesome name="times" size={16} color={theme.colors.textSecondary} />
+        <FontAwesome
+          name="times"
+          size={16}
+          color={theme.colors.textSecondary}
+        />
       </TouchableOpacity>
 
       {!item.read && <View style={styles.unreadDot} />}
@@ -235,7 +260,7 @@ export default function NotificationBell({
         {unreadCount > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
-              {unreadCount > 99 ? '99+' : unreadCount}
+              {unreadCount > 99 ? "99+" : unreadCount}
             </Text>
           </View>
         )}
@@ -252,7 +277,10 @@ export default function NotificationBell({
           style={styles.modalOverlay}
           onPress={() => setModalVisible(false)}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Notifications</Text>
@@ -266,7 +294,11 @@ export default function NotificationBell({
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <FontAwesome name="times" size={24} color={theme.colors.white} />
+                  <FontAwesome
+                    name="times"
+                    size={24}
+                    color={theme.colors.white}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -274,11 +306,18 @@ export default function NotificationBell({
             {/* Notifications List */}
             {loading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={theme.colors.secondary} />
+                <ActivityIndicator
+                  size="large"
+                  color={theme.colors.secondary}
+                />
               </View>
             ) : notifications.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <FontAwesome name="bell-slash-o" size={48} color={theme.colors.textSecondary} />
+                <FontAwesome
+                  name="bell-slash-o"
+                  size={48}
+                  color={theme.colors.textSecondary}
+                />
                 <Text style={styles.emptyText}>No notifications</Text>
               </View>
             ) : (
@@ -299,19 +338,19 @@ export default function NotificationBell({
 
 const styles = StyleSheet.create({
   bellContainer: {
-    position: 'relative',
+    position: "relative",
     padding: 8,
   },
   badge: {
-    position: 'absolute',
+    position: "absolute",
     top: 4,
     right: 4,
     backgroundColor: theme.colors.error,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 4,
   },
   badgeText: {
@@ -321,20 +360,20 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: theme.colors.primary,
     borderTopLeftRadius: theme.borderRadius.large,
     borderTopRightRadius: theme.borderRadius.large,
-    maxHeight: '80%',
+    maxHeight: "80%",
     paddingBottom: 20,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.inputBorder,
@@ -345,8 +384,8 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
   },
   headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
   },
   markAllButton: {
@@ -360,13 +399,13 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     padding: theme.spacing.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyContainer: {
     padding: theme.spacing.xxl,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: theme.spacing.md,
   },
   emptyText: {
@@ -377,23 +416,23 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
   },
   notificationItem: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.inputBorder,
     backgroundColor: theme.colors.primary,
-    position: 'relative',
+    position: "relative",
   },
   unreadNotification: {
-    backgroundColor: 'rgba(255, 211, 61, 0.05)',
+    backgroundColor: "rgba(255, 211, 61, 0.05)",
   },
   notificationIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: theme.colors.inputBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: theme.spacing.md,
   },
   notificationContent: {
@@ -423,7 +462,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   unreadDot: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     right: 16,
     width: 8,

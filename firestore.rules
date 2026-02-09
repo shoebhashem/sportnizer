@@ -254,6 +254,20 @@ service cloud.firestore {
         allow delete: if isClubAdmin(clubId);
       }
 
+      // Club-level Events subcollection
+      match /events/{eventId} {
+        // Read: Only invited members OR club admins can read events (privacy for group/subgroup events)
+        allow read: if isSignedIn() && (
+          request.auth.uid in resource.data.invitedUserIds ||
+          isClubAdmin(clubId)
+        );
+        
+        // Create/Update/Delete: Only club admins can manage club-level events
+        allow create, update, delete: if isClubAdmin(clubId);
+      }
+      
+      // Note: Cloud Functions using Admin SDK bypass these rules entirely
+
       // Groups subcollection inside a club
       match /groups/{groupId} {
         // Read: Any authenticated user can read group info

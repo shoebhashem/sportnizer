@@ -1,17 +1,26 @@
-import Button from '@/components/Button';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import CountdownTimer from '@/components/CountdownTimer';
-import Input from '@/components/Input';
-import { theme } from '@/constants/theme';
-import { useUser } from '@/contexts/UserContext';
-import { clubService } from '@/services/club';
-import { createNewGroupInExistingClub } from '@/services/orchestration/createNewGroupInExistingClub';
-import { ClubData } from '@/services/types/club';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Button from "@/components/Button";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import CountdownTimer from "@/components/CountdownTimer";
+import Input from "@/components/Input";
+import { theme } from "@/constants/theme";
+import { useUser } from "@/contexts/UserContext";
+import { clubService } from "@/services/club";
+import { createNewGroupInExistingClub } from "@/services/orchestration/createNewGroupInExistingClub";
+import { ClubData } from "@/services/types/club";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ClubSettingsScreen() {
   const { clubId } = useLocalSearchParams();
@@ -22,16 +31,16 @@ export default function ClubSettingsScreen() {
   const [showUndoModal, setShowUndoModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [isReactivating, setIsReactivating] = useState(false);
   const [showAddGroupModal, setShowAddGroupModal] = useState(false);
-  const [groupName, setGroupName] = useState('');
-  const [sportType, setSportType] = useState('');
+  const [groupName, setGroupName] = useState("");
+  const [sportType, setSportType] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
 
   const fetchClubData = useCallback(async () => {
-    if (!clubId || typeof clubId !== 'string' || !firebaseUser?.uid) return;
+    if (!clubId || typeof clubId !== "string" || !firebaseUser?.uid) return;
 
     try {
       const clubResult = await clubService.getClub(clubId);
@@ -40,7 +49,7 @@ export default function ClubSettingsScreen() {
         setClub(clubResult.data as ClubData);
       }
     } catch (error) {
-      console.error('Error fetching club data:', error);
+      console.error("Error fetching club data:", error);
     } finally {
       setLoading(false);
     }
@@ -54,7 +63,7 @@ export default function ClubSettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchClubData();
-    }, [fetchClubData])
+    }, [fetchClubData]),
   );
 
   const handleDeleteClub = () => {
@@ -65,8 +74,9 @@ export default function ClubSettingsScreen() {
     setShowDeleteModal(false);
     // Show info modal about email process
     setSuccessMessage(
-      'To delete this club, please send an email to support@sportnizer.com with the subject "Delete Club: ' + 
-      club?.name + '" and we will process your request.'
+      'To delete this club, please send an email to support@sportnizer.com with the subject "Delete Club: ' +
+        club?.name +
+        '" and we will process your request.',
     );
     setShowSuccessModal(true);
   };
@@ -78,28 +88,33 @@ export default function ClubSettingsScreen() {
   const confirmUndoDeletion = async () => {
     setShowUndoModal(false);
     setIsReactivating(true);
-    
+
     if (!clubId || !firebaseUser?.uid) return;
-    
+
     try {
       const result = await clubService.reactivateClub(clubId as string);
 
       if (result.success) {
         setSuccessMessage(
           `Club reactivated successfully! ` +
-          (result.groupsReactivated ? `${result.groupsReactivated} groups were also reactivated.` : '')
+            (result.groupsReactivated
+              ? `${result.groupsReactivated} groups were also reactivated.`
+              : ""),
         );
         setShowSuccessModal(true);
-        
+
         // Refresh club data
         await fetchClubData();
       } else {
-        setErrorMessage(result.error || 'Failed to reactivate club. The grace period may have expired.');
+        setErrorMessage(
+          result.error ||
+            "Failed to reactivate club. The grace period may have expired.",
+        );
         setShowErrorModal(true);
       }
     } catch (error) {
-      console.error('Error reactivating club:', error);
-      setErrorMessage('Failed to reactivate club. Please try again.');
+      console.error("Error reactivating club:", error);
+      setErrorMessage("Failed to reactivate club. Please try again.");
       setShowErrorModal(true);
     } finally {
       setIsReactivating(false);
@@ -107,76 +122,89 @@ export default function ClubSettingsScreen() {
   };
 
   const handleAddGroup = () => {
-    setGroupName('');
-    setSportType('');
+    setGroupName("");
+    setSportType("");
     setShowAddGroupModal(true);
   };
 
   const handleConfirmAddGroup = async () => {
-    console.log('handleConfirmAddGroup called');
-    console.log('groupName:', groupName);
-    console.log('sportType:', sportType);
-    
+    console.log("handleConfirmAddGroup called");
+    console.log("groupName:", groupName);
+    console.log("sportType:", sportType);
+
     if (!groupName.trim()) {
-      console.log('Group name is empty, returning early');
+      console.log("Group name is empty, returning early");
       return;
     }
 
     if (!clubId || !firebaseUser?.uid || !firebaseUser?.email) {
-      console.log('Missing user info:', { clubId, uid: firebaseUser?.uid, email: firebaseUser?.email });
-      setErrorMessage('Missing required user information');
+      console.log("Missing user info:", {
+        clubId,
+        uid: firebaseUser?.uid,
+        email: firebaseUser?.email,
+      });
+      setErrorMessage("Missing required user information");
       setShowErrorModal(true);
       return;
     }
 
-    console.log('Starting group creation...');
+    console.log("Starting group creation...");
     setCreatingGroup(true);
 
     try {
-      console.log('Calling createNewGroupInExistingClub...');
+      console.log("Calling createNewGroupInExistingClub...");
       const result = await createNewGroupInExistingClub({
         clubId: clubId as string,
         groupData: {
           name: groupName.trim(),
-          description: '',
+          description: "",
           sport: sportType.trim() || undefined,
         },
         userId: firebaseUser.uid,
-        userDisplayName: userProfile?.displayName || firebaseUser.displayName || "Unknown User",
+        userDisplayName:
+          userProfile?.displayName ||
+          firebaseUser.displayName ||
+          "Unknown User",
         userEmail: userProfile?.email || firebaseUser.email || "",
-        userPhotoURL: userProfile?.photoURL || firebaseUser.photoURL || undefined,
+        userPhotoURL:
+          userProfile?.photoURL || firebaseUser.photoURL || undefined,
       });
 
-      console.log('createNewGroupInExistingClub result:', result);
+      console.log("createNewGroupInExistingClub result:", result);
 
       if (result.success && result.groupId) {
-        console.log('Group created successfully, closing modal');
+        console.log("Group created successfully, closing modal");
         setShowAddGroupModal(false);
-        setGroupName('');
-        setSportType('');
+        setGroupName("");
+        setSportType("");
         setSuccessMessage(`Group "${groupName.trim()}" created successfully!`);
         setShowSuccessModal(true);
 
         // Navigate to the new group's manage screen
-        router.push(`/manage-group?groupId=${result.groupId}&clubId=${clubId}` as any);
+        router.push(
+          `/manage-group?groupId=${result.groupId}&clubId=${clubId}&clubName=${encodeURIComponent(clubName as string)}` as any,
+        );
       } else {
-        console.log('Group creation failed:', result.error);
-        setErrorMessage(result.error || 'Failed to create group');
+        console.log("Group creation failed:", result.error);
+        setErrorMessage(result.error || "Failed to create group");
         setShowErrorModal(true);
       }
     } catch (error) {
-      console.error('Error creating group:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error("Error creating group:", error);
+      const errorMsg =
+        error instanceof Error ? error.message : "Unknown error occurred";
       setErrorMessage(`Failed to create group: ${errorMsg}`);
       setShowErrorModal(true);
     } finally {
-      console.log('Resetting creatingGroup state');
+      console.log("Resetting creatingGroup state");
       setCreatingGroup(false);
     }
   };
 
   const isScheduledForDeletion = !club?.isActive && club?.deletionScheduledAt;
-  const isClubAdmin = club?.admins?.includes(firebaseUser?.uid || '') || club?.createdBy === firebaseUser?.uid;
+  const isClubAdmin =
+    club?.admins?.includes(firebaseUser?.uid || "") ||
+    club?.createdBy === firebaseUser?.uid;
 
   if (loading) {
     return (
@@ -206,21 +234,17 @@ export default function ClubSettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons 
-              name="arrow-back" 
-              size={24} 
-              color={theme.colors.text} 
-            />
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={styles.title}>Club Settings</Text>
           <View style={styles.placeholder} />
@@ -244,8 +268,8 @@ export default function ClubSettingsScreen() {
             <Text style={styles.deletionMessage}>
               This club will be permanently deleted in:
             </Text>
-            <CountdownTimer 
-              deletionScheduledAt={club.deletionScheduledAt?.toMillis?.()} 
+            <CountdownTimer
+              deletionScheduledAt={club.deletionScheduledAt?.toMillis?.()}
               compact={false}
             />
             {isClubAdmin && (
@@ -265,79 +289,89 @@ export default function ClubSettingsScreen() {
         <View style={styles.optionsContainer}>
           {/* Add Group Option - Only for Club Admin */}
           {isClubAdmin && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.optionItem}
               onPress={handleAddGroup}
             >
               <View style={styles.optionIcon}>
-                <Ionicons 
-                  name="add-circle-outline" 
-                  size={24} 
-                  color={theme.colors.secondary} 
+                <Ionicons
+                  name="add-circle-outline"
+                  size={24}
+                  color={theme.colors.secondary}
                 />
               </View>
               <View style={styles.optionContent}>
                 <Text style={styles.optionTitle}>Add Group</Text>
-                <Text style={styles.optionDescription}>Create a new group in this club</Text>
+                <Text style={styles.optionDescription}>
+                  Create a new group in this club
+                </Text>
               </View>
-              <Ionicons 
-                name="chevron-forward" 
-                size={20} 
-                color={theme.colors.textSecondary} 
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
               />
             </TouchableOpacity>
           )}
 
           {/* Delete Group Option - Navigate to manage-club to select group */}
           {isClubAdmin && !isScheduledForDeletion && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.optionItem}
-              onPress={() => router.push(`/manage-club?clubId=${clubId}&tab=groups` as any)}
+              onPress={() =>
+                router.push(`/manage-club?clubId=${clubId}&tab=groups` as any)
+              }
             >
               <View style={styles.optionIcon}>
-                <Ionicons 
-                  name="trash-bin-outline" 
-                  size={24} 
-                  color={theme.colors.secondary} 
+                <Ionicons
+                  name="trash-bin-outline"
+                  size={24}
+                  color={theme.colors.secondary}
                 />
               </View>
               <View style={styles.optionContent}>
                 <Text style={styles.optionTitle}>Delete Group</Text>
-                <Text style={styles.optionDescription}>Select a group to schedule for deletion</Text>
+                <Text style={styles.optionDescription}>
+                  Select a group to schedule for deletion
+                </Text>
               </View>
-              <Ionicons 
-                name="chevron-forward" 
-                size={20} 
-                color={theme.colors.textSecondary} 
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
               />
             </TouchableOpacity>
           )}
 
           {/* Delete Club Option - Only for Club Admin and not already scheduled */}
           {isClubAdmin && !isScheduledForDeletion && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.optionItem, styles.dangerOption]}
               onPress={handleDeleteClub}
             >
               <View style={styles.optionIcon}>
-                <Ionicons 
-                  name="trash-outline" 
-                  size={24} 
-                  color={theme.colors.error} 
+                <Ionicons
+                  name="trash-outline"
+                  size={24}
+                  color={theme.colors.error}
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={[styles.optionTitle, styles.dangerText]}>Delete Club</Text>
-                <Text style={styles.optionDescription}>Request club deletion via email</Text>
+                <Text style={[styles.optionTitle, styles.dangerText]}>
+                  Delete Club
+                </Text>
+                <Text style={styles.optionDescription}>
+                  Request club deletion via email
+                </Text>
               </View>
-              <Ionicons 
-                name="chevron-forward" 
-                size={20} 
-                color={theme.colors.error} 
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.error}
               />
             </TouchableOpacity>
           )}
-          
+
           {/* Example placeholder options (uncomment/modify as needed) */}
           {/* 
           <TouchableOpacity 
@@ -418,8 +452,8 @@ export default function ClubSettingsScreen() {
         animationType="fade"
         onRequestClose={() => setShowAddGroupModal(false)}
       >
-        <Pressable 
-          style={styles.modalOverlay} 
+        <Pressable
+          style={styles.modalOverlay}
           onPress={() => !creatingGroup && setShowAddGroupModal(false)}
         >
           <View style={styles.modalContainer}>
@@ -428,7 +462,7 @@ export default function ClubSettingsScreen() {
               <Text style={styles.modalDescription}>
                 Create a new group in {club?.name}
               </Text>
-              
+
               <Input
                 label="Group Name"
                 value={groupName}
@@ -482,9 +516,9 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.xl,
     paddingHorizontal: theme.spacing.sm,
@@ -498,7 +532,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.secondary,
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   placeholder: {
     width: 40,
@@ -528,8 +562,8 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
     padding: theme.spacing.xl,
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.medium,
@@ -537,8 +571,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.inputBorder,
   },
   optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: theme.colors.inputBackground,
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.medium,
@@ -550,8 +584,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: theme.spacing.md,
   },
   optionContent: {
@@ -569,8 +603,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: theme.spacing.md,
@@ -579,8 +613,8 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: theme.layout.containerPadding,
   },
   errorText: {
@@ -589,14 +623,14 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
   },
   dangerOption: {
-    borderColor: theme.colors.error + '40',
+    borderColor: theme.colors.error + "40",
     borderWidth: 1,
   },
   dangerText: {
     color: theme.colors.error,
   },
   deletionBanner: {
-    backgroundColor: theme.colors.error + '15',
+    backgroundColor: theme.colors.error + "15",
     borderWidth: 2,
     borderColor: theme.colors.error,
     borderRadius: theme.borderRadius.medium,
@@ -604,8 +638,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   deletionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: theme.spacing.md,
     gap: theme.spacing.sm,
   },
@@ -624,12 +658,12 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContainer: {
-    width: '90%',
+    width: "90%",
     maxWidth: 400,
     padding: theme.spacing.md,
   },
@@ -644,17 +678,17 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.large,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.text,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: theme.spacing.lg,
   },
   modalDescription: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: theme.spacing.lg,
   },
   modalButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.md,
     marginTop: theme.spacing.lg,
   },

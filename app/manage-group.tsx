@@ -1,72 +1,105 @@
-import Button from '@/components/Button';
-import { getDefaultProfilePicture } from '@/constants/profilePictures';
-import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Button from "@/components/Button";
+import { getDefaultProfilePicture } from "@/constants/profilePictures";
+import { theme } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-// Import new services  
-import { fetchGroupMembers } from '@/services/fetchGroupMembers';
-import { groupService } from '@/services/group';
-import { permissionService } from '@/services/permissions';
-import { SubGroup } from '@/services/subgroup';
-import { GroupData, GroupMemberData } from '@/services/types/group';
+// Import new services
+import { fetchGroupMembers } from "@/services/fetchGroupMembers";
+import { groupService } from "@/services/group";
+import { permissionService } from "@/services/permissions";
+import { SubGroup } from "@/services/subgroup";
+import { GroupData, GroupMemberData } from "@/services/types/group";
 
 export default function ManageGroupScreen() {
-  const { groupId, clubId, tab } = useLocalSearchParams();
+  const { groupId, clubId, clubName, tab } = useLocalSearchParams();
   const { user } = useAuth();
+
+  // DEBUG: Log navigation params
+  console.log("🔍 ManageGroup - Navigation Params:", {
+    groupId,
+    clubId,
+    clubName,
+    tab,
+    clubIdType: typeof clubId,
+    clubNameType: typeof clubName,
+  });
+
   const [group, setGroup] = useState<GroupData | null>(null);
   const [members, setMembers] = useState<GroupMemberData[]>([]);
   const [subgroups, setSubgroups] = useState<SubGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [canManage, setCanManage] = useState(false);
-  const [activeTab, setActiveTab] = useState<'members' | 'subgroups'>(
-    tab === 'subgroups' ? 'subgroups' : 'members'
+  const [activeTab, setActiveTab] = useState<"members" | "subgroups">(
+    tab === "subgroups" ? "subgroups" : "members",
   );
 
   const fetchAllData = useCallback(async () => {
-    if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string') return;
+    if (
+      !groupId ||
+      typeof groupId !== "string" ||
+      !clubId ||
+      typeof clubId !== "string"
+    )
+      return;
 
     setLoading(true);
     try {
       // Fetch group data and members (subgroups are now in group.subGroups array)
       const [groupResult, membersResult] = await Promise.all([
         groupService.getGroup(clubId, groupId),
-        fetchGroupMembers(clubId, groupId)
+        fetchGroupMembers(clubId, groupId),
       ]);
 
       // Process group data
       if (groupResult.success && groupResult.data) {
         setGroup(groupResult.data);
-        console.log('📂 Group data:', {
+        console.log("📂 Group data:", {
           groupId: groupResult.data.id,
           groupName: groupResult.data.name,
           subGroupsRaw: groupResult.data.subGroups,
-          subGroupsLength: groupResult.data.subGroups?.length || 0
+          subGroupsLength: groupResult.data.subGroups?.length || 0,
         });
         // Convert subGroups array from group document to SubGroup format
-        const subgroupsFromGroup = (groupResult.data.subGroups || []).map(sg => ({
-          id: sg.id,
-          name: sg.name,
-          createdBy: '',
-          createdAt: null,
-          description: '',
-          color: '',
-          memberCount: 0 // Will show count if needed later
-        }));
-        console.log('📂 Converted subgroups:', subgroupsFromGroup);
+        const subgroupsFromGroup = (groupResult.data.subGroups || []).map(
+          (sg) => ({
+            id: sg.id,
+            name: sg.name,
+            createdBy: "",
+            createdAt: null,
+            description: "",
+            color: "",
+            memberCount: 0, // Will show count if needed later
+          }),
+        );
+        console.log("📂 Converted subgroups:", subgroupsFromGroup);
         setSubgroups(subgroupsFromGroup);
       }
 
       // Process members data
-      const membersData: GroupMemberData[] = membersResult.success ? membersResult.members : [];
+      const membersData: GroupMemberData[] = membersResult.success
+        ? membersResult.members
+        : [];
       if (!membersResult.success && membersResult.error) {
-        console.error('❌ Failed to fetch group members:', membersResult.error);
+        console.error("❌ Failed to fetch group members:", membersResult.error);
       }
-      console.log(`📋 Fetched ${membersData.length} members for group ${groupId}:`, membersData);
+      console.log(
+        `📋 Fetched ${membersData.length} members for group ${groupId}:`,
+        membersData,
+      );
       setMembers(membersData);
 
       // Check if user can manage this group
@@ -74,13 +107,13 @@ export default function ManageGroupScreen() {
         const hasPermission = await permissionService.canManageGroup(
           user.uid,
           clubId as string,
-          groupId as string
+          groupId as string,
         );
         setCanManage(hasPermission);
         console.log(`🔒 User can manage group: ${hasPermission}`);
       }
     } catch (error) {
-      console.error('Error fetching group data:', error);
+      console.error("Error fetching group data:", error);
     } finally {
       setLoading(false);
     }
@@ -94,11 +127,13 @@ export default function ManageGroupScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchAllData();
-    }, [fetchAllData])
+    }, [fetchAllData]),
   );
 
   const handleSubgroupClick = (subgroupId: string, subgroupName: string) => {
-    router.push(`/manage-subgroup?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(subgroupName)}` as any);
+    router.push(
+      `/manage-subgroup?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(subgroupName)}` as any,
+    );
   };
 
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
@@ -106,12 +141,14 @@ export default function ManageGroupScreen() {
       <View style={styles.memberItem}>
         <Image
           style={styles.memberAvatar}
-          source={{ uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian) }}
+          source={{
+            uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian),
+          }}
         />
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{item.name}</Text>
           <Text style={styles.memberRole}>
-            {item.roles.join(', ')} {item.needsGuardian && '(Child/Youth)'}
+            {item.roles.join(", ")} {item.needsGuardian && "(Child/Youth)"}
           </Text>
         </View>
       </View>
@@ -166,78 +203,117 @@ export default function ManageGroupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => router.back()}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.title}>{group.name}</Text>
+          {canManage && (
+            <TouchableOpacity
+              style={styles.kebabMenuButton}
+              onPress={() => {
+                router.push(
+                  `/group-settings?groupId=${groupId}&clubId=${clubId}` as any,
+                );
+              }}
             >
-              <Ionicons 
-                name="arrow-back" 
-                size={24} 
-                color={theme.colors.text} 
+              <Ionicons
+                name="ellipsis-vertical"
+                size={24}
+                color={theme.colors.text}
               />
             </TouchableOpacity>
-            <Text style={styles.title}>{group.name}</Text>
-            {canManage && (
-              <TouchableOpacity 
-                style={styles.kebabMenuButton}
-                onPress={() => {
-                  router.push(`/group-settings?groupId=${groupId}&clubId=${clubId}` as any);
-                }}
-              >
-                <Ionicons 
-                  name="ellipsis-vertical" 
-                  size={24} 
-                  color={theme.colors.text} 
-                />
-              </TouchableOpacity>
-            )}
-            {!canManage && <View style={styles.kebabMenuButton} />}
-          </View>
-
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'members' && styles.activeTab]}
-              onPress={() => setActiveTab('members')}
-            >
-              <Text style={[styles.tabText, activeTab === 'members' && styles.activeTabText]}>
-                Members ({members.length})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'subgroups' && styles.activeTab]}
-              onPress={() => setActiveTab('subgroups')}
-            >
-              <Text style={[styles.tabText, activeTab === 'subgroups' && styles.activeTabText]}>
-                Subgroups ({group?.subGroups?.length || 0})
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {activeTab === 'members' ? (
-            <FlatList
-              data={members}
-              renderItem={renderMemberItem}
-              keyExtractor={(item) => item.userId}
-              style={styles.membersList}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          ) : (
-            <FlatList
-              data={subgroups}
-              renderItem={renderSubgroupItem}
-              keyExtractor={(item) => item.id}
-              style={styles.subgroupsList}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
           )}
-        </ScrollView>
+          {!canManage && <View style={styles.kebabMenuButton} />}
+        </View>
+
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "members" && styles.activeTab]}
+            onPress={() => setActiveTab("members")}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "members" && styles.activeTabText,
+              ]}
+            >
+              Members ({members.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "subgroups" && styles.activeTab]}
+            onPress={() => setActiveTab("subgroups")}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "subgroups" && styles.activeTabText,
+              ]}
+            >
+              Subgroups ({group?.subGroups?.length || 0})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {activeTab === "members" ? (
+          <FlatList
+            data={members}
+            renderItem={renderMemberItem}
+            keyExtractor={(item) => item.userId}
+            style={styles.membersList}
+            scrollEnabled={false}
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          <FlatList
+            data={subgroups}
+            renderItem={renderSubgroupItem}
+            keyExtractor={(item) => item.id}
+            style={styles.subgroupsList}
+            scrollEnabled={false}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </ScrollView>
+
+      {/* Floating Action Button for Create Event */}
+      {canManage && (
+        <TouchableOpacity
+          onPress={() => {
+            // DEBUG: Log params before navigation
+            console.log("🔍 ManageGroup - Before navigating to create-event:", {
+              clubId,
+              clubName,
+              groupId,
+              groupName: group?.name,
+              clubIdValue: clubId as string,
+              clubNameValue: clubName as string,
+            });
+
+            router.push({
+              pathname: "/create-event" as any,
+              params: {
+                clubId: clubId as string,
+                clubName: clubName as string,
+                groupId: groupId as string,
+                groupName: group?.name || "",
+                sourceScreen: "manage-group",
+              },
+            });
+          }}
+          style={styles.fab}
+        >
+          <Ionicons name="add" size={28} color="white" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -254,8 +330,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: theme.spacing.md,
   },
   loadingText: {
@@ -264,20 +340,20 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: theme.spacing.lg,
     paddingHorizontal: theme.layout.containerPadding,
   },
   errorText: {
     color: theme.colors.error,
     fontSize: theme.typography.fontSize.large,
-    textAlign: 'center',
+    textAlign: "center",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: theme.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.inputBorder,
@@ -289,7 +365,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.fontSize.large,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: theme.colors.text,
     flex: 1,
   },
@@ -297,7 +373,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xs,
   },
   tabContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: theme.spacing.lg,
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.small,
@@ -307,7 +383,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: theme.borderRadius.small,
   },
   activeTab: {
@@ -316,18 +392,18 @@ const styles = StyleSheet.create({
   tabText: {
     color: theme.colors.textSecondary,
     fontSize: theme.typography.fontSize.medium,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   activeTabText: {
     color: theme.colors.primary,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   membersList: {
     flex: 1,
   },
   memberItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: theme.spacing.md,
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.small,
@@ -346,7 +422,7 @@ const styles = StyleSheet.create({
   },
   memberName: {
     fontSize: theme.typography.fontSize.medium,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.text,
     marginBottom: 2,
   },
@@ -365,9 +441,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.inputBorder,
   },
   subgroupContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: theme.spacing.md,
   },
   subgroupHeaderLeft: {
@@ -375,7 +451,7 @@ const styles = StyleSheet.create({
   },
   subgroupName: {
     fontSize: theme.typography.fontSize.medium,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.text,
     marginBottom: 2,
   },
@@ -387,5 +463,22 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
     marginTop: 4,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: theme.colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8, // Android shadow
+    shadowColor: "#000", // iOS shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    zIndex: 10,
   },
 });

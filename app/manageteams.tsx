@@ -212,13 +212,8 @@ export default function ManageTeamsScreen() {
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>No Teams Found</Text>
           <Text style={styles.emptySubtitle}>
-            You don&apos;t belong to any teams yet. Create your first group to get started!
+            You don&apos;t belong to any teams yet. Join a club or have a club admin create a group for you!
           </Text>
-          <Button
-            label="Create Group"
-            theme="primary"
-            onPress={() => router.push('/create-group')}
-          />
         </View>
       </SafeAreaView>
     );

@@ -42,6 +42,14 @@ export { deleteEvent } from './events/deleteEvent';
 export { getEvent } from './events/getEvent';
 export { updateEvent } from './events/updateEvent';
 
+// Event Management V2 Functions (Enhanced with notifications & statistics)
+export { cleanupOldStatistics } from './events/cleanupOldStatistics';
+export { createEventV2 } from './events/createEventV2';
+export { getStatistics } from './events/getStatistics';
+export { recordAttendance } from './events/recordAttendance';
+export { updateEventResponse } from './events/updateEventResponse';
+export { updateStatistics } from './events/updateStatistics';
+
 // Member Management Functions (Atomic - Direct Member Operations)
 export { addMemberToClub } from './members/addMemberToClub';
 export { addMemberToGroup } from './members/addMemberToGroup';

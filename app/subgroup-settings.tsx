@@ -1,47 +1,65 @@
-import Button from '@/components/Button';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import Input from '@/components/Input';
-import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { fetchGroupMembers } from '@/services/fetchGroupMembers';
-import { groupService } from '@/services/group';
-import { SubGroup, subgroupService } from '@/services/subgroup';
-import { GroupData } from '@/services/types/group';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../firebaseConfig';
+import Button from "@/components/Button";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import Input from "@/components/Input";
+import { theme } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
+import { fetchGroupMembers } from "@/services/fetchGroupMembers";
+import { groupService } from "@/services/group";
+import { SubGroup, subgroupService } from "@/services/subgroup";
+import { GroupData } from "@/services/types/group";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { doc, getDoc } from "firebase/firestore";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { db } from "../firebaseConfig";
 
 export default function SubgroupSettingsScreen() {
   const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
   const [group, setGroup] = useState<GroupData | null>(null);
   const [subgroup, setSubgroup] = useState<SubGroup | null>(null);
-  const [userRole, setUserRole] = useState<string>('member');
+  const [userRole, setUserRole] = useState<string>("member");
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
   const [showRenameModal, setShowRenameModal] = useState(false);
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !subgroupId || typeof subgroupId !== 'string' || !user?.uid) return;
+    if (
+      !groupId ||
+      typeof groupId !== "string" ||
+      !clubId ||
+      typeof clubId !== "string" ||
+      !subgroupId ||
+      typeof subgroupId !== "string" ||
+      !user?.uid
+    )
+      return;
 
     try {
       // Fetch group, subgroup, members data, and user document
-      const [groupResult, subgroupData, membersResult, userSnapshot] = await Promise.all([
-        groupService.getGroup(clubId, groupId),
-        subgroupService.getSubgroup(clubId, groupId, subgroupId),
-        fetchGroupMembers(clubId, groupId),
-        getDoc(doc(db, 'users', user.uid))
-      ]);
+      const [groupResult, subgroupData, membersResult, userSnapshot] =
+        await Promise.all([
+          groupService.getGroup(clubId, groupId),
+          subgroupService.getSubgroup(clubId, groupId, subgroupId),
+          fetchGroupMembers(clubId, groupId),
+          getDoc(doc(db, "users", user.uid)),
+        ]);
 
       if (groupResult.success && groupResult.data) {
         setGroup(groupResult.data);
@@ -55,40 +73,49 @@ export default function SubgroupSettingsScreen() {
       const userData = userSnapshot.data();
 
       // Find current user's role - check club-level first
-      let userRole = 'member';
-      
+      let userRole = "member";
+
       // First check club-level role from user document
       if (userData?.clubAccess) {
-        const clubAccess = userData.clubAccess.find((c: any) => c.clubId === clubId);
-        if (clubAccess?.role === 'club-admin') {
-          userRole = 'club-admin'; // Club admin has all permissions in all groups
+        const clubAccess = userData.clubAccess.find(
+          (c: any) => c.clubId === clubId,
+        );
+        if (clubAccess?.role === "club-admin") {
+          userRole = "club-admin"; // Club admin has all permissions in all groups
         }
       }
-      
+
       // If not club-admin, check group-level roles
-      if (userRole !== 'club-admin') {
-        const membersData = membersResult.success ? membersResult.members || [] : [];
-        
+      if (userRole !== "club-admin") {
+        const membersData = membersResult.success
+          ? membersResult.members || []
+          : [];
+
         membersData.forEach((member: any) => {
           if (member.userId === user.uid) {
-            if (member.roles.includes('admin')) {
-              userRole = 'admin';
-            } else if (member.roles.includes('coach')) {
-              userRole = 'coach';
+            if (member.roles.includes("admin")) {
+              userRole = "admin";
+            } else if (member.roles.includes("coach")) {
+              userRole = "coach";
             }
           }
         });
 
         // If user is the group creator, consider them as admin
-        if (groupResult.success && groupResult.data && groupResult.data.createdBy === user.uid && userRole === 'member') {
-          userRole = 'admin';
+        if (
+          groupResult.success &&
+          groupResult.data &&
+          groupResult.data.createdBy === user.uid &&
+          userRole === "member"
+        ) {
+          userRole = "admin";
         }
       }
 
       setUserRole(userRole);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      setErrorMessage('Failed to load subgroup data');
+      console.error("Error fetching data:", error);
+      setErrorMessage("Failed to load subgroup data");
       setShowErrorModal(true);
     } finally {
       setLoading(false);
@@ -103,12 +130,17 @@ export default function SubgroupSettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchData();
-    }, [fetchData])
+    }, [fetchData]),
   );
 
   const handleManageMembers = () => {
-    const displayName = typeof subgroupName === 'string' ? subgroupName : (subgroup?.name || 'Subgroup');
-    router.push(`/manage-subgroup-members?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(displayName)}` as any);
+    const displayName =
+      typeof subgroupName === "string"
+        ? subgroupName
+        : subgroup?.name || "Subgroup";
+    router.push(
+      `/manage-subgroup-members?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(displayName)}` as any,
+    );
   };
 
   const handleRenameSubgroup = () => {
@@ -134,21 +166,21 @@ export default function SubgroupSettingsScreen() {
         groupId as string,
         subgroupId as string,
         user.uid,
-        { name: newName.trim() }
+        { name: newName.trim() },
       );
 
       if (result.success) {
         setShowRenameModal(false);
-        setSuccessMessage('Subgroup renamed successfully!');
+        setSuccessMessage("Subgroup renamed successfully!");
         setShowSuccessModal(true);
         await fetchData(); // Refresh data
       } else {
-        setErrorMessage(result.error || 'Failed to rename subgroup');
+        setErrorMessage(result.error || "Failed to rename subgroup");
         setShowErrorModal(true);
       }
     } catch (error) {
-      console.error('Error renaming subgroup:', error);
-      setErrorMessage('Failed to rename subgroup. Please try again.');
+      console.error("Error renaming subgroup:", error);
+      setErrorMessage("Failed to rename subgroup. Please try again.");
       setShowErrorModal(true);
     } finally {
       setRenaming(false);
@@ -169,29 +201,37 @@ export default function SubgroupSettingsScreen() {
         clubId as string,
         groupId as string,
         subgroupId as string,
-        user.uid
+        user.uid,
       );
 
       if (result.success) {
-        setSuccessMessage(`Subgroup deleted successfully! ${result.deletedMemberCount || 0} members removed.`);
+        setSuccessMessage(
+          `Subgroup deleted successfully! ${result.deletedMemberCount || 0} members removed.`,
+        );
         setShowSuccessModal(true);
-        
+
         // Navigate back to manage-group with subgroups tab
         setTimeout(() => {
-          router.push(`/manage-group?groupId=${groupId}&clubId=${clubId}&tab=subgroups` as any);
+          router.push(
+            `/manage-group?groupId=${groupId}&clubId=${clubId}&clubName=${encodeURIComponent(group?.clubName || "")}&tab=subgroups` as any,
+          );
         }, 1500);
       } else {
-        setErrorMessage(result.error || 'Failed to delete subgroup');
+        setErrorMessage(result.error || "Failed to delete subgroup");
         setShowErrorModal(true);
       }
     } catch (error) {
-      console.error('Error deleting subgroup:', error);
-      setErrorMessage('Failed to delete subgroup. Please try again.');
+      console.error("Error deleting subgroup:", error);
+      setErrorMessage("Failed to delete subgroup. Please try again.");
       setShowErrorModal(true);
     }
   };
 
-  const canManage = userRole === 'club-admin' || userRole === 'admin' || userRole === 'coach' || group?.createdBy === user?.uid;
+  const canManage =
+    userRole === "club-admin" ||
+    userRole === "admin" ||
+    userRole === "coach" ||
+    group?.createdBy === user?.uid;
 
   if (loading) {
     return (
@@ -221,21 +261,17 @@ export default function SubgroupSettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons 
-              name="arrow-back" 
-              size={24} 
-              color={theme.colors.text} 
-            />
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={styles.title}>Subgroup Settings</Text>
           <View style={styles.placeholder} />
@@ -252,78 +288,59 @@ export default function SubgroupSettingsScreen() {
         <View style={styles.optionsContainer}>
           {/* Manage Members Option - Only for Admin/Coach/Group Creator */}
           {canManage && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.optionItem}
               onPress={handleManageMembers}
             >
               <View style={styles.optionIcon}>
-                <Ionicons 
-                  name="people-outline" 
-                  size={24} 
-                  color={theme.colors.secondary} 
+                <Ionicons
+                  name="people-outline"
+                  size={24}
+                  color={theme.colors.secondary}
                 />
               </View>
               <View style={styles.optionContent}>
                 <Text style={styles.optionTitle}>Manage Members</Text>
-                <Text style={styles.optionDescription}>Add or remove members from this subgroup</Text>
+                <Text style={styles.optionDescription}>
+                  Add or remove members from this subgroup
+                </Text>
               </View>
-              <Ionicons 
-                name="chevron-forward" 
-                size={20} 
-                color={theme.colors.textSecondary} 
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
               />
             </TouchableOpacity>
           )}
 
           {/* Rename Subgroup - Only for Admin/Coach */}
           {canManage && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.optionItem}
               onPress={handleRenameSubgroup}
             >
               <View style={styles.optionIcon}>
-                <Ionicons 
-                  name="pencil-outline" 
-                  size={24} 
-                  color={theme.colors.secondary} 
+                <Ionicons
+                  name="pencil-outline"
+                  size={24}
+                  color={theme.colors.secondary}
                 />
               </View>
               <View style={styles.optionContent}>
                 <Text style={styles.optionTitle}>Rename Subgroup</Text>
-                <Text style={styles.optionDescription}>Change the name of this subgroup</Text>
+                <Text style={styles.optionDescription}>
+                  Change the name of this subgroup
+                </Text>
               </View>
-              <Ionicons 
-                name="chevron-forward" 
-                size={20} 
-                color={theme.colors.textSecondary} 
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
               />
             </TouchableOpacity>
           )}
 
-          {/* Delete Subgroup - Only for Admin/Coach */}
-          {canManage && (
-            <TouchableOpacity 
-              style={[styles.optionItem, styles.dangerOption]}
-              onPress={handleDeleteSubgroup}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons 
-                  name="trash-outline" 
-                  size={24} 
-                  color={theme.colors.error} 
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={[styles.optionTitle, styles.dangerText]}>Delete Subgroup</Text>
-                <Text style={styles.optionDescription}>Permanently remove this subgroup</Text>
-              </View>
-              <Ionicons 
-                name="chevron-forward" 
-                size={20} 
-                color={theme.colors.error} 
-              />
-            </TouchableOpacity>
-          )}
+          {/* Delete Subgroup option removed - now managed from group settings */}
         </View>
       </ScrollView>
 
@@ -414,8 +431,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: theme.spacing.md,
   },
   loadingText: {
@@ -424,20 +441,20 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: theme.spacing.lg,
     paddingHorizontal: theme.layout.containerPadding,
   },
   errorText: {
     color: theme.colors.error,
     fontSize: theme.typography.fontSize.large,
-    textAlign: 'center',
+    textAlign: "center",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: theme.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.inputBorder,
@@ -449,10 +466,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.fontSize.large,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: theme.colors.text,
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   placeholder: {
     width: 40,
@@ -462,11 +479,11 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.medium,
     marginBottom: theme.spacing.xl,
-    alignItems: 'center',
+    alignItems: "center",
   },
   subgroupName: {
     fontSize: theme.typography.fontSize.xlarge,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: theme.colors.secondary,
     marginBottom: theme.spacing.xs,
   },
@@ -478,14 +495,14 @@ const styles = StyleSheet.create({
   yourRole: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
-    textTransform: 'capitalize',
+    textTransform: "capitalize",
   },
   optionsContainer: {
     gap: theme.spacing.md,
   },
   optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: theme.colors.inputBackground,
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.medium,
@@ -501,8 +518,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: `${theme.colors.secondary}20`,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: theme.spacing.md,
   },
   optionContent: {
@@ -510,7 +527,7 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     fontSize: theme.typography.fontSize.medium,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.text,
     marginBottom: 2,
   },
@@ -523,27 +540,27 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: theme.spacing.lg,
   },
   modalContent: {
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.medium,
     padding: theme.spacing.xl,
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
   },
   modalTitle: {
     fontSize: theme.typography.fontSize.large,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: theme.colors.text,
     marginBottom: theme.spacing.lg,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: theme.spacing.lg,
   },
 });

@@ -103,11 +103,31 @@ export const createNewGroupInExistingClub = async (
 
     console.log('✅ User has club admin permissions');
 
-    // Step 2: Create group within existing club (atomic operation)
-    console.log('2️⃣ Creating group within existing club...');
+    // Step 2: Fetch club name for denormalization
+    console.log('2️⃣ Fetching club information...');
+    const { getFirestore } = await import('firebase/firestore');
+    const { doc, getDoc } = await import('firebase/firestore');
+    const db = getFirestore();
+    
+    const clubDocRef = doc(db, 'clubs', clubId);
+    const clubDocSnap = await getDoc(clubDocRef);
+    
+    if (!clubDocSnap.exists()) {
+      throw new Error('Club not found');
+    }
+    
+    const clubData = clubDocSnap.data();
+    const clubName = clubData?.name || 'Unknown Club';
+    console.log(`✅ Found club: ${clubName}`);
+
+    // Step 3: Create group within existing club (atomic operation)
+    console.log('3️⃣ Creating group within existing club...');
     const groupResult = await createGroupFn({
       clubId,
-      groupData // Pass groupData as expected by atomic function
+      groupData: {
+        ...groupData,
+        clubName // Add clubName for denormalization
+      }
     });
 
     if (!groupResult.data.success || !groupResult.data.groupId) {

@@ -34,6 +34,7 @@ export const createGroup = onCall(
       }
       
       const clubData = clubDoc.data();
+      const clubName = clubData?.name || 'Unknown Club';
       const activeGroupCount = clubData?.activeGroupCount || 0;
       const maxGroups = clubData?.maxGroups || DEFAULT_LIMITS.maxGroups;
       
@@ -62,7 +63,8 @@ export const createGroup = onCall(
             deletedBy: admin.firestore.FieldValue.delete(),
             deletedAt: admin.firestore.FieldValue.delete(),
             lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-            // Update description and sport if provided
+            // Update clubName (in case it changed), description and sport if provided
+            clubName: clubData?.name || 'Unknown Club',
             ...(groupData.description && { description: groupData.description }),
             ...(groupData.sport && { sport: groupData.sport }),
           });
@@ -99,6 +101,7 @@ export const createGroup = onCall(
         name: trimmedName,
         description: groupData.description || '',
         clubId: clubId, // Parent club reference
+        clubName: clubName, // Denormalized club name
         sport: groupData.sport || '',
         coaches: [], // User IDs with coach role
         admins: [request.auth.uid], // User IDs with group-admin role (creator becomes admin)

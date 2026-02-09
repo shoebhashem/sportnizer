@@ -2,12 +2,12 @@
 
 import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import React, {
-    createContext,
-    ReactNode,
-    useCallback,
-    useContext,
-    useEffect,
-    useState,
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
 import { auth } from "../services/core/firebase";
 import { storage } from "../utils/CrossPlatformStorage";

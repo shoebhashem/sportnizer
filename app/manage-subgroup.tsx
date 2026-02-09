@@ -1,16 +1,25 @@
-import Button from '@/components/Button';
-import { getDefaultProfilePicture } from '@/constants/profilePictures';
-import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { fetchGroupMembers } from '@/services/fetchGroupMembers';
-import { groupService } from '@/services/group';
-import { subgroupService } from '@/services/subgroup';
-import { GroupData, GroupMemberData } from '@/services/types/group';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Button from "@/components/Button";
+import { getDefaultProfilePicture } from "@/constants/profilePictures";
+import { theme } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
+import { fetchGroupMembers } from "@/services/fetchGroupMembers";
+import { groupService } from "@/services/group";
+import { subgroupService } from "@/services/subgroup";
+import { GroupData, GroupMemberData } from "@/services/types/group";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ManageSubgroupScreen() {
   const { groupId, subgroupId, clubId, subgroupName } = useLocalSearchParams();
@@ -21,24 +30,33 @@ export default function ManageSubgroupScreen() {
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
   // Check if user can manage subgroup (inherits from group permissions)
-  const canManage = user && group && (
-    group.createdBy === user.uid ||
-    userRoles.includes('club-admin') ||
-    userRoles.includes('admin') ||
-    userRoles.includes('coach')
-  );
+  const canManage =
+    user &&
+    group &&
+    (group.createdBy === user.uid ||
+      userRoles.includes("club-admin") ||
+      userRoles.includes("admin") ||
+      userRoles.includes("coach"));
 
   const fetchData = useCallback(async () => {
-    if (!groupId || !clubId || !subgroupId || 
-        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupId !== 'string') return;
+    if (
+      !groupId ||
+      !clubId ||
+      !subgroupId ||
+      typeof groupId !== "string" ||
+      typeof clubId !== "string" ||
+      typeof subgroupId !== "string"
+    )
+      return;
 
     try {
       // Fetch group and subgroup members
-      const [groupResult, membersResult, subgroupMembersResult] = await Promise.all([
-        groupService.getGroup(clubId, groupId),
-        fetchGroupMembers(clubId, groupId),
-        subgroupService.getSubgroupMembers(clubId, groupId, subgroupId)
-      ]);
+      const [groupResult, membersResult, subgroupMembersResult] =
+        await Promise.all([
+          groupService.getGroup(clubId, groupId),
+          fetchGroupMembers(clubId, groupId),
+          subgroupService.getSubgroupMembers(clubId, groupId, subgroupId),
+        ]);
 
       // Process group data
       if (groupResult.success && groupResult.data) {
@@ -46,20 +64,27 @@ export default function ManageSubgroupScreen() {
       }
 
       // Process members data for role checking
-      const membersData: GroupMemberData[] = membersResult.success ? membersResult.members : [];
+      const membersData: GroupMemberData[] = membersResult.success
+        ? membersResult.members
+        : [];
 
       // Process subgroup members data
-      const subgroupMembersData: GroupMemberData[] = subgroupMembersResult.success ? subgroupMembersResult.members : [];
-      console.log(`📋 Fetched ${subgroupMembersData.length} members for subgroup ${subgroupId}`);
+      const subgroupMembersData: GroupMemberData[] =
+        subgroupMembersResult.success ? subgroupMembersResult.members : [];
+      console.log(
+        `📋 Fetched ${subgroupMembersData.length} members for subgroup ${subgroupId}`,
+      );
       setSubgroupMembers(subgroupMembersData);
 
       // Get current user's roles
       if (user && membersData) {
-        const currentUserMember = membersData.find((member: any) => member.userId === user.uid);
+        const currentUserMember = membersData.find(
+          (member: any) => member.userId === user.uid,
+        );
         setUserRoles(currentUserMember?.roles || []);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
@@ -73,19 +98,21 @@ export default function ManageSubgroupScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchData();
-    }, [fetchData])
+    }, [fetchData]),
   );
 
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => (
     <View style={styles.memberItem}>
       <Image
         style={styles.memberAvatar}
-        source={{ uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian) }}
+        source={{
+          uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian),
+        }}
       />
       <View style={styles.memberInfo}>
         <Text style={styles.memberName}>{item.name}</Text>
         <Text style={styles.memberRole}>
-          {item.roles.join(', ')} {item.needsGuardian && '(Child/Youth)'}
+          {item.roles.join(", ")} {item.needsGuardian && "(Child/Youth)"}
         </Text>
       </View>
     </View>
@@ -107,45 +134,50 @@ export default function ManageSubgroupScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Subgroup not found</Text>
-          <Button label="Go Back" onPress={() => router.back()} theme="secondary" />
+          <Button
+            label="Go Back"
+            onPress={() => router.back()}
+            theme="secondary"
+          />
         </View>
       </SafeAreaView>
     );
   }
 
-  const displaySubgroupName = typeof subgroupName === 'string' ? subgroupName : 'Subgroup';
+  const displaySubgroupName =
+    typeof subgroupName === "string" ? subgroupName : "Subgroup";
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons 
-              name="arrow-back" 
-              size={24} 
-              color={theme.colors.text} 
-            />
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.groupTitle}>{group.name}</Text>
             <Text style={styles.subgroupTitle}>{displaySubgroupName}</Text>
           </View>
           {canManage && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.kebabButton}
-              onPress={() => router.push(`/subgroup-settings?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(displaySubgroupName)}` as any)}
+              onPress={() =>
+                router.push(
+                  `/subgroup-settings?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(displaySubgroupName)}` as any,
+                )
+              }
             >
-              <Ionicons 
-                name="ellipsis-vertical" 
-                size={24} 
-                color={theme.colors.text} 
+              <Ionicons
+                name="ellipsis-vertical"
+                size={24}
+                color={theme.colors.text}
               />
             </TouchableOpacity>
           )}
@@ -153,8 +185,10 @@ export default function ManageSubgroupScreen() {
         </View>
 
         {/* Members Section */}
-        <Text style={styles.sectionTitle}>Members ({subgroupMembers.length})</Text>
-        
+        <Text style={styles.sectionTitle}>
+          Members ({subgroupMembers.length})
+        </Text>
+
         {subgroupMembers.length > 0 ? (
           <FlatList
             data={subgroupMembers}
@@ -165,13 +199,40 @@ export default function ManageSubgroupScreen() {
           />
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No members in this subgroup yet</Text>
+            <Text style={styles.emptyText}>
+              No members in this subgroup yet
+            </Text>
             {canManage && (
-              <Text style={styles.emptySubtext}>Use &quot;Manage Members&quot; to add members to this subgroup</Text>
+              <Text style={styles.emptySubtext}>
+                Use &quot;Manage Members&quot; to add members to this subgroup
+              </Text>
             )}
           </View>
         )}
       </ScrollView>
+
+      {/* FAB: Create Subgroup Event */}
+      {canManage && (
+        <TouchableOpacity
+          onPress={() => {
+            router.push({
+              pathname: "/create-event" as any,
+              params: {
+                clubId: clubId as string,
+                clubName: group.clubName || "",
+                groupId: groupId as string,
+                groupName: group.name || "",
+                subgroupId: subgroupId as string,
+                subgroupName: displaySubgroupName,
+                sourceScreen: "manage-subgroup",
+              },
+            });
+          }}
+          style={styles.fab}
+        >
+          <Ionicons name="add" size={28} color="white" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -187,9 +248,9 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.xl,
     paddingHorizontal: theme.spacing.sm,
@@ -200,7 +261,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   groupTitle: {
     fontSize: theme.typography.fontSize.medium,
@@ -217,14 +278,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.small,
   },
   kebabMenu: {
-    position: 'absolute',
+    position: "absolute",
     top: 60,
     right: theme.layout.containerPadding,
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -233,8 +294,8 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: theme.spacing.md,
     gap: theme.spacing.sm,
   },
@@ -258,8 +319,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
   },
   memberItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.inputBorder,
@@ -275,7 +336,7 @@ const styles = StyleSheet.create({
   },
   memberName: {
     fontSize: theme.typography.fontSize.medium,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.text,
     marginBottom: 2,
   },
@@ -285,28 +346,28 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     padding: theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.medium,
   },
   emptyText: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: theme.spacing.sm,
   },
   emptySubtext: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 18,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: theme.spacing.xl,
   },
   loadingText: {
@@ -316,14 +377,31 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: theme.spacing.xl,
   },
   errorText: {
     fontSize: theme.typography.fontSize.large,
     color: theme.colors.error,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: theme.spacing.lg,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: theme.colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8, // Android shadow
+    shadowColor: "#000", // iOS shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    zIndex: 10,
   },
 });

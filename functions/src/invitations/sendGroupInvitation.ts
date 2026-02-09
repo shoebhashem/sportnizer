@@ -22,6 +22,7 @@ export const sendGroupInvitation = onCall(
         inviterUid,
         invitationType,
         youthData,
+        existingYouthData,
         role  // New: role to assign (coach or member)
       }: GroupInvitationRequest = request.data;
 
@@ -35,7 +36,8 @@ export const sendGroupInvitation = onCall(
         inviterName,
         inviterUid: inviterUid || request.auth?.uid,
         invitationType: invitationType || 'regular',
-        hasYouthData: !!youthData
+        hasYouthData: !!youthData,
+        hasExistingYouthData: !!existingYouthData
       });
 
       // Validate required fields
@@ -101,6 +103,7 @@ export const sendGroupInvitation = onCall(
             // Youth-specific fields (optional)
             invitationType: invitationType || 'regular',
             youthData: youthData || null,
+            existingYouthData: existingYouthData || null,
           };
 
           await db.collection('invitations').doc(invitationToken).set(invitationData);
@@ -110,13 +113,19 @@ export const sendGroupInvitation = onCall(
           if (userExists && existingUserId) {
             // EXISTING USER PATH: Create notification (dual write)
             try {
-              const notificationType = invitationType === 'youth_member' ? 'youth_member_invitation' : 'group_invitation';
-              const notificationTitle = invitationType === 'youth_member' ? 'New Child Invitation' : 'Group Invitation';
+              const notificationType = (invitationType === 'youth_member' || invitationType === 'youth_member_existing') 
+                ? 'youth_member_invitation' 
+                : 'group_invitation';
+              const notificationTitle = (invitationType === 'youth_member' || invitationType === 'youth_member_existing')
+                ? 'New Child Invitation' 
+                : 'Group Invitation';
               
               // Create role-aware notification message
               let notificationMessage: string;
               if (invitationType === 'youth_member') {
                 notificationMessage = `Add ${youthData?.childName || 'child'} to ${groupName}`;
+              } else if (invitationType === 'youth_member_existing') {
+                notificationMessage = `Add ${existingYouthData?.youthName || 'child'} to ${groupName}`;
               } else {
                 // Get user-friendly role label
                 const roleLabel = role === 'coach' ? 'coach' 
@@ -140,7 +149,8 @@ export const sendGroupInvitation = onCall(
                 priority: 'normal',
                 metadata: {
                   action: 'new_member',
-                  role: role || 'player'
+                  role: role || 'player',
+                  existingYouthUid: invitationType === 'youth_member_existing' ? existingYouthData?.youthUid : undefined,
                 }
               } as Omit<CreateNotificationRequest, 'userId'>);
               
@@ -160,16 +170,17 @@ export const sendGroupInvitation = onCall(
               let emailSubject: string;
               
               // Choose email template based on invitation type
-              if (invitationType === 'youth_member' && youthData) {
+              if ((invitationType === 'youth_member' || invitationType === 'youth_member_existing') && (youthData || existingYouthData)) {
                 // Youth member invitation - use guardian template
+                const childName = youthData?.childName || existingYouthData?.youthName || 'your child';
                 emailHtml = guardianInvitationTemplate(
-                  youthData.childName,
+                  childName,
                   groupName,
                   inviterName,
                   `${config.baseUrl}/signup?invite=${invitationToken}`
                 );
-                emailSubject = `Your child ${youthData.childName} has been invited to ${groupName}`;
-                console.log(`📧 Sending guardian invitation email for ${youthData.childName}`);
+                emailSubject = `Your child ${childName} has been invited to ${groupName}`;
+                console.log(`📧 Sending guardian invitation email for ${childName}`);
               } else {
                 // Regular invitation - use standard template
                 emailHtml = groupInvitationWithActionsTemplate(groupName, clubName, inviterName, acceptLink, rejectLink);

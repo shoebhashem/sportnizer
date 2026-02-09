@@ -3,15 +3,15 @@
  */
 
 // Notification interfaces
-export type NotificationType = 
-  | 'group_invitation' 
-  | 'youth_member_invitation'
-  | 'announcement' 
-  | 'event' 
-  | 'poll'
-  | 'role_changed'
-  | 'member_joined'
-  | 'event_cancelled';
+export type NotificationType =
+  | "group_invitation"
+  | "youth_member_invitation"
+  | "announcement"
+  | "event"
+  | "poll"
+  | "role_changed"
+  | "member_joined"
+  | "event_cancelled";
 
 export interface NotificationData {
   id: string;
@@ -30,10 +30,10 @@ export interface NotificationData {
   createdAt: any;
   readAt?: any;
   actionTakenAt?: any;
-  priority?: 'low' | 'normal' | 'high';
+  priority?: "low" | "normal" | "high";
   actionUrl?: string;
   metadata?: {
-    action?: 'role_update' | 'new_member';
+    action?: "role_update" | "new_member";
     newRole?: string;
     existingRoles?: string[];
     [key: string]: any;
@@ -52,10 +52,10 @@ export interface CreateNotificationRequest {
   clubName: string;
   groupId?: string;
   groupName?: string;
-  youthData?: YouthData;     // Optional: Youth member data for youth invitations
-  priority?: 'low' | 'normal' | 'high';
+  youthData?: YouthData; // Optional: Youth member data for youth invitations
+  priority?: "low" | "normal" | "high";
   metadata?: {
-    action?: 'role_update' | 'new_member';
+    action?: "role_update" | "new_member";
     newRole?: string;
     existingRoles?: string[];
     [key: string]: any;
@@ -80,7 +80,7 @@ export interface GroupInvitationData {
   inviterUid: string;
   createdAt: any;
   used: boolean;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: "pending" | "accepted" | "rejected";
   usedAt?: any;
   usedBy?: string;
   expiresAt?: any;
@@ -92,6 +92,11 @@ export interface YouthData {
   relationship: string;
 }
 
+export interface ExistingYouthData {
+  youthUid: string;
+  youthName: string;
+}
+
 export interface GroupInvitationRequest {
   emails: string[];
   clubId: string;
@@ -99,10 +104,11 @@ export interface GroupInvitationRequest {
   groupId: string;
   groupName: string;
   inviterName: string;
-  inviterUid?: string;       // Optional: UID of inviter (defaults to request.auth.uid)
-  invitationType?: 'regular' | 'youth_member';  // Optional: Type of invitation
-  youthData?: YouthData;     // Optional: Youth member data for youth invitations
-  role?: 'player' | 'player-underage' | 'coach' | 'admin'; // Optional: Role to assign (defaults to 'player')
+  inviterUid?: string; // Optional: UID of inviter (defaults to request.auth.uid)
+  invitationType?: "regular" | "youth_member" | "youth_member_existing"; // Optional: Type of invitation
+  youthData?: YouthData; // Optional: Youth member data for NEW youth invitations
+  existingYouthData?: ExistingYouthData; // Optional: Existing youth data for REUSE invitations
+  role?: "player" | "player-underage" | "coach" | "admin"; // Optional: Role to assign (defaults to 'player')
 }
 
 export interface ProcessInvitationRequest {
@@ -113,7 +119,7 @@ export interface ProcessInvitationRequest {
 export interface RespondToInvitationRequest {
   invitationToken: string;
   uid: string;
-  action: 'accept' | 'reject';
+  action: "accept" | "reject";
 }
 
 // Email verification interfaces
@@ -150,7 +156,7 @@ export interface CreateGroupRequest {
 export interface CreateGroupResponse {
   success: boolean;
   groupId?: string;
-  groupName?: string;  
+  groupName?: string;
   clubName?: string;
   message?: string;
   error?: string;
@@ -214,7 +220,7 @@ export interface GuardianInvitationData {
   inviterName: string;
   createdAt: any;
   expiresAt: Date;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: "pending" | "accepted" | "rejected";
   used: boolean;
   usedAt?: any;
   usedBy?: string;
@@ -233,7 +239,7 @@ export interface ShareableInvitationData {
   groupName: string;
   inviterName: string;
   inviterUid: string;
-  invitationType: 'group-member' | 'coach' | 'admin';
+  invitationType: "group-member" | "coach" | "admin";
   createdAt: any;
   expiresAt: any;
   isActive: boolean;
@@ -254,7 +260,7 @@ export interface GenerateShareableInviteRequest {
   inviterUid: string;
   expirationDays?: number;
   maxUses?: number | null;
-  invitationType?: 'group-member' | 'coach' | 'admin';
+  invitationType?: "group-member" | "coach" | "admin";
 }
 
 export interface GenerateShareableInviteResponse {
@@ -280,7 +286,7 @@ export interface InvitationResult {
   error?: string;
   invitationToken?: string;
   guardianEmails?: string[];
-  isExistingUser?: boolean;  // Indicates if user already has an account
+  isExistingUser?: boolean; // Indicates if user already has an account
 }
 
 // Member management operation interfaces
@@ -296,11 +302,11 @@ export interface ClubMemberData {
   needsGuardian: boolean;
   guardiansContacts: any[];
   // 🆕 Soft delete fields
-  isActive?: boolean;  // false = soft deleted, undefined/true = active
-  inactiveSince?: Date | null;  // When member was marked inactive
-  scheduledForDeletion?: Date | null;  // When permanent deletion is scheduled (30 days from inactiveSince)
-  reactivatedAt?: Date;  // When member was last reactivated
-  reactivationCount?: number;  // How many times member has been reactivated
+  isActive?: boolean; // false = soft deleted, undefined/true = active
+  inactiveSince?: Date | null; // When member was marked inactive
+  scheduledForDeletion?: Date | null; // When permanent deletion is scheduled (30 days from inactiveSince)
+  reactivatedAt?: Date; // When member was last reactivated
+  reactivationCount?: number; // How many times member has been reactivated
 }
 
 export interface GroupMemberData {
@@ -313,11 +319,11 @@ export interface GroupMemberData {
   needsGuardian: boolean;
   guardiansContacts: any[];
   // 🆕 Soft delete fields
-  isActive?: boolean;  // false = soft deleted, undefined/true = active
-  inactiveSince?: Date | null;  // When member was marked inactive
-  scheduledForDeletion?: Date | null;  // When permanent deletion is scheduled (30 days from inactiveSince)
-  reactivatedAt?: Date;  // When member was last reactivated
-  reactivationCount?: number;  // How many times member has been reactivated
+  isActive?: boolean; // false = soft deleted, undefined/true = active
+  inactiveSince?: Date | null; // When member was marked inactive
+  scheduledForDeletion?: Date | null; // When permanent deletion is scheduled (30 days from inactiveSince)
+  reactivatedAt?: Date; // When member was last reactivated
+  reactivationCount?: number; // How many times member has been reactivated
 }
 
 export interface UserClubMembership {
@@ -327,11 +333,11 @@ export interface UserClubMembership {
   joinedAt: Date;
   lastModifiedAt: Date;
   // 🆕 Soft delete fields
-  isActive?: boolean;  // false = soft deleted, undefined/true = active
-  inactiveSince?: Date | null;  // When club membership was marked inactive
-  scheduledForDeletion?: Date | null;  // When permanent deletion is scheduled
-  reactivatedAt?: Date;  // When membership was last reactivated
-  reactivationCount?: number;  // How many times reactivated
+  isActive?: boolean; // false = soft deleted, undefined/true = active
+  inactiveSince?: Date | null; // When club membership was marked inactive
+  scheduledForDeletion?: Date | null; // When permanent deletion is scheduled
+  reactivatedAt?: Date; // When membership was last reactivated
+  reactivationCount?: number; // How many times reactivated
 }
 
 export interface UserGroupMembership {
@@ -341,11 +347,11 @@ export interface UserGroupMembership {
   joinedAt: Date;
   lastModifiedAt: Date;
   // 🆕 Soft delete fields
-  isActive?: boolean;  // false = soft deleted, undefined/true = active
-  inactiveSince?: Date | null;  // When membership was marked inactive
-  scheduledForDeletion?: Date | null;  // When permanent deletion is scheduled
-  reactivatedAt?: Date;  // When membership was last reactivated
-  reactivationCount?: number;  // How many times reactivated
+  isActive?: boolean; // false = soft deleted, undefined/true = active
+  inactiveSince?: Date | null; // When membership was marked inactive
+  scheduledForDeletion?: Date | null; // When permanent deletion is scheduled
+  reactivatedAt?: Date; // When membership was last reactivated
+  reactivationCount?: number; // How many times reactivated
 }
 
 export interface AddMemberToClubRequest {
@@ -369,14 +375,19 @@ export interface UpdateUserGroupInfoRequest {
   uid: string;
   groupInfo?: UserGroupMembership; // Optional for remove operations
   groupId?: string; // Required for remove operations
-  clubId: string;   
-  roles?: string[]; 
-  operation: 'add' | 'remove';
+  clubId: string;
+  roles?: string[];
+  operation: "add" | "remove";
 }
 
 // Orchestration interface
 export interface MembershipOperationRequest {
-  operations: ('addToClub' | 'addToGroup' | 'updateUserClub' | 'updateUserGroup')[];
+  operations: (
+    | "addToClub"
+    | "addToGroup"
+    | "updateUserClub"
+    | "updateUserGroup"
+  )[];
   clubId?: string;
   groupId?: string;
   uid: string;
@@ -467,7 +478,7 @@ export interface GetSubGroupsResponse {
 export interface AddMemberToSubGroupRequest {
   clubId: string;
   groupId: string;
-  subGroupId: string;  // Changed from subGroupName to subGroupId
+  subGroupId: string; // Changed from subGroupName to subGroupId
   userId: string;
 }
 
@@ -481,7 +492,7 @@ export interface AddMemberToSubGroupResponse {
 export interface RemoveMemberFromSubGroupRequest {
   clubId: string;
   groupId: string;
-  subGroupId: string;  // Changed from subGroupName to subGroupId
+  subGroupId: string; // Changed from subGroupName to subGroupId
   userId: string;
 }
 
@@ -505,15 +516,111 @@ export interface RemoveMemberFromGroupResponse {
   error?: string;
 }
 
-// Event-related interfaces
+// Event Response Interface (unified)
 export interface EventResponse {
   userId: string;
   userName: string;
-  photoUrl: string;
-  response: 'pending' | 'accepted' | 'declined';
-  respondedAt?: Date;
+  photoUrl?: string; // Optional for backward compatibility
+  response: "Accepted" | "declined" | "pending"; // User's RSVP status
+  respondedAt?: any; // Timestamp - when they responded (undefined if still pending)
+
+  // Youth/Guardian Support
+  isYouthMember?: boolean; // True if this response is for a youth member
+  guardianIds?: string[]; // Array of guardian userIds who can respond
+  guardianNames?: string[]; // Names for display
+  respondedBy?: string; // Guardian userId who last responded (for youth members)
+  respondedByName?: string; // Guardian name who last responded
+  responseHistory?: {
+    // Track override history
+    response: "Accepted" | "declined";
+    changedAt: any; // Timestamp
+    changedBy: string; // Guardian userId
+    changedByName: string; // Guardian name
+  }[];
+
+  // Attendance tracking (filled after event by admins/coaches)
+  actualAttendance?: boolean; // Did they actually attend?
+  recordedBy?: string; // Who recorded attendance (userId)
+  recordedAt?: any; // Timestamp - when attendance was recorded
 }
 
+// Event Document Interface (matches Firestore structure)
+export interface EventDocument {
+  // Event metadata
+  eventId: string;
+  title: string;
+  description?: string | null;
+  eventType: "training" | "match" | "meeting" | "other";
+
+  // Timing
+  startDate: any; // Timestamp
+  endDate: any; // Timestamp
+  gatheringTime?: any | null; // Timestamp - optional gathering time before event start
+  responseDeadline?: any | null; // Timestamp - optional deadline for responses
+
+  // Location
+  location?:
+    | string
+    | {
+        name: string;
+        address?: string;
+        coordinates?: { lat: number; lng: number };
+      }
+    | null;
+
+  // Targeting & Recipients
+  targetScope: {
+    level: "club" | "group" | "subgroup"; // Created from which screen
+    clubId: string;
+    clubName: string;
+    groupId?: string; // Required if level is 'group' or 'subgroup'
+    groupName?: string;
+    subgroupId?: string; // Required if level is 'subgroup'
+    subgroupName?: string;
+  };
+
+  // List of user IDs invited to this event
+  invitedUserIds: string[];
+
+  // Optional role filter (if not specified, all members are invited)
+  roleFilter?:
+    | ("player" | "player-underage" | "coach" | "admin" | "guardian")[]
+    | null;
+
+  // Capacity limits (optional)
+  capacity?: {
+    min?: number | null; // Minimum required attendees
+    max?: number | null; // Maximum allowed attendees
+  } | null;
+
+  // Response tracking (embedded in main document)
+  responses: EventResponse[];
+
+  // Summary counts (automatically updated when responses change)
+  responseSummary: {
+    totalInvited: number;
+    accepted: number;
+    declined: number;
+    pending: number;
+    attended?: number; // Filled after event when attendance recorded
+  };
+
+  // Metadata
+  createdBy: string; // userId of creator
+  createdByName: string; // Display name of creator
+  createdAt: any; // Timestamp
+  updatedAt: any; // Timestamp
+
+  // Event status
+  status: "scheduled" | "completed" | "cancelled";
+  cancellationReason?: string; // If status is 'cancelled'
+  isActive?: boolean; // Whether the event is active (for soft delete pattern)
+
+  // Version tracking (for future notification system)
+  version?: number; // Incremented on each update, used to trigger notifications
+}
+
+// Legacy EventData interface - keep for backward compatibility with existing UI
 export interface EventData {
   title: string;
   description?: string;
@@ -526,7 +633,7 @@ export interface EventData {
   endDate?: string | null;
   endTime?: string | null;
   location: string;
-  targetScope: 'club' | 'group' | 'subgroup';
+  targetScope: "club" | "group" | "subgroup";
   capacityLimit?: number | null;
   responseDeadline?: string | null; // ISO string
   responses?: EventResponse[];
@@ -535,23 +642,65 @@ export interface EventData {
 
 // Legacy interface - keep for backward compatibility
 export interface RecipientSelection {
-  type: 'selected-groups';
+  type: "selected-groups";
   groups: {
     groupId: string;
-    scope: 'entire' | 'subgroups' | 'members';
+    scope: "entire" | "subgroups" | "members";
     subgroupIds?: string[];
     memberIds?: string[];
   }[];
   totalCount: number;
 }
 
-// New level-based event creation interface
+// New event creation interface (V2)
 export interface CreateEventRequestV2 {
   clubId: string;
-  level: 'club' | 'group' | 'subgroup';
-  targetId?: string; // groupId when level is 'group' or 'subgroup'
-  subgroupId?: string; // subgroupId when level is 'subgroup'
-  eventData: EventData;
+  clubName: string;
+  eventType: "training" | "match" | "meeting" | "other";
+  title: string;
+  description?: string;
+  startDate: string; // ISO string (date only)
+  startTime?: string; // ISO string (full timestamp with time)
+  endDate: string; // ISO string (date only)
+  endTime?: string; // ISO string (full timestamp with time)
+  gatheringTime?: string; // ISO string (full timestamp)
+  responseDeadline?: string; // ISO string
+  location?:
+    | string
+    | {
+        name: string;
+        address?: string;
+        coordinates?: { lat: number; lng: number };
+      };
+
+  // Targeting
+  targetScope: {
+    level: "club" | "group" | "subgroup";
+    groupId?: string;
+    groupName?: string;
+    subgroupId?: string;
+    subgroupName?: string;
+  };
+
+  // Optional role filter (defaults to all members)
+  roleFilter?: (
+    | "player"
+    | "player-underage"
+    | "coach"
+    | "admin"
+    | "guardian"
+  )[];
+
+  // Optional capacity limits
+  capacity?: {
+    min?: number;
+    max?: number;
+  };
+  capacityLimit?: number; // Simplified capacity (used by frontend)
+
+  // Creator info
+  createdBy: string;
+  createdByName: string;
 }
 
 // Legacy interface - keep for backward compatibility
@@ -564,6 +713,91 @@ export interface CreateEventRequest {
 export interface CreateEventResponse {
   success: boolean;
   eventId?: string;
+  totalRecipients?: number;
+  message?: string;
+  error?: string;
+}
+
+// Update event response request
+export interface UpdateEventResponseRequest {
+  eventId: string;
+  clubId: string;
+  userId: string;
+  response: "Accepted" | "declined";
+}
+
+export interface UpdateEventResponseResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+// Record attendance request
+export interface RecordAttendanceRequest {
+  eventId: string;
+  clubId: string;
+  attendanceRecords: {
+    userId: string;
+    attended: boolean;
+  }[];
+  recordedBy: string; // Admin/coach userId
+}
+
+export interface RecordAttendanceResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+// Statistics interfaces
+export interface MemberEventStats {
+  userName: string;
+  eventsInvitedTo: number;
+  eventsAccepted: number;
+  eventsDeclined: number;
+  eventsAttended: number;
+  attendanceRate: number;
+  responseRate: number;
+  byEventType: {
+    training: { invited: number; attended: number };
+    match: { invited: number; attended: number };
+    meeting: { invited: number; attended: number };
+    other: { invited: number; attended: number };
+  };
+  lastUpdated: any; // Timestamp
+}
+
+export interface YearlyAttendanceStatistics {
+  year: number;
+  groupId: string;
+  groupName: string;
+  clubId: string;
+  memberStats: {
+    [userId: string]: MemberEventStats;
+  };
+  groupAggregates: {
+    totalEvents: number;
+    totalEventsByType: {
+      training: number;
+      match: number;
+      meeting: number;
+      other: number;
+    };
+    averageAttendanceRate: number;
+  };
+  createdAt: any; // Timestamp
+  lastUpdated: any; // Timestamp
+}
+
+export interface GetStatisticsRequest {
+  clubId: string;
+  groupId: string;
+  year: number;
+}
+
+export interface GetStatisticsResponse {
+  success: boolean;
+  statistics?: YearlyAttendanceStatistics;
   message?: string;
   error?: string;
 }
@@ -575,9 +809,9 @@ export interface UpdateUserEventsInfoRequest {
     clubId: string;
     title: string;
     startTime: string; // ISO string
-    eventType: 'practice' | 'game' | 'meeting' | 'other';
+    eventType: "practice" | "game" | "meeting" | "other";
   };
-  operation: 'add' | 'remove';
+  operation: "add" | "remove";
 }
 
 export interface UpdateUserEventsInfoResponse {

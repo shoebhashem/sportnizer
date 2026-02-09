@@ -1,18 +1,18 @@
 /**
  * ADD CHILD/YOUTH MEMBER SCREEN
  * ============================
- * 
+ *
  * PURPOSE:
  * Allows club/group administrators to invite youth members (children under 18)
  * to join a specific group. The invitation is sent to the guardian's email.
- * 
+ *
  * KEY FEATURES:
  * 1. Guardian email input with validation
  * 2. Child information collection (name, date of birth, relationship)
  * 3. Integration with youth member invitation system
  * 4. Sends guardianInvitationTemplate email for new guardians
  * 5. Creates in-app notification for existing guardians
- * 
+ *
  * WORKFLOW:
  * 1. Admin enters guardian email and child information
  * 2. System checks if guardian email belongs to existing user
@@ -21,46 +21,63 @@
  * 5. Guardian accepts → youth document created → child added to group
  */
 
-import Button from '@/components/Button';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import Input from '@/components/Input';
-import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import Button from "@/components/Button";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import Input from "@/components/Input";
+import { theme } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
+import type { YouthOption } from "@/services/validation/types";
+import { validateMemberForInvitation } from "@/services/validation/validateMemberForInvitation";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AddChildMemberScreen() {
   const { groupId, groupName, clubId, clubName } = useLocalSearchParams();
   const { user } = useAuth();
 
   // Form state
-  const [guardianEmail, setGuardianEmail] = useState('');
-  const [childName, setChildName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [relationship, setRelationship] = useState('Parent');
-  
+  const [guardianEmail, setGuardianEmail] = useState("");
+  const [childName, setChildName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [relationship, setRelationship] = useState("Parent");
+
+  // Existing youth selection state
+  const [existingYouthOptions, setExistingYouthOptions] = useState<
+    YouthOption[]
+  >([]);
+  const [nonSelectableYouth, setNonSelectableYouth] = useState<YouthOption[]>(
+    [],
+  );
+  const [selectedExistingYouth, setSelectedExistingYouth] = useState<any>(null);
+  const [showExistingYouthSelector, setShowExistingYouthSelector] =
+    useState(false);
+  const [checkingGuardian, setCheckingGuardian] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string>("");
+
   // UI state
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalTitle, setModalTitle] = useState('');
-  const [modalMessage, setModalMessage] = useState('');
-  const [modalConfirmText, setModalConfirmText] = useState('OK');
-  const [modalCancelText, setModalCancelText] = useState('');
-  const [modalOnConfirm, setModalOnConfirm] = useState<() => void>(() => () => {});
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalConfirmText, setModalConfirmText] = useState("OK");
+  const [modalCancelText, setModalCancelText] = useState("");
+  const [modalOnConfirm, setModalOnConfirm] = useState<() => void>(
+    () => () => {},
+  );
 
   // Debug logging
   React.useEffect(() => {
-    console.log('🔍 AddChildMember Navigation Params:', {
+    console.log("🔍 AddChildMember Navigation Params:", {
       groupId,
       groupName,
       clubId,
@@ -71,9 +88,9 @@ export default function AddChildMemberScreen() {
   const showModal = (
     title: string,
     message: string,
-    confirmText = 'OK',
-    cancelText = '',
-    onConfirm?: () => void
+    confirmText = "OK",
+    cancelText = "",
+    onConfirm?: () => void,
   ) => {
     setModalTitle(title);
     setModalMessage(message);
@@ -87,6 +104,75 @@ export default function AddChildMemberScreen() {
     setModalVisible(false);
   };
 
+  const handleGuardianEmailBlur = async () => {
+    const email = guardianEmail.trim().toLowerCase();
+    console.log("🔍 handleGuardianEmailBlur called with email:", email);
+
+    if (!email || !validateEmail(email)) {
+      console.log("⚠️ Email is empty or invalid, skipping lookup");
+      setStatusMessage("");
+      return;
+    }
+
+    setCheckingGuardian(true);
+    setStatusMessage("");
+
+    try {
+      // Use validation service
+      const result = await validateMemberForInvitation({
+        email,
+        role: "player-underage",
+        clubId: clubId as string,
+        groupId: groupId as string,
+        groupName: groupName as string,
+      });
+
+      console.log("📋 Validation result:", result);
+
+      // Set status message
+      setStatusMessage(result.statusMessage);
+
+      // Handle youth options
+      if (result.youthOptions && result.youthOptions.length > 0) {
+        const selectable = result.youthOptions.filter((y) => y.selectable);
+        const nonSelectable = result.youthOptions.filter((y) => !y.selectable);
+
+        setExistingYouthOptions(selectable);
+        setNonSelectableYouth(nonSelectable);
+
+        // Show selector if there are any youth (selectable or not)
+        setShowExistingYouthSelector(true);
+      } else {
+        setExistingYouthOptions([]);
+        setNonSelectableYouth([]);
+        setShowExistingYouthSelector(false);
+      }
+    } catch (error) {
+      console.error("❌ Error in handleGuardianEmailBlur:", error);
+      setStatusMessage("Error checking guardian email");
+      // Silent fail - user can still add new youth
+    } finally {
+      setCheckingGuardian(false);
+    }
+  };
+
+  const selectExistingYouth = (youth: YouthOption) => {
+    setSelectedExistingYouth(youth);
+    setChildName(youth.youthName);
+    setShowExistingYouthSelector(false);
+
+    // Don't set DOB or relationship for existing youth
+    // as they already exist in the system
+  };
+
+  const handleAddNewYouth = () => {
+    setSelectedExistingYouth(null);
+    setShowExistingYouthSelector(false);
+    setChildName("");
+    setDateOfBirth("");
+    setRelationship("Parent");
+  };
+
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -94,34 +180,45 @@ export default function AddChildMemberScreen() {
 
   const validateForm = (): boolean => {
     if (!guardianEmail.trim()) {
-      showModal('Validation Error', 'Please enter guardian email address');
+      showModal("Validation Error", "Please enter guardian email address");
       return false;
     }
 
     if (!validateEmail(guardianEmail.trim())) {
-      showModal('Validation Error', 'Please enter a valid email address');
+      showModal("Validation Error", "Please enter a valid email address");
       return false;
     }
 
     if (!childName.trim()) {
-      showModal('Validation Error', 'Please enter child\'s name');
+      showModal("Validation Error", "Please enter child's name");
       return false;
     }
 
     if (childName.trim().length < 2) {
-      showModal('Validation Error', 'Child\'s name must be at least 2 characters');
+      showModal(
+        "Validation Error",
+        "Child's name must be at least 2 characters",
+      );
       return false;
     }
 
+    // Skip DOB and relationship validation for existing youth
+    if (selectedExistingYouth) {
+      return true;
+    }
+
     if (!dateOfBirth.trim()) {
-      showModal('Validation Error', 'Please enter child\'s date of birth');
+      showModal("Validation Error", "Please enter child's date of birth");
       return false;
     }
 
     // Validate date format (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(dateOfBirth)) {
-      showModal('Validation Error', 'Date must be in format YYYY-MM-DD (e.g., 2015-06-15)');
+      showModal(
+        "Validation Error",
+        "Date must be in format YYYY-MM-DD (e.g., 2015-06-15)",
+      );
       return false;
     }
 
@@ -132,22 +229,25 @@ export default function AddChildMemberScreen() {
     minDate.setFullYear(today.getFullYear() - 25); // Max 25 years old
 
     if (isNaN(birthDate.getTime())) {
-      showModal('Validation Error', 'Please enter a valid date');
+      showModal("Validation Error", "Please enter a valid date");
       return false;
     }
 
     if (birthDate > today) {
-      showModal('Validation Error', 'Date of birth cannot be in the future');
+      showModal("Validation Error", "Date of birth cannot be in the future");
       return false;
     }
 
     if (birthDate < minDate) {
-      showModal('Validation Error', 'Child must be under 25 years old');
+      showModal("Validation Error", "Child must be under 25 years old");
       return false;
     }
 
     if (!relationship.trim()) {
-      showModal('Validation Error', 'Please specify your relationship to the child');
+      showModal(
+        "Validation Error",
+        "Please specify your relationship to the child",
+      );
       return false;
     }
 
@@ -158,14 +258,74 @@ export default function AddChildMemberScreen() {
     if (!validateForm()) return;
 
     if (!user) {
-      showModal('Error', 'You must be logged in to send invitations');
+      showModal("Error", "You must be logged in to send invitations");
       return;
+    }
+
+    // Validate guardian email before sending invitation
+    const email = guardianEmail.trim().toLowerCase();
+
+    // Check if we need to run validation (hasn't been done yet via onBlur)
+    if (!checkingGuardian && !statusMessage) {
+      console.log("🔍 Running validation before submit");
+
+      setCheckingGuardian(true);
+
+      try {
+        const result = await validateMemberForInvitation({
+          email,
+          role: "player-underage",
+          clubId: clubId as string,
+          groupId: groupId as string,
+          groupName: groupName as string,
+        });
+
+        setStatusMessage(result.statusMessage);
+
+        // Handle youth options
+        if (result.youthOptions && result.youthOptions.length > 0) {
+          const selectable = result.youthOptions.filter((y) => y.selectable);
+          const nonSelectable = result.youthOptions.filter(
+            (y) => !y.selectable,
+          );
+
+          setExistingYouthOptions(selectable);
+          setNonSelectableYouth(nonSelectable);
+          setShowExistingYouthSelector(true);
+          setCheckingGuardian(false);
+
+          // Don't proceed with invitation - let user select youth first
+          showModal(
+            "Youth Players Found",
+            `This guardian has existing youth players. Please select one or choose to add a new youth player.`,
+          );
+          return;
+        }
+
+        // Check if invitation is blocked
+        if (!result.canInvite) {
+          setCheckingGuardian(false);
+          showModal(
+            "Cannot Send Invitation",
+            result.statusMessage ||
+              "This youth player cannot be added to the group at this time.",
+          );
+          return;
+        }
+
+        setCheckingGuardian(false);
+      } catch (error) {
+        console.error("❌ Error validating guardian email:", error);
+        setCheckingGuardian(false);
+        setStatusMessage("Error checking guardian email");
+        // Continue with invitation despite validation error
+      }
     }
 
     setLoading(true);
 
     try {
-      console.log('📤 Sending youth member invitation:', {
+      console.log("📤 Sending youth member invitation:", {
         guardianEmail: guardianEmail.trim(),
         childName: childName.trim(),
         dateOfBirth,
@@ -175,60 +335,73 @@ export default function AddChildMemberScreen() {
       });
 
       // Use the unified invitation service (same as regular member flow)
-      const { addRegularMemberToGroupService } = await import('@/services/orchestration/addRegularMemberToGroup');
-      const result = await addRegularMemberToGroupService.inviteUsersToGroup({
+      const { addRegularMemberToGroupService } =
+        await import("@/services/orchestration/addRegularMemberToGroup");
+
+      // Determine invitation type based on whether youth is existing or new
+      const invitationType = selectedExistingYouth
+        ? "youth_member_existing"
+        : "youth_member";
+
+      const invitationData: any = {
         emails: [guardianEmail.trim().toLowerCase()],
         clubId: clubId as string,
         clubName: clubName as string,
         groupId: groupId as string,
         groupName: groupName as string,
-        inviterName: user.displayName || user.email || 'Admin',
+        inviterName: user.displayName || user.email || "Admin",
         inviterUid: user.uid,
-        invitationType: 'youth_member',
-        role: 'player-underage',
-        youthData: {
+        invitationType: invitationType,
+        role: "player-underage",
+      };
+
+      // Add youth data based on type
+      if (selectedExistingYouth) {
+        invitationData.existingYouthData = {
+          youthUid: selectedExistingYouth.youthUid,
+          youthName: selectedExistingYouth.youthName,
+        };
+      } else {
+        invitationData.youthData = {
           childName: childName.trim(),
           dateOfBirth: dateOfBirth,
           relationship: relationship.trim(),
-        },
-      });
+        };
+      }
 
-      console.log('📧 Youth invitation result:', result);
+      const result =
+        await addRegularMemberToGroupService.inviteUsersToGroup(invitationData);
+
+      console.log("📧 Youth invitation result:", result);
 
       if (result.success && result.results && result.results.length > 0) {
         const inviteResult = result.results[0];
-        
+
         if (inviteResult.success) {
-          const isExisting = inviteResult.action === 'in_app_notification';
+          const isExisting = inviteResult.action === "in_app_notification";
           const successMessage = isExisting
             ? `✅ Guardian Notified!\n\nAn in-app notification has been sent to ${guardianEmail.trim()}.\n\nThey will be able to add ${childName.trim()} to ${groupName} from their notifications.`
             : `✅ Invitation Sent!\n\nAn email invitation has been sent to ${guardianEmail.trim()}.\n\nThey will receive instructions to add ${childName.trim()} to ${groupName}.`;
 
-          showModal(
-            'Success',
-            successMessage,
-            'Send Another',
-            'Done',
-            () => {
-              // "Send Another" button - Reset form and hide modal
-              hideModal();
-              setGuardianEmail('');
-              setChildName('');
-              setDateOfBirth('');
-              setRelationship('Parent');
-            }
-          );
+          showModal("Success", successMessage, "Send Another", "Done", () => {
+            // "Send Another" button - Reset form and hide modal
+            hideModal();
+            setGuardianEmail("");
+            setChildName("");
+            setDateOfBirth("");
+            setRelationship("Parent");
+          });
         } else {
-          showModal('Error', inviteResult.error || 'Failed to send invitation');
+          showModal("Error", inviteResult.error || "Failed to send invitation");
         }
       } else {
-        showModal('Error', result.error || 'Failed to send invitation');
+        showModal("Error", result.error || "Failed to send invitation");
       }
     } catch (error: any) {
-      console.error('❌ Error sending youth member invitation:', error);
+      console.error("❌ Error sending youth member invitation:", error);
       showModal(
-        'Error',
-        error.message || 'An unexpected error occurred. Please try again.'
+        "Error",
+        error.message || "An unexpected error occurred. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -237,11 +410,11 @@ export default function AddChildMemberScreen() {
 
   const handleCancel = () => {
     showModal(
-      'Cancel Invitation',
-      'Are you sure you want to cancel? Any entered information will be lost.',
-      'Yes, Cancel',
-      'No, Continue',
-      () => router.back()
+      "Cancel Invitation",
+      "Are you sure you want to cancel? Any entered information will be lost.",
+      "Yes, Cancel",
+      "No, Continue",
+      () => router.back(),
     );
   };
 
@@ -249,7 +422,7 @@ export default function AddChildMemberScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -260,68 +433,216 @@ export default function AddChildMemberScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Add Child/Youth Member</Text>
             <Text style={styles.subtitle}>
-              Invite a child to join {groupName || 'this group'}. The invitation will be sent to their guardian.
+              Invite a child to join {groupName || "this group"}. The invitation
+              will be sent to their guardian.
             </Text>
           </View>
 
           {/* Info Card */}
           <View style={styles.infoCard}>
-            <Ionicons name="information-circle" size={24} color={theme.colors.secondary} />
+            <Ionicons
+              name="information-circle"
+              size={24}
+              color={theme.colors.secondary}
+            />
             <Text style={styles.infoText}>
-              The guardian will receive an invitation to add their child to the group. They will manage all communications and event responses for the child.
+              The guardian will receive an invitation to add their child to the
+              group. They will manage all communications and event responses for
+              the child.
             </Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
             <Text style={styles.sectionTitle}>Guardian Information</Text>
-            
+
             <Input
               label="Guardian Email *"
               value={guardianEmail}
-              onChangeText={setGuardianEmail}
+              onChangeText={(text) => {
+                setGuardianEmail(text);
+                // Reset existing youth selection when email changes
+                if (selectedExistingYouth) {
+                  setSelectedExistingYouth(null);
+                  setChildName("");
+                }
+              }}
+              onBlur={handleGuardianEmailBlur}
               placeholder="guardian@email.com"
               keyboardType="email-address"
               autoCapitalize="none"
             />
 
-            <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>
-              Child Information
-            </Text>
+            {checkingGuardian && (
+              <View style={styles.checkingContainer}>
+                <Text style={styles.checkingText}>
+                  Checking for existing youth...
+                </Text>
+              </View>
+            )}
 
-            <Input
-              label="Child's Name *"
-              value={childName}
-              onChangeText={setChildName}
-              placeholder="Enter child's full name"
-              autoCapitalize="words"
-            />
+            {/* Status message */}
+            {!checkingGuardian && statusMessage && (
+              <View style={styles.statusContainer}>
+                <Ionicons
+                  name="information-circle"
+                  size={16}
+                  color={theme.colors.secondary}
+                />
+                <Text style={styles.statusText}>{statusMessage}</Text>
+              </View>
+            )}
 
-            <Input
-              label="Date of Birth *"
-              value={dateOfBirth}
-              onChangeText={setDateOfBirth}
-              placeholder="YYYY-MM-DD (e.g., 2015-06-15)"
-              autoCapitalize="none"
-            />
+            {/* Existing Youth Selector */}
+            {showExistingYouthSelector &&
+              (existingYouthOptions.length > 0 ||
+                nonSelectableYouth.length > 0) && (
+                <View style={styles.existingYouthCard}>
+                  <View style={styles.existingYouthHeader}>
+                    <Ionicons
+                      name="people-circle"
+                      size={24}
+                      color={theme.colors.secondary}
+                    />
+                    <Text style={styles.existingYouthTitle}>
+                      Existing Youth Players
+                    </Text>
+                  </View>
+                  <Text style={styles.existingYouthSubtitle}>
+                    This guardian has youth players. Select one to add to{" "}
+                    {groupName}:
+                  </Text>
 
-            <Input
-              label="Relationship to Guardian *"
-              value={relationship}
-              onChangeText={setRelationship}
-              placeholder="Parent, Guardian, etc."
-              autoCapitalize="words"
-            />
+                  {/* Selectable youth */}
+                  {existingYouthOptions.map((youth, index) => (
+                    <View
+                      key={youth.youthUid}
+                      style={[
+                        styles.youthOption,
+                        index === existingYouthOptions.length - 1 &&
+                          nonSelectableYouth.length === 0 &&
+                          styles.youthOptionLast,
+                      ]}
+                    >
+                      <View style={styles.youthOptionContent}>
+                        <Text style={styles.youthOptionName}>
+                          {youth.youthName}
+                        </Text>
+                        <Text style={styles.youthOptionClubs}>
+                          Currently in:{" "}
+                          {youth.currentClubs.join(", ") || "None"}
+                        </Text>
+                      </View>
+                      <Button
+                        label="Select"
+                        onPress={() => selectExistingYouth(youth)}
+                        theme="primary"
+                      />
+                    </View>
+                  ))}
 
-            <Text style={styles.helperText}>
-              * All fields are required
-            </Text>
+                  {/* Non-selectable youth - shown but disabled */}
+                  {nonSelectableYouth.map((youth, index) => (
+                    <View
+                      key={youth.youthUid}
+                      style={[
+                        styles.youthOption,
+                        styles.youthOptionDisabled,
+                        index === nonSelectableYouth.length - 1 &&
+                          styles.youthOptionLast,
+                      ]}
+                    >
+                      <View style={styles.youthOptionContent}>
+                        <Text
+                          style={[
+                            styles.youthOptionName,
+                            styles.youthOptionNameDisabled,
+                          ]}
+                        >
+                          {youth.youthName}
+                        </Text>
+                        <Text style={styles.youthOptionClubs}>
+                          Currently in:{" "}
+                          {youth.currentClubs.join(", ") || "None"}
+                        </Text>
+                      </View>
+                      <View style={styles.disabledBadge}>
+                        <Text style={styles.disabledBadgeText}>
+                          {youth.statusMessage}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+
+                  <Button
+                    label="Add New Youth Instead"
+                    onPress={handleAddNewYouth}
+                    theme="secondary"
+                  />
+                </View>
+              )}
+
+            {/* Show selected existing youth */}
+            {selectedExistingYouth && (
+              <View style={styles.selectedYouthCard}>
+                <View style={styles.selectedYouthHeader}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.colors.success}
+                  />
+                  <Text style={styles.selectedYouthText}>
+                    Selected: {selectedExistingYouth.youthName}
+                  </Text>
+                </View>
+                <Button
+                  label="Choose Different Youth"
+                  onPress={() => setShowExistingYouthSelector(true)}
+                  theme="secondary"
+                />
+              </View>
+            )}
+
+            {/* Only show child info form if no existing youth selected */}
+            {!selectedExistingYouth && (
+              <>
+                <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>
+                  Child Information
+                </Text>
+
+                <Input
+                  label="Child's Name *"
+                  value={childName}
+                  onChangeText={setChildName}
+                  placeholder="Enter child's full name"
+                  autoCapitalize="words"
+                />
+
+                <Input
+                  label="Date of Birth *"
+                  value={dateOfBirth}
+                  onChangeText={setDateOfBirth}
+                  placeholder="YYYY-MM-DD (e.g., 2015-06-15)"
+                  autoCapitalize="none"
+                />
+
+                <Input
+                  label="Relationship to Guardian *"
+                  value={relationship}
+                  onChangeText={setRelationship}
+                  placeholder="Parent, Guardian, etc."
+                  autoCapitalize="words"
+                />
+              </>
+            )}
+
+            <Text style={styles.helperText}>* All fields are required</Text>
           </View>
 
           {/* Buttons */}
           <View style={styles.buttonContainer}>
             <Button
-              label={loading ? 'Sending Invitation...' : 'Send Invitation'}
+              label={loading ? "Sending Invitation..." : "Send Invitation"}
               onPress={handleSendInvitation}
               theme="primary"
               disabled={loading}
@@ -346,7 +667,14 @@ export default function AddChildMemberScreen() {
         confirmText={modalConfirmText}
         cancelText={modalCancelText}
         onConfirm={modalOnConfirm}
-        onCancel={modalCancelText === 'Done' ? () => { hideModal(); router.back(); } : hideModal}
+        onCancel={
+          modalCancelText === "Done"
+            ? () => {
+                hideModal();
+                router.back();
+              }
+            : hideModal
+        }
         confirmButtonTheme="primary"
       />
     </SafeAreaView>
@@ -376,12 +704,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   infoCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: theme.colors.inputBackground,
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.medium,
     marginBottom: theme.spacing.lg,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   infoText: {
     flex: 1,
@@ -406,9 +734,128 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.sm,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   buttonContainer: {
     gap: theme.spacing.md,
+  },
+  checkingContainer: {
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  checkingText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    fontStyle: "italic",
+  },
+  statusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+  },
+  statusText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginLeft: theme.spacing.xs,
+    flex: 1,
+  },
+  existingYouthCard: {
+    backgroundColor: theme.colors.inputBackground,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  existingYouthHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: theme.spacing.sm,
+  },
+  existingYouthTitle: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.white,
+    marginLeft: theme.spacing.sm,
+  },
+  existingYouthSubtitle: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.md,
+    lineHeight: 20,
+  },
+  youthOption: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    paddingVertical: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.inputBorder,
+  },
+  youthOptionLast: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+  },
+  youthOptionContent: {
+    marginBottom: theme.spacing.md,
+  },
+  youthOptionName: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: "600" as any,
+    color: theme.colors.white,
+    marginBottom: 4,
+  },
+  youthOptionClubs: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+  },
+  youthOptionDisabled: {
+    opacity: 0.6,
+  },
+  youthOptionNameDisabled: {
+    color: theme.colors.textSecondary,
+  },
+  disabledBadge: {
+    backgroundColor: theme.colors.error + "20",
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+  },
+  disabledBadgeText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.error,
+    fontWeight: "600" as any,
+    textAlign: "center",
+  },
+  selectButton: {
+    minWidth: 80,
+  },
+  addNewButton: {
+    marginTop: theme.spacing.md,
+  },
+  selectedYouthCard: {
+    backgroundColor: theme.colors.success + "20",
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.success,
+  },
+  selectedYouthHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: theme.spacing.sm,
+  },
+  selectedYouthText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: "600",
+    color: theme.colors.white,
+    marginLeft: theme.spacing.sm,
+  },
+  changeYouthButton: {
+    marginTop: theme.spacing.sm,
   },
 });

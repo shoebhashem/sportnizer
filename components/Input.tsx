@@ -12,6 +12,7 @@ type Props = {
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   error?: string;
+  onBlur?: () => void;
 };
 
 export default function Input({ 
@@ -22,7 +23,8 @@ export default function Input({
   secureTextEntry = false, 
   keyboardType = 'default',
   autoCapitalize = 'sentences',
-  error 
+  error,
+  onBlur
 }: Props) {
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -50,7 +52,12 @@ export default function Input({
           autoComplete="off"
           textContentType={isPassword ? 'oneTimeCode' : 'none'}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onBlur={() => {
+            setIsFocused(false);
+            if (onBlur) {
+              onBlur();
+            }
+          }}
         />
         {isPassword && (
           <Pressable 

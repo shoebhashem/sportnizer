@@ -27,17 +27,6 @@ export default function RootLayout() {
             }} 
           />
         <Stack.Screen 
-          name="create-group" 
-          options={{ 
-            headerShown: true,
-            title: 'Create Group',
-            headerStyle: {
-              backgroundColor: theme.colors.primary,
-            },
-            headerTintColor: theme.colors.white,
-          }} 
-        />
-        <Stack.Screen 
           name="create-event" 
           options={{ 
             headerShown: false,

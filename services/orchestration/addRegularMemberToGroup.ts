@@ -472,14 +472,24 @@ export const addRegularMemberToGroupService = {
       
       console.log(`📋 Role from invitation: ${role}`);
       
+      // Check invitation type
+      const invitationType = invitationData.invitationType || 'regular';
+      const isExistingYouthFlow = invitationType === 'youth_member_existing';
+      
       // Check if this is a youth role (requires youth-specific handling)
       const isYouthRole = role === 'player-underage';
       const hasYouthData = !!invitationData.youthData;
-      const needsYouthFlow = isYouthRole && hasYouthData;
+      const hasExistingYouthData = !!invitationData.existingYouthData;
+      const needsYouthFlow = isYouthRole && (hasYouthData || hasExistingYouthData);
       
-      if (isYouthRole && !hasYouthData) {
-        throw new Error('Youth role (player-underage) requires youthData in invitation document');
+      if (isYouthRole && !hasYouthData && !hasExistingYouthData) {
+        throw new Error('Youth role (player-underage) requires youthData or existingYouthData in invitation document');
       }
+      
+      // For existing youth, use the youth UID from existingYouthData
+      const youthUserId = isExistingYouthFlow && hasExistingYouthData 
+        ? invitationData.existingYouthData.youthUid 
+        : userId;
       
       // For youth invitations, use the passed guardianInfo to build guardiansContacts
       let guardiansContacts: any[] = [];
@@ -520,10 +530,10 @@ export const addRegularMemberToGroupService = {
       }
       
       const memberData = {
-        userId: userId,
-        // For youth roles, use child's name from youthData; otherwise use actual display name from user profile
+        userId: youthUserId,  // Use youthUserId (could be existing youth or new userId)
+        // For youth roles, use child's name from youthData or existingYouthData; otherwise use actual display name from user profile
         name: isYouthRole 
-          ? invitationData.youthData.childName 
+          ? (hasYouthData ? invitationData.youthData.childName : invitationData.existingYouthData.youthName)
           : displayName,
         // For youth roles, youth members don't have email; omit the field
         ...(isYouthRole ? {} : { email: invitationData.email }),
@@ -540,7 +550,9 @@ export const addRegularMemberToGroupService = {
       console.log('🔍 DEBUG memberData:', JSON.stringify({
         role,
         isYouthRole,
+        isExistingYouthFlow,
         needsYouthFlow,
+        youthUserId,
         hasEmail: 'email' in memberData,
         needsGuardian: memberData.needsGuardian,
         memberData
@@ -564,10 +576,16 @@ export const addRegularMemberToGroupService = {
         lastModifiedAt: new Date()
       };
 
-      // 🎯 STEP 4: CONDITIONAL LOGIC - Handle membership based on user type
+      // 🎯 STEP 4: CONDITIONAL LOGIC - Handle membership based on user type and youth flow
       const isNewUser = invitationData.status === 'accepted_pending_signup';
       
-      if (isNewUser) {
+      if (isExistingYouthFlow) {
+        // 🔄 EXISTING YOUTH PATH: Youth already exists, check if in club
+        console.log('🔄 Processing for EXISTING YOUTH - checking club membership');
+        
+        // Call atomic functions with youth-specific membership checks
+        await this.callAtomicFunctionsForExistingYouth(invitationData, memberData, clubInfo, groupInfo, youthUserId, userId, invitationToken);
+      } else if (isNewUser) {
         // 🆕 NEW USER PATH: Skip membership checks (they're brand new)
         console.log('🆕 Processing for NEW USER - skipping membership checks');
         
@@ -1058,6 +1076,256 @@ export const addRegularMemberToGroupService = {
 
     // 🧹 Clean up the notification (for existing users who had in-app notification)
     await cleanupInvitationNotification(userId, invitationToken);
+  },
+
+  /**
+   * 🔧 HELPER METHOD: Call atomic functions for existing youth
+   * - Used when youth already exists in system but being added to a new group
+   * - Checks if youth already in club before adding
+   * - Uses role accumulation instead of creating new member entries
+   */
+  async callAtomicFunctionsForExistingYouth(
+    invitationData: any, 
+    memberData: any, 
+    clubInfo: any, 
+    groupInfo: any, 
+    youthUserId: string, 
+    guardianUserId: string, 
+    invitationToken: string
+  ) {
+    console.log('🔄 Processing existing youth - checking club membership');
+    
+    // STEP 1: Check if youth already in club using checkMembership
+    const checkMembershipFn = httpsCallable(functions, 'checkMembership');
+    const membershipResult = await checkMembershipFn({
+      userId: youthUserId,
+      clubId: invitationData.clubId,
+      groupId: invitationData.groupId
+    });
+
+    const membershipData = membershipResult.data as { 
+      success: boolean; 
+      isClubMember: boolean; 
+      isGroupMember: boolean;
+      currentRoles?: string[];
+      error?: string;
+    };
+
+    if (!membershipData.success) {
+      throw new Error(`Failed to check youth membership: ${membershipData.error}`);
+    }
+
+    const youthInClub = membershipData.isClubMember;
+    const youthInGroup = membershipData.isGroupMember;
+
+    console.log(`🔍 Youth membership status: InClub=${youthInClub}, InGroup=${youthInGroup}`);
+
+    if (youthInGroup) {
+      console.log('⚠️ Youth already in this group - skipping');
+      await cleanupInvitationNotification(guardianUserId, invitationToken);
+      return;
+    }
+
+    // STEP 2: Handle youth club membership
+    if (youthInClub) {
+      // PATH A: Youth already in club - use role accumulation
+      console.log('✅ Youth already in club - using role accumulation');
+      
+      const updateClubMemberRoleFn = httpsCallable(functions, 'updateClubMemberRole');
+      const roleResult = await updateClubMemberRoleFn({
+        clubId: invitationData.clubId,
+        userId: youthUserId,
+        operation: 'add',
+        roleToAdd: 'player-underage'
+      });
+
+      const roleResponse = roleResult.data as { success: boolean; error?: string };
+      if (!roleResponse.success) {
+        throw new Error(`Failed to add player-underage role to youth: ${roleResponse.error}`);
+      }
+      console.log('✅ Player-underage role added to youth in club');
+    } else {
+      // PATH B: Youth not in club - add them
+      console.log('📞 Youth not in club - adding as new club member');
+      
+      const addMemberToClubFn = httpsCallable(functions, 'addMemberToClub');
+      const clubResult = await addMemberToClubFn({
+        clubId: invitationData.clubId,
+        memberData
+      });
+
+      const clubResponse = clubResult.data as { success: boolean; error?: string };
+      if (!clubResponse.success) {
+        throw new Error(`Failed to add youth to club: ${clubResponse.error}`);
+      }
+      console.log('✅ Youth added to club successfully');
+
+      // Update youth's club info in their profile
+      console.log('📞 Updating youth club info...');
+      const updateUserClubInfoFn = httpsCallable(functions, 'updateUserClubInfo');
+      const userClubResult = await updateUserClubInfoFn({
+        uid: youthUserId,
+        clubInfo,
+        role: 'player-underage'
+      });
+
+      const userClubResponse = userClubResult.data as { success: boolean; error?: string };
+      if (!userClubResponse.success) {
+        throw new Error(`Failed to update youth club info: ${userClubResponse.error}`);
+      }
+      console.log('✅ Youth club info updated successfully');
+    }
+
+    // STEP 3: Handle guardian club membership (always process guardian)
+    if (memberData.guardiansContacts && memberData.guardiansContacts.length > 0) {
+      for (const guardian of memberData.guardiansContacts) {
+        console.log(`📞 Processing guardian: ${guardian.guardianName}`);
+        
+        // Check if guardian already in club
+        const guardianMembershipResult = await checkMembershipFn({
+          userId: guardian.guardianUid,
+          clubId: invitationData.clubId
+        });
+        
+        const guardianMembershipData = guardianMembershipResult.data as { 
+          success: boolean; 
+          isClubMember: boolean;
+          error?: string;
+        };
+        
+        const guardianInClub = guardianMembershipData.isClubMember;
+
+        if (guardianInClub) {
+          // Guardian already in club - add guardian role
+          console.log('✅ Guardian already in club - adding guardian role');
+          
+          const updateClubMemberRoleFn = httpsCallable(functions, 'updateClubMemberRole');
+          const guardianRoleResult = await updateClubMemberRoleFn({
+            clubId: invitationData.clubId,
+            userId: guardian.guardianUid,
+            operation: 'add',
+            roleToAdd: 'guardian'
+          });
+
+          const guardianRoleResponse = guardianRoleResult.data as { success: boolean; error?: string };
+          if (guardianRoleResponse.success) {
+            console.log('✅ Guardian role added successfully');
+          } else {
+            console.log('⚠️ Failed to add guardian role:', guardianRoleResponse.error);
+          }
+        } else {
+          // Guardian not in club - add them
+          console.log('📞 Guardian not in club - adding as new member');
+          
+          const guardianMemberData = {
+            userId: guardian.guardianUid,
+            name: guardian.guardianName,
+            email: guardian.guardianEmail,
+            roles: ['guardian'],
+            joinedAt: new Date(),
+            photoURL: 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media',
+            addedBy: invitationData.inviterUid,
+            needsGuardian: false,
+            guardiansContacts: []
+          };
+          
+          try {
+            const addMemberToClubFn = httpsCallable(functions, 'addMemberToClub');
+            const guardianClubResult = await addMemberToClubFn({
+              clubId: invitationData.clubId,
+              memberData: guardianMemberData
+            });
+            
+            const guardianClubResponse = guardianClubResult.data as { success: boolean; error?: string };
+            if (guardianClubResponse.success) {
+              console.log('✅ Guardian added to club successfully');
+              
+              // Update guardian's club info
+              const updateUserClubInfoFn = httpsCallable(functions, 'updateUserClubInfo');
+              const guardianClubInfoResult = await updateUserClubInfoFn({
+                uid: guardian.guardianUid,
+                clubInfo,
+                role: 'guardian'
+              });
+              
+              const guardianClubInfoResponse = guardianClubInfoResult.data as { success: boolean; error?: string };
+              if (guardianClubInfoResponse.success) {
+                console.log('✅ Guardian club info updated successfully');
+              }
+            }
+          } catch (guardianError) {
+            console.error('⚠️ Error adding guardian to club:', guardianError);
+          }
+        }
+      }
+    }
+
+    // STEP 4: Always add youth to group (creates new group member entry)
+    console.log('📞 Adding youth to group...');
+    const addMemberToGroupFn = httpsCallable(functions, 'addMemberToGroup');
+    const groupResult = await addMemberToGroupFn({
+      clubId: invitationData.clubId,
+      groupId: invitationData.groupId,
+      memberData
+    });
+
+    const groupResponse = groupResult.data as { success: boolean; error?: string };
+    if (!groupResponse.success) {
+      throw new Error(`Failed to add youth to group: ${groupResponse.error}`);
+    }
+    console.log('✅ Youth added to group successfully');
+
+    // STEP 5: Update youth's group info in profile
+    console.log('📞 Updating youth group info...');
+    const updateUserGroupInfoFn = httpsCallable(functions, 'updateUserGroupInfo');
+    const userGroupResult = await updateUserGroupInfoFn({
+      uid: youthUserId,
+      clubId: invitationData.clubId,
+      groupInfo,
+      roles: ['player-underage'],
+      operation: 'add',
+      updateClubMemberListRoles: youthInClub  // Update club member list if youth already in club
+    });
+
+    const userGroupResponse = userGroupResult.data as { success: boolean; error?: string };
+    if (!userGroupResponse.success) {
+      throw new Error(`Failed to update youth group info: ${userGroupResponse.error}`);
+    }
+    console.log('✅ Youth group info updated successfully');
+
+    // STEP 6: Update guardian's dependent access
+    if (memberData.guardiansContacts && memberData.guardiansContacts.length > 0) {
+      console.log('📞 Updating guardian dependent access...');
+      const updateGuardianDependentAccessFn = httpsCallable(functions, 'updateGuardianDependentAccess');
+      
+      for (const guardian of memberData.guardiansContacts) {
+        try {
+          const guardianAccessResult = await updateGuardianDependentAccessFn({
+            youthUid: youthUserId,
+            guardianUid: guardian.guardianUid
+          });
+          
+          const guardianAccessResponse = guardianAccessResult.data as { success: boolean; error?: string };
+          if (guardianAccessResponse.success) {
+            console.log(`✅ Updated dependent access in guardian ${guardian.guardianUid}'s profile`);
+          }
+        } catch (guardianError) {
+          console.error(`⚠️ Error updating guardian dependent access:`, guardianError);
+        }
+      }
+    }
+
+    // STEP 7: Mark invitation as accepted
+    console.log('📞 Marking invitation as accepted...');
+    const markInvitationUsedFn = httpsCallable(functions, 'markInvitationUsed');
+    await markInvitationUsedFn({
+      invitationToken: invitationToken,
+      userId: guardianUserId,  // Guardian accepted the invitation
+      status: 'accepted'
+    });
+
+    // STEP 8: Clean up notification
+    await cleanupInvitationNotification(guardianUserId, invitationToken);
   }
 }; // 🔚 END OF SERVICE OBJECT
 

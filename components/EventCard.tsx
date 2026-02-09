@@ -1,0 +1,414 @@
+// EventCard Component - Display event information in a card format
+// Used in Home and Events tabs with identical appearance
+
+import { theme } from "@/constants/theme";
+import type { EventData } from "@/services/types/event";
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+interface EventCardProps {
+  event: EventData;
+  onPress: () => void;
+  recipientName?: string; // For guardians: show child name
+  currentUserId?: string; // Current user's ID for status detection
+}
+
+export default function EventCard({
+  event,
+  onPress,
+  recipientName,
+  currentUserId,
+}: EventCardProps) {
+  // Format date and time
+  const formatDate = (dateInput: string | Date) => {
+    const date =
+      typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return "Today";
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return "Tomorrow";
+    } else {
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+    }
+  };
+
+  const formatTime = (timeString: string | null | undefined | any) => {
+    // Handle null, undefined, or non-string values
+    if (!timeString || typeof timeString !== "string") return "";
+
+    // Handle ISO string format (from Firestore)
+    if (timeString.includes("T") || timeString.includes("Z")) {
+      const date = new Date(timeString);
+      const hours = date.getHours().toString().padStart(2, "0");
+      const minutes = date.getMinutes().toString().padStart(2, "0");
+      return `${hours}:${minutes}`;
+    }
+
+    // Handle HH:mm format (legacy) - already in 24-hour format
+    return timeString;
+  };
+
+  // Get event type icon and color (yellow for all types)
+  const getEventTypeInfo = (eventType: string) => {
+    switch (eventType) {
+      case "training":
+        return { icon: "fitness" as const, color: theme.colors.secondary };
+      case "match":
+        return { icon: "trophy" as const, color: theme.colors.secondary };
+      case "meeting":
+        return { icon: "people" as const, color: theme.colors.secondary };
+      default:
+        return { icon: "calendar" as const, color: theme.colors.secondary };
+    }
+  };
+
+  // Get user's response status
+  const getUserResponseStatus = () => {
+    if (!event.responses || !currentUserId) return "pending";
+
+    // Find response by current user's ID
+    const response = event.responses.find((r) => r.userId === currentUserId);
+    // Normalize status field (handle both 'status' and 'response' fields)
+    const status = response?.status || response?.response || "pending";
+    return status;
+  };
+
+  const responseStatus = getUserResponseStatus();
+  const eventTypeInfo = getEventTypeInfo(event.eventType || "other");
+
+  // Check if deadline is approaching (within 24 hours)
+  const isDeadlineApproaching = () => {
+    if (!event.responseDeadline) return false;
+    const deadline = new Date(event.responseDeadline);
+    const now = new Date();
+    const hoursUntilDeadline =
+      (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
+    return hoursUntilDeadline > 0 && hoursUntilDeadline < 24;
+  };
+
+  // Status badge color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "accepted":
+        return "#4CAF50";
+      case "declined":
+        return "#F44336";
+      default:
+        return theme.colors.textSecondary;
+    }
+  };
+
+  return (
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+      {/* Header Row */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Ionicons
+            name={eventTypeInfo.icon}
+            size={24}
+            color={eventTypeInfo.color}
+          />
+          <Text style={styles.title} numberOfLines={1}>
+            {event.title}
+          </Text>
+        </View>
+
+        {/* Response Status Badge */}
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: getStatusColor(responseStatus) },
+          ]}
+        >
+          <Text style={styles.statusText}>
+            {responseStatus.charAt(0).toUpperCase() + responseStatus.slice(1)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Recipient Name (for guardians with multiple children) */}
+      {recipientName && (
+        <View style={styles.recipientRow}>
+          <Ionicons
+            name="person-circle-outline"
+            size={16}
+            color={theme.colors.secondary}
+          />
+          <Text style={styles.recipientText}>For: {recipientName}</Text>
+        </View>
+      )}
+
+      {/* Organization Info */}
+      <View style={styles.orgRow}>
+        <Ionicons
+          name="business-outline"
+          size={14}
+          color={theme.colors.textSecondary}
+        />
+        <Text style={styles.orgText} numberOfLines={1}>
+          {event.clubName}
+          {event.groupName && ` • ${event.groupName}`}
+          {event.subGroupName && ` • ${event.subGroupName}`}
+        </Text>
+      </View>
+
+      {/* Date and Time Row */}
+      <View style={styles.infoRow}>
+        <View style={styles.infoItem}>
+          <Ionicons
+            name="calendar-outline"
+            size={16}
+            color={theme.colors.secondary}
+          />
+          <Text style={styles.infoText}>{formatDate(event.startDate)}</Text>
+        </View>
+
+        {/* Show gathering time if exists, otherwise show start time */}
+        {event.gatheringTime && typeof event.gatheringTime === "string" ? (
+          <View style={styles.infoItem}>
+            <Ionicons
+              name="people-outline"
+              size={16}
+              color={theme.colors.accent}
+            />
+            <Text style={[styles.infoText, { color: theme.colors.accent }]}>
+              Gather: {formatTime(event.gatheringTime)}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.infoItem}>
+            <Ionicons
+              name="time-outline"
+              size={16}
+              color={theme.colors.secondary}
+            />
+            <Text style={styles.infoText}>
+              {formatTime(event.startTime || "")}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Start Time (show if gathering time exists) */}
+      {event.gatheringTime &&
+        typeof event.gatheringTime === "string" &&
+        event.startTime && (
+          <View style={styles.infoRow}>
+            <View style={styles.infoItem}>
+              <Ionicons
+                name="time-outline"
+                size={16}
+                color={theme.colors.secondary}
+              />
+              <Text style={styles.infoText}>
+                Start: {formatTime(event.startTime)}
+              </Text>
+            </View>
+          </View>
+        )}
+
+      {/* Location */}
+      {event.location && (
+        <View style={styles.locationRow}>
+          <Ionicons
+            name="location-outline"
+            size={16}
+            color={theme.colors.textSecondary}
+          />
+          <Text style={styles.locationText} numberOfLines={1}>
+            {event.location}
+          </Text>
+        </View>
+      )}
+
+      {/* Response Summary */}
+      {event.responseSummary && (
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryItem}>
+            <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+            <Text style={styles.summaryText}>
+              {event.responseSummary.accepted}
+            </Text>
+          </View>
+
+          <View style={styles.summaryItem}>
+            <Ionicons name="close-circle" size={14} color="#F44336" />
+            <Text style={styles.summaryText}>
+              {event.responseSummary.declined}
+            </Text>
+          </View>
+
+          <View style={styles.summaryItem}>
+            <Ionicons
+              name="help-circle"
+              size={14}
+              color={theme.colors.textSecondary}
+            />
+            <Text style={styles.summaryText}>
+              {event.responseSummary.pending}
+            </Text>
+          </View>
+
+          <Text style={styles.summaryTotal}>
+            of {event.responseSummary.totalInvited} invited
+          </Text>
+        </View>
+      )}
+
+      {/* Deadline Warning */}
+      {isDeadlineApproaching() && responseStatus === "pending" && (
+        <View style={styles.deadlineWarning}>
+          <Ionicons name="warning-outline" size={14} color="#FF9800" />
+          <Text style={styles.deadlineText}>Deadline approaching</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: "#F5F5F5",
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1a1d21",
+    marginLeft: 12,
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: theme.colors.white,
+    textTransform: "capitalize",
+  },
+  recipientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  recipientText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: theme.colors.secondary,
+    marginLeft: 6,
+  },
+  orgRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  orgText: {
+    fontSize: 13,
+    color: "#666", // Darker text for better contrast
+    marginLeft: 6,
+    flex: 1,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 20,
+  },
+  infoText: {
+    fontSize: 14,
+    color: "#1a1d21", // Dark text for white card background
+    marginLeft: 6,
+  },
+  gatheringText: {
+    color: theme.colors.accent,
+    fontWeight: "500",
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  locationText: {
+    fontSize: 14,
+    color: "#1a1d21", // Dark text for white card background
+    marginLeft: 6,
+    flex: 1,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: 12,
+    marginTop: 4,
+  },
+  summaryItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  summaryText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1a1d21", // Dark text for white card background
+    marginLeft: 4,
+  },
+  summaryTotal: {
+    fontSize: 12,
+    color: "#666", // Darker text for better contrast
+    marginLeft: "auto",
+  },
+  deadlineWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3E0",
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  deadlineText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#F57C00",
+    marginLeft: 6,
+  },
+});
