@@ -2,13 +2,13 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -525,7 +525,20 @@ export default function CreateEventScreen() {
         startTime: startDateTime.toISOString(),
         endDate: eventData.endDate.toISOString().split("T")[0],
         endTime: endDateTime.toISOString(),
-        gatheringTime: eventData.gatheringTime, // Send as HH:mm string
+        gatheringTime: eventData.gatheringTime
+          ? (() => {
+              // Parse HH:mm and combine with event start date (in local timezone)
+              const [hours, minutes] = eventData.gatheringTime
+                .split(":")
+                .map(Number);
+              const gatheringDateTime = new Date(eventData.startDate);
+              gatheringDateTime.setHours(hours);
+              gatheringDateTime.setMinutes(minutes);
+              gatheringDateTime.setSeconds(0);
+              gatheringDateTime.setMilliseconds(0);
+              return gatheringDateTime.toISOString();
+            })()
+          : undefined,
         location: eventData.location,
         targetScope,
         roleFilter: selectedRoles.length > 0 ? selectedRoles : undefined,
@@ -619,7 +632,20 @@ export default function CreateEventScreen() {
         location: eventData.location,
         startDate: startDateTime.toISOString(),
         endDate: endDateTime.toISOString(),
-        gatheringTime: eventData.gatheringTime || null, // Send as HH:mm string
+        gatheringTime: eventData.gatheringTime
+          ? (() => {
+              // Parse HH:mm and combine with event start date (in local timezone)
+              const [hours, minutes] = eventData.gatheringTime
+                .split(":")
+                .map(Number);
+              const gatheringDateTime = new Date(eventData.startDate);
+              gatheringDateTime.setHours(hours);
+              gatheringDateTime.setMinutes(minutes);
+              gatheringDateTime.setSeconds(0);
+              gatheringDateTime.setMilliseconds(0);
+              return gatheringDateTime.toISOString();
+            })()
+          : null,
         capacityLimit: eventData.capacity.enabled
           ? eventData.capacity.maxAttendees
           : null,

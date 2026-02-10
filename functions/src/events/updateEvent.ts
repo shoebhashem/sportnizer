@@ -64,37 +64,11 @@ export const updateEvent = onCall(
         );
       }
       if (eventData.gatheringTime !== undefined) {
-        if (eventData.gatheringTime) {
-          // Check if it's HH:mm format (string like "15:30")
-          if (
-            typeof eventData.gatheringTime === "string" &&
-            eventData.gatheringTime.includes(":") &&
-            eventData.gatheringTime.length <= 5
-          ) {
-            const [hours, minutes] = eventData.gatheringTime
-              .split(":")
-              .map(Number);
-
-            // Extract timezone offset from startDate ISO string
-            const startISO = eventData.startDate || new Date().toISOString();
-            const datePart = startISO.split("T")[0]; // e.g., "2026-02-12"
-            const timezonePart =
-              startISO.match(/([+-]\\d{2}:\\d{2}|Z)$/)?.[0] || "+00:00";
-
-            // Construct new ISO string with gathering time in same timezone
-            const gatheringISO = `${datePart}T${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00${timezonePart}`;
-            updateData.gatheringTime = admin.firestore.Timestamp.fromDate(
-              new Date(gatheringISO),
-            );
-          } else {
-            // Fallback: treat as ISO timestamp (for backward compatibility)
-            updateData.gatheringTime = admin.firestore.Timestamp.fromDate(
+        updateData.gatheringTime = eventData.gatheringTime
+          ? admin.firestore.Timestamp.fromDate(
               new Date(eventData.gatheringTime),
-            );
-          }
-        } else {
-          updateData.gatheringTime = null;
-        }
+            )
+          : null;
       }
 
       // Handle capacity
