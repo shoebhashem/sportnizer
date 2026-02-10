@@ -48,6 +48,7 @@ export interface EventData {
   maxCapacity?: number | null; // Maximum attendees
   deadline?: Date | null; // Response deadline (Date object)
   capacityLimit?: number | null; // Legacy field for compatibility
+  capacity?: { min: number | null; max: number } | null; // Structured capacity object
   responseDeadline?: string | null; // Legacy ISO string field
 
   // Recipients

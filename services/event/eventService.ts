@@ -367,6 +367,7 @@ export async function updateEventResponse(
   clubId: string,
   userId: string,
   response: "accepted" | "declined",
+  respondedBy?: string,
 ): Promise<boolean> {
   try {
     console.log("🔍 DEBUG [eventService.ts] - updateEventResponse called:", {
@@ -374,6 +375,7 @@ export async function updateEventResponse(
       clubId,
       userId,
       response,
+      respondedBy,
     });
 
     // Import dynamically to avoid circular dependencies
@@ -381,7 +383,13 @@ export async function updateEventResponse(
     const functions = getFunctions(undefined, "europe-north1"); // Specify region where functions are deployed
 
     const updateResponse = httpsCallable<
-      { eventId: string; clubId: string; userId: string; response: string },
+      {
+        eventId: string;
+        clubId: string;
+        userId: string;
+        response: string;
+        respondedBy?: string;
+      },
       { success: boolean; message?: string }
     >(functions, "updateEventResponse");
 
@@ -390,6 +398,7 @@ export async function updateEventResponse(
       clubId,
       userId,
       response,
+      respondedBy,
     });
 
     const result = await updateResponse({
@@ -397,6 +406,7 @@ export async function updateEventResponse(
       clubId,
       userId,
       response,
+      ...(respondedBy && { respondedBy }),
     });
 
     return result.data.success;

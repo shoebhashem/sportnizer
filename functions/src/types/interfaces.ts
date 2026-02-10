@@ -663,7 +663,7 @@ export interface CreateEventRequestV2 {
   startTime?: string; // ISO string (full timestamp with time)
   endDate: string; // ISO string (date only)
   endTime?: string; // ISO string (full timestamp with time)
-  gatheringTime?: string; // ISO string (full timestamp)
+  gatheringTime?: string; // HH:mm format (e.g., "15:30") or ISO string for backward compatibility
   responseDeadline?: string; // ISO string
   location?:
     | string
@@ -722,8 +722,9 @@ export interface CreateEventResponse {
 export interface UpdateEventResponseRequest {
   eventId: string;
   clubId: string;
-  userId: string;
+  userId: string; // Target user to respond for
   response: "Accepted" | "declined";
+  respondedBy?: string; // Optional: Who is making this response (if different from userId)
 }
 
 export interface UpdateEventResponseResponse {

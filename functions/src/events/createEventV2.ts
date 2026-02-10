@@ -292,6 +292,18 @@ export const createEventV2 = onCall(
       console.log(`📋 Found ${invitedUserIds.length} members to invite`);
 
       // ============================================================================
+      // STEP 3.5: Ensure Creator Can Always See Event
+      // ============================================================================
+      // Always add creator to invitedUserIds so they can view/edit the event
+      // Creator will only be in responses array if they were selected as a recipient
+      if (!invitedUserIds.includes(data.createdBy)) {
+        invitedUserIds.push(data.createdBy);
+        console.log(
+          `✅ Added creator ${data.createdBy} to invitedUserIds (not in recipients)`,
+        );
+      }
+
+      // ============================================================================
       // STEP 4: Create Event Document
       // ============================================================================
       const eventRef = db
@@ -308,9 +320,52 @@ export const createEventV2 = onCall(
       const endDate = admin.firestore.Timestamp.fromDate(
         new Date(data.endTime || data.endDate),
       );
-      const gatheringTime = data.gatheringTime
-        ? admin.firestore.Timestamp.fromDate(new Date(data.gatheringTime))
-        : null;
+
+      // Parse gathering time: if it's HH:mm format, combine with start date
+      let gatheringTime: admin.firestore.Timestamp | null = null;
+      if (data.gatheringTime) {
+        console.log("🔍 DEBUG gathering time received:", data.gatheringTime);
+        console.log("🔍 DEBUG startTime:", data.startTime);
+        console.log("🔍 DEBUG startDate:", data.startDate);
+
+        // Check if it's HH:mm format (string like "15:30")
+        if (
+          typeof data.gatheringTime === "string" &&
+          data.gatheringTime.includes(":") &&
+          data.gatheringTime.length <= 5
+        ) {
+          const [hours, minutes] = data.gatheringTime.split(":").map(Number);
+          console.log("🔍 DEBUG parsed hours/minutes:", hours, minutes);
+
+          // Extract timezone offset from startTime ISO string
+          const startISO = data.startTime || data.startDate;
+          const datePart = startISO.split("T")[0]; // e.g., "2026-02-12"
+          const timezonePart =
+            startISO.match(/([+-]\d{2}:\d{2}|Z)$/)?.[0] || "+00:00";
+
+          console.log("🔍 DEBUG startISO:", startISO);
+          console.log("🔍 DEBUG datePart:", datePart);
+          console.log("🔍 DEBUG timezonePart:", timezonePart);
+
+          // Construct new ISO string with gathering time in same timezone
+          const gatheringISO = `${datePart}T${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00${timezonePart}`;
+          console.log("🔍 DEBUG gatheringISO:", gatheringISO);
+
+          gatheringTime = admin.firestore.Timestamp.fromDate(
+            new Date(gatheringISO),
+          );
+          console.log(
+            "🔍 DEBUG final timestamp:",
+            gatheringTime.toDate().toISOString(),
+          );
+        } else {
+          // Fallback: treat as ISO timestamp (for backward compatibility)
+          gatheringTime = admin.firestore.Timestamp.fromDate(
+            new Date(data.gatheringTime),
+          );
+        }
+      }
+
       const responseDeadline = data.responseDeadline
         ? admin.firestore.Timestamp.fromDate(new Date(data.responseDeadline))
         : null;

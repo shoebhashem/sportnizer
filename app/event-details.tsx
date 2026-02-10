@@ -18,6 +18,7 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -47,6 +48,16 @@ export default function EventDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<ResponseTab>("accepted");
+  const [selectedInvitee, setSelectedInvitee] = useState<{
+    userId: string;
+    userName: string;
+    photoUrl?: string;
+    status: "pending" | "accepted" | "declined";
+    respondedBy?: string;
+    respondedByName?: string;
+  } | null>(null);
+  const [responseSuccess, setResponseSuccess] = useState(false);
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
     title: "",
@@ -165,6 +176,95 @@ export default function EventDetailsScreen() {
     }
   };
 
+  const handleInviteeResponse = async (
+    inviteeUserId: string,
+    response: "accepted" | "declined",
+  ) => {
+    if (!event || !user) return;
+
+    try {
+      setSubmitting(true);
+
+      console.log(
+        "🔍 DEBUG [event-details.tsx] - Admin/Coach responding for invitee:",
+        {
+          eventId: event.id,
+          clubId: event.clubId,
+          inviteeUserId,
+          response,
+          respondedBy: user.uid,
+        },
+      );
+
+      const success = await updateEventResponse(
+        event.id,
+        event.clubId,
+        inviteeUserId,
+        response,
+        user.uid, // Always pass respondedBy when responding for others
+      );
+
+      if (success) {
+        // Reload event details to get fresh data
+        await loadEventDetails();
+
+        // Wait a brief moment for state to update, then fetch the updated invitee data
+        setTimeout(() => {
+          // Re-fetch the event to ensure we have the latest data
+          getEventDetails(event.id, event.clubId).then((updatedEvent) => {
+            if (updatedEvent) {
+              // Find the updated invitee data
+              const updatedInvitee = updatedEvent.responses?.find(
+                (r) => r.userId === inviteeUserId,
+              );
+
+              if (updatedInvitee) {
+                // Update the selected invitee with fresh data
+                setSelectedInvitee({
+                  userId: updatedInvitee.userId,
+                  userName: updatedInvitee.userName,
+                  photoUrl: updatedInvitee.photoUrl,
+                  status: updatedInvitee.response as
+                    | "pending"
+                    | "accepted"
+                    | "declined",
+                  respondedBy: updatedInvitee.respondedBy,
+                  respondedByName: updatedInvitee.respondedByName,
+                });
+
+                // Show success state
+                setResponseSuccess(true);
+
+                // Auto-close modal after 2 seconds
+                setTimeout(() => {
+                  setResponseSuccess(false);
+                  setSelectedInvitee(null);
+                }, 2000);
+              }
+            }
+          });
+        }, 100);
+      } else {
+        setConfirmModal({
+          visible: true,
+          title: "Error",
+          message: "Failed to update response",
+          onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+        });
+      }
+    } catch (error: any) {
+      console.error("Error updating invitee response:", error);
+      setConfirmModal({
+        visible: true,
+        title: "Error",
+        message: error.message || "Failed to update response",
+        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleEdit = () => {
     if (!event) return;
     router.push({
@@ -199,6 +299,45 @@ export default function EventDetailsScreen() {
     }
 
     // Check group-level roles (admin or coach)
+    if (event.groupId && clubAccess.groupAccess) {
+      const groupAccess = clubAccess.groupAccess.find(
+        (ga) => ga.groupId === event.groupId,
+      );
+
+      if (
+        groupAccess?.roles?.some(
+          (role: string) =>
+            role.toLowerCase() === "admin" || role.toLowerCase() === "coach",
+        )
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const isEventFull = () => {
+    if (!event || !event.capacity?.max) return false;
+    const acceptedCount = event.responseSummary?.accepted || 0;
+    return acceptedCount >= event.capacity.max;
+  };
+
+  const canRespondAfterDeadline = () => {
+    if (!event || !userProfile) return false;
+
+    const clubAccess = userProfile.clubAccess?.find(
+      (ca) => ca.clubId === event.clubId,
+    );
+
+    if (!clubAccess) return false;
+
+    // Club-admin can always respond after deadline
+    if (clubAccess.role === "club-admin") {
+      return true;
+    }
+
+    // Check if admin/coach in event's group
     if (event.groupId && clubAccess.groupAccess) {
       const groupAccess = clubAccess.groupAccess.find(
         (ga) => ga.groupId === event.groupId,
@@ -337,13 +476,19 @@ export default function EventDetailsScreen() {
             </Text>
           </View>
           {event.description && (
-            <Text
-              style={styles.eventDescription}
-              numberOfLines={3}
-              ellipsizeMode="tail"
+            <TouchableOpacity
+              onPress={() => setShowDescriptionModal(true)}
+              activeOpacity={0.7}
             >
-              {event.description}
-            </Text>
+              <Text
+                style={styles.eventDescription}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {event.description}
+                {event.description.length > 80 && " ...Read more"}
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -445,7 +590,37 @@ export default function EventDetailsScreen() {
             </View>
           )}
 
-          {event.maxCapacity && (
+          {/* Capacity Info */}
+          {event.capacity?.max && (
+            <View style={styles.infoRow}>
+              <Ionicons
+                name="people-outline"
+                size={20}
+                color={
+                  (event.responseSummary?.accepted || 0) >= event.capacity.max
+                    ? "#F44336"
+                    : theme.colors.secondary
+                }
+              />
+              <Text
+                style={[
+                  styles.infoText,
+                  (event.responseSummary?.accepted || 0) >=
+                    event.capacity.max && {
+                    color: "#F44336",
+                    fontWeight: "600",
+                  },
+                ]}
+              >
+                Capacity: {event.responseSummary?.accepted || 0}/
+                {event.capacity.max}
+                {(event.responseSummary?.accepted || 0) >= event.capacity.max &&
+                  " • Event Full!"}
+              </Text>
+            </View>
+          )}
+
+          {event.maxCapacity && !event.capacity?.max && (
             <View style={styles.infoRow}>
               <Ionicons
                 name="people-outline"
@@ -473,10 +648,34 @@ export default function EventDetailsScreen() {
           </View>
         </View>
 
-        {/* User Response Section */}
-        {!isPastEvent && (
+        {/* User Response Section - Only show if user is in responses array */}
+        {!isPastEvent && userResponse && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Your Response</Text>
+
+            {/* Capacity Display */}
+            {event.capacity?.max && (
+              <View style={styles.capacityInfo}>
+                <Ionicons
+                  name="people-outline"
+                  size={18}
+                  color={isEventFull() ? "#F44336" : theme.colors.secondary}
+                />
+                <Text
+                  style={[
+                    styles.capacityInfoText,
+                    isEventFull() && {
+                      color: "#F44336",
+                      fontWeight: "600",
+                    },
+                  ]}
+                >
+                  Capacity: {event.responseSummary?.accepted || 0}/
+                  {event.capacity.max}
+                  {isEventFull() && " - Event Full!"}
+                </Text>
+              </View>
+            )}
 
             {/* Capacity Warning */}
             {event.capacity?.max && (
@@ -485,7 +684,7 @@ export default function EventDetailsScreen() {
                   name="people-outline"
                   size={16}
                   color={
-                    event.responseSummary?.accepted >= event.capacity.max
+                    (event.responseSummary?.accepted || 0) >= event.capacity.max
                       ? "#F44336"
                       : theme.colors.secondary
                   }
@@ -493,15 +692,17 @@ export default function EventDetailsScreen() {
                 <Text
                   style={[
                     styles.capacityText,
-                    event.responseSummary?.accepted >= event.capacity.max && {
+                    (event.responseSummary?.accepted || 0) >=
+                      event.capacity.max && {
                       color: "#F44336",
                     },
                   ]}
                 >
-                  Limited to {event.capacity.max} participants •{" "}
-                  {event.responseSummary?.accepted || 0} accepted
-                  {event.responseSummary?.accepted >= event.capacity.max &&
-                    " • Event Full!"}
+                  Limited capacity: {event.capacity.max} spots •{" "}
+                  {event.responseSummary?.accepted || 0} accepted • First-come,
+                  first-served
+                  {(event.responseSummary?.accepted || 0) >=
+                    event.capacity.max && " • Event Full!"}
                 </Text>
               </View>
             )}
@@ -582,12 +783,20 @@ export default function EventDetailsScreen() {
                   styles.acceptButton,
                   normalizedResponse?.status === "accepted" &&
                     styles.disabledButton,
+                  isDeadlinePassed &&
+                    !canRespondAfterDeadline() && { opacity: 0.5 },
+                  isEventFull() &&
+                    normalizedResponse?.status !== "accepted" && {
+                      opacity: 0.5,
+                      backgroundColor: "#999",
+                    },
                 ]}
                 onPress={() => handleResponse("accepted")}
                 disabled={
                   submitting ||
                   normalizedResponse?.status === "accepted" ||
-                  isDeadlinePassed
+                  (isDeadlinePassed && !canRespondAfterDeadline()) ||
+                  (isEventFull() && normalizedResponse?.status !== "accepted")
                 }
               >
                 <Ionicons
@@ -604,12 +813,14 @@ export default function EventDetailsScreen() {
                   styles.declineButton,
                   normalizedResponse?.status === "declined" &&
                     styles.disabledButton,
+                  isDeadlinePassed &&
+                    !canRespondAfterDeadline() && { opacity: 0.5 },
                 ]}
                 onPress={() => handleResponse("declined")}
                 disabled={
                   submitting ||
                   normalizedResponse?.status === "declined" ||
-                  isDeadlinePassed
+                  (isDeadlinePassed && !canRespondAfterDeadline())
                 }
               >
                 <Ionicons
@@ -623,7 +834,9 @@ export default function EventDetailsScreen() {
 
             {isDeadlinePassed && (
               <Text style={styles.deadlinePassedText}>
-                Response deadline has passed
+                {canRespondAfterDeadline()
+                  ? "Deadline passed (You have special access as admin/coach)"
+                  : "Response deadline has passed"}
               </Text>
             )}
           </View>
@@ -651,8 +864,10 @@ export default function EventDetailsScreen() {
                       ? "#F44336"
                       : "#FFA726";
 
-                return (
-                  <View style={styles.inviteeItem}>
+                const canClickInvitee = canRespondAfterDeadline();
+
+                const inviteeContent = (
+                  <>
                     <View style={styles.inviteeLeft}>
                       {item.photoUrl ? (
                         <Image
@@ -680,18 +895,51 @@ export default function EventDetailsScreen() {
                           )}
                       </View>
                     </View>
-                    <View
-                      style={[
-                        styles.inviteeStatusBadge,
-                        { backgroundColor: statusColor },
-                      ]}
-                    >
-                      <Text style={styles.inviteeStatusText}>
-                        {statusValue.charAt(0).toUpperCase() +
-                          statusValue.slice(1)}
-                      </Text>
+                    <View style={styles.inviteeRight}>
+                      <View
+                        style={[
+                          styles.inviteeStatusBadge,
+                          { backgroundColor: statusColor },
+                        ]}
+                      >
+                        <Text style={styles.inviteeStatusText}>
+                          {statusValue.charAt(0).toUpperCase() +
+                            statusValue.slice(1)}
+                        </Text>
+                      </View>
+                      {canClickInvitee && (
+                        <Ionicons
+                          name="chevron-forward"
+                          size={20}
+                          color={theme.colors.textSecondary}
+                          style={{ marginLeft: 8 }}
+                        />
+                      )}
                     </View>
-                  </View>
+                  </>
+                );
+
+                return canClickInvitee ? (
+                  <TouchableOpacity
+                    style={styles.inviteeItem}
+                    onPress={() => {
+                      setSelectedInvitee({
+                        userId: item.userId,
+                        userName: item.userName || "Unknown User",
+                        photoUrl: item.photoUrl,
+                        status: statusValue as
+                          | "pending"
+                          | "accepted"
+                          | "declined",
+                        respondedBy: item.respondedBy,
+                        respondedByName: item.respondedByName,
+                      });
+                    }}
+                  >
+                    {inviteeContent}
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.inviteeItem}>{inviteeContent}</View>
                 );
               }}
               ItemSeparatorComponent={() => (
@@ -705,6 +953,232 @@ export default function EventDetailsScreen() {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Invitee Response Modal */}
+      <Modal
+        visible={selectedInvitee !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedInvitee(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {selectedInvitee?.userName}&apos;s Response
+              </Text>
+              <TouchableOpacity onPress={() => setSelectedInvitee(null)}>
+                <Ionicons name="close" size={28} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedInvitee && event && (
+              <ScrollView style={styles.modalScrollView}>
+                <View style={styles.inviteeModalContent}>
+                  {/* Capacity Display */}
+                  {event.capacity?.max && (
+                    <View style={styles.modalCapacityInfo}>
+                      <Ionicons
+                        name="people-outline"
+                        size={20}
+                        color={
+                          isEventFull() ? "#F44336" : theme.colors.secondary
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.modalCapacityText,
+                          isEventFull() && {
+                            color: "#F44336",
+                            fontWeight: "600",
+                          },
+                        ]}
+                      >
+                        Capacity: {event.responseSummary?.accepted || 0}/
+                        {event.capacity.max}
+                        {isEventFull() && " - Event Full!"}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Invitee Header */}
+                  <View style={styles.inviteeModalHeader}>
+                    {selectedInvitee.photoUrl ? (
+                      <Image
+                        source={{ uri: selectedInvitee.photoUrl }}
+                        style={styles.inviteeModalPhoto}
+                      />
+                    ) : (
+                      <View style={styles.inviteeModalPhotoPlaceholder}>
+                        <Ionicons
+                          name="person"
+                          size={40}
+                          color={theme.colors.textSecondary}
+                        />
+                      </View>
+                    )}
+                    <Text style={styles.inviteeModalName}>
+                      {selectedInvitee.userName}
+                    </Text>
+                  </View>
+
+                  {/* Success Banner */}
+                  {responseSuccess && (
+                    <View style={styles.successBanner}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={24}
+                        color="#fff"
+                      />
+                      <Text style={styles.successBannerText}>
+                        Response updated successfully!
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Current Response Status */}
+                  <View style={styles.currentResponseContainer}>
+                    <View
+                      style={[
+                        styles.currentResponseBadge,
+                        {
+                          backgroundColor: getResponseColor(
+                            selectedInvitee.status,
+                          ),
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          selectedInvitee.status === "accepted"
+                            ? "checkmark-circle"
+                            : selectedInvitee.status === "declined"
+                              ? "close-circle"
+                              : "time"
+                        }
+                        size={20}
+                        color={theme.colors.white}
+                      />
+                      <Text style={styles.currentResponseText}>
+                        {selectedInvitee.status.charAt(0).toUpperCase() +
+                          selectedInvitee.status.slice(1)}
+                      </Text>
+                    </View>
+
+                    {selectedInvitee.respondedBy && (
+                      <Text style={styles.guardianNote}>
+                        Responded by:{" "}
+                        {selectedInvitee.respondedByName || "Guardian"}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Response Buttons */}
+                  <View style={styles.responseButtons}>
+                    <TouchableOpacity
+                      style={[
+                        styles.responseButton,
+                        styles.acceptButton,
+                        selectedInvitee.status === "accepted" &&
+                          styles.disabledButton,
+                        isEventFull() &&
+                          selectedInvitee.status !== "accepted" && {
+                            opacity: 0.5,
+                            backgroundColor: "#999",
+                          },
+                      ]}
+                      onPress={() =>
+                        handleInviteeResponse(
+                          selectedInvitee.userId,
+                          "accepted",
+                        )
+                      }
+                      disabled={
+                        submitting ||
+                        selectedInvitee.status === "accepted" ||
+                        (isEventFull() && selectedInvitee.status !== "accepted")
+                      }
+                    >
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color={theme.colors.white}
+                      />
+                      <Text style={styles.responseButtonText}>Accept</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.responseButton,
+                        styles.declineButton,
+                        selectedInvitee.status === "declined" &&
+                          styles.disabledButton,
+                      ]}
+                      onPress={() =>
+                        handleInviteeResponse(
+                          selectedInvitee.userId,
+                          "declined",
+                        )
+                      }
+                      disabled={
+                        submitting || selectedInvitee.status === "declined"
+                      }
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color={theme.colors.white}
+                      />
+                      <Text style={styles.responseButtonText}>Decline</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Description Modal */}
+      <Modal
+        visible={showDescriptionModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDescriptionModal(false)}
+      >
+        <View style={styles.descriptionModalOverlay}>
+          <View style={styles.descriptionModalContainer}>
+            <View style={styles.descriptionModalHeader}>
+              <Text style={styles.descriptionModalTitle}>
+                Event Description
+              </Text>
+              <TouchableOpacity onPress={() => setShowDescriptionModal(false)}>
+                <Ionicons name="close" size={28} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.descriptionModalContent}>
+              <View style={styles.descriptionEventTypeRow}>
+                <Ionicons
+                  name={
+                    event?.eventType === "training"
+                      ? "fitness"
+                      : event?.eventType === "match"
+                        ? "football"
+                        : "calendar"
+                  }
+                  size={22}
+                  color={theme.colors.textSecondary}
+                />
+                <Text style={styles.descriptionEventType}>
+                  {event?.eventType?.toUpperCase() || "EVENT"}
+                </Text>
+              </View>
+              <Text style={styles.descriptionTitle}>{event?.title}</Text>
+              <Text style={styles.descriptionText}>{event?.description}</Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Confirmation Modal */}
       <ConfirmationModal
@@ -883,6 +1357,45 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     flex: 1,
   },
+  respondForSection: {
+    backgroundColor: theme.colors.inputBackground,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.md,
+  },
+  respondForLabel: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+  },
+  respondForButton: {
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.small,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: theme.spacing.xs,
+  },
+  respondForButtonActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  respondForButtonText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    textAlign: "center",
+  },
+  respondForButtonTextActive: {
+    color: theme.colors.white,
+    fontWeight: theme.typography.fontWeight.semibold,
+  },
+  respondForNote: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.warning,
+    marginTop: theme.spacing.sm,
+    fontStyle: "italic",
+  },
   responseButtons: {
     flexDirection: "row",
     gap: theme.spacing.md,
@@ -1016,6 +1529,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
   },
+  inviteeRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   inviteePhoto: {
     width: 40,
     height: 40,
@@ -1058,6 +1575,159 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: theme.colors.border,
     marginVertical: theme.spacing.xs,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: theme.borderRadius.large,
+    borderTopRightRadius: theme.borderRadius.large,
+    maxHeight: "90%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.text,
+  },
+  modalScrollView: {
+    maxHeight: "100%",
+  },
+  inviteeModalContent: {
+    padding: theme.spacing.lg,
+  },
+  inviteeModalHeader: {
+    alignItems: "center",
+    marginBottom: theme.spacing.lg,
+  },
+  inviteeModalPhoto: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: theme.colors.inputBackground,
+    marginBottom: theme.spacing.sm,
+  },
+  inviteeModalPhotoPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: theme.spacing.sm,
+  },
+  inviteeModalName: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.text,
+  },
+  successBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#4CAF50",
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  successBannerText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: "#fff",
+  },
+  capacityInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.small,
+  },
+  capacityInfoText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+  },
+  modalCapacityInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+  },
+  modalCapacityText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  descriptionModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: theme.spacing.lg,
+  },
+  descriptionModalContainer: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.large,
+    width: "100%",
+    maxWidth: 500,
+  },
+  descriptionModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  descriptionModalTitle: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.text,
+  },
+  descriptionModalContent: {
+    padding: theme.spacing.lg,
+  },
+  descriptionEventTypeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
+  },
+  descriptionEventType: {
+    fontSize: theme.typography.fontSize.small,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.textSecondary,
+    letterSpacing: 1,
+  },
+  descriptionTitle: {
+    fontSize: theme.typography.fontSize.xlarge,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+  },
+  descriptionText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    lineHeight: 24,
   },
   bottomPadding: {
     height: theme.spacing.xl,

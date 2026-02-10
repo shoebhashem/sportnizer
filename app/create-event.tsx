@@ -27,7 +27,7 @@ interface EventData {
   description: string;
   startDate: Date;
   startTime: Date;
-  gatheringTime?: Date; // Optional gathering time
+  gatheringTime?: string; // Optional gathering time in HH:mm format (e.g., "15:30")
   endDate: Date;
   endTime: Date;
   location: string;
@@ -212,6 +212,23 @@ export default function CreateEventScreen() {
         return;
       }
 
+      // Check if event has ended - cannot edit past events
+      if (event.endDate) {
+        const eventEndTime = new Date(event.endDate);
+        const now = new Date();
+
+        if (eventEndTime < now) {
+          setModal({
+            visible: true,
+            title: "Event Ended",
+            message: "This event has ended and cannot be edited",
+            type: "error",
+          });
+          setTimeout(() => router.back(), 2000);
+          return;
+        }
+      }
+
       // Determine if event was created in simple or advanced mode
       // If event has capacity or deadline, it was created in advanced mode
       const wasAdvancedMode = !!event.capacityLimit || !!event.responseDeadline;
@@ -234,7 +251,12 @@ export default function CreateEventScreen() {
         startDate: new Date(event.startDate),
         startTime: new Date(event.startDate),
         gatheringTime: event.gatheringTime
-          ? new Date(event.gatheringTime)
+          ? (() => {
+              const date = new Date(event.gatheringTime);
+              const hours = date.getHours().toString().padStart(2, "0");
+              const minutes = date.getMinutes().toString().padStart(2, "0");
+              return `${hours}:${minutes}`;
+            })()
           : undefined,
         endDate: event.endDate
           ? new Date(event.endDate)
@@ -368,6 +390,72 @@ export default function CreateEventScreen() {
       return false;
     }
 
+    // Validate end time is after start time
+    const startDateTime = new Date(eventData.startDate);
+    startDateTime.setHours(eventData.startTime.getHours());
+    startDateTime.setMinutes(eventData.startTime.getMinutes());
+
+    const endDateTime = new Date(eventData.endDate);
+    endDateTime.setHours(eventData.endTime.getHours());
+    endDateTime.setMinutes(eventData.endTime.getMinutes());
+
+    if (endDateTime <= startDateTime) {
+      setModal({
+        visible: true,
+        title: "Invalid Time",
+        message: "Event end time must be after start time",
+        type: "error",
+      });
+      return false;
+    }
+
+    // For new events, validate start time is in the future
+    if (!isEditMode) {
+      const now = new Date();
+      if (startDateTime < now) {
+        setModal({
+          visible: true,
+          title: "Invalid Time",
+          message: "Event must start in the future",
+          type: "error",
+        });
+        return false;
+      }
+    }
+
+    // Validate gathering time is before start time
+    if (eventData.gatheringTime) {
+      const [gatheringHours, gatheringMinutes] = eventData.gatheringTime
+        .split(":")
+        .map(Number);
+      const gatheringDateTime = new Date(eventData.startDate);
+      gatheringDateTime.setHours(gatheringHours);
+      gatheringDateTime.setMinutes(gatheringMinutes);
+
+      if (gatheringDateTime >= startDateTime) {
+        setModal({
+          visible: true,
+          title: "Invalid Time",
+          message: "Gathering time must be before event start time",
+          type: "error",
+        });
+        return false;
+      }
+    }
+
+    // Validate response deadline is before start time
+    if (eventData.responseDeadline.enabled && eventData.responseDeadline.date) {
+      if (eventData.responseDeadline.date >= startDateTime) {
+        setModal({
+          visible: true,
+          title: "Invalid Deadline",
+          message: "Response deadline must be before event start time",
+          type: "error",
+        });
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -437,7 +525,7 @@ export default function CreateEventScreen() {
         startTime: startDateTime.toISOString(),
         endDate: eventData.endDate.toISOString().split("T")[0],
         endTime: endDateTime.toISOString(),
-        gatheringTime: eventData.gatheringTime?.toISOString(),
+        gatheringTime: eventData.gatheringTime, // Send as HH:mm string
         location: eventData.location,
         targetScope,
         roleFilter: selectedRoles.length > 0 ? selectedRoles : undefined,
@@ -461,6 +549,10 @@ export default function CreateEventScreen() {
         clubIdType: typeof request.targetScope.clubId,
         clubNameType: typeof request.targetScope.clubName,
         fullTargetScope: request.targetScope,
+        // GATHERING TIME DEBUG
+        gatheringTime: request.gatheringTime,
+        startTime: request.startTime,
+        startDate: request.startDate,
       });
 
       // Call backend
@@ -527,7 +619,7 @@ export default function CreateEventScreen() {
         location: eventData.location,
         startDate: startDateTime.toISOString(),
         endDate: endDateTime.toISOString(),
-        gatheringTime: eventData.gatheringTime?.toISOString() || null,
+        gatheringTime: eventData.gatheringTime || null, // Send as HH:mm string
         capacityLimit: eventData.capacity.enabled
           ? eventData.capacity.maxAttendees
           : null,
@@ -661,7 +753,11 @@ export default function CreateEventScreen() {
     return date.toLocaleDateString();
   };
 
-  const formatTime = (time: Date) => {
+  const formatTime = (time: Date | string) => {
+    if (typeof time === "string") {
+      // Already in HH:mm format
+      return time;
+    }
     const hours = time.getHours().toString().padStart(2, "0");
     const minutes = time.getMinutes().toString().padStart(2, "0");
     return `${hours}:${minutes}`;
@@ -1382,8 +1478,17 @@ export default function CreateEventScreen() {
                       }));
                     } else {
                       // Add gathering time (30 minutes before start time)
-                      const gatheringTime = new Date(eventData.startTime);
-                      gatheringTime.setMinutes(gatheringTime.getMinutes() - 30);
+                      const tempTime = new Date(eventData.startTime);
+                      tempTime.setMinutes(tempTime.getMinutes() - 30);
+                      const hours = tempTime
+                        .getHours()
+                        .toString()
+                        .padStart(2, "0");
+                      const minutes = tempTime
+                        .getMinutes()
+                        .toString()
+                        .padStart(2, "0");
+                      const gatheringTime = `${hours}:${minutes}`;
                       setEventData((prev) => ({ ...prev, gatheringTime }));
                     }
                   }}
@@ -1928,11 +2033,29 @@ export default function CreateEventScreen() {
 
       {/* Gathering Time Picker */}
       <CustomDateTimePicker
-        value={eventData.gatheringTime || eventData.startTime}
+        value={(() => {
+          if (eventData.gatheringTime) {
+            const [hours, minutes] = eventData.gatheringTime
+              .split(":")
+              .map(Number);
+            const date = new Date();
+            date.setHours(hours);
+            date.setMinutes(minutes);
+            return date;
+          }
+          return eventData.startTime;
+        })()}
         mode="time"
         isVisible={showGatheringTimePicker}
         onConfirm={(time) => {
-          setEventData((prev) => ({ ...prev, gatheringTime: time }));
+          // Extract hours and minutes and store as HH:mm string
+          const hours = time.getHours().toString().padStart(2, "0");
+          const minutes = time.getMinutes().toString().padStart(2, "0");
+          const gatheringTime = `${hours}:${minutes}`;
+          setEventData((prev) => ({
+            ...prev,
+            gatheringTime,
+          }));
           setShowGatheringTimePicker(false);
         }}
         onCancel={() => setShowGatheringTimePicker(false)}

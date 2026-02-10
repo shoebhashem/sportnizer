@@ -4,22 +4,11 @@ Overview
 This document describes how the group invitation flow works across the frontend (Expo React App) and backend (Firebase Cloud Functions).
 It explains the data flow, Firestore updates, and how the invitation token is created, validated, and consumed.
 
-## 🔑 **Key UX Decision: Invited Users Skip Email Verification**
-
-**IMPORTANT**: Users who sign up through group invitations bypass the email verification requirement for improved user experience.
-- **Regular Signup**: Requires email verification before account activation (`emailVerified: false` initially)
-- **Invitation Signup**: Email verification is skipped (`emailVerified: true` from account creation)
-- **Rationale**: Invitation email serves as email validation, eliminating redundant verification step
-
-## Architecture Guarantees
-
 The flow ensures that:
 
 Invitations can be sent by admins via email.
 
-Invited users can accept or reject invitations without email verification barriers.
-
-Users signing up through invitations have `emailVerified: true` from account creation.
+Invited users can accept or reject invitations.
 
 Firestore updates occur consistently across:
 
@@ -32,14 +21,14 @@ Firestore updates occur consistently across:
 /users/{uid}/groupsJoined
 
 sequenceDiagram
-    participant Admin as Admin (Frontend)
-    participant CF1 as sendGroupInvitation (Cloud Function)
-    participant Email as Email Service (Nodemailer)
-    participant User as Invited User (Frontend)
-    participant CF2 as processInvitation (Cloud Function)
-    participant Auth as Firebase Auth
-    participant Firestore as Firestore DB
-    participant CF3 as respondToInvitation (Cloud Function)
+participant Admin as Admin (Frontend)
+participant CF1 as sendGroupInvitation (Cloud Function)
+participant Email as Email Service (Nodemailer)
+participant User as Invited User (Frontend)
+participant CF2 as processInvitation (Cloud Function)
+participant Auth as Firebase Auth
+participant Firestore as Firestore DB
+participant CF3 as respondToInvitation (Cloud Function)
 
     Admin->>CF1: Call sendGroupInvitation({emails[], clubId, groupId, ...})
     CF1->>Firestore: Create /invitations/{token} doc (status: pending)
@@ -74,8 +63,8 @@ sequenceDiagram
 
     CF3-->>Firestore: Delete invitation doc after short delay
 
-
 🧭 Functional Breakdown
+
 1. sendGroupInvitation (Cloud Function — Callable)
 
 Purpose:
@@ -85,13 +74,12 @@ Creates the invitation document and emails the invite link.
 Inputs:
 
 {
-  "emails": ["user@example.com"],
-  "clubId": "club123",
-  "groupId": "group456",
-  "groupName": "Gothenburg FC",
-  "inviterName": "Shoeb Hashem"
+"emails": ["user@example.com"],
+"clubId": "club123",
+"groupId": "group456",
+"groupName": "Gothenburg FC",
+"inviterName": "Shoeb Hashem"
 }
-
 
 Key Operations:
 
@@ -102,16 +90,15 @@ Generate a unique token → invitations/{token}.
 Write invitation data to Firestore:
 
 invitations/{token}:
-  email
-  clubId
-  groupId
-  groupName
-  inviterName
-  inviterUid
-  createdAt
-  used: false
-  status: "pending"
-
+email
+clubId
+groupId
+groupName
+inviterName
+inviterUid
+createdAt
+used: false
+status: "pending"
 
 Send email with link:
 
@@ -126,9 +113,8 @@ Validates the token and returns the invitation details to the frontend.
 Inputs:
 
 {
-  "invitationToken": "abc123xyz"
+"invitationToken": "abc123xyz"
 }
-
 
 Key Operations:
 
@@ -139,14 +125,13 @@ Ensure invitation exists, is not expired, and not used.
 Return details such as:
 
 {
-  "success": true,
-  "groupName": "Gothenburg FC",
-  "inviterName": "Shoeb Hashem",
-  "clubId": "club123",
-  "groupId": "group456",
-  "status": "pending"
+"success": true,
+"groupName": "Gothenburg FC",
+"inviterName": "Shoeb Hashem",
+"clubId": "club123",
+"groupId": "group456",
+"status": "pending"
 }
-
 
 Frontend Behavior:
 
@@ -165,11 +150,10 @@ Updates Firestore membership and user profile accordingly.
 Inputs:
 
 {
-  "invitationToken": "abc123xyz",
-  "userEmail": "user@example.com",
-  "action": "accept"
+"invitationToken": "abc123xyz",
+"userEmail": "user@example.com",
+"action": "accept"
 }
-
 
 Key Operations:
 
@@ -186,27 +170,25 @@ Add new user entry to:
 /clubs/{clubId}/allMembers/members
 /clubs/{clubId}/groups/{groupId}/allMembers/members
 
-
 Each new entry follows the predefined Member interface (name, email, uid, roles, joinedAt, etc.).
 
 Update user document /users/{uid}:
 
 clubs[] += {
-  clubId,
-  role: "member",
-  joinedAt,
-  ...
+clubId,
+role: "member",
+joinedAt,
+...
 }
 
 groupsJoined[] += {
-  groupId,
-  groupName,
-  clubId,
-  role: "member",
-  joinedAt,
-  ...
+groupId,
+groupName,
+clubId,
+role: "member",
+joinedAt,
+...
 }
-
 
 Mark invitation as used:
 
@@ -214,7 +196,6 @@ used: true
 status: "accepted"
 usedAt: serverTimestamp()
 usedBy: uid
-
 
 Schedule deletion of the invitation document after a short delay.
 
@@ -227,65 +208,46 @@ status: "rejected"
 usedAt: serverTimestamp()
 usedBy: uid
 
-
 Delete invitation after delay.
 
 🔄 Invitation Token Lifecycle
-Stage	Function	Firestore State	Description
-Created	sendGroupInvitation	status: pending, used: false	Token created and emailed.
-Viewed	processInvitation	No DB changes	Token verified, details shown to user.
-Accepted	respondToInvitation	status: accepted, used: true	User added to club/group, token marked used.
-Rejected	respondToInvitation	status: rejected, used: true	Invitation declined, cleaned up.
-Expired	(future)	status: expired	Automatically marked expired after a TTL (optional).
-## � **Email Verification Policy**
+Stage Function Firestore State Description
+Created sendGroupInvitation status: pending, used: false Token created and emailed.
+Viewed processInvitation No DB changes Token verified, details shown to user.
+Accepted respondToInvitation status: accepted, used: true User added to club/group, token marked used.
+Rejected respondToInvitation status: rejected, used: true Invitation declined, cleaned up.
+Expired (future) status: expired Automatically marked expired after a TTL (optional).
+💻 Frontend Responsibilities (Expo React App)
 
-### Regular User Signup Flow:
-1. User creates account → `emailVerified: false`
-2. Verification email sent → user must verify before signing in
-3. After verification → `emailVerified: true`, account activated
-
-### Invitation-Based Signup Flow:
-1. User clicks invitation link → validates identity through invitation email
-2. User creates account → **`emailVerified: true` immediately** (no verification email sent)
-3. User can sign in immediately → no verification barrier
-4. Invitation acts as email validation mechanism
-
-### Implementation Details:
-- `createUserAccount` function detects invitation context via `invitationToken` parameter
-- When `invitationToken` present: `emailVerified: true`, skip verification email
-- When `invitationToken` absent: `emailVerified: false`, send verification email
-
-�💻 Frontend Responsibilities (Expo React App)
 1. Handle Deep Linking / URL Params
-const token = new URLSearchParams(window.location.search).get('invite');
-
+   const token = new URLSearchParams(window.location.search).get('invite');
 
 Store this token (e.g., in AsyncStorage or React Context) until the user signs in.
 
-2. Call validateInvitationToken
+2. Call processInvitation
 
-When the app loads with invite param, call /validateInvitationToken.
+When the app loads with invite param, call /processInvitation.
 
-Check if user exists in Firestore, route accordingly (login vs signup).
+Display group and inviter details to the user.
 
 3. Authenticate User
 
 If user not logged in → prompt Firebase Auth login/signup.
 
-On signup with invitation, /users/{uid} is created with `emailVerified: true`.
+On signup, /users/{uid} is automatically created.
 
-4. Call addMemberToGroup and markInvitationUsed
+4. Call respondToInvitation
 
 After login, if an invite token exists:
 
 await fetch(`${API_URL}/respondToInvitation`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    invitationToken: token,
-    userEmail: user.email,
-    action: 'accept'
-  })
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+invitationToken: token,
+userEmail: user.email,
+action: 'accept'
+})
 });
 
 5. Handle Response
@@ -295,12 +257,12 @@ On success → show “You’ve joined {groupName}!”
 On error → show proper message (expired, invalid, already used).
 
 🧠 Firestore Data Update Summary
-Collection Path	Action	Description
-/invitations/{token}	Create → Update → Delete	Lifecycle management of invitations
-/clubs/{clubId}/allMembers/members	Add user entry	Adds member to club-level members list
-/clubs/{clubId}/groups/{groupId}/allMembers/members	Add user entry	Adds member to specific group
-/users/{uid}/clubs	Append	Tracks which clubs the user belongs to
-/users/{uid}/groupsJoined	Append	Tracks which groups the user joined
+Collection Path Action Description
+/invitations/{token} Create → Update → Delete Lifecycle management of invitations
+/clubs/{clubId}/allMembers/members Add user entry Adds member to club-level members list
+/clubs/{clubId}/groups/{groupId}/allMembers/members Add user entry Adds member to specific group
+/users/{uid}/clubs Append Tracks which clubs the user belongs to
+/users/{uid}/groupsJoined Append Tracks which groups the user joined
 ✅ Future Improvements
 
 Add an expiration mechanism for invitations (e.g., 7 days).
@@ -313,7 +275,7 @@ Add transaction-based writes for atomic updates across club/group/user.
 
 This design ensures a complete and reliable invitation flow across frontend (Expo React app) and backend (Firebase Cloud Functions).
 
-Stage	Function	Frontend Action	Firestore Updates
-Invite creation	sendGroupInvitation	Admin sends invite	invitations/{token} created
-Invite validation	processInvitation	User opens link	None (read-only)
-Invite response	respondToInvitation	User accepts/rejects	Users + Clubs + Groups updated
+Stage Function Frontend Action Firestore Updates
+Invite creation sendGroupInvitation Admin sends invite invitations/{token} created
+Invite validation processInvitation User opens link None (read-only)
+Invite response respondToInvitation User accepts/rejects Users + Clubs + Groups updated

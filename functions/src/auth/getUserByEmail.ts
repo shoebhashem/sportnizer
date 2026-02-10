@@ -1,7 +1,7 @@
-import * as admin from 'firebase-admin';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
-import { config } from '../utils/config';
-import { validateRequiredFields } from '../utils/validation';
+import * as admin from "firebase-admin";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { config } from "../utils/config";
+import { validateRequiredFields } from "../utils/validation";
 
 export interface GetUserByEmailRequest {
   email: string;
@@ -24,11 +24,11 @@ export const getUserByEmail = onCall(
       const { email }: GetUserByEmailRequest = request.data;
 
       // Validate required fields
-      validateRequiredFields(request.data, ['email']);
+      validateRequiredFields(request.data, ["email"]);
 
       // Verify the user is authenticated
       if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'User must be authenticated');
+        throw new HttpsError("unauthenticated", "User must be authenticated");
       }
 
       console.log(`Looking up user by email: ${email}`);
@@ -37,8 +37,8 @@ export const getUserByEmail = onCall(
 
       // Query users collection by email
       const usersQuery = await db
-        .collection('users')
-        .where('email', '==', email.toLowerCase().trim())
+        .collection("users")
+        .where("email", "==", email.toLowerCase().trim())
         .limit(1)
         .get();
 
@@ -46,7 +46,7 @@ export const getUserByEmail = onCall(
         console.log(`No user found with email: ${email}`);
         return {
           success: true,
-          userExists: false
+          userExists: false,
         };
       }
 
@@ -59,17 +59,16 @@ export const getUserByEmail = onCall(
         success: true,
         userExists: true,
         userId: userDoc.id,
-        userProfile
+        userProfile,
       };
-
     } catch (error) {
-      console.error('Error in getUserByEmail:', error);
-      
+      console.error("Error in getUserByEmail:", error);
+
       if (error instanceof HttpsError) {
         throw error;
       }
-      
-      throw new HttpsError('internal', 'Failed to lookup user by email');
+
+      throw new HttpsError("internal", "Failed to lookup user by email");
     }
-  }
+  },
 );

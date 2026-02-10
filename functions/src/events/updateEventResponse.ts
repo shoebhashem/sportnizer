@@ -101,6 +101,140 @@ export const updateEventResponse = onCall(
         const authUid = request.auth!.uid; // Assert non-null (checked at function start)
 
         // ============================================================================
+        // DEADLINE CHECK: Enforce response deadline with role-based override
+        // ============================================================================
+        if (eventData.responseDeadline) {
+          const deadline = eventData.responseDeadline.toDate();
+          const now = new Date();
+
+          if (deadline < now) {
+            console.log(
+              `⏰ Deadline passed for event ${data.eventId}. Checking permissions...`,
+            );
+
+            // Deadline passed - check if user has permission to override
+            const userDoc = await db.collection("users").doc(authUid).get();
+            const userData = userDoc.data();
+
+            if (!userData) {
+              throw new HttpsError("not-found", "User profile not found");
+            }
+
+            const clubAccess = userData.clubAccess?.find(
+              (ca: any) => ca.clubId === data.clubId,
+            );
+
+            let canOverrideDeadline = false;
+
+            // Check if user is club-admin
+            if (clubAccess?.role === "club-admin") {
+              canOverrideDeadline = true;
+              console.log(
+                `✅ User ${authUid} is club-admin, allowing post-deadline response`,
+              );
+            }
+
+            // Check if user is admin/coach in the event's group
+            if (
+              !canOverrideDeadline &&
+              eventData.targetScope?.groupId &&
+              clubAccess?.groupAccess
+            ) {
+              const groupAccess = clubAccess.groupAccess.find(
+                (ga: any) => ga.groupId === eventData.targetScope.groupId,
+              );
+
+              if (
+                groupAccess?.roles?.includes("admin") ||
+                groupAccess?.roles?.includes("coach")
+              ) {
+                canOverrideDeadline = true;
+                console.log(
+                  `✅ User ${authUid} is group admin/coach, allowing post-deadline response`,
+                );
+              }
+            }
+
+            if (!canOverrideDeadline) {
+              console.log(
+                `❌ User ${authUid} does not have permission to respond after deadline`,
+              );
+              throw new HttpsError(
+                "permission-denied",
+                "Response deadline has passed. Please contact your coach or admin for assistance.",
+              );
+            }
+          }
+        }
+
+        // ============================================================================
+        // RESPOND FOR OTHERS: Validate permission when respondedBy is different from userId
+        // ============================================================================
+        if (data.respondedBy && data.respondedBy !== data.userId) {
+          console.log(
+            `🔍 User ${data.respondedBy} attempting to respond for user ${data.userId}`,
+          );
+
+          // Fetch responder's user profile to check permissions
+          const responderDoc = await db
+            .collection("users")
+            .doc(data.respondedBy)
+            .get();
+
+          if (!responderDoc.exists) {
+            throw new HttpsError("not-found", "Responder profile not found");
+          }
+
+          const responderData = responderDoc.data()!;
+          const clubAccess = responderData.clubAccess?.find(
+            (ca: any) => ca.clubId === data.clubId,
+          );
+
+          let canRespondForOthers = false;
+
+          // Check if responder is club-admin
+          if (clubAccess?.role === "club-admin") {
+            canRespondForOthers = true;
+            console.log(
+              `✅ User ${data.respondedBy} is club-admin, allowing respond-for-others`,
+            );
+          }
+
+          // Check if responder is admin/coach in the event's group
+          if (
+            !canRespondForOthers &&
+            eventData.targetScope?.groupId &&
+            clubAccess?.groupAccess
+          ) {
+            const groupAccess = clubAccess.groupAccess.find(
+              (ga: any) => ga.groupId === eventData.targetScope.groupId,
+            );
+
+            if (
+              groupAccess?.roles?.includes("admin") ||
+              groupAccess?.roles?.includes("coach")
+            ) {
+              canRespondForOthers = true;
+              console.log(
+                `✅ User ${data.respondedBy} is group admin/coach, allowing respond-for-others`,
+              );
+            }
+          }
+
+          if (!canRespondForOthers) {
+            console.log(
+              `❌ User ${data.respondedBy} does not have permission to respond for others`,
+            );
+            throw new HttpsError(
+              "permission-denied",
+              "You do not have permission to respond for other users",
+            );
+          }
+
+          // Permission granted - will record respondedBy later
+        }
+
+        // ============================================================================
         // CAPACITY CHECK: Prevent accepting if event is full
         // ============================================================================
         if (
@@ -145,10 +279,11 @@ export const updateEventResponse = onCall(
         const responseData = responses[responseIndex];
 
         // ============================================================================
-        // PERMISSION CHECK: Allow user to update their own response OR guardians to update youth responses
+        // PERMISSION CHECK: Allow user to update their own response OR guardians to update youth responses OR admins/coaches to respond for others
         // ============================================================================
         let isGuardianResponding = false;
-        let guardianName = "";
+        let isAdminCoachResponding = false;
+        let responderName = "";
 
         if (authUid === data.userId) {
           // User updating their own response
@@ -160,9 +295,18 @@ export const updateEventResponse = onCall(
           // Guardian updating youth member's response
           isGuardianResponding = true;
           const guardianIndex = responseData.guardianIds.indexOf(authUid);
-          guardianName =
+          responderName =
             responseData.guardianNames?.[guardianIndex] || "Guardian";
-          console.log(`✅ Guardian ${guardianName} updating youth response`);
+          console.log(`✅ Guardian ${responderName} updating youth response`);
+        } else if (data.respondedBy && data.respondedBy === authUid) {
+          // Admin/Coach responding for another user (already validated above)
+          isAdminCoachResponding = true;
+          const responderDoc = await db.collection("users").doc(authUid).get();
+          const responderData = responderDoc.data();
+          responderName = responderData?.name || "Admin/Coach";
+          console.log(
+            `✅ Admin/Coach ${responderName} responding for user ${data.userId}`,
+          );
         } else if (!eventData.invitedUserIds?.includes(authUid)) {
           throw new HttpsError(
             "permission-denied",
@@ -175,51 +319,21 @@ export const updateEventResponse = onCall(
           );
         }
 
-        // ============================================================================
-        // STEP 2A: Validate Response Timing
-        // ============================================================================
-        const now = admin.firestore.Timestamp.now();
-
-        // Check if response deadline is set and has passed
-        if (eventData.responseDeadline) {
-          const deadline = eventData.responseDeadline;
-          if (now.toMillis() > deadline.toMillis()) {
-            throw new HttpsError(
-              "failed-precondition",
-              "Response deadline has passed. You can no longer respond to this event.",
-            );
-          }
-        }
-        // If no deadline, check if event has already started
-        else if (eventData.startDate) {
-          // startDate might be a Timestamp or a string
-          const eventStart =
-            typeof eventData.startDate === "string"
-              ? admin.firestore.Timestamp.fromDate(
-                  new Date(eventData.startDate),
-                )
-              : eventData.startDate;
-
-          if (now.toMillis() > eventStart.toMillis()) {
-            throw new HttpsError(
-              "failed-precondition",
-              "Event has already started. You can no longer respond.",
-            );
-          }
-        }
-
         // Get old response to adjust counts
         const oldResponse = responses[responseIndex].response;
         const oldResponseData = responses[responseIndex];
 
         // Save response history if guardian is overriding a previous response
         let responseHistory = oldResponseData.responseHistory || [];
-        if (isGuardianResponding && oldResponse !== "pending") {
+        if (
+          (isGuardianResponding || isAdminCoachResponding) &&
+          oldResponse !== "pending"
+        ) {
           responseHistory.push({
             response: oldResponse,
             changedAt: admin.firestore.Timestamp.now(), // Use Timestamp.now() for array fields
             changedBy: authUid,
-            changedByName: guardianName,
+            changedByName: responderName,
           });
         }
 
@@ -230,10 +344,10 @@ export const updateEventResponse = onCall(
           respondedAt: admin.firestore.Timestamp.now(), // Use Timestamp.now() for array fields
         };
 
-        // If guardian is responding, track who responded
-        if (isGuardianResponding) {
+        // If guardian or admin/coach is responding, track who responded
+        if (isGuardianResponding || isAdminCoachResponding) {
           updatedResponse.respondedBy = authUid;
-          updatedResponse.respondedByName = guardianName;
+          updatedResponse.respondedByName = responderName;
           updatedResponse.responseHistory = responseHistory;
         }
 
