@@ -1,6 +1,6 @@
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from './core/firebase';
-import type { DependentInfo, UserProfile } from './types/user';
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "./core/firebase";
+import type { DependentInfo, UserProfile } from "./types/user";
 
 /**
  * Fetches the full UserProfile for each dependent (youth member)
@@ -8,7 +8,7 @@ import type { DependentInfo, UserProfile } from './types/user';
  * @returns Array of full UserProfile objects for each dependent
  */
 export async function fetchDependentProfiles(
-  dependents: DependentInfo[]
+  dependents: DependentInfo[],
 ): Promise<UserProfile[]> {
   if (!dependents || dependents.length === 0) {
     return [];
@@ -18,7 +18,7 @@ export async function fetchDependentProfiles(
     // Fetch all dependent profiles in parallel
     const profilePromises = dependents.map(async (dependent) => {
       try {
-        const userDocRef = doc(db, 'users', dependent.uid);
+        const userDocRef = doc(db, "users", dependent.uid);
         const userDoc = await getDoc(userDocRef);
 
         if (!userDoc.exists()) {
@@ -27,15 +27,15 @@ export async function fetchDependentProfiles(
         }
 
         const data = userDoc.data();
-        
+
         // Convert Firestore Timestamps to Date objects
         const profile: UserProfile = {
           uid: userDoc.id,
-          email: data.email || '',
-          displayName: data.displayName || dependent.childName || 'Unknown',
+          email: data.email || "",
+          displayName: data.displayName || dependent.childName || "Unknown",
           photoURL: data.photoURL,
           phoneNumber: data.phoneNumber || null,
-          dateOfBirth: data.dateOfBirth?.toDate() || null,
+          dateOfBirth: data.dateOfBirth || null,
           emailVerified: data.emailVerified || false,
           address: data.address,
           clubAccess: data.clubAccess || [],
@@ -46,37 +46,67 @@ export async function fetchDependentProfiles(
           createdAt: data.createdAt?.toDate(),
           lastActive: data.lastActive?.toDate(),
           version: data.version,
-          dependents: data.dependents || [],
-          guardians: data.guardians || [],
+          dependents:
+            data.dependents?.map((dep: any) => ({
+              ...dep,
+              addedAt: dep.addedAt?.toDate?.() || dep.addedAt || new Date(),
+            })) || [],
+          guardians:
+            data.guardians?.map((guard: any) => ({
+              ...guard,
+              addedAt: guard.addedAt?.toDate?.() || guard.addedAt || new Date(),
+            })) || [],
         };
 
         // Convert timestamps in clubAccess
         if (profile.clubAccess) {
-          profile.clubAccess = profile.clubAccess.map((club) => ({
+          profile.clubAccess = profile.clubAccess.map((club: any) => ({
             ...club,
-            joinedAt: club.joinedAt instanceof Date ? club.joinedAt : (club.joinedAt as any)?.toDate?.() || new Date(),
-            lastModifiedAt: club.lastModifiedAt instanceof Date ? club.lastModifiedAt : (club.lastModifiedAt as any)?.toDate?.() || new Date(),
-            groupAccess: club.groupAccess?.map((group) => ({
+            joinedAt:
+              typeof club.joinedAt === "string"
+                ? new Date(club.joinedAt)
+                : club.joinedAt?.toDate?.() || new Date(),
+            lastModifiedAt:
+              typeof club.lastModifiedAt === "string"
+                ? new Date(club.lastModifiedAt)
+                : club.lastModifiedAt?.toDate?.() || new Date(),
+            deletionScheduledAt:
+              club.deletionScheduledAt?.toDate?.() || club.deletionScheduledAt,
+            groupAccess: club.groupAccess?.map((group: any) => ({
               ...group,
-              joinedAt: group.joinedAt instanceof Date ? group.joinedAt : (group.joinedAt as any)?.toDate?.() || new Date(),
-              lastModifiedAt: group.lastModifiedAt instanceof Date ? group.lastModifiedAt : (group.lastModifiedAt as any)?.toDate?.() || new Date(),
+              joinedAt:
+                typeof group.joinedAt === "string"
+                  ? new Date(group.joinedAt)
+                  : group.joinedAt?.toDate?.() || new Date(),
+              lastModifiedAt:
+                typeof group.lastModifiedAt === "string"
+                  ? new Date(group.lastModifiedAt)
+                  : group.lastModifiedAt?.toDate?.() || new Date(),
+              deletionScheduledAt:
+                group.deletionScheduledAt?.toDate?.() ||
+                group.deletionScheduledAt,
             })),
           }));
         }
 
         return profile;
       } catch (error) {
-        console.error(`❌ Error fetching dependent profile ${dependent.uid}:`, error);
+        console.error(
+          `❌ Error fetching dependent profile ${dependent.uid}:`,
+          error,
+        );
         return null;
       }
     });
 
     const profiles = await Promise.all(profilePromises);
-    
+
     // Filter out null values (failed fetches)
-    return profiles.filter((profile): profile is UserProfile => profile !== null);
+    return profiles.filter(
+      (profile): profile is UserProfile => profile !== null,
+    );
   } catch (error) {
-    console.error('❌ Error fetching dependent profiles:', error);
+    console.error("❌ Error fetching dependent profiles:", error);
     return [];
   }
 }

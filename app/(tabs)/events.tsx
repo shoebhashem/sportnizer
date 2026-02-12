@@ -5,10 +5,10 @@ import EventCard from "@/components/EventCard";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-    filterEventsByType,
     getAllUpcomingEvents,
-    getPastEvents,
+    getPastEvents
 } from "@/services/event/eventService";
+import { fetchDependentProfiles } from "@/services/fetchDependentProfiles";
 import type { EventData } from "@/services/types/event";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -28,11 +28,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 type EventFilter = "all" | "training" | "match" | "meeting" | "other";
 type TimeFilter = "upcoming" | "past";
 
+interface ExpandedEventData extends EventData {
+  inviteeUserId: string;
+  inviteeName: string;
+  isCurrentUser: boolean;
+  isYouthMember: boolean;
+  responseStatus: string;
+}
+
 export default function EventsTab() {
   const router = useRouter();
   const { user } = useAuth();
   const [events, setEvents] = useState<EventData[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<EventData[]>([]);
+  const [expandedEvents, setExpandedEvents] = useState<ExpandedEventData[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<ExpandedEventData[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [eventTypeFilter, setEventTypeFilter] = useState<EventFilter>("all");
@@ -50,23 +59,58 @@ export default function EventsTab() {
         loadedEvents = await getPastEvents();
       }
 
-      setEvents(loadedEvents);
+      // Fetch dependents to know which children to show
+      const dependentsResult = await fetchDependentProfiles();
+      const dependentIds =
+        dependentsResult.success && dependentsResult.dependents
+          ? dependentsResult.dependents.map((d) => d.dependentId)
+          : [];
 
-      // Apply event type filter
-      const filtered = filterEventsByType(loadedEvents, eventTypeFilter);
+      // Expand events: create separate card for each invitee
+      const expanded: ExpandedEventData[] = [];
+
+      for (const event of loadedEvents) {
+        if (!event.responses) continue;
+
+        // Filter responses to current user + dependents
+        const relevantResponses = event.responses.filter(
+          (r) => r.userId === user?.uid || dependentIds.includes(r.userId),
+        );
+
+        // Create a card for each relevant invitee
+        for (const response of relevantResponses) {
+          expanded.push({
+            ...event,
+            inviteeUserId: response.userId,
+            inviteeName: response.userName,
+            isCurrentUser: response.userId === user?.uid,
+            isYouthMember: response.isYouthMember || false,
+            responseStatus: response.response || response.status || "pending",
+          });
+        }
+      }
+
+      setEvents(loadedEvents);
+      setExpandedEvents(expanded);
+
+      // Apply event type filter to expanded events
+      const filtered = expanded.filter(
+        (e) => eventTypeFilter === "all" || e.eventType === eventTypeFilter,
+      );
       setFilteredEvents(filtered);
 
       console.log(
-        `Loaded ${loadedEvents.length} events, showing ${filtered.length} after filter`,
+        `Loaded ${loadedEvents.length} events, expanded to ${expanded.length} cards, showing ${filtered.length} after filter`,
       );
     } catch (error) {
       console.error("Error loading events:", error);
       setEvents([]);
+      setExpandedEvents([]);
       setFilteredEvents([]);
     } finally {
       setLoading(false);
     }
-  }, [timeFilter, eventTypeFilter]);
+  }, [timeFilter, eventTypeFilter, user?.uid]);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,7 +126,9 @@ export default function EventsTab() {
 
   const handleEventTypeFilter = (filter: EventFilter) => {
     setEventTypeFilter(filter);
-    const filtered = filterEventsByType(events, filter);
+    const filtered = expandedEvents.filter(
+      (e) => filter === "all" || e.eventType === filter,
+    );
     setFilteredEvents(filtered);
   };
 
@@ -91,10 +137,12 @@ export default function EventsTab() {
     // loadEvents will be called automatically via useFocusEffect dependency
   };
 
-  const handleEventPress = (event: EventData) => {
+  const handleEventPress = (event: ExpandedEventData) => {
     console.log("Navigating to event:", {
       eventId: event.id,
       clubId: event.clubId,
+      inviteeUserId: event.inviteeUserId,
+      inviteeName: event.inviteeName,
     });
 
     if (!event.id || !event.clubId) {
@@ -108,6 +156,8 @@ export default function EventsTab() {
       params: {
         eventId: String(event.id),
         clubId: String(event.clubId),
+        inviteeUserId: String(event.inviteeUserId),
+        inviteeName: String(event.inviteeName),
       },
     } as any);
   };
@@ -245,10 +295,14 @@ export default function EventsTab() {
             <>
               {filteredEvents.map((event) => (
                 <EventCard
-                  key={event.id}
+                  key={`${event.id}-${event.inviteeUserId}`}
                   event={event}
                   onPress={() => handleEventPress(event)}
                   currentUserId={user?.uid}
+                  inviteeUserId={event.inviteeUserId}
+                  inviteeName={event.inviteeName}
+                  isCurrentUser={event.isCurrentUser}
+                  isYouthMember={event.isYouthMember}
                 />
               ))}
 

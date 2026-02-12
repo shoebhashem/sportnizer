@@ -3,14 +3,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -22,14 +22,24 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
 import { getCurrentUser } from "../../services/auth/authService";
 import { getCurrentWeekEvents } from "../../services/event/eventService";
+import { fetchDependentProfiles } from "../../services/fetchDependentProfiles";
 import {
-    acceptGroupInvite,
-    fetchGroupInvites,
-    GroupInviteInfo,
-    rejectGroupInvite,
+  acceptGroupInvite,
+  fetchGroupInvites,
+  GroupInviteInfo,
+  rejectGroupInvite,
 } from "../../services/fetchGroupInvites";
 import { NewsFlowItem } from "../../services/types";
 import type { EventData } from "../../services/types/event";
+
+// Extended event data with invitee context
+interface ExpandedEventData extends EventData {
+  inviteeUserId: string;
+  inviteeName: string;
+  isCurrentUser: boolean;
+  isYouthMember?: boolean;
+  responseStatus: string;
+}
 
 interface ModalState {
   visible: boolean;
@@ -42,7 +52,7 @@ export default function Index() {
   const router = useRouter();
   const { user } = useAuth();
   const { userProfile } = useUser();
-  const [weekEvents, setWeekEvents] = useState<EventData[]>([]);
+  const [weekEvents, setWeekEvents] = useState<ExpandedEventData[]>([]);
   const [newsItems, setNewsItems] = useState<NewsFlowItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,8 +92,7 @@ export default function Index() {
 
       // Filter out invitations we've already processed
       const newInvites = allInvites.filter((invite) => {
-        const inviteKey = `${invite.clubId}-${invite.groupId}`;
-        return !processedInvites.has(inviteKey);
+        return !processedInvites.has(invite.inviteId);
       });
 
       console.log("New unprocessed invitations:", newInvites);
@@ -113,8 +122,52 @@ export default function Index() {
       // Load current week's events
       try {
         const events = await getCurrentWeekEvents();
-        setWeekEvents(events);
-        console.log(`Loaded ${events.length} events for current week`);
+
+        if (!user?.uid) {
+          setWeekEvents([]);
+          return;
+        }
+
+        // Fetch dependent profiles (children) from userProfile
+        const dependentProfiles = userProfile?.dependents
+          ? await fetchDependentProfiles(userProfile.dependents)
+          : [];
+        const dependentIds = dependentProfiles.map((d) => d.uid);
+        const allUserIds = [user.uid, ...dependentIds];
+
+        // Expand events for each relevant invitee
+        const expanded: ExpandedEventData[] = [];
+
+        for (const event of events) {
+          if (!event.responses) continue;
+
+          // Find responses for current user and their dependents
+          const relevantResponses = event.responses.filter((r) =>
+            allUserIds.includes(r.userId),
+          );
+
+          // Create a card for each relevant invitee
+          for (const response of relevantResponses) {
+            const isCurrentUser = response.userId === user.uid;
+            const inviteeName = isCurrentUser
+              ? "You"
+              : response.userName || response.userId;
+
+            expanded.push({
+              ...event,
+              inviteeUserId: response.userId,
+              inviteeName,
+              isCurrentUser,
+              isYouthMember: response.isYouthMember || false,
+              responseStatus: response.response || response.status || "pending",
+            });
+          }
+        }
+
+        setWeekEvents(expanded);
+        console.log(
+          `Loaded ${events.length} events, expanded to ${expanded.length} cards`,
+        );
       } catch (error) {
         console.error("Error loading week events:", error);
         setWeekEvents([]);
@@ -134,7 +187,12 @@ export default function Index() {
     } finally {
       setLoading(false);
     }
-  }, [loadInvitations, hasLoadedInitialInvites]);
+  }, [
+    loadInvitations,
+    hasLoadedInitialInvites,
+    user?.uid,
+    userProfile?.dependents,
+  ]);
 
   // Load initial data when screen focuses
   useFocusEffect(
@@ -149,10 +207,12 @@ export default function Index() {
     setRefreshing(false);
   };
 
-  const handleEventPress = (event: EventData) => {
+  const handleEventPress = (event: ExpandedEventData) => {
     console.log("Navigating to event:", {
       eventId: event.id,
       clubId: event.clubId,
+      inviteeUserId: event.inviteeUserId,
+      inviteeName: event.inviteeName,
     });
 
     if (!event.id || !event.clubId) {
@@ -166,6 +226,8 @@ export default function Index() {
       params: {
         eventId: String(event.id),
         clubId: String(event.clubId),
+        inviteeUserId: String(event.inviteeUserId),
+        inviteeName: String(event.inviteeName),
       },
     } as any);
   };
@@ -187,8 +249,7 @@ export default function Index() {
       }
 
       // Mark this invitation as processed immediately
-      const inviteKey = `${currentInvite.clubId}-${currentInvite.groupId}`;
-      setProcessedInvites((prev) => new Set(prev.add(inviteKey)));
+      setProcessedInvites((prev) => new Set(prev.add(currentInvite.inviteId)));
 
       // YOUTH INVITATION: Create youth document first, then process invitation
       if (
@@ -299,10 +360,9 @@ export default function Index() {
       console.error("Error accepting invitation:", error);
       // Remove from processed invites if there was an error
       if (currentInvite) {
-        const inviteKey = `${currentInvite.clubId}-${currentInvite.groupId}`;
         setProcessedInvites((prev) => {
           const newSet = new Set(prev);
-          newSet.delete(inviteKey);
+          newSet.delete(currentInvite.inviteId);
           return newSet;
         });
       }
@@ -328,8 +388,7 @@ export default function Index() {
       }
 
       // Mark this invitation as processed immediately
-      const inviteKey = `${currentInvite.clubId}-${currentInvite.groupId}`;
-      setProcessedInvites((prev) => new Set(prev.add(inviteKey)));
+      setProcessedInvites((prev) => new Set(prev.add(currentInvite.inviteId)));
 
       await rejectGroupInvite(
         currentInvite.inviteId,
@@ -351,10 +410,9 @@ export default function Index() {
       console.error("Error rejecting invitation:", error);
       // Remove from processed invites if there was an error
       if (currentInvite) {
-        const inviteKey = `${currentInvite.clubId}-${currentInvite.groupId}`;
         setProcessedInvites((prev) => {
           const newSet = new Set(prev);
-          newSet.delete(inviteKey);
+          newSet.delete(currentInvite.inviteId);
           return newSet;
         });
       }
@@ -377,8 +435,7 @@ export default function Index() {
 
     // Filter out any processed invitations from the updated list
     const unprocessedInvites = updatedInvites.filter((invite) => {
-      const inviteKey = `${invite.clubId}-${invite.groupId}`;
-      return !processedInvites.has(inviteKey);
+      return !processedInvites.has(invite.inviteId);
     });
 
     // Show next invitation if any remaining unprocessed invites
@@ -554,10 +611,14 @@ export default function Index() {
                 <>
                   {weekEvents.slice(0, 3).map((event) => (
                     <EventCard
-                      key={event.id}
+                      key={`${event.id}-${event.inviteeUserId}`}
                       event={event}
                       onPress={() => handleEventPress(event)}
                       currentUserId={user?.uid}
+                      inviteeUserId={event.inviteeUserId}
+                      inviteeName={event.inviteeName}
+                      isCurrentUser={event.isCurrentUser}
+                      isYouthMember={event.isYouthMember}
                     />
                   ))}
 
@@ -633,10 +694,14 @@ export default function Index() {
           groupName={currentInvite.groupName}
           inviterName={currentInvite.invitedByName || "Someone"}
           role={currentInvite.metadata?.role}
+          inviteeName={
+            userProfile?.displayName || user?.displayName || undefined
+          }
           onAccept={handleAcceptInvite}
           onReject={handleRejectInvite}
           loading={inviteLoading}
           youthData={currentInvite.youthData}
+          existingYouthData={currentInvite.existingYouthData}
           metadata={currentInvite.metadata}
         />
       )}

@@ -1,34 +1,29 @@
-import '@/firebaseConfig'; // Ensure Firebase is initialized
-import { functions } from '@/services/core/firebase';
+import { auth, db, functions } from "@/services/core/firebase";
 import {
-  createUserWithEmailAndPassword,
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  User,
-} from 'firebase/auth';
-import {
-  doc,
-  getDoc,
-  getFirestore,
-} from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
+    createUserWithEmailAndPassword,
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    signOut,
+    User,
+} from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 
 // ✅ Import UserProfile interface
-import { UserProfile } from '@/services/types/user';
-
-const auth = getAuth();
-const db = getFirestore();
+import { UserProfile } from "@/services/types/user";
 
 // ---------------------- SIGN IN ----------------------
 export const signInUser = async (email: string, password: string) => {
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
     const user = userCredential.user;
 
     // Fetch user profile from Firestore
-    const userDocRef = doc(db, 'users', user.uid);
+    const userDocRef = doc(db, "users", user.uid);
     const userDoc = await getDoc(userDocRef);
 
     if (!userDoc.exists()) {
@@ -36,8 +31,9 @@ export const signInUser = async (email: string, password: string) => {
       return {
         success: false,
         error: {
-          code: 'auth/user-not-found',
-          message: 'User profile not found in database. Please contact support.',
+          code: "auth/user-not-found",
+          message:
+            "User profile not found in database. Please contact support.",
         },
       };
     }
@@ -57,21 +53,35 @@ export const signInUser = async (email: string, password: string) => {
 };
 
 // ---------------------- SIGN UP ----------------------
-export const signUpUser = async (email: string, password: string, fullName: string, invitationToken?: string) => {
+export const signUpUser = async (
+  email: string,
+  password: string,
+  fullName: string,
+  invitationToken?: string,
+) => {
   try {
     // Create Firebase Auth user first
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
     const user = userCredential.user;
 
     // Check if user is signing up through an invitation
     const isInvitedUser = !!invitationToken;
-    
-    console.log(`Creating user account for ${email}, invited user: ${isInvitedUser}`);
+
+    console.log(
+      `Creating user account for ${email}, invited user: ${isInvitedUser}`,
+    );
 
     // Call the backend function to create user profile and handle email verification
     try {
-      console.log('📝 Calling createUserAccount function');
-      const createUserAccountFunction = httpsCallable(functions, 'createUserAccount');
+      console.log("📝 Calling createUserAccount function");
+      const createUserAccountFunction = httpsCallable(
+        functions,
+        "createUserAccount",
+      );
       const result = await createUserAccountFunction({
         email: email.trim(),
         fullName: fullName.trim(),
@@ -86,51 +96,55 @@ export const signUpUser = async (email: string, password: string, fullName: stri
       };
 
       if (!responseData.success) {
-        throw new Error(responseData.error || 'Failed to create user profile');
+        throw new Error(responseData.error || "Failed to create user profile");
       }
 
-      console.log('✅ User account created successfully via function');
+      console.log("✅ User account created successfully via function");
 
       if (isInvitedUser) {
         // For invited users, keep them signed in
-        console.log('✅ Invited user account created and processed');
-        
+        console.log("✅ Invited user account created and processed");
+
         return {
           success: true,
           user,
           requiresEmailVerification: false,
-          message: responseData.message || '🎉 Account created successfully!\n\nYour account has been activated and you can start using Sportnizer right away!',
+          message:
+            responseData.message ||
+            "🎉 Account created successfully!\n\nYour account has been activated and you can start using Sportnizer right away!",
         };
       } else {
         // For regular users, sign out until email is verified
-        console.log('📧 Regular user account created, email verification sent');
-        
+        console.log("📧 Regular user account created, email verification sent");
+
         await signOut(auth);
 
         return {
           success: true,
           user,
           requiresEmailVerification: true,
-          message: responseData.message || 'Account created successfully!\n\nPlease check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.',
+          message:
+            responseData.message ||
+            "Account created successfully!\n\nPlease check your email inbox and click the verification link to activate your account. You must verify your email before you can sign in.",
         };
       }
-      
     } catch (functionError: any) {
-      console.error('❌ Function error:', functionError);
-      console.error('Function error code:', functionError.code);
-      console.error('Function error message:', functionError.message);
-      
+      console.error("❌ Function error:", functionError);
+      console.error("Function error code:", functionError.code);
+      console.error("Function error message:", functionError.message);
+
       // Delete the Firebase Auth user if function call failed
       try {
         await user.delete();
-        console.log('🗑️ Cleaned up Firebase Auth user due to function error');
+        console.log("🗑️ Cleaned up Firebase Auth user due to function error");
       } catch (deleteError) {
-        console.error('Failed to cleanup Firebase Auth user:', deleteError);
+        console.error("Failed to cleanup Firebase Auth user:", deleteError);
       }
-      
-      throw new Error(`Failed to create user profile: ${functionError.message || functionError.code || 'Unknown error'}`);
-    }
 
+      throw new Error(
+        `Failed to create user profile: ${functionError.message || functionError.code || "Unknown error"}`,
+      );
+    }
   } catch (error: any) {
     return {
       success: false,
@@ -145,22 +159,24 @@ export const signUpUser = async (email: string, password: string, fullName: stri
 // ---------------------- RESEND VERIFICATION ----------------------
 export const resendVerificationEmail = async (email: string) => {
   try {
-    const resendFunction = httpsCallable(functions, 'resendVerificationEmail');
+    const resendFunction = httpsCallable(functions, "resendVerificationEmail");
     const result = await resendFunction({ email: email.trim() });
 
     return {
       success: true,
-      message: (result.data as any)?.message || 'Verification email sent! Please check your inbox.',
+      message:
+        (result.data as any)?.message ||
+        "Verification email sent! Please check your inbox.",
     };
   } catch (error: any) {
-    console.error('Error resending verification email:', error);
+    console.error("Error resending verification email:", error);
 
-    let errorMessage = 'Failed to resend verification email. Please try again.';
+    let errorMessage = "Failed to resend verification email. Please try again.";
 
-    if (error.code === 'functions/not-found') {
-      errorMessage = 'No account found with this email address.';
-    } else if (error.code === 'functions/already-exists') {
-      errorMessage = 'This email address is already verified.';
+    if (error.code === "functions/not-found") {
+      errorMessage = "No account found with this email address.";
+    } else if (error.code === "functions/already-exists") {
+      errorMessage = "This email address is already verified.";
     } else if (error.message) {
       errorMessage = error.message;
     }
@@ -168,7 +184,7 @@ export const resendVerificationEmail = async (email: string) => {
     return {
       success: false,
       error: {
-        code: error.code || 'unknown',
+        code: error.code || "unknown",
         message: errorMessage,
       },
     };
@@ -218,14 +234,17 @@ export const updateUserProfile = async (profileData: {
       return {
         success: false,
         error: {
-          code: 'auth/user-not-authenticated',
-          message: 'No authenticated user found',
+          code: "auth/user-not-authenticated",
+          message: "No authenticated user found",
         },
       };
     }
 
     // Call the Firebase Function
-    const updateUserProfileFunction = httpsCallable(functions, 'updateUserProfile');
+    const updateUserProfileFunction = httpsCallable(
+      functions,
+      "updateUserProfile",
+    );
     const result = await updateUserProfileFunction({
       userId: currentUser.uid,
       profileData,
@@ -242,17 +261,16 @@ export const updateUserProfile = async (profileData: {
     return {
       success: true,
       data: responseData,
-      message: 'Profile updated successfully',
+      message: "Profile updated successfully",
     };
-
   } catch (error: any) {
-    console.error('Error updating user profile:', error);
-    
+    console.error("Error updating user profile:", error);
+
     return {
       success: false,
       error: {
-        code: error.code || 'unknown',
-        message: error.message || 'Failed to update profile',
+        code: error.code || "unknown",
+        message: error.message || "Failed to update profile",
       },
     };
   }

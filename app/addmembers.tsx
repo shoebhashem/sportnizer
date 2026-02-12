@@ -1,6 +1,6 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { httpsCallable } from 'firebase/functions';
-import React, { useState } from 'react';
+import { router, useLocalSearchParams } from "expo-router";
+import { httpsCallable } from "firebase/functions";
+import React, { useState } from "react";
 import {
     KeyboardAvoidingView,
     Platform,
@@ -9,47 +9,55 @@ import {
     Text,
     TextInput,
     View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Button from '../components/Button';
-import ConfirmationModal from '../components/ConfirmationModal';
-import { theme } from '../constants/theme';
-import { functions } from '../firebaseConfig';
-import { memberService } from '../services/member';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Button from "../components/Button";
+import ConfirmationModal from "../components/ConfirmationModal";
+import { theme } from "../constants/theme";
+import { functions } from "../services/core/firebase";
+import { memberService } from "../services/member";
 
 export default function AddMembersScreen() {
-  const { groupId, groupName, inviterName, ageGroup } = useLocalSearchParams<{ 
-    groupId: string; 
-    groupName: string; 
-    inviterName: string; 
+  const { groupId, groupName, inviterName, ageGroup } = useLocalSearchParams<{
+    groupId: string;
+    groupName: string;
+    inviterName: string;
     ageGroup: string;
   }>();
-  
-  const [email, setEmail] = useState('');
-  const [childName, setChildName] = useState('');
-  const [childBirthDate, setChildBirthDate] = useState('');
+
+  const [email, setEmail] = useState("");
+  const [childName, setChildName] = useState("");
+  const [childBirthDate, setChildBirthDate] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   // Parse ageGroup to number
   const parsedAgeGroup = ageGroup ? parseInt(ageGroup) : 2;
-  
+
   // Modal states for web-compatible feedback
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
-  const [modalMessage, setModalMessage] = useState('');
+  const [modalMessage, setModalMessage] = useState("");
 
-  const decodedGroupName = groupName ? decodeURIComponent(groupName) : '';
-  const decodedInviterName = inviterName ? decodeURIComponent(inviterName) : '';
+  const decodedGroupName = groupName ? decodeURIComponent(groupName) : "";
+  const decodedInviterName = inviterName ? decodeURIComponent(inviterName) : "";
 
   // Log parameters for debugging
-  console.log('AddMembersScreen params:', { groupId, groupName, inviterName, decodedGroupName, decodedInviterName });
+  console.log("AddMembersScreen params:", {
+    groupId,
+    groupName,
+    inviterName,
+    decodedGroupName,
+    decodedInviterName,
+  });
 
   // Early return if essential parameters are missing
   if (!groupId || !decodedGroupName || !decodedInviterName) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Missing required information to send invitations</Text>
+          <Text style={styles.errorText}>
+            Missing required information to send invitations
+          </Text>
           <Button
             label="Go Back"
             onPress={() => router.back()}
@@ -68,13 +76,13 @@ export default function AddMembersScreen() {
   // Handle adding child for ageGroup 1
   const handleAddChild = async () => {
     if (!childName.trim()) {
-      setModalMessage('Please enter the child\'s name.');
+      setModalMessage("Please enter the child's name.");
       setErrorModalVisible(true);
       return;
     }
 
     if (!groupId) {
-      setModalMessage('Group ID is missing. Please try again.');
+      setModalMessage("Group ID is missing. Please try again.");
       setErrorModalVisible(true);
       return;
     }
@@ -82,28 +90,33 @@ export default function AddMembersScreen() {
     setLoading(true);
 
     try {
-      const result = await memberService.addUnconfirmedChild(groupId as string, {
-        name: childName.trim(),
-        birthDate: childBirthDate.trim() || undefined
-      });
+      const result = await memberService.addUnconfirmedChild(
+        groupId as string,
+        {
+          name: childName.trim(),
+          birthDate: childBirthDate.trim() || undefined,
+        },
+      );
 
       if (result.success) {
-        setModalMessage(`🎉 Child Added!\n\n"${childName.trim()}" has been added to "${decodedGroupName}" as an unconfirmed member.\n\nUse "Send Confirmation Link to Guardians" in group settings to invite their guardians.`);
+        setModalMessage(
+          `🎉 Child Added!\n\n"${childName.trim()}" has been added to "${decodedGroupName}" as an unconfirmed member.\n\nUse "Send Confirmation Link to Guardians" in group settings to invite their guardians.`,
+        );
         setSuccessModalVisible(true);
       } else {
         const error = result.error;
-        let errorMessage = 'Failed to add child. Please try again.';
-        
-        if (typeof error === 'string') {
+        let errorMessage = "Failed to add child. Please try again.";
+
+        if (typeof error === "string") {
           errorMessage = error;
         }
-        
+
         setModalMessage(errorMessage);
         setErrorModalVisible(true);
       }
     } catch (error: any) {
-      console.error('Error adding child:', error);
-      setModalMessage('Failed to add child. Please try again.');
+      console.error("Error adding child:", error);
+      setModalMessage("Failed to add child. Please try again.");
       setErrorModalVisible(true);
     } finally {
       setLoading(false);
@@ -112,31 +125,31 @@ export default function AddMembersScreen() {
 
   const handleSendInvitation = async () => {
     if (!email.trim()) {
-      setModalMessage('Please enter an email address.');
+      setModalMessage("Please enter an email address.");
       setErrorModalVisible(true);
       return;
     }
 
     if (!validateEmail(email.trim())) {
-      setModalMessage('Please enter a valid email address.');
+      setModalMessage("Please enter a valid email address.");
       setErrorModalVisible(true);
       return;
     }
 
     if (!groupId) {
-      setModalMessage('Group ID is missing. Please try again.');
+      setModalMessage("Group ID is missing. Please try again.");
       setErrorModalVisible(true);
       return;
     }
 
     if (!decodedGroupName) {
-      setModalMessage('Group name is missing. Please try again.');
+      setModalMessage("Group name is missing. Please try again.");
       setErrorModalVisible(true);
       return;
     }
 
     if (!decodedInviterName) {
-      setModalMessage('Inviter name is missing. Please try again.');
+      setModalMessage("Inviter name is missing. Please try again.");
       setErrorModalVisible(true);
       return;
     }
@@ -144,53 +157,56 @@ export default function AddMembersScreen() {
     setLoading(true);
 
     try {
-      console.log('Sending invitation with data:', {
+      console.log("Sending invitation with data:", {
         emails: [email.trim().toLowerCase()],
         groupId: groupId,
         groupName: decodedGroupName,
-        inviterName: decodedInviterName
+        inviterName: decodedInviterName,
       });
-      
-      const sendInvitation = httpsCallable(functions, 'sendGroupInvitation');
-      
+
+      const sendInvitation = httpsCallable(functions, "sendGroupInvitation");
+
       // Test if the data is being sent correctly
       const payload = {
         emails: [email.trim().toLowerCase()],
         groupId: groupId,
         groupName: decodedGroupName,
-        inviterName: decodedInviterName
+        inviterName: decodedInviterName,
       };
-      
-      console.log('Payload being sent:', payload);
-      
-      const result = await sendInvitation(payload);
-      
-      console.log('Invitation result:', result);
 
-      setModalMessage(`🎉 Invitation Sent!\n\nAn invitation has been sent to ${email.trim()}. They will receive an email with instructions to join "${decodedGroupName}".`);
+      console.log("Payload being sent:", payload);
+
+      const result = await sendInvitation(payload);
+
+      console.log("Invitation result:", result);
+
+      setModalMessage(
+        `🎉 Invitation Sent!\n\nAn invitation has been sent to ${email.trim()}. They will receive an email with instructions to join "${decodedGroupName}".`,
+      );
       setSuccessModalVisible(true);
     } catch (error: any) {
-      console.error('Error sending invitation:', error);
-      console.error('Error details:', {
+      console.error("Error sending invitation:", error);
+      console.error("Error details:", {
         code: error.code,
         message: error.message,
-        details: error.details
+        details: error.details,
       });
-      
-      let errorMessage = 'Failed to send invitation. Please try again.';
-      
-      if (error.code === 'functions/invalid-argument') {
+
+      let errorMessage = "Failed to send invitation. Please try again.";
+
+      if (error.code === "functions/invalid-argument") {
         errorMessage = `Invalid data: ${error.message}`;
-      } else if (error.code === 'functions/unauthenticated') {
-        errorMessage = 'You must be logged in to send invitations.';
-      } else if (error.code === 'functions/already-exists') {
-        errorMessage = 'This user is already a member of the team.';
-      } else if (error.code === 'functions/already-invited') {
-        errorMessage = 'An invitation has already been sent to this email address.';
+      } else if (error.code === "functions/unauthenticated") {
+        errorMessage = "You must be logged in to send invitations.";
+      } else if (error.code === "functions/already-exists") {
+        errorMessage = "This user is already a member of the team.";
+      } else if (error.code === "functions/already-invited") {
+        errorMessage =
+          "An invitation has already been sent to this email address.";
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       setModalMessage(errorMessage);
       setErrorModalVisible(true);
     } finally {
@@ -202,14 +218,14 @@ export default function AddMembersScreen() {
     router.back();
   };
 
-  const handleSuccessModalConfirm = (action: 'another' | 'done') => {
+  const handleSuccessModalConfirm = (action: "another" | "done") => {
     setSuccessModalVisible(false);
-    if (action === 'another') {
+    if (action === "another") {
       if (parsedAgeGroup === 1) {
-        setChildName('');
-        setChildBirthDate('');
+        setChildName("");
+        setChildBirthDate("");
       } else {
-        setEmail('');
+        setEmail("");
       }
     } else {
       router.back();
@@ -218,28 +234,27 @@ export default function AddMembersScreen() {
 
   const handleErrorModalClose = () => {
     setErrorModalVisible(false);
-    setModalMessage('');
+    setModalMessage("");
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
             <Text style={styles.title}>
-              {parsedAgeGroup === 1 ? 'Add Child' : 'Invite Team Member'}
+              {parsedAgeGroup === 1 ? "Add Child" : "Invite Team Member"}
             </Text>
             <Text style={styles.subtitle}>
-              {parsedAgeGroup === 1 
+              {parsedAgeGroup === 1
                 ? `Add a child to "${decodedGroupName}". The child will be added as unconfirmed until guardians confirm participation.`
-                : `Send an email invitation to add a new member to "${decodedGroupName}"`
-              }
+                : `Send an email invitation to add a new member to "${decodedGroupName}"`}
             </Text>
           </View>
 
@@ -336,8 +351,8 @@ export default function AddMembersScreen() {
         message={modalMessage}
         confirmText={parsedAgeGroup === 1 ? "Add Another" : "Send Another"}
         cancelText="Done"
-        onConfirm={() => handleSuccessModalConfirm('another')}
-        onCancel={() => handleSuccessModalConfirm('done')}
+        onConfirm={() => handleSuccessModalConfirm("another")}
+        onCancel={() => handleSuccessModalConfirm("done")}
         confirmButtonTheme="primary"
       />
 
@@ -366,11 +381,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: theme.layout.containerPadding,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: theme.spacing.xxl,
   },
   title: {
@@ -382,10 +397,10 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   form: {
-    width: '100%',
+    width: "100%",
   },
   inputContainer: {
     marginBottom: theme.spacing.lg,
@@ -411,14 +426,14 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: theme.spacing.xl,
   },
   errorText: {
     fontSize: theme.typography.fontSize.large,
     color: theme.colors.error,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: theme.spacing.lg,
   },
 });

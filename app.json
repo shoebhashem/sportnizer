@@ -4,7 +4,7 @@
     "slug": "sportnizer",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/sportnizer_logo.png",
     "scheme": "sportnizer",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

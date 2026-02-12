@@ -16,6 +16,10 @@ export const theme = {
     inputBorder: "#555",
     inputBorderFocused: "#ffd33d",
     accent: "#007bff",
+    badge: {
+      you: "#ffd33d", // Yellow for "You"
+      child: "#4CAF50", // Green for children
+    },
   },
 
   typography: {

@@ -21,7 +21,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { db } from "../firebaseConfig";
+import { db } from "../services/core/firebase";
 
 export default function SubgroupSettingsScreen() {
   const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();

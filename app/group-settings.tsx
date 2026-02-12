@@ -19,9 +19,10 @@ import CountdownTimer from "../components/CountdownTimer";
 import Input from "../components/Input";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
-import { db } from "../firebaseConfig";
+import { db } from "../services/core/firebase";
 
 // Import services following three-layer architecture
+import { clubService } from "../services/club";
 import { fetchGroupMembers } from "../services/fetchGroupMembers";
 import { groupService } from "../services/group";
 import { subgroupService } from "../services/subgroup";
@@ -258,7 +259,6 @@ export default function GroupSettingsScreen() {
       // Fetch club data to get club name
       let clubName = "Club";
       try {
-        const { clubService } = await import("../services");
         const clubResult = await clubService.getClub(clubId as string);
         clubName = clubResult.data?.name || "Club";
       } catch (error) {
@@ -542,12 +542,12 @@ export default function GroupSettingsScreen() {
           )}
 
           {/* Manage Subgroups Section */}
-          {canManage && subgroups && subgroups.length > 0 && (
+          {canManage && group?.subGroups && group.subGroups.length > 0 && (
             <View style={styles.subgroupsSection}>
               <Text style={styles.sectionHeader}>
-                Subgroups ({subgroups.length})
+                Subgroups ({group.subGroups.length})
               </Text>
-              {subgroups.map((subgroup: any) => (
+              {group.subGroups.map((subgroup: any) => (
                 <View key={subgroup.id} style={styles.subgroupItem}>
                   <TouchableOpacity
                     style={styles.subgroupTouchable}

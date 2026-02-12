@@ -37,10 +37,14 @@ export default function EventDetailsScreen() {
 
   const eventId = params.eventId as string;
   const clubId = params.clubId as string;
+  const inviteeUserId = params.inviteeUserId as string;
+  const inviteeName = params.inviteeName as string;
 
   console.log("🔍 DEBUG [event-details.tsx] - Route Params:", {
     eventId,
     clubId,
+    inviteeUserId,
+    inviteeName,
     allParams: params,
   });
 
@@ -120,7 +124,7 @@ export default function EventDetailsScreen() {
   };
 
   const handleResponse = async (response: "accepted" | "declined") => {
-    if (!event || !user) return;
+    if (!event || !user || !targetUserId) return;
 
     try {
       setSubmitting(true);
@@ -130,16 +134,18 @@ export default function EventDetailsScreen() {
         {
           eventId: event.id,
           clubId: event.clubId,
-          userId: user.uid,
+          userId: targetUserId,
           response,
+          respondedBy: isCurrentUserInvitee ? undefined : user.uid,
         },
       );
 
       const success = await updateEventResponse(
         event.id,
         event.clubId,
-        user.uid,
+        targetUserId,
         response,
+        isCurrentUserInvitee ? undefined : user.uid,
       );
 
       if (success) {
@@ -428,7 +434,11 @@ export default function EventDetailsScreen() {
     );
   }
 
-  const userResponse = event.responses?.find((r) => r.userId === user?.uid);
+  // Use inviteeUserId if provided, otherwise fallback to current user
+  const targetUserId = inviteeUserId || user?.uid;
+  const isCurrentUserInvitee = !inviteeUserId || inviteeUserId === user?.uid;
+
+  const userResponse = event.responses?.find((r) => r.userId === targetUserId);
 
   // Normalize userResponse to ensure status field exists (handle both status and response fields)
   const normalizedResponse = userResponse
@@ -483,10 +493,12 @@ export default function EventDetailsScreen() {
               <Text
                 style={styles.eventDescription}
                 numberOfLines={2}
-                ellipsizeMode="tail"
+                ellipsizeMode="clip"
               >
                 {event.description}
-                {event.description.length > 80 && " ...Read more"}
+              </Text>
+              <Text style={[styles.eventDescription, { marginTop: 2 }]}>
+                ...Read more
               </Text>
             </TouchableOpacity>
           )}
@@ -651,7 +663,11 @@ export default function EventDetailsScreen() {
         {/* User Response Section - Only show if user is in responses array */}
         {!isPastEvent && userResponse && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your Response</Text>
+            <Text style={styles.sectionTitle}>
+              {isCurrentUserInvitee
+                ? "Your Response"
+                : `${inviteeName}'s Response`}
+            </Text>
 
             {/* Capacity Display */}
             {event.capacity?.max && (
@@ -1173,7 +1189,6 @@ export default function EventDetailsScreen() {
                   {event?.eventType?.toUpperCase() || "EVENT"}
                 </Text>
               </View>
-              <Text style={styles.descriptionTitle}>{event?.title}</Text>
               <Text style={styles.descriptionText}>{event?.description}</Text>
             </View>
           </View>

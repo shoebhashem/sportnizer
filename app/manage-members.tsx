@@ -34,7 +34,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { db } from "../firebaseConfig";
+import { db } from "../services/core/firebase";
 import { fetchGroupMembers } from "../services/fetchGroupMembers";
 import { groupService } from "../services/group";
 import { GroupData } from "../services/types/group";

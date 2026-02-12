@@ -12,6 +12,10 @@ interface EventCardProps {
   onPress: () => void;
   recipientName?: string; // For guardians: show child name
   currentUserId?: string; // Current user's ID for status detection
+  inviteeUserId: string; // ID of the person this card represents
+  inviteeName: string; // Name to show in badge
+  isCurrentUser: boolean; // True if this is the current user's card
+  isYouthMember?: boolean; // True if invitee is a youth member
 }
 
 export default function EventCard({
@@ -19,6 +23,10 @@ export default function EventCard({
   onPress,
   recipientName,
   currentUserId,
+  inviteeUserId,
+  inviteeName,
+  isCurrentUser,
+  isYouthMember,
 }: EventCardProps) {
   // Format date and time
   const formatDate = (dateInput: string | Date) => {
@@ -73,10 +81,10 @@ export default function EventCard({
 
   // Get user's response status
   const getUserResponseStatus = () => {
-    if (!event.responses || !currentUserId) return "pending";
+    if (!event.responses || !inviteeUserId) return "pending";
 
-    // Find response by current user's ID
-    const response = event.responses.find((r) => r.userId === currentUserId);
+    // Find response by invitee's ID (not necessarily current user)
+    const response = event.responses.find((r) => r.userId === inviteeUserId);
     // Normalize status field (handle both 'status' and 'response' fields)
     const status = response?.status || response?.response || "pending";
     return status;
@@ -122,15 +130,19 @@ export default function EventCard({
           </Text>
         </View>
 
-        {/* Response Status Badge */}
+        {/* Invitee Badge */}
         <View
           style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(responseStatus) },
+            styles.inviteeBadge,
+            {
+              backgroundColor: isCurrentUser
+                ? theme.colors.badge.you
+                : theme.colors.badge.child,
+            },
           ]}
         >
-          <Text style={styles.statusText}>
-            {responseStatus.charAt(0).toUpperCase() + responseStatus.slice(1)}
+          <Text style={styles.inviteeText}>
+            {isCurrentUser ? "You" : inviteeName}
           </Text>
         </View>
       </View>
@@ -230,6 +242,20 @@ export default function EventCard({
         </View>
       )}
 
+      {/* Response Status Badge */}
+      <View style={styles.statusRow}>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: getStatusColor(responseStatus) },
+          ]}
+        >
+          <Text style={styles.statusText}>
+            {responseStatus.charAt(0).toUpperCase() + responseStatus.slice(1)}
+          </Text>
+        </View>
+      </View>
+
       {/* Response Summary */}
       {event.responseSummary && (
         <View style={styles.summaryRow}>
@@ -306,6 +332,20 @@ const styles = StyleSheet.create({
     color: "#1a1d21",
     marginLeft: 12,
     flex: 1,
+  },
+  inviteeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  inviteeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: theme.colors.white,
+  },
+  statusRow: {
+    marginTop: 8,
+    alignItems: "flex-start",
   },
   statusBadge: {
     paddingHorizontal: 10,
