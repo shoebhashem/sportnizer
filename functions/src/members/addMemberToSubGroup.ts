@@ -16,7 +16,7 @@ export const addMemberToSubGroup = onCall(
       const {
         clubId,
         groupId,
-        subGroupName,
+        subGroupId,
         userId,
       }: AddMemberToSubGroupRequest = request.data;
 
@@ -24,7 +24,7 @@ export const addMemberToSubGroup = onCall(
       validateRequiredFields(request.data, [
         "clubId",
         "groupId",
-        "subGroupName",
+        "subGroupId",
         "userId",
       ]);
 
@@ -34,7 +34,7 @@ export const addMemberToSubGroup = onCall(
       }
 
       console.log(
-        `Adding user ${userId} to subgroup ${subGroupName} in group ${groupId}`,
+        `Adding user ${userId} to subgroup ${subGroupId} in group ${groupId}`,
       );
 
       // Verify group exists
@@ -80,7 +80,7 @@ export const addMemberToSubGroup = onCall(
       const currentSubGroups = member.belongsToSubGroups || [];
 
       // Check if user is already in this subgroup
-      if (currentSubGroups.includes(subGroupName)) {
+      if (currentSubGroups.includes(subGroupId)) {
         return {
           success: false,
           error: "User is already a member of this subgroup",
@@ -90,7 +90,7 @@ export const addMemberToSubGroup = onCall(
       // Update the member's belongsToSubGroups array
       const updatedMember = {
         ...member,
-        belongsToSubGroups: [...currentSubGroups, subGroupName],
+        belongsToSubGroups: [...currentSubGroups, subGroupId],
       };
 
       // Replace the member in the array
@@ -106,13 +106,12 @@ export const addMemberToSubGroup = onCall(
       });
 
       console.log(
-        `Successfully added user ${userId} to subgroup ${subGroupName}`,
+        `Successfully added user ${userId} to subgroup ${subGroupId}`,
       );
 
       return {
         success: true,
-        message: `Member added to subgroup ${subGroupName} successfully`,
-        subGroupName: subGroupName,
+        message: `Member added to subgroup ${subGroupId} successfully`,
       };
     } catch (error) {
       console.error("Error in addMemberToSubGroup:", error);
