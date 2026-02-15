@@ -205,6 +205,9 @@ export default function EventCard({
             />
             <Text style={styles.infoText}>
               {formatTime(event.startTime || "")}
+              {event.endTime &&
+                formatTime(event.endTime) &&
+                ` - ${formatTime(event.endTime)}`}
             </Text>
           </View>
         )}
@@ -223,6 +226,9 @@ export default function EventCard({
               />
               <Text style={styles.infoText}>
                 Start: {formatTime(event.startTime)}
+                {event.endTime &&
+                  formatTime(event.endTime) &&
+                  ` - ${formatTime(event.endTime)}`}
               </Text>
             </View>
           </View>

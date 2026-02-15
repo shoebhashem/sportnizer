@@ -120,12 +120,38 @@ export default function EventsTab() {
           // Create a card for each relevant invitee
           for (const response of relevantResponses) {
             // Convert Timestamps to Date objects for EventCard
+            const startDateObj = convertTimestampToDate(event.startDate);
+            const endDateObj = convertTimestampToDate(event.endDate);
+            const gatheringTimeObj = event.gatheringTime
+              ? convertTimestampToDate(event.gatheringTime)
+              : null;
+            const responseDeadlineObj = event.responseDeadline
+              ? convertTimestampToDate(event.responseDeadline)
+              : null;
+
+            // Extract time strings for EventCard (ISO format for formatTime function)
+            const startTime =
+              startDateObj instanceof Date
+                ? startDateObj.toISOString()
+                : startDateObj;
+            const endTime =
+              endDateObj instanceof Date
+                ? endDateObj.toISOString()
+                : endDateObj;
+            const gatheringTime = gatheringTimeObj
+              ? gatheringTimeObj instanceof Date
+                ? gatheringTimeObj.toISOString()
+                : gatheringTimeObj
+              : null;
+
             expanded.push({
               ...event,
-              startDate: convertTimestampToDate(event.startDate),
-              endDate: convertTimestampToDate(event.endDate),
-              gatheringTime: convertTimestampToDate(event.gatheringTime),
-              responseDeadline: convertTimestampToDate(event.responseDeadline),
+              startDate: startDateObj,
+              endDate: endDateObj,
+              startTime: startTime,
+              endTime: endTime,
+              gatheringTime: gatheringTime,
+              responseDeadline: responseDeadlineObj,
               inviteeUserId: response.userId,
               inviteeName: response.userName,
               isCurrentUser: response.userId === user?.uid,

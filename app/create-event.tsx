@@ -137,13 +137,13 @@ export default function CreateEventScreen() {
     startTime: new Date(),
     gatheringTime: undefined,
     endDate: (() => {
-      const date = new Date();
-      date.setHours(date.getHours() + 2); // Default 2 hours later
-      return date;
+      // Initialize endDate to match startDate (same day)
+      return new Date();
     })(),
     endTime: (() => {
+      // Initialize endTime based on startTime + default duration (120 min)
       const time = new Date();
-      time.setHours(time.getHours() + 2); // Default 2 hours later
+      time.setMinutes(time.getMinutes() + 120);
       return time;
     })(),
     location: "",
@@ -706,13 +706,13 @@ export default function CreateEventScreen() {
           startTime: new Date(),
           gatheringTime: undefined,
           endDate: (() => {
-            const date = new Date();
-            date.setHours(date.getHours() + 2);
-            return date;
+            // Initialize endDate to match startDate (same day)
+            return new Date();
           })(),
           endTime: (() => {
+            // Initialize endTime based on startTime + default duration (120 min)
             const time = new Date();
-            time.setHours(time.getHours() + 2);
+            time.setMinutes(time.getMinutes() + 120);
             return time;
           })(),
           location: "",
@@ -2037,7 +2037,36 @@ export default function CreateEventScreen() {
         mode="date"
         isVisible={showStartDatePicker}
         onConfirm={(date) => {
-          setEventData((prev) => ({ ...prev, startDate: date }));
+          setEventData((prev) => {
+            // In simple mode with duration: recalculate end date/time
+            if (prev.mode === "simple" && prev.duration) {
+              const newEndTime = new Date(prev.startTime);
+              newEndTime.setMinutes(newEndTime.getMinutes() + prev.duration);
+
+              const newEndDate = new Date(date);
+              // Check if end time rolls over to next day
+              if (newEndTime.getDate() !== prev.startTime.getDate()) {
+                newEndDate.setDate(newEndDate.getDate() + 1);
+              }
+
+              return {
+                ...prev,
+                startDate: date,
+                endDate: newEndDate,
+                endTime: newEndTime,
+              };
+            }
+
+            // In advanced mode: sync endDate to match startDate (preserve time offset)
+            const timeDiff = prev.endDate.getTime() - prev.startDate.getTime();
+            const newEndDate = new Date(date.getTime() + timeDiff);
+
+            return {
+              ...prev,
+              startDate: date,
+              endDate: newEndDate,
+            };
+          });
           setShowStartDatePicker(false);
         }}
         onCancel={() => setShowStartDatePicker(false)}
@@ -2050,7 +2079,29 @@ export default function CreateEventScreen() {
         mode="time"
         isVisible={showStartTimePicker}
         onConfirm={(time) => {
-          setEventData((prev) => ({ ...prev, startTime: time }));
+          setEventData((prev) => {
+            // In simple mode with duration: recalculate end date/time
+            if (prev.mode === "simple" && prev.duration) {
+              const newEndTime = new Date(time);
+              newEndTime.setMinutes(newEndTime.getMinutes() + prev.duration);
+
+              const newEndDate = new Date(prev.startDate);
+              // Check if end time rolls over to next day
+              if (newEndTime.getDate() !== time.getDate()) {
+                newEndDate.setDate(newEndDate.getDate() + 1);
+              }
+
+              return {
+                ...prev,
+                startTime: time,
+                endDate: newEndDate,
+                endTime: newEndTime,
+              };
+            }
+
+            // Advanced mode: just update start time
+            return { ...prev, startTime: time };
+          });
           setShowStartTimePicker(false);
         }}
         onCancel={() => setShowStartTimePicker(false)}
