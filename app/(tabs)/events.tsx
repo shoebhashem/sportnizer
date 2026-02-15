@@ -4,15 +4,13 @@
 import EventCard from "@/components/EventCard";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-    getAllUpcomingEvents,
-    getPastEvents
-} from "@/services/event/eventService";
+import { useEvents } from "@/contexts/EventContext";
+import { useUser } from "@/contexts/UserContext";
 import { fetchDependentProfiles } from "@/services/fetchDependentProfiles";
 import type { EventData } from "@/services/types/event";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -39,6 +37,12 @@ interface ExpandedEventData extends EventData {
 export default function EventsTab() {
   const router = useRouter();
   const { user } = useAuth();
+  const { userProfile } = useUser();
+  const {
+    events: contextEvents,
+    refreshEvents,
+    isLoading: eventsLoading,
+  } = useEvents();
   const [events, setEvents] = useState<EventData[]>([]);
   const [expandedEvents, setExpandedEvents] = useState<ExpandedEventData[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<ExpandedEventData[]>([]);
@@ -47,81 +51,128 @@ export default function EventsTab() {
   const [eventTypeFilter, setEventTypeFilter] = useState<EventFilter>("all");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("upcoming");
 
-  const loadEvents = useCallback(async () => {
-    setLoading(true);
-    try {
-      console.log(`Loading ${timeFilter} events...`);
-
-      let loadedEvents: EventData[];
-      if (timeFilter === "upcoming") {
-        loadedEvents = await getAllUpcomingEvents();
-      } else {
-        loadedEvents = await getPastEvents();
-      }
-
-      // Fetch dependents to know which children to show
-      const dependentsResult = await fetchDependentProfiles();
-      const dependentIds =
-        dependentsResult.success && dependentsResult.dependents
-          ? dependentsResult.dependents.map((d) => d.dependentId)
-          : [];
-
-      // Expand events: create separate card for each invitee
-      const expanded: ExpandedEventData[] = [];
-
-      for (const event of loadedEvents) {
-        if (!event.responses) continue;
-
-        // Filter responses to current user + dependents
-        const relevantResponses = event.responses.filter(
-          (r) => r.userId === user?.uid || dependentIds.includes(r.userId),
-        );
-
-        // Create a card for each relevant invitee
-        for (const response of relevantResponses) {
-          expanded.push({
-            ...event,
-            inviteeUserId: response.userId,
-            inviteeName: response.userName,
-            isCurrentUser: response.userId === user?.uid,
-            isYouthMember: response.isYouthMember || false,
-            responseStatus: response.response || response.status || "pending",
-          });
-        }
-      }
-
-      setEvents(loadedEvents);
-      setExpandedEvents(expanded);
-
-      // Apply event type filter to expanded events
-      const filtered = expanded.filter(
-        (e) => eventTypeFilter === "all" || e.eventType === eventTypeFilter,
-      );
-      setFilteredEvents(filtered);
-
-      console.log(
-        `Loaded ${loadedEvents.length} events, expanded to ${expanded.length} cards, showing ${filtered.length} after filter`,
-      );
-    } catch (error) {
-      console.error("Error loading events:", error);
-      setEvents([]);
-      setExpandedEvents([]);
-      setFilteredEvents([]);
-    } finally {
-      setLoading(false);
+  // Helper function to convert Timestamp to Date
+  const convertTimestampToDate = (timestamp: any): Date | string => {
+    if (!timestamp) return new Date();
+    if (timestamp.toDate) {
+      // Firestore Timestamp
+      return timestamp.toDate();
+    } else if (timestamp.seconds) {
+      // Cached Timestamp
+      return new Date(timestamp.seconds * 1000);
     }
-  }, [timeFilter, eventTypeFilter, user?.uid]);
+    // Already a Date or string
+    return timestamp;
+  };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadEvents();
-    }, [loadEvents]),
-  );
+  // Process events from EventContext - filter by time and expand for invitees
+  useEffect(() => {
+    const processEvents = async () => {
+      if (!user?.uid) {
+        setEvents([]);
+        setExpandedEvents([]);
+        setFilteredEvents([]);
+        return;
+      }
+
+      try {
+        console.log(`Processing ${timeFilter} events from context...`);
+
+        // Filter events by time
+        const now = new Date();
+        const timeFilteredEvents = contextEvents.filter((event) => {
+          // Handle both Firestore Timestamp and cached serialized timestamp
+          let eventDate: Date;
+          if (event.startDate?.toDate) {
+            // Firestore Timestamp with toDate() method
+            eventDate = event.startDate.toDate();
+          } else if (event.startDate?.seconds) {
+            // Serialized Timestamp from cache (has seconds property)
+            eventDate = new Date(event.startDate.seconds * 1000);
+          } else {
+            // String or number
+            eventDate = new Date(event.startDate);
+          }
+          if (timeFilter === "upcoming") {
+            return eventDate >= now;
+          } else {
+            return eventDate < now;
+          }
+        });
+
+        // Fetch dependents to know which children to show
+        const dependentProfiles = userProfile?.dependents
+          ? await fetchDependentProfiles(userProfile.dependents)
+          : [];
+        const dependentIds = dependentProfiles.map((d) => d.uid);
+
+        // Expand events: create separate card for each invitee
+        const expanded: ExpandedEventData[] = [];
+
+        for (const event of timeFilteredEvents) {
+          if (!event.responses) continue;
+
+          // Filter responses to current user + dependents
+          const relevantResponses = event.responses.filter(
+            (r) => r.userId === user?.uid || dependentIds.includes(r.userId),
+          );
+
+          // Create a card for each relevant invitee
+          for (const response of relevantResponses) {
+            // Convert Timestamps to Date objects for EventCard
+            expanded.push({
+              ...event,
+              startDate: convertTimestampToDate(event.startDate),
+              endDate: convertTimestampToDate(event.endDate),
+              gatheringTime: convertTimestampToDate(event.gatheringTime),
+              responseDeadline: convertTimestampToDate(event.responseDeadline),
+              inviteeUserId: response.userId,
+              inviteeName: response.userName,
+              isCurrentUser: response.userId === user?.uid,
+              isYouthMember: response.isYouthMember || false,
+              responseStatus: response.response || response.status || "pending",
+            });
+          }
+        }
+
+        setEvents(timeFilteredEvents);
+        setExpandedEvents(expanded);
+
+        // Apply event type filter to expanded events
+        const filtered = expanded.filter(
+          (e) => eventTypeFilter === "all" || e.eventType === eventTypeFilter,
+        );
+        setFilteredEvents(filtered);
+
+        console.log(
+          `Processed ${timeFilteredEvents.length} events, expanded to ${expanded.length} cards, showing ${filtered.length} after filter`,
+        );
+      } catch (error) {
+        console.error("Error processing events:", error);
+        setEvents([]);
+        setExpandedEvents([]);
+        setFilteredEvents([]);
+      }
+    };
+
+    processEvents();
+  }, [
+    contextEvents,
+    timeFilter,
+    eventTypeFilter,
+    user?.uid,
+    userProfile?.dependents,
+  ]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadEvents();
-    setRefreshing(false);
+    try {
+      await refreshEvents();
+    } catch (error) {
+      console.error("Error refreshing events:", error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleEventTypeFilter = (filter: EventFilter) => {
@@ -134,7 +185,7 @@ export default function EventsTab() {
 
   const handleTimeFilter = (filter: TimeFilter) => {
     setTimeFilter(filter);
-    // loadEvents will be called automatically via useFocusEffect dependency
+    // Events will be filtered automatically via useEffect dependency
   };
 
   const handleEventPress = (event: ExpandedEventData) => {

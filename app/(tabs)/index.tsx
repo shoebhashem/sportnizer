@@ -1,16 +1,16 @@
 import { theme } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,15 +19,15 @@ import EventCard from "../../components/EventCard";
 import InvitationModal from "../../components/InvitationModal";
 import NotificationBell from "../../components/NotificationBell";
 import { useAuth } from "../../contexts/AuthContext";
+import { useEvents } from "../../contexts/EventContext";
 import { useUser } from "../../contexts/UserContext";
 import { getCurrentUser } from "../../services/auth/authService";
-import { getCurrentWeekEvents } from "../../services/event/eventService";
 import { fetchDependentProfiles } from "../../services/fetchDependentProfiles";
 import {
-  acceptGroupInvite,
-  fetchGroupInvites,
-  GroupInviteInfo,
-  rejectGroupInvite,
+    acceptGroupInvite,
+    fetchGroupInvites,
+    GroupInviteInfo,
+    rejectGroupInvite,
 } from "../../services/fetchGroupInvites";
 import { NewsFlowItem } from "../../services/types";
 import type { EventData } from "../../services/types/event";
@@ -52,6 +52,11 @@ export default function Index() {
   const router = useRouter();
   const { user } = useAuth();
   const { userProfile } = useUser();
+  const {
+    events: contextEvents,
+    refreshEvents,
+    isLoading: eventsLoading,
+  } = useEvents();
   const [weekEvents, setWeekEvents] = useState<ExpandedEventData[]>([]);
   const [newsItems, setNewsItems] = useState<NewsFlowItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -108,26 +113,29 @@ export default function Index() {
     }
   }, [isInviteModalVisible, currentInvite, processedInvites]);
 
-  const loadInitialData = useCallback(async () => {
-    setLoading(true);
-    try {
-      console.log("Loading initial home screen data...");
+  // Helper function to convert Timestamp to Date
+  const convertTimestampToDate = (timestamp: any): Date | string => {
+    if (!timestamp) return new Date();
+    if (timestamp.toDate) {
+      // Firestore Timestamp
+      return timestamp.toDate();
+    } else if (timestamp.seconds) {
+      // Cached Timestamp
+      return new Date(timestamp.seconds * 1000);
+    }
+    // Already a Date or string
+    return timestamp;
+  };
 
-      // Load invitations only on first load
-      if (!hasLoadedInitialInvites) {
-        await loadInvitations();
-        setHasLoadedInitialInvites(true);
+  // Process events from EventContext - expand for user and dependents
+  useEffect(() => {
+    const processEvents = async () => {
+      if (!user?.uid) {
+        setWeekEvents([]);
+        return;
       }
 
-      // Load current week's events
       try {
-        const events = await getCurrentWeekEvents();
-
-        if (!user?.uid) {
-          setWeekEvents([]);
-          return;
-        }
-
         // Fetch dependent profiles (children) from userProfile
         const dependentProfiles = userProfile?.dependents
           ? await fetchDependentProfiles(userProfile.dependents)
@@ -135,10 +143,35 @@ export default function Index() {
         const dependentIds = dependentProfiles.map((d) => d.uid);
         const allUserIds = [user.uid, ...dependentIds];
 
+        // Filter to current week events only
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7); // Next Sunday
+
+        const weekEventsFromContext = contextEvents.filter((event) => {
+          // Handle both Firestore Timestamp and cached serialized timestamp
+          let eventDate: Date;
+          if (event.startDate?.toDate) {
+            // Firestore Timestamp with toDate() method
+            eventDate = event.startDate.toDate();
+          } else if (event.startDate?.seconds) {
+            // Serialized Timestamp from cache (has seconds property)
+            eventDate = new Date(event.startDate.seconds * 1000);
+          } else {
+            // String or number
+            eventDate = new Date(event.startDate);
+          }
+          return eventDate >= startOfWeek && eventDate < endOfWeek;
+        });
+
         // Expand events for each relevant invitee
         const expanded: ExpandedEventData[] = [];
 
-        for (const event of events) {
+        for (const event of weekEventsFromContext) {
           if (!event.responses) continue;
 
           // Find responses for current user and their dependents
@@ -153,8 +186,13 @@ export default function Index() {
               ? "You"
               : response.userName || response.userId;
 
+            // Convert Timestamps to Date objects for EventCard
             expanded.push({
               ...event,
+              startDate: convertTimestampToDate(event.startDate),
+              endDate: convertTimestampToDate(event.endDate),
+              gatheringTime: convertTimestampToDate(event.gatheringTime),
+              responseDeadline: convertTimestampToDate(event.responseDeadline),
               inviteeUserId: response.userId,
               inviteeName,
               isCurrentUser,
@@ -166,45 +204,37 @@ export default function Index() {
 
         setWeekEvents(expanded);
         console.log(
-          `Loaded ${events.length} events, expanded to ${expanded.length} cards`,
+          `Processed ${weekEventsFromContext.length} week events, expanded to ${expanded.length} cards`,
         );
       } catch (error) {
-        console.error("Error loading week events:", error);
+        console.error("Error processing events:", error);
         setWeekEvents([]);
       }
+    };
 
-      // Placeholder for news flow loading
-      // const newsData = await homeService.getNewsFlow(2);
-      // setNewsItems(newsData);
-    } catch (error) {
-      console.error("Error loading initial data:", error);
-      setModal({
-        visible: true,
-        title: "Error",
-        message: "Failed to load data. Please try again.",
-        type: "error",
-      });
-    } finally {
-      setLoading(false);
+    processEvents();
+  }, [contextEvents, user?.uid, userProfile?.dependents]);
+
+  // Load invitations on mount
+  useEffect(() => {
+    if (!hasLoadedInitialInvites) {
+      loadInvitations();
+      setHasLoadedInitialInvites(true);
     }
-  }, [
-    loadInvitations,
-    hasLoadedInitialInvites,
-    user?.uid,
-    userProfile?.dependents,
-  ]);
-
-  // Load initial data when screen focuses
-  useFocusEffect(
-    useCallback(() => {
-      loadInitialData();
-    }, [loadInitialData]),
-  );
+  }, [hasLoadedInitialInvites, loadInvitations]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadInitialData();
-    setRefreshing(false);
+    try {
+      // Refresh events from EventContext
+      await refreshEvents();
+      // Reload invitations
+      await loadInvitations();
+    } catch (error) {
+      console.error("Error refreshing:", error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleEventPress = (event: ExpandedEventData) => {

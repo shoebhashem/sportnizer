@@ -1,8 +1,8 @@
 import * as admin from "firebase-admin";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
-  UpdateEventResponseRequest,
-  UpdateEventResponseResponse,
+    UpdateEventResponseRequest,
+    UpdateEventResponseResponse,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
@@ -376,6 +376,7 @@ export const updateEventResponse = onCall(
           responses,
           responseSummary,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          version: admin.firestore.FieldValue.increment(1),
         });
 
         console.log(`✅ Response updated: ${oldResponse} → ${data.response}`);
