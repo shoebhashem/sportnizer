@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    KeyboardAvoidingView,
     Platform,
     ScrollView,
     Text,
@@ -872,565 +873,262 @@ export default function CreateEventScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView style={{ flex: 1, padding: 16 }}>
-          {/* Creation Mode Toggle */}
-          <View style={{ marginBottom: 24 }}>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "600",
-                color: theme.colors.text,
-                marginBottom: 12,
-              }}
-            >
-              Creation Mode
-            </Text>
-
-            <View
-              style={{
-                flexDirection: "row",
-                backgroundColor: theme.colors.inputBackground,
-                borderRadius: 12,
-                padding: 4,
-                borderWidth: 1,
-                borderColor: theme.colors.inputBorder,
-              }}
-            >
-              {/* Simple Mode */}
-              <TouchableOpacity
-                onPress={() => {
-                  setEventData((prev) => ({
-                    ...prev,
-                    mode: "simple",
-                    // Reset advanced fields when switching to simple
-                    gatheringTime: undefined,
-                    capacity: { enabled: false, maxAttendees: undefined },
-                    responseDeadline: { enabled: false, date: undefined },
-                  }));
-                }}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
+          enabled={Platform.OS !== "web"}
+        >
+          <ScrollView
+            style={{ flex: 1, padding: 16 }}
+            contentContainerStyle={{ paddingBottom: 100 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Creation Mode Toggle */}
+            <View style={{ marginBottom: 24 }}>
+              <Text
                 style={{
-                  flex: 1,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 8,
-                  backgroundColor:
-                    eventData.mode === "simple"
-                      ? theme.colors.secondary
-                      : "transparent",
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.text,
+                  marginBottom: 12,
                 }}
               >
-                <FontAwesome
-                  name="magic"
-                  size={16}
-                  color={
-                    eventData.mode === "simple"
-                      ? "white"
-                      : theme.colors.textSecondary
-                  }
-                  style={{ marginRight: 8 }}
-                />
-                <View style={{ alignItems: "center" }}>
-                  <Text
-                    style={{
-                      color:
-                        eventData.mode === "simple"
-                          ? "white"
-                          : theme.colors.text,
-                      fontWeight:
-                        eventData.mode === "simple" ? "600" : "normal",
-                      fontSize: 16,
-                    }}
-                  >
-                    Simple
-                  </Text>
-                  <Text
-                    style={{
-                      color:
-                        eventData.mode === "simple"
-                          ? "white"
-                          : theme.colors.textSecondary,
-                      fontSize: 12,
-                      marginTop: 2,
-                    }}
-                  >
-                    Quick setup
-                  </Text>
-                </View>
-              </TouchableOpacity>
+                Creation Mode
+              </Text>
 
-              {/* Advanced Mode */}
-              <TouchableOpacity
-                onPress={() =>
-                  setEventData((prev) => ({ ...prev, mode: "advanced" }))
-                }
+              <View
                 style={{
-                  flex: 1,
                   flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 8,
-                  backgroundColor:
-                    eventData.mode === "advanced"
-                      ? theme.colors.secondary
-                      : "transparent",
+                  backgroundColor: theme.colors.inputBackground,
+                  borderRadius: 12,
+                  padding: 4,
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
                 }}
               >
-                <FontAwesome
-                  name="cogs"
-                  size={16}
-                  color={
-                    eventData.mode === "advanced"
-                      ? "white"
-                      : theme.colors.textSecondary
-                  }
-                  style={{ marginRight: 8 }}
-                />
-                <View style={{ alignItems: "center" }}>
-                  <Text
-                    style={{
-                      color:
-                        eventData.mode === "advanced"
-                          ? "white"
-                          : theme.colors.text,
-                      fontWeight:
-                        eventData.mode === "advanced" ? "600" : "normal",
-                      fontSize: 16,
-                    }}
-                  >
-                    Advanced
-                  </Text>
-                  <Text
-                    style={{
-                      color:
-                        eventData.mode === "advanced"
-                          ? "white"
-                          : theme.colors.textSecondary,
-                      fontSize: 12,
-                      marginTop: 2,
-                    }}
-                  >
-                    Full control
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Event Type Selector */}
-          <View style={{ marginBottom: 20 }}>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "600",
-                color: theme.colors.text,
-                marginBottom: 12,
-              }}
-            >
-              Event Type *
-            </Text>
-            <View
-              style={{
-                flexDirection: "row",
-                backgroundColor: theme.colors.inputBackground,
-                borderRadius: 8,
-                padding: 4,
-                borderWidth: 1,
-                borderColor: theme.colors.inputBorder,
-              }}
-            >
-              {eventTypes.map((type) => (
+                {/* Simple Mode */}
                 <TouchableOpacity
-                  key={type.key}
                   onPress={() => {
                     setEventData((prev) => ({
                       ...prev,
-                      type: type.key as any,
-                      title: type.key === "other" ? "" : getAutoTitle(type.key),
+                      mode: "simple",
+                      // Reset advanced fields when switching to simple
+                      gatheringTime: undefined,
+                      capacity: { enabled: false, maxAttendees: undefined },
+                      responseDeadline: { enabled: false, date: undefined },
                     }));
                   }}
                   style={{
                     flex: 1,
-                    paddingVertical: 10,
-                    borderRadius: 6,
-                    backgroundColor:
-                      eventData.type === type.key
-                        ? theme.colors.secondary
-                        : "transparent",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color:
-                        eventData.type === type.key
-                          ? "#1a1d21"
-                          : theme.colors.textSecondary,
-                      fontWeight:
-                        eventData.type === type.key ? "600" : "normal",
-                      fontSize: 15,
-                    }}
-                  >
-                    {type.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Custom Event Title (only for "other" type) */}
-          {eventData.type === "other" && (
-            <View style={{ marginBottom: 20 }}>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: theme.colors.text,
-                  marginBottom: 8,
-                }}
-              >
-                Event Title *
-              </Text>
-              <TextInput
-                style={{
-                  borderWidth: 1,
-                  borderColor: theme.colors.inputBorder,
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 16,
-                  backgroundColor: theme.colors.inputBackground,
-                  color: theme.colors.text,
-                }}
-                value={eventData.title}
-                onChangeText={(text) =>
-                  setEventData((prev) => ({ ...prev, title: text }))
-                }
-                placeholder="Enter custom event title"
-                placeholderTextColor={theme.colors.textSecondary}
-                maxLength={100}
-              />
-            </View>
-          )}
-
-          {/* Recipients Section */}
-          <View style={{ marginBottom: 20 }}>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "600",
-                color: theme.colors.text,
-                marginBottom: 8,
-              }}
-            >
-              Recipients
-            </Text>
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: theme.colors.inputBorder,
-                borderRadius: 8,
-                padding: 12,
-                backgroundColor: theme.colors.inputBackground,
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginBottom: 8,
-                }}
-              >
-                <FontAwesome
-                  name="users"
-                  size={16}
-                  color={theme.colors.textSecondary}
-                  style={{ marginRight: 8 }}
-                />
-                <Text
-                  style={{ fontSize: 16, color: theme.colors.text, flex: 1 }}
-                >
-                  {eventContext.level === "subgroup"
-                    ? eventContext.subgroupName
-                    : eventContext.level === "group"
-                      ? eventContext.groupName
-                      : eventContext.clubName}
-                </Text>
-              </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{ fontSize: 14, color: theme.colors.textSecondary }}
-                >
-                  {isLoadingMembers
-                    ? "Loading..."
-                    : `${memberCount} member${memberCount !== 1 ? "s" : ""}`}
-                  {selectedRoles.length > 0 && ` (${getRecipientLabel()})`}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowRoleFilterModal(true)}
-                  style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 6,
+                    justifyContent: "center",
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
                     backgroundColor:
-                      selectedRoles.length > 0
+                      eventData.mode === "simple"
                         ? theme.colors.secondary
-                        : theme.colors.inputBorder,
+                        : "transparent",
                   }}
                 >
                   <FontAwesome
-                    name="filter"
-                    size={14}
+                    name="magic"
+                    size={16}
                     color={
-                      selectedRoles.length > 0
+                      eventData.mode === "simple"
                         ? "white"
                         : theme.colors.textSecondary
                     }
-                    style={{ marginRight: 6 }}
+                    style={{ marginRight: 8 }}
                   />
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: "500",
-                      color:
-                        selectedRoles.length > 0 ? "white" : theme.colors.text,
-                    }}
-                  >
-                    Filter Roles
-                  </Text>
+                  <View style={{ alignItems: "center" }}>
+                    <Text
+                      style={{
+                        color:
+                          eventData.mode === "simple"
+                            ? "white"
+                            : theme.colors.text,
+                        fontWeight:
+                          eventData.mode === "simple" ? "600" : "normal",
+                        fontSize: 16,
+                      }}
+                    >
+                      Simple
+                    </Text>
+                    <Text
+                      style={{
+                        color:
+                          eventData.mode === "simple"
+                            ? "white"
+                            : theme.colors.textSecondary,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      Quick setup
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Advanced Mode */}
+                <TouchableOpacity
+                  onPress={() =>
+                    setEventData((prev) => ({ ...prev, mode: "advanced" }))
+                  }
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    backgroundColor:
+                      eventData.mode === "advanced"
+                        ? theme.colors.secondary
+                        : "transparent",
+                  }}
+                >
+                  <FontAwesome
+                    name="cogs"
+                    size={16}
+                    color={
+                      eventData.mode === "advanced"
+                        ? "white"
+                        : theme.colors.textSecondary
+                    }
+                    style={{ marginRight: 8 }}
+                  />
+                  <View style={{ alignItems: "center" }}>
+                    <Text
+                      style={{
+                        color:
+                          eventData.mode === "advanced"
+                            ? "white"
+                            : theme.colors.text,
+                        fontWeight:
+                          eventData.mode === "advanced" ? "600" : "normal",
+                        fontSize: 16,
+                      }}
+                    >
+                      Advanced
+                    </Text>
+                    <Text
+                      style={{
+                        color:
+                          eventData.mode === "advanced"
+                            ? "white"
+                            : theme.colors.textSecondary,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      Full control
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
 
-          {/* Start Date and Time */}
-          <View
-            style={{
-              flexDirection: "row",
-              gap: 12,
-              marginBottom: 20,
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: theme.colors.text,
-                  marginBottom: 8,
-                }}
-              >
-                Start Date
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowStartDatePicker(true)}
-                style={{
-                  borderWidth: 1,
-                  borderColor: theme.colors.inputBorder,
-                  borderRadius: 8,
-                  padding: 12,
-                  backgroundColor: theme.colors.inputBackground,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                  {formatDate(eventData.startDate)}
-                </Text>
-                <FontAwesome
-                  name="calendar"
-                  size={16}
-                  color={theme.colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: theme.colors.text,
-                  marginBottom: 8,
-                }}
-              >
-                Start Time
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowStartTimePicker(true)}
-                style={{
-                  borderWidth: 1,
-                  borderColor: theme.colors.inputBorder,
-                  borderRadius: 8,
-                  padding: 12,
-                  backgroundColor: theme.colors.inputBackground,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                  {formatTime(eventData.startTime)}
-                </Text>
-                <FontAwesome
-                  name="clock-o"
-                  size={16}
-                  color={theme.colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Duration (Simple Mode) */}
-          {eventData.mode === "simple" && (
+            {/* Event Type Selector */}
             <View style={{ marginBottom: 20 }}>
               <Text
                 style={{
                   fontSize: 16,
                   fontWeight: "600",
                   color: theme.colors.text,
-                  marginBottom: 8,
+                  marginBottom: 12,
                 }}
               >
-                Duration
+                Event Type *
               </Text>
               <View
                 style={{
                   flexDirection: "row",
-                  gap: 8,
-                  flexWrap: "wrap",
+                  backgroundColor: theme.colors.inputBackground,
+                  borderRadius: 8,
+                  padding: 4,
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
                 }}
               >
-                {[
-                  { minutes: 60, label: "1 hour" },
-                  { minutes: 90, label: "1.5 hours" },
-                  { minutes: 120, label: "2 hours" },
-                  { minutes: 180, label: "3 hours" },
-                ].map((option) => (
+                {eventTypes.map((type) => (
                   <TouchableOpacity
-                    key={option.minutes}
+                    key={type.key}
                     onPress={() => {
-                      // Update duration and automatically calculate end time
-                      const newEndTime = new Date(eventData.startTime);
-                      newEndTime.setMinutes(
-                        newEndTime.getMinutes() + option.minutes,
-                      );
-                      const newEndDate = new Date(eventData.startDate);
-                      if (
-                        newEndTime.getDate() !== eventData.startTime.getDate()
-                      ) {
-                        newEndDate.setDate(newEndDate.getDate() + 1);
-                      }
                       setEventData((prev) => ({
                         ...prev,
-                        duration: option.minutes,
-                        endTime: newEndTime,
-                        endDate: newEndDate,
+                        type: type.key as any,
+                        title:
+                          type.key === "other" ? "" : getAutoTitle(type.key),
                       }));
                     }}
                     style={{
-                      paddingHorizontal: 16,
+                      flex: 1,
                       paddingVertical: 10,
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor:
-                        eventData.duration === option.minutes
-                          ? theme.colors.secondary
-                          : theme.colors.inputBorder,
+                      borderRadius: 6,
                       backgroundColor:
-                        eventData.duration === option.minutes
-                          ? theme.colors.secondary + "20"
-                          : theme.colors.inputBackground,
+                        eventData.type === type.key
+                          ? theme.colors.secondary
+                          : "transparent",
+                      alignItems: "center",
                     }}
                   >
                     <Text
                       style={{
                         color:
-                          eventData.duration === option.minutes
-                            ? theme.colors.secondary
+                          eventData.type === type.key
+                            ? "#1a1d21"
                             : theme.colors.textSecondary,
                         fontWeight:
-                          eventData.duration === option.minutes
-                            ? "600"
-                            : "normal",
-                        fontSize: 14,
+                          eventData.type === type.key ? "600" : "normal",
+                        fontSize: 15,
                       }}
                     >
-                      {option.label}
+                      {type.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
-
-                {/* Custom Duration Input */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    borderWidth: 1,
-                    borderColor: theme.colors.inputBorder,
-                    borderRadius: 20,
-                    backgroundColor: theme.colors.inputBackground,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                  }}
-                >
-                  <TextInput
-                    style={{
-                      width: 50,
-                      fontSize: 14,
-                      color: theme.colors.text,
-                      textAlign: "center",
-                    }}
-                    value={eventData.duration?.toString() || ""}
-                    onChangeText={(text) => {
-                      const minutes = parseInt(text) || 60;
-                      const newEndTime = new Date(eventData.startTime);
-                      newEndTime.setMinutes(newEndTime.getMinutes() + minutes);
-                      const newEndDate = new Date(eventData.startDate);
-                      if (
-                        newEndTime.getDate() !== eventData.startTime.getDate()
-                      ) {
-                        newEndDate.setDate(newEndDate.getDate() + 1);
-                      }
-                      setEventData((prev) => ({
-                        ...prev,
-                        duration: minutes,
-                        endTime: newEndTime,
-                        endDate: newEndDate,
-                      }));
-                    }}
-                    placeholder="120"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    keyboardType="numeric"
-                  />
-                  <Text
-                    style={{
-                      color: theme.colors.textSecondary,
-                      fontSize: 12,
-                      marginLeft: 4,
-                    }}
-                  >
-                    min
-                  </Text>
-                </View>
               </View>
             </View>
-          )}
 
-          {/* Gathering Time (Optional) - Advanced Mode Only */}
-          {eventData.mode === "advanced" && (
+            {/* Custom Event Title (only for "other" type) */}
+            {eventData.type === "other" && (
+              <View style={{ marginBottom: 20 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: theme.colors.text,
+                    marginBottom: 8,
+                  }}
+                >
+                  Event Title *
+                </Text>
+                <TextInput
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.inputBorder,
+                    borderRadius: 8,
+                    padding: 12,
+                    fontSize: 16,
+                    backgroundColor: theme.colors.inputBackground,
+                    color: theme.colors.text,
+                  }}
+                  value={eventData.title}
+                  onChangeText={(text) =>
+                    setEventData((prev) => ({ ...prev, title: text }))
+                  }
+                  placeholder="Enter custom event title"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  maxLength={100}
+                />
+              </View>
+            )}
+
+            {/* Recipients Section */}
             <View style={{ marginBottom: 20 }}>
               <Text
                 style={{
@@ -1440,109 +1138,97 @@ export default function CreateEventScreen() {
                   marginBottom: 8,
                 }}
               >
-                Gathering Time (Optional)
+                Recipients
               </Text>
               <View
                 style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  backgroundColor: theme.colors.inputBackground,
                 }}
               >
-                <View style={{ flex: 1 }}>
-                  <TouchableOpacity
-                    onPress={() =>
-                      eventData.gatheringTime
-                        ? setShowGatheringTimePicker(true)
-                        : null
-                    }
-                    disabled={!eventData.gatheringTime}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: theme.colors.inputBorder,
-                      borderRadius: 8,
-                      padding: 12,
-                      backgroundColor: eventData.gatheringTime
-                        ? theme.colors.inputBackground
-                        : theme.colors.inputBackground + "80",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      opacity: eventData.gatheringTime ? 1 : 0.6,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: eventData.gatheringTime
-                          ? theme.colors.text
-                          : theme.colors.textSecondary,
-                        fontSize: 16,
-                      }}
-                    >
-                      {eventData.gatheringTime
-                        ? formatTime(eventData.gatheringTime)
-                        : "No gathering time"}
-                    </Text>
-                    <FontAwesome
-                      name="clock-o"
-                      size={16}
-                      color={
-                        eventData.gatheringTime
-                          ? theme.colors.textSecondary
-                          : theme.colors.textSecondary + "80"
-                      }
-                    />
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (eventData.gatheringTime) {
-                      // Remove gathering time
-                      setEventData((prev) => ({
-                        ...prev,
-                        gatheringTime: undefined,
-                      }));
-                    } else {
-                      // Add gathering time (30 minutes before start time)
-                      const tempTime = new Date(eventData.startTime);
-                      tempTime.setMinutes(tempTime.getMinutes() - 30);
-                      const hours = tempTime
-                        .getHours()
-                        .toString()
-                        .padStart(2, "0");
-                      const minutes = tempTime
-                        .getMinutes()
-                        .toString()
-                        .padStart(2, "0");
-                      const gatheringTime = `${hours}:${minutes}`;
-                      setEventData((prev) => ({ ...prev, gatheringTime }));
-                    }
-                  }}
+                <View
                   style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    backgroundColor: eventData.gatheringTime
-                      ? theme.colors.error
-                      : theme.colors.secondary,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <FontAwesome
+                    name="users"
+                    size={16}
+                    color={theme.colors.textSecondary}
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text
+                    style={{ fontSize: 16, color: theme.colors.text, flex: 1 }}
+                  >
+                    {eventContext.level === "subgroup"
+                      ? eventContext.subgroupName
+                      : eventContext.level === "group"
+                        ? eventContext.groupName
+                        : eventContext.clubName}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                   }}
                 >
                   <Text
+                    style={{ fontSize: 14, color: theme.colors.textSecondary }}
+                  >
+                    {isLoadingMembers
+                      ? "Loading..."
+                      : `${memberCount} member${memberCount !== 1 ? "s" : ""}`}
+                    {selectedRoles.length > 0 && ` (${getRecipientLabel()})`}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowRoleFilterModal(true)}
                     style={{
-                      color: "white",
-                      fontWeight: "600",
-                      fontSize: 14,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 6,
+                      backgroundColor:
+                        selectedRoles.length > 0
+                          ? theme.colors.secondary
+                          : theme.colors.inputBorder,
                     }}
                   >
-                    {eventData.gatheringTime ? "Remove" : "Add"}
-                  </Text>
-                </TouchableOpacity>
+                    <FontAwesome
+                      name="filter"
+                      size={14}
+                      color={
+                        selectedRoles.length > 0
+                          ? "white"
+                          : theme.colors.textSecondary
+                      }
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color:
+                          selectedRoles.length > 0
+                            ? "white"
+                            : theme.colors.text,
+                      }}
+                    >
+                      Filter Roles
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          )}
 
-          {/* End Date and Time (Advanced Mode Only) */}
-          {eventData.mode === "advanced" && (
+            {/* Start Date and Time */}
             <View
               style={{
                 flexDirection: "row",
@@ -1559,10 +1245,10 @@ export default function CreateEventScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  End Date
+                  Start Date
                 </Text>
                 <TouchableOpacity
-                  onPress={() => setShowEndDatePicker(true)}
+                  onPress={() => setShowStartDatePicker(true)}
                   style={{
                     borderWidth: 1,
                     borderColor: theme.colors.inputBorder,
@@ -1575,7 +1261,7 @@ export default function CreateEventScreen() {
                   }}
                 >
                   <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                    {formatDate(eventData.endDate)}
+                    {formatDate(eventData.startDate)}
                   </Text>
                   <FontAwesome
                     name="calendar"
@@ -1594,10 +1280,10 @@ export default function CreateEventScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  End Time
+                  Start Time
                 </Text>
                 <TouchableOpacity
-                  onPress={() => setShowEndTimePicker(true)}
+                  onPress={() => setShowStartTimePicker(true)}
                   style={{
                     borderWidth: 1,
                     borderColor: theme.colors.inputBorder,
@@ -1610,7 +1296,7 @@ export default function CreateEventScreen() {
                   }}
                 >
                   <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                    {formatTime(eventData.endTime)}
+                    {formatTime(eventData.startTime)}
                   </Text>
                   <FontAwesome
                     name="clock-o"
@@ -1620,311 +1306,279 @@ export default function CreateEventScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          )}
 
-          {/* Location */}
-          <View style={{ marginBottom: 20 }}>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "600",
-                color: theme.colors.text,
-                marginBottom: 8,
-              }}
-            >
-              Location *
-            </Text>
-            <TextInput
-              style={{
-                borderWidth: 1,
-                borderColor: theme.colors.inputBorder,
-                borderRadius: 8,
-                padding: 12,
-                fontSize: 16,
-                backgroundColor: theme.colors.inputBackground,
-                color: theme.colors.text,
-              }}
-              value={eventData.location}
-              onChangeText={(text) =>
-                setEventData((prev) => ({ ...prev, location: text }))
-              }
-              placeholder="Enter event location"
-              placeholderTextColor={theme.colors.textSecondary}
-              maxLength={200}
-            />
-          </View>
-
-          {/* Description */}
-          <View style={{ marginBottom: 20 }}>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "600",
-                color: theme.colors.text,
-                marginBottom: 8,
-              }}
-            >
-              Description
-            </Text>
-            <TextInput
-              style={{
-                borderWidth: 1,
-                borderColor: theme.colors.inputBorder,
-                borderRadius: 8,
-                padding: 12,
-                fontSize: 16,
-                backgroundColor: theme.colors.inputBackground,
-                color: theme.colors.text,
-                height: 100,
-                textAlignVertical: "top",
-              }}
-              value={eventData.description}
-              onChangeText={(text) =>
-                setEventData((prev) => ({ ...prev, description: text }))
-              }
-              placeholder="Enter event description (optional)"
-              placeholderTextColor={theme.colors.textSecondary}
-              multiline
-              maxLength={500}
-            />
-          </View>
-
-          {/* Capacity Management (Advanced Mode Only) */}
-          {eventData.mode === "advanced" && (
-            <View style={{ marginBottom: 20 }}>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: theme.colors.text,
-                  marginBottom: 8,
-                }}
-              >
-                Capacity Limit
-              </Text>
-
-              {/* Enable/Disable Toggle */}
-              <TouchableOpacity
-                onPress={() =>
-                  setEventData((prev) => ({
-                    ...prev,
-                    capacity: {
-                      ...prev.capacity,
-                      enabled: !prev.capacity.enabled,
-                      maxAttendees: !prev.capacity.enabled ? 10 : undefined,
-                    },
-                  }))
-                }
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: theme.colors.inputBorder,
-                  backgroundColor: theme.colors.inputBackground,
-                  marginBottom: eventData.capacity.enabled ? 12 : 0,
-                }}
-              >
-                <View
+            {/* Duration (Simple Mode) */}
+            {eventData.mode === "simple" && (
+              <View style={{ marginBottom: 20 }}>
+                <Text
                   style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: 4,
-                    borderWidth: 2,
-                    borderColor: eventData.capacity.enabled
-                      ? theme.colors.secondary
-                      : theme.colors.inputBorder,
-                    backgroundColor: eventData.capacity.enabled
-                      ? theme.colors.secondary
-                      : "transparent",
-                    marginRight: 12,
-                    alignItems: "center",
-                    justifyContent: "center",
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: theme.colors.text,
+                    marginBottom: 8,
                   }}
                 >
-                  {eventData.capacity.enabled && (
-                    <FontAwesome name="check" size={12} color="white" />
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: theme.colors.text,
-                      fontSize: 16,
-                      fontWeight: "500",
-                    }}
-                  >
-                    Limit number of attendees
-                  </Text>
-                  <Text
-                    style={{
-                      color: theme.colors.textSecondary,
-                      fontSize: 14,
-                      marginTop: 2,
-                    }}
-                  >
-                    Only first {eventData.capacity.maxAttendees || 10} members
-                    who accept can attend
-                  </Text>
-                </View>
-              </TouchableOpacity>
+                  Duration
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {[
+                    { minutes: 60, label: "1 hour" },
+                    { minutes: 90, label: "1.5 hours" },
+                    { minutes: 120, label: "2 hours" },
+                    { minutes: 180, label: "3 hours" },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.minutes}
+                      onPress={() => {
+                        // Update duration and automatically calculate end time
+                        const newEndTime = new Date(eventData.startTime);
+                        newEndTime.setMinutes(
+                          newEndTime.getMinutes() + option.minutes,
+                        );
+                        const newEndDate = new Date(eventData.startDate);
+                        if (
+                          newEndTime.getDate() !== eventData.startTime.getDate()
+                        ) {
+                          newEndDate.setDate(newEndDate.getDate() + 1);
+                        }
+                        setEventData((prev) => ({
+                          ...prev,
+                          duration: option.minutes,
+                          endTime: newEndTime,
+                          endDate: newEndDate,
+                        }));
+                      }}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        borderColor:
+                          eventData.duration === option.minutes
+                            ? theme.colors.secondary
+                            : theme.colors.inputBorder,
+                        backgroundColor:
+                          eventData.duration === option.minutes
+                            ? theme.colors.secondary + "20"
+                            : theme.colors.inputBackground,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color:
+                            eventData.duration === option.minutes
+                              ? theme.colors.secondary
+                              : theme.colors.textSecondary,
+                          fontWeight:
+                            eventData.duration === option.minutes
+                              ? "600"
+                              : "normal",
+                          fontSize: 14,
+                        }}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
 
-              {/* Max Attendees Input */}
-              {eventData.capacity.enabled && (
-                <View>
-                  <Text
+                  {/* Custom Duration Input */}
+                  <View
                     style={{
-                      fontSize: 14,
-                      fontWeight: "500",
-                      color: theme.colors.text,
-                      marginBottom: 8,
-                    }}
-                  >
-                    Maximum Attendees
-                  </Text>
-                  <TextInput
-                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
                       borderWidth: 1,
                       borderColor: theme.colors.inputBorder,
-                      borderRadius: 8,
-                      padding: 12,
-                      fontSize: 16,
+                      borderRadius: 20,
                       backgroundColor: theme.colors.inputBackground,
-                      color: theme.colors.text,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
                     }}
-                    value={eventData.capacity.maxAttendees?.toString() || ""}
-                    onChangeText={(text) => {
-                      const number = parseInt(text) || undefined;
-                      setEventData((prev) => ({
-                        ...prev,
-                        capacity: { ...prev.capacity, maxAttendees: number },
-                      }));
-                    }}
-                    placeholder="e.g. 10"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    keyboardType="numeric"
-                  />
+                  >
+                    <TextInput
+                      style={{
+                        width: 50,
+                        fontSize: 14,
+                        color: theme.colors.text,
+                        textAlign: "center",
+                      }}
+                      value={eventData.duration?.toString() || ""}
+                      onChangeText={(text) => {
+                        const minutes = parseInt(text) || 60;
+                        const newEndTime = new Date(eventData.startTime);
+                        newEndTime.setMinutes(
+                          newEndTime.getMinutes() + minutes,
+                        );
+                        const newEndDate = new Date(eventData.startDate);
+                        if (
+                          newEndTime.getDate() !== eventData.startTime.getDate()
+                        ) {
+                          newEndDate.setDate(newEndDate.getDate() + 1);
+                        }
+                        setEventData((prev) => ({
+                          ...prev,
+                          duration: minutes,
+                          endTime: newEndTime,
+                          endDate: newEndDate,
+                        }));
+                      }}
+                      placeholder="120"
+                      placeholderTextColor={theme.colors.textSecondary}
+                      keyboardType="numeric"
+                    />
+                    <Text
+                      style={{
+                        color: theme.colors.textSecondary,
+                        fontSize: 12,
+                        marginLeft: 4,
+                      }}
+                    >
+                      min
+                    </Text>
+                  </View>
                 </View>
-              )}
-            </View>
-          )}
+              </View>
+            )}
 
-          {/* Response Deadline (Advanced Mode Only) */}
-          {eventData.mode === "advanced" && (
-            <View style={{ marginBottom: 20 }}>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: theme.colors.text,
-                  marginBottom: 8,
-                }}
-              >
-                Response Deadline
-              </Text>
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: theme.colors.textSecondary,
-                  marginBottom: 12,
-                }}
-              >
-                When should members respond by? Default is event start date.
-              </Text>
-
-              {/* Enable/Disable Custom Deadline Toggle */}
-              <TouchableOpacity
-                onPress={() =>
-                  setEventData((prev) => ({
-                    ...prev,
-                    responseDeadline: {
-                      ...prev.responseDeadline,
-                      enabled: !prev.responseDeadline.enabled,
-                      date: !prev.responseDeadline.enabled
-                        ? (() => {
-                            // Default to 1 day before start date when enabling
-                            const deadline = new Date(prev.startDate);
-                            deadline.setDate(deadline.getDate() - 1);
-                            return deadline;
-                          })()
-                        : undefined,
-                    },
-                  }))
-                }
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: theme.colors.inputBorder,
-                  backgroundColor: theme.colors.inputBackground,
-                  marginBottom: eventData.responseDeadline.enabled ? 12 : 0,
-                }}
-              >
-                <View
+            {/* Gathering Time (Optional) - Advanced Mode Only */}
+            {eventData.mode === "advanced" && (
+              <View style={{ marginBottom: 20 }}>
+                <Text
                   style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: 4,
-                    borderWidth: 2,
-                    borderColor: eventData.responseDeadline.enabled
-                      ? theme.colors.secondary
-                      : theme.colors.inputBorder,
-                    backgroundColor: eventData.responseDeadline.enabled
-                      ? theme.colors.secondary
-                      : "transparent",
-                    marginRight: 12,
-                    alignItems: "center",
-                    justifyContent: "center",
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: theme.colors.text,
+                    marginBottom: 8,
                   }}
                 >
-                  {eventData.responseDeadline.enabled && (
-                    <FontAwesome name="check" size={12} color="white" />
-                  )}
+                  Gathering Time (Optional)
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <TouchableOpacity
+                      onPress={() =>
+                        eventData.gatheringTime
+                          ? setShowGatheringTimePicker(true)
+                          : null
+                      }
+                      disabled={!eventData.gatheringTime}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: theme.colors.inputBorder,
+                        borderRadius: 8,
+                        padding: 12,
+                        backgroundColor: eventData.gatheringTime
+                          ? theme.colors.inputBackground
+                          : theme.colors.inputBackground + "80",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        opacity: eventData.gatheringTime ? 1 : 0.6,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: eventData.gatheringTime
+                            ? theme.colors.text
+                            : theme.colors.textSecondary,
+                          fontSize: 16,
+                        }}
+                      >
+                        {eventData.gatheringTime
+                          ? formatTime(eventData.gatheringTime)
+                          : "No gathering time"}
+                      </Text>
+                      <FontAwesome
+                        name="clock-o"
+                        size={16}
+                        color={
+                          eventData.gatheringTime
+                            ? theme.colors.textSecondary
+                            : theme.colors.textSecondary + "80"
+                        }
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (eventData.gatheringTime) {
+                        // Remove gathering time
+                        setEventData((prev) => ({
+                          ...prev,
+                          gatheringTime: undefined,
+                        }));
+                      } else {
+                        // Add gathering time (30 minutes before start time)
+                        const tempTime = new Date(eventData.startTime);
+                        tempTime.setMinutes(tempTime.getMinutes() - 30);
+                        const hours = tempTime
+                          .getHours()
+                          .toString()
+                          .padStart(2, "0");
+                        const minutes = tempTime
+                          .getMinutes()
+                          .toString()
+                          .padStart(2, "0");
+                        const gatheringTime = `${hours}:${minutes}`;
+                        setEventData((prev) => ({ ...prev, gatheringTime }));
+                      }
+                    }}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderRadius: 8,
+                      backgroundColor: eventData.gatheringTime
+                        ? theme.colors.error
+                        : theme.colors.secondary,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "white",
+                        fontWeight: "600",
+                        fontSize: 14,
+                      }}
+                    >
+                      {eventData.gatheringTime ? "Remove" : "Add"}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+              </View>
+            )}
+
+            {/* End Date and Time (Advanced Mode Only) */}
+            {eventData.mode === "advanced" && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: 12,
+                  marginBottom: 20,
+                }}
+              >
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{
-                      color: theme.colors.text,
                       fontSize: 16,
-                      fontWeight: "500",
-                    }}
-                  >
-                    Set custom response deadline
-                  </Text>
-                  <Text
-                    style={{
-                      color: theme.colors.textSecondary,
-                      fontSize: 14,
-                      marginTop: 2,
-                    }}
-                  >
-                    {eventData.responseDeadline.enabled
-                      ? `Deadline: ${eventData.responseDeadline.date ? eventData.responseDeadline.date.toLocaleDateString() : "Select date"}`
-                      : "Members can respond until event start date"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Custom Deadline Date Picker */}
-              {eventData.responseDeadline.enabled && (
-                <View>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: "500",
+                      fontWeight: "600",
                       color: theme.colors.text,
                       marginBottom: 8,
                     }}
                   >
-                    Deadline Date
+                    End Date
                   </Text>
                   <TouchableOpacity
-                    onPress={() => setShowResponseDeadlinePicker(true)}
+                    onPress={() => setShowEndDatePicker(true)}
                     style={{
                       borderWidth: 1,
                       borderColor: theme.colors.inputBorder,
@@ -1934,13 +1588,10 @@ export default function CreateEventScreen() {
                       flexDirection: "row",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      marginBottom: 12,
                     }}
                   >
                     <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                      {eventData.responseDeadline.date
-                        ? eventData.responseDeadline.date.toLocaleDateString()
-                        : "Select deadline date"}
+                      {formatDate(eventData.endDate)}
                     </Text>
                     <FontAwesome
                       name="calendar"
@@ -1948,20 +1599,21 @@ export default function CreateEventScreen() {
                       color={theme.colors.textSecondary}
                     />
                   </TouchableOpacity>
+                </View>
 
-                  {/* Deadline Time Picker */}
+                <View style={{ flex: 1 }}>
                   <Text
                     style={{
-                      fontSize: 14,
-                      fontWeight: "500",
+                      fontSize: 16,
+                      fontWeight: "600",
                       color: theme.colors.text,
                       marginBottom: 8,
                     }}
                   >
-                    Deadline Time
+                    End Time
                   </Text>
                   <TouchableOpacity
-                    onPress={() => setShowResponseDeadlineTimePicker(true)}
+                    onPress={() => setShowEndTimePicker(true)}
                     style={{
                       borderWidth: 1,
                       borderColor: theme.colors.inputBorder,
@@ -1974,9 +1626,7 @@ export default function CreateEventScreen() {
                     }}
                   >
                     <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                      {eventData.responseDeadline.date
-                        ? formatTime(eventData.responseDeadline.date)
-                        : "Select deadline time"}
+                      {formatTime(eventData.endTime)}
                     </Text>
                     <FontAwesome
                       name="clock-o"
@@ -1985,10 +1635,377 @@ export default function CreateEventScreen() {
                     />
                   </TouchableOpacity>
                 </View>
-              )}
+              </View>
+            )}
+
+            {/* Location */}
+            <View style={{ marginBottom: 20 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.text,
+                  marginBottom: 8,
+                }}
+              >
+                Location *
+              </Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 16,
+                  backgroundColor: theme.colors.inputBackground,
+                  color: theme.colors.text,
+                }}
+                value={eventData.location}
+                onChangeText={(text) =>
+                  setEventData((prev) => ({ ...prev, location: text }))
+                }
+                placeholder="Enter event location"
+                placeholderTextColor={theme.colors.textSecondary}
+                maxLength={200}
+              />
             </View>
-          )}
-        </ScrollView>
+
+            {/* Description */}
+            <View style={{ marginBottom: 20 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.text,
+                  marginBottom: 8,
+                }}
+              >
+                Description
+              </Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 16,
+                  backgroundColor: theme.colors.inputBackground,
+                  color: theme.colors.text,
+                  height: 100,
+                  textAlignVertical: "top",
+                }}
+                value={eventData.description}
+                onChangeText={(text) =>
+                  setEventData((prev) => ({ ...prev, description: text }))
+                }
+                placeholder="Enter event description (optional)"
+                placeholderTextColor={theme.colors.textSecondary}
+                multiline
+                maxLength={500}
+              />
+            </View>
+
+            {/* Capacity Management (Advanced Mode Only) */}
+            {eventData.mode === "advanced" && (
+              <View style={{ marginBottom: 20 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: theme.colors.text,
+                    marginBottom: 8,
+                  }}
+                >
+                  Capacity Limit
+                </Text>
+
+                {/* Enable/Disable Toggle */}
+                <TouchableOpacity
+                  onPress={() =>
+                    setEventData((prev) => ({
+                      ...prev,
+                      capacity: {
+                        ...prev.capacity,
+                        enabled: !prev.capacity.enabled,
+                        maxAttendees: !prev.capacity.enabled ? 10 : undefined,
+                      },
+                    }))
+                  }
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: theme.colors.inputBorder,
+                    backgroundColor: theme.colors.inputBackground,
+                    marginBottom: eventData.capacity.enabled ? 12 : 0,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 4,
+                      borderWidth: 2,
+                      borderColor: eventData.capacity.enabled
+                        ? theme.colors.secondary
+                        : theme.colors.inputBorder,
+                      backgroundColor: eventData.capacity.enabled
+                        ? theme.colors.secondary
+                        : "transparent",
+                      marginRight: 12,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {eventData.capacity.enabled && (
+                      <FontAwesome name="check" size={12} color="white" />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: theme.colors.text,
+                        fontSize: 16,
+                        fontWeight: "500",
+                      }}
+                    >
+                      Limit number of attendees
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.colors.textSecondary,
+                        fontSize: 14,
+                        marginTop: 2,
+                      }}
+                    >
+                      Only first {eventData.capacity.maxAttendees || 10} members
+                      who accept can attend
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Max Attendees Input */}
+                {eventData.capacity.enabled && (
+                  <View>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color: theme.colors.text,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Maximum Attendees
+                    </Text>
+                    <TextInput
+                      style={{
+                        borderWidth: 1,
+                        borderColor: theme.colors.inputBorder,
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 16,
+                        backgroundColor: theme.colors.inputBackground,
+                        color: theme.colors.text,
+                      }}
+                      value={eventData.capacity.maxAttendees?.toString() || ""}
+                      onChangeText={(text) => {
+                        const number = parseInt(text) || undefined;
+                        setEventData((prev) => ({
+                          ...prev,
+                          capacity: { ...prev.capacity, maxAttendees: number },
+                        }));
+                      }}
+                      placeholder="e.g. 10"
+                      placeholderTextColor={theme.colors.textSecondary}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Response Deadline (Advanced Mode Only) */}
+            {eventData.mode === "advanced" && (
+              <View style={{ marginBottom: 20 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: theme.colors.text,
+                    marginBottom: 8,
+                  }}
+                >
+                  Response Deadline
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: theme.colors.textSecondary,
+                    marginBottom: 12,
+                  }}
+                >
+                  When should members respond by? Default is event start date.
+                </Text>
+
+                {/* Enable/Disable Custom Deadline Toggle */}
+                <TouchableOpacity
+                  onPress={() =>
+                    setEventData((prev) => ({
+                      ...prev,
+                      responseDeadline: {
+                        ...prev.responseDeadline,
+                        enabled: !prev.responseDeadline.enabled,
+                        date: !prev.responseDeadline.enabled
+                          ? (() => {
+                              // Default to 1 day before start date when enabling
+                              const deadline = new Date(prev.startDate);
+                              deadline.setDate(deadline.getDate() - 1);
+                              return deadline;
+                            })()
+                          : undefined,
+                      },
+                    }))
+                  }
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: theme.colors.inputBorder,
+                    backgroundColor: theme.colors.inputBackground,
+                    marginBottom: eventData.responseDeadline.enabled ? 12 : 0,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 4,
+                      borderWidth: 2,
+                      borderColor: eventData.responseDeadline.enabled
+                        ? theme.colors.secondary
+                        : theme.colors.inputBorder,
+                      backgroundColor: eventData.responseDeadline.enabled
+                        ? theme.colors.secondary
+                        : "transparent",
+                      marginRight: 12,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {eventData.responseDeadline.enabled && (
+                      <FontAwesome name="check" size={12} color="white" />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: theme.colors.text,
+                        fontSize: 16,
+                        fontWeight: "500",
+                      }}
+                    >
+                      Set custom response deadline
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.colors.textSecondary,
+                        fontSize: 14,
+                        marginTop: 2,
+                      }}
+                    >
+                      {eventData.responseDeadline.enabled
+                        ? `Deadline: ${eventData.responseDeadline.date ? eventData.responseDeadline.date.toLocaleDateString() : "Select date"}`
+                        : "Members can respond until event start date"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Custom Deadline Date Picker */}
+                {eventData.responseDeadline.enabled && (
+                  <View>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color: theme.colors.text,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Deadline Date
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowResponseDeadlinePicker(true)}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: theme.colors.inputBorder,
+                        borderRadius: 8,
+                        padding: 12,
+                        backgroundColor: theme.colors.inputBackground,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 12,
+                      }}
+                    >
+                      <Text style={{ color: theme.colors.text, fontSize: 16 }}>
+                        {eventData.responseDeadline.date
+                          ? eventData.responseDeadline.date.toLocaleDateString()
+                          : "Select deadline date"}
+                      </Text>
+                      <FontAwesome
+                        name="calendar"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Deadline Time Picker */}
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color: theme.colors.text,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Deadline Time
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowResponseDeadlineTimePicker(true)}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: theme.colors.inputBorder,
+                        borderRadius: 8,
+                        padding: 12,
+                        backgroundColor: theme.colors.inputBackground,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Text style={{ color: theme.colors.text, fontSize: 16 }}>
+                        {eventData.responseDeadline.date
+                          ? formatTime(eventData.responseDeadline.date)
+                          : "Select deadline time"}
+                      </Text>
+                      <FontAwesome
+                        name="clock-o"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
 
       {/* Bottom Action - outside loading conditional */}

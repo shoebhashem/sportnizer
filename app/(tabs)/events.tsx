@@ -100,6 +100,23 @@ export default function EventsTab() {
           }
         });
 
+        // Sort events based on time filter
+        // Upcoming: soonest first (ascending), Past: most recent first (descending)
+        const sortedEvents = [...timeFilteredEvents].sort((a, b) => {
+          const dateA = convertTimestampToDate(a.startDate);
+          const dateB = convertTimestampToDate(b.startDate);
+          const timeA =
+            dateA instanceof Date ? dateA.getTime() : new Date(dateA).getTime();
+          const timeB =
+            dateB instanceof Date ? dateB.getTime() : new Date(dateB).getTime();
+
+          if (timeFilter === "upcoming") {
+            return timeA - timeB; // Ascending: soonest first
+          } else {
+            return timeB - timeA; // Descending: most recent first
+          }
+        });
+
         // Fetch dependents to know which children to show
         const dependentProfiles = userProfile?.dependents
           ? await fetchDependentProfiles(userProfile.dependents)
@@ -109,7 +126,7 @@ export default function EventsTab() {
         // Expand events: create separate card for each invitee
         const expanded: ExpandedEventData[] = [];
 
-        for (const event of timeFilteredEvents) {
+        for (const event of sortedEvents) {
           if (!event.responses) continue;
 
           // Filter responses to current user + dependents
@@ -161,7 +178,7 @@ export default function EventsTab() {
           }
         }
 
-        setEvents(timeFilteredEvents);
+        setEvents(sortedEvents);
         setExpandedEvents(expanded);
 
         // Apply event type filter to expanded events
@@ -171,7 +188,7 @@ export default function EventsTab() {
         setFilteredEvents(filtered);
 
         console.log(
-          `Processed ${timeFilteredEvents.length} events, expanded to ${expanded.length} cards, showing ${filtered.length} after filter`,
+          `Processed ${sortedEvents.length} events, expanded to ${expanded.length} cards, showing ${filtered.length} after filter`,
         );
       } catch (error) {
         console.error("Error processing events:", error);

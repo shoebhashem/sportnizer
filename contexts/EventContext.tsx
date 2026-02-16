@@ -205,7 +205,11 @@ export function EventProvider({ children }: EventProviderProps) {
         setIsLoading(true);
 
         console.log(`🔄 Fetching events for user ${userId} in club ${clubId}`);
-        const eventList = await fetchEvents({ clubId, userId });
+        const eventList = await fetchEvents({
+          clubId,
+          userId,
+          includePastEvents: true,
+        });
 
         // Update state and cache
         setEvents(eventList);
@@ -250,7 +254,7 @@ export function EventProvider({ children }: EventProviderProps) {
       console.log(`🎧 Setting up real-time event listener for privileged user`);
 
       const unsubscribe = attachEventListener(
-        { clubId, userId },
+        { clubId, userId, includePastEvents: true },
         (eventList) => {
           console.log(`📡 Received ${eventList.length} events via listener`);
           setEvents(eventList);
