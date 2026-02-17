@@ -36,16 +36,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { addRegularMemberToGroupService } from "@/services/orchestration/addRegularMemberToGroup";
 import { validateMemberForInvitation } from "@/services/validation/validateMemberForInvitation";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useLayoutEffect, useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 /**
  * Role Configuration
@@ -98,10 +98,18 @@ export default function AddAdultMemberScreen() {
    */
   const { groupId, groupName, clubId, clubName, role } = useLocalSearchParams();
   const { user } = useAuth();
+  const navigation = useNavigation();
 
   // Get role configuration
   const memberRole = (role as RoleType) || "player";
   const config = roleConfigs[memberRole];
+
+  // Set dynamic native header title
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: config.title,
+    });
+  }, [config.title, navigation]);
 
   /**
    * DEBUG LOGGING
@@ -505,39 +513,21 @@ export default function AddAdultMemberScreen() {
    * MAIN RENDER FUNCTION
    */
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* HEADER SECTION */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
-          </TouchableOpacity>
-
-          <Text style={styles.title}>{config.title}</Text>
-          <Text style={styles.subtitle}>
-            {config.subtitle} {groupName || "this group"}. Existing members will
-            have their role updated, new users will receive {config.roleLabel}{" "}
-            invitations.
-          </Text>
-        </View>
+        {/* SUBTITLE */}
+        <Text style={styles.subtitle}>
+          {config.subtitle} {groupName || "this group"}. Existing members will
+          have their role updated, new users will receive {config.roleLabel}{" "}
+          invitations.
+        </Text>
 
         {/* MAIN CONTENT SECTION */}
         <View>
-          <View style={styles.instructionCard}>
-            <Ionicons
-              name={config.icon}
-              size={24}
-              color={theme.colors.secondary}
-            />
-            <Text style={styles.instructionText}>{config.infoText}</Text>
-          </View>
-
           {/* EMAIL INPUT SECTION */}
           <View style={styles.emailSection}>
             <Text style={styles.sectionTitle}>Email Addresses</Text>
@@ -668,7 +658,7 @@ export default function AddAdultMemberScreen() {
         }
         confirmButtonTheme="primary"
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -683,36 +673,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: theme.layout.containerPadding,
   },
-  header: {
-    marginBottom: theme.spacing.xl,
-  },
-  backButton: {
-    marginBottom: theme.spacing.md,
-  },
-  title: {
-    fontSize: theme.typography.fontSize.xlarge,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.white,
-    marginBottom: theme.spacing.sm,
-  },
   subtitle: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
     lineHeight: 22,
-  },
-  instructionCard: {
-    flexDirection: "row",
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.lg,
     marginBottom: theme.spacing.xl,
-    gap: theme.spacing.md,
-  },
-  instructionText: {
-    flex: 1,
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.text,
-    lineHeight: 22,
   },
   sectionTitle: {
     fontSize: theme.typography.fontSize.large,

@@ -6,8 +6,13 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import {
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
+} from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useLayoutEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -18,7 +23,6 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { theme } from "../constants/theme";
 import {
     getGroupAverage,
@@ -35,8 +39,8 @@ const CURRENT_YEAR = new Date().getFullYear();
 const AVAILABLE_YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
 
 export default function ViewStatisticsScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams();
+  const navigation = useNavigation();
 
   const groupId = params.groupId as string;
   const clubId = params.clubId as string;
@@ -50,6 +54,13 @@ export default function ViewStatisticsScreen() {
   const [memberList, setMemberList] = useState<MemberStatDisplay[]>([]);
   const [groupAverage, setGroupAverage] = useState(0);
   const [showYearPicker, setShowYearPicker] = useState(false);
+
+  // Set dynamic native header title
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: groupName ? `${groupName} Statistics` : "Statistics",
+    });
+  }, [groupName, navigation]);
 
   const loadStatistics = async () => {
     if (!clubId || !groupId) return;
@@ -187,32 +198,19 @@ export default function ViewStatisticsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={styles.loadingText}>Loading statistics...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{groupName}</Text>
-          <Text style={styles.headerSubtitle}>
-            Statistics for {selectedYear} (so far)
-          </Text>
-        </View>
-      </View>
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
       {/* Year Selector */}
       <View style={styles.yearSelectorContainer}>
@@ -387,14 +385,14 @@ export default function ViewStatisticsScreen() {
       ) : (
         renderEmptyState()
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.primary,
   },
   loadingContainer: {
     flex: 1,
@@ -405,30 +403,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  backButton: {
-    marginRight: theme.spacing.md,
-  },
-  headerTitleContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: theme.typography.fontSize.large,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.text,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.fontSize.small,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
   },
   yearSelectorContainer: {
     paddingHorizontal: theme.spacing.lg,

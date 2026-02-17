@@ -8,8 +8,19 @@ import { clubService } from "@/services/club";
 import { createNewGroupInExistingClub } from "@/services/orchestration/createNewGroupInExistingClub";
 import { ClubData } from "@/services/types/club";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import {
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
+} from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
+} from "react";
 import {
     ActivityIndicator,
     Modal,
@@ -20,11 +31,11 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ClubSettingsScreen() {
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
+  const navigation = useNavigation();
   const [club, setClub] = useState<ClubData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -38,6 +49,13 @@ export default function ClubSettingsScreen() {
   const [groupName, setGroupName] = useState("");
   const [sportType, setSportType] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
+
+  // Set dynamic header with club name
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: club?.name ? `${club.name} Settings` : "Club Settings",
+    });
+  }, [club?.name, navigation]);
 
   const fetchClubData = useCallback(async () => {
     if (!clubId || typeof clubId !== "string" || !firebaseUser?.uid) return;
@@ -208,18 +226,20 @@ export default function ClubSettingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={styles.loadingText}>Loading club settings...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!club) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Club not found</Text>
           <Button
@@ -228,28 +248,17 @@ export default function ClubSettingsScreen() {
             theme="secondary"
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Club Settings</Text>
-          <View style={styles.placeholder} />
-        </View>
-
         {/* Club Info */}
         <View style={styles.clubInfoContainer}>
           <Text style={styles.clubName}>{club.name}</Text>
@@ -501,7 +510,7 @@ export default function ClubSettingsScreen() {
           </View>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -514,28 +523,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: theme.layout.containerPadding,
     paddingBottom: theme.spacing.xl,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.sm,
-  },
-  backButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.small,
-  },
-  title: {
-    fontSize: theme.typography.fontSize.xlarge,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.secondary,
-    flex: 1,
-    textAlign: "center",
-  },
-  placeholder: {
-    width: 40,
   },
   clubInfoContainer: {
     backgroundColor: theme.colors.inputBackground,

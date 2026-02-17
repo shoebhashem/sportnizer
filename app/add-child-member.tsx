@@ -29,21 +29,29 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { YouthOption } from "@/services/validation/types";
 import { validateMemberForInvitation } from "@/services/validation/validateMemberForInvitation";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useLayoutEffect, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AddChildMemberScreen() {
   const { groupId, groupName, clubId, clubName } = useLocalSearchParams();
   const { user } = useAuth();
+  const navigation = useNavigation();
+
+  // Set dynamic native header title
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: "Add Youth Player",
+    });
+  }, [navigation]);
 
   // Form state
   const [guardianEmail, setGuardianEmail] = useState("");
@@ -419,7 +427,8 @@ export default function AddChildMemberScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -429,28 +438,12 @@ export default function AddChildMemberScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Add Child/Youth Member</Text>
-            <Text style={styles.subtitle}>
-              Invite a child to join {groupName || "this group"}. The invitation
-              will be sent to their guardian.
-            </Text>
-          </View>
-
-          {/* Info Card */}
-          <View style={styles.infoCard}>
-            <Ionicons
-              name="information-circle"
-              size={24}
-              color={theme.colors.secondary}
-            />
-            <Text style={styles.infoText}>
-              The guardian will receive an invitation to add their child to the
-              group. They will manage all communications and event responses for
-              the child.
-            </Text>
-          </View>
+          {/* Subtitle */}
+          <Text style={styles.subtitle}>
+            Invite a child to join {groupName || "this group"}. The invitation
+            will be sent to their guardian. They will manage all communications
+            and event responses for the child.
+          </Text>
 
           {/* Form */}
           <View style={styles.form}>
@@ -677,7 +670,7 @@ export default function AddChildMemberScreen() {
         }
         confirmButtonTheme="primary"
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -689,34 +682,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: theme.layout.containerPadding,
   },
-  header: {
-    marginBottom: theme.spacing.lg,
-  },
-  title: {
-    fontSize: theme.typography.fontSize.xlarge,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.white,
-    marginBottom: theme.spacing.sm,
-  },
   subtitle: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
     lineHeight: 22,
-  },
-  infoCard: {
-    flexDirection: "row",
-    backgroundColor: theme.colors.inputBackground,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.medium,
     marginBottom: theme.spacing.lg,
-    alignItems: "flex-start",
-  },
-  infoText: {
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-    fontSize: theme.typography.fontSize.small,
-    color: theme.colors.textSecondary,
-    lineHeight: 20,
   },
   form: {
     marginBottom: theme.spacing.lg,

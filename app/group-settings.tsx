@@ -1,7 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import {
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
+} from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { doc, getDoc } from "firebase/firestore";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
     ActivityIndicator,
     Modal,
@@ -12,7 +18,6 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../components/Button";
 import ConfirmationModal from "../components/ConfirmationModal";
 import CountdownTimer from "../components/CountdownTimer";
@@ -39,6 +44,7 @@ import { GroupData } from "../services/types/group";
 export default function GroupSettingsScreen() {
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
+  const navigation = useNavigation();
   const [group, setGroup] = useState<GroupData | null>(null);
   // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
   const [userRole, setUserRole] = useState<string>("member");
@@ -56,6 +62,16 @@ export default function GroupSettingsScreen() {
   const [selectedSubgroup, setSelectedSubgroup] = useState<any>(null);
   const [showDeleteSubgroupModal, setShowDeleteSubgroupModal] = useState(false);
   const [isDeletingSubgroup, setIsDeletingSubgroup] = useState(false);
+  const [clubName, setClubName] = useState<string>("Club");
+  const [addMembersExpanded, setAddMembersExpanded] = useState(false);
+  const [removeMembersExpanded, setRemoveMembersExpanded] = useState(false);
+
+  // Set dynamic header with group name
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: group?.name ? `${group.name} Settings` : "Group Settings",
+    });
+  }, [group?.name, navigation]);
 
   const fetchGroupDataFromServices = useCallback(async () => {
     if (
@@ -150,6 +166,14 @@ export default function GroupSettingsScreen() {
 
       setUserRole(userRole);
       // setAdminCount(adminCount); // Commented out - for future use
+
+      // Fetch club name for navigation params
+      try {
+        const clubResult = await clubService.getClub(clubId);
+        setClubName(clubResult.data?.name || "Club");
+      } catch (error) {
+        console.error("Failed to fetch club name:", error);
+      }
     } catch (error) {
       console.error("Error fetching group data:", error);
       setErrorMessage("Failed to load group data");
@@ -252,24 +276,70 @@ export default function GroupSettingsScreen() {
     }
   };
 
-  const handleManageMembers = async () => {
-    if (group && groupId && clubId) {
-      const groupName = encodeURIComponent(group.name);
+  // Helper to build navigation params for member actions
+  const getMemberActionParams = () => ({
+    groupId: groupId as string,
+    clubId: clubId as string,
+    groupName: group?.name || "Unknown",
+    clubName: clubName,
+  });
 
-      // Fetch club data to get club name
-      let clubName = "Club";
-      try {
-        const clubResult = await clubService.getClub(clubId as string);
-        clubName = clubResult.data?.name || "Club";
-      } catch (error) {
-        console.error("Failed to fetch club name:", error);
-      }
+  const isClubAdmin = userRole === "club-admin";
 
-      const encodedClubName = encodeURIComponent(clubName);
-      router.push(
-        `/manage-members?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}&clubName=${encodedClubName}` as any,
-      );
-    }
+  const handleAddPlayer = () => {
+    router.push({
+      pathname: "/add-adult-member",
+      params: { ...getMemberActionParams(), role: "player" },
+    } as any);
+  };
+
+  const handleAddYouthPlayer = () => {
+    router.push({
+      pathname: "/add-child-member",
+      params: getMemberActionParams(),
+    } as any);
+  };
+
+  const handleAddCoach = () => {
+    router.push({
+      pathname: "/add-adult-member",
+      params: { ...getMemberActionParams(), role: "coach" },
+    } as any);
+  };
+
+  const handleAddAdmin = () => {
+    router.push({
+      pathname: "/add-adult-member",
+      params: { ...getMemberActionParams(), role: "admin" },
+    } as any);
+  };
+
+  const handleRemovePlayer = () => {
+    router.push({
+      pathname: "/remove-member",
+      params: { ...getMemberActionParams(), removeType: "player" },
+    } as any);
+  };
+
+  const handleRemoveYouthPlayer = () => {
+    router.push({
+      pathname: "/remove-member",
+      params: { ...getMemberActionParams(), removeType: "youth" },
+    } as any);
+  };
+
+  const handleRemoveCoach = () => {
+    router.push({
+      pathname: "/remove-member",
+      params: { ...getMemberActionParams(), removeType: "coach" },
+    } as any);
+  };
+
+  const handleRemoveAdmin = () => {
+    router.push({
+      pathname: "/remove-member",
+      params: { ...getMemberActionParams(), removeType: "admin" },
+    } as any);
   };
 
   const handleViewStatistics = () => {
@@ -411,18 +481,20 @@ export default function GroupSettingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={styles.loadingText}>Loading group settings...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!group) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Group not found</Text>
           <Button
@@ -431,28 +503,17 @@ export default function GroupSettingsScreen() {
             theme="secondary"
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Group Settings</Text>
-          <View style={styles.placeholder} />
-        </View>
-
         {/* Group Info */}
         <View style={styles.groupInfoContainer}>
           <Text style={styles.groupName}>{group.name}</Text>
@@ -496,31 +557,190 @@ export default function GroupSettingsScreen() {
 
         {/* Settings Options */}
         <View style={styles.optionsContainer}>
-          {/* Manage Members Option - Only for Admin/Coach */}
+          {/* Add Members Section - Expandable */}
           {canManage && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={handleManageMembers}
-            >
-              <View style={styles.optionIcon}>
+            <>
+              <TouchableOpacity
+                style={styles.expandableHeader}
+                onPress={() => setAddMembersExpanded(!addMembersExpanded)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons
+                    name="person-add-outline"
+                    size={24}
+                    color={theme.colors.secondary}
+                  />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text style={styles.optionTitle}>Add Members</Text>
+                  <Text style={styles.optionDescription}>
+                    Add players, coaches, and admins
+                  </Text>
+                </View>
                 <Ionicons
-                  name="people-outline"
-                  size={24}
-                  color={theme.colors.secondary}
+                  name={addMembersExpanded ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color={theme.colors.textSecondary}
                 />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Manage Members</Text>
-                <Text style={styles.optionDescription}>
-                  Add or remove players, coaches, and admins
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
+              </TouchableOpacity>
+
+              {addMembersExpanded && (
+                <View style={styles.expandableContent}>
+                  <TouchableOpacity
+                    style={styles.subOptionItem}
+                    onPress={handleAddPlayer}
+                  >
+                    <Text style={styles.subOptionTitle}>Add Player</Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.subOptionItem}
+                    onPress={handleAddYouthPlayer}
+                  >
+                    <Text style={styles.subOptionTitle}>Add Youth Player</Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+
+                  {isClubAdmin && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.subOptionItem}
+                        onPress={handleAddCoach}
+                      >
+                        <Text style={styles.subOptionTitle}>Add Coach</Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.subOptionItem, styles.subOptionItemLast]}
+                        onPress={handleAddAdmin}
+                      >
+                        <Text style={styles.subOptionTitle}>Add Admin</Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              )}
+            </>
+          )}
+
+          {/* Remove Members Section - Expandable */}
+          {canManage && (
+            <>
+              <TouchableOpacity
+                style={styles.expandableHeader}
+                onPress={() => setRemoveMembersExpanded(!removeMembersExpanded)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.optionIcon, styles.dangerIconBg]}>
+                  <Ionicons
+                    name="person-remove-outline"
+                    size={24}
+                    color={theme.colors.error}
+                  />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text style={[styles.optionTitle, styles.dangerText]}>
+                    Remove Members
+                  </Text>
+                  <Text style={styles.optionDescription}>
+                    Remove players, coaches, and admins
+                  </Text>
+                </View>
+                <Ionicons
+                  name={removeMembersExpanded ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color={theme.colors.error}
+                />
+              </TouchableOpacity>
+
+              {removeMembersExpanded && (
+                <View style={styles.expandableContent}>
+                  <TouchableOpacity
+                    style={styles.subOptionItem}
+                    onPress={handleRemovePlayer}
+                  >
+                    <Text style={[styles.subOptionTitle, styles.dangerText]}>
+                      Remove Player
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={theme.colors.error}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.subOptionItem}
+                    onPress={handleRemoveYouthPlayer}
+                  >
+                    <Text style={[styles.subOptionTitle, styles.dangerText]}>
+                      Remove Youth Player
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={theme.colors.error}
+                    />
+                  </TouchableOpacity>
+
+                  {isClubAdmin && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.subOptionItem}
+                        onPress={handleRemoveCoach}
+                      >
+                        <Text
+                          style={[styles.subOptionTitle, styles.dangerText]}
+                        >
+                          Remove Coach
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color={theme.colors.error}
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.subOptionItem, styles.subOptionItemLast]}
+                        onPress={handleRemoveAdmin}
+                      >
+                        <Text
+                          style={[styles.subOptionTitle, styles.dangerText]}
+                        >
+                          Remove Admin
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color={theme.colors.error}
+                        />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              )}
+            </>
           )}
 
           {/* View Statistics Option - Only for Admin/Coach */}
@@ -748,7 +968,7 @@ export default function GroupSettingsScreen() {
         }}
         confirmButtonTheme="danger"
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -761,28 +981,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: theme.layout.containerPadding,
     paddingBottom: theme.spacing.xl,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.sm,
-  },
-  backButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.small,
-  },
-  title: {
-    fontSize: theme.typography.fontSize.xlarge,
-    color: theme.colors.secondary,
-    fontWeight: theme.typography.fontWeight.bold,
-    flex: 1,
-    textAlign: "center",
-  },
-  placeholder: {
-    width: 40, // Same width as back button for centering
   },
   groupInfoContainer: {
     backgroundColor: theme.colors.inputBackground,
@@ -816,6 +1014,7 @@ const styles = StyleSheet.create({
   },
   dangerOption: {
     borderBottomWidth: 0,
+    borderBottomColor: `${theme.colors.error}30`,
   },
   optionIcon: {
     width: 40,
@@ -834,6 +1033,43 @@ const styles = StyleSheet.create({
   optionDescription: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
+  },
+  expandableHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  expandableContent: {
+    backgroundColor: theme.colors.inputBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  subOptionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    marginLeft: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  subOptionItemLast: {
+    borderBottomWidth: 0,
+  },
+  subOptionTitle: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  dangerIconBg: {
+    backgroundColor: `${theme.colors.error}20`,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
   },
   dangerText: {
     color: theme.colors.error,

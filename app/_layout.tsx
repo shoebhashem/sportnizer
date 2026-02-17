@@ -130,22 +130,61 @@ export default function RootLayout() {
             <Stack.Screen
               name="group-settings"
               options={{
-                headerShown: false,
+                headerShown: true,
                 title: "Group Settings",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
               }}
             />
             <Stack.Screen
-              name="add-member-type"
+              name="club-settings"
               options={{
-                headerShown: false,
-                title: "Add Member Type",
+                headerShown: true,
+                title: "Club Settings",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
               }}
             />
             <Stack.Screen
-              name="manage-members"
+              name="subgroup-settings"
               options={{
-                headerShown: false,
-                title: "Manage Members",
+                headerShown: true,
+                title: "Subgroup Settings",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="add-adult-member"
+              options={{
+                headerShown: true,
+                title: "Add Member",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="add-child-member"
+              options={{
+                headerShown: true,
+                title: "Add Youth Player",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
               }}
             />
             <Stack.Screen
@@ -153,6 +192,18 @@ export default function RootLayout() {
               options={{
                 headerShown: false,
                 title: "Remove Member",
+              }}
+            />
+            <Stack.Screen
+              name="view-statistics"
+              options={{
+                headerShown: true,
+                title: "Statistics",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
               }}
             />
           </Stack>

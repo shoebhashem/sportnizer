@@ -8,9 +8,20 @@ import { groupService } from "@/services/group";
 import { SubGroup, subgroupService } from "@/services/subgroup";
 import { GroupData } from "@/services/types/group";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import {
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
+} from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { doc, getDoc } from "firebase/firestore";
-import React, { useCallback, useEffect, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
+} from "react";
 import {
     ActivityIndicator,
     Modal,
@@ -20,12 +31,12 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { db } from "../services/core/firebase";
 
 export default function SubgroupSettingsScreen() {
   const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
+  const navigation = useNavigation();
   const [group, setGroup] = useState<GroupData | null>(null);
   const [subgroup, setSubgroup] = useState<SubGroup | null>(null);
   const [userRole, setUserRole] = useState<string>("member");
@@ -38,6 +49,18 @@ export default function SubgroupSettingsScreen() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState(false);
+
+  const displayName =
+    typeof subgroupName === "string"
+      ? subgroupName
+      : subgroup?.name || "Subgroup";
+
+  // Set dynamic header with subgroup name
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: `${displayName} Settings`,
+    });
+  }, [displayName, navigation]);
 
   const fetchData = useCallback(async () => {
     if (
@@ -235,18 +258,20 @@ export default function SubgroupSettingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={styles.loadingText}>Loading subgroup settings...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!group || !subgroup) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Subgroup not found</Text>
           <Button
@@ -255,28 +280,17 @@ export default function SubgroupSettingsScreen() {
             theme="secondary"
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Subgroup Settings</Text>
-          <View style={styles.placeholder} />
-        </View>
-
         {/* Subgroup Info */}
         <View style={styles.groupInfoContainer}>
           <Text style={styles.subgroupName}>{subgroup.name}</Text>
@@ -415,7 +429,7 @@ export default function SubgroupSettingsScreen() {
         onCancel={() => setShowErrorModal(false)}
         confirmButtonTheme="primary"
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -450,29 +464,6 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     fontSize: theme.typography.fontSize.large,
     textAlign: "center",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.inputBorder,
-    marginBottom: theme.spacing.lg,
-  },
-  backButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.small,
-  },
-  title: {
-    fontSize: theme.typography.fontSize.large,
-    fontWeight: "bold",
-    color: theme.colors.text,
-    flex: 1,
-    textAlign: "center",
-  },
-  placeholder: {
-    width: 40,
   },
   groupInfoContainer: {
     backgroundColor: theme.colors.inputBackground,
