@@ -18,6 +18,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Button from "../components/Button";
 import ConfirmationModal from "../components/ConfirmationModal";
 import CountdownTimer from "../components/CountdownTimer";
@@ -42,6 +43,7 @@ import { GroupData } from "../services/types/group";
 // }
 
 export default function GroupSettingsScreen() {
+  const insets = useSafeAreaInsets();
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -508,7 +510,7 @@ export default function GroupSettingsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}

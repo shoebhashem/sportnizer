@@ -27,6 +27,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Import new services
 import { fetchGroupMembers } from "@/services/fetchGroupMembers";
@@ -36,6 +37,7 @@ import { SubGroup } from "@/services/subgroup";
 import { GroupData, GroupMemberData } from "@/services/types/group";
 
 export default function ManageGroupScreen() {
+  const insets = useSafeAreaInsets();
   const { groupId, clubId, clubName, tab } = useLocalSearchParams();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -249,7 +251,7 @@ export default function ManageGroupScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}

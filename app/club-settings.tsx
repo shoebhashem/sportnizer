@@ -31,8 +31,10 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ClubSettingsScreen() {
+  const insets = useSafeAreaInsets();
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
   const navigation = useNavigation();
@@ -253,7 +255,7 @@ export default function ClubSettingsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}

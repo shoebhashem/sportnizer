@@ -23,6 +23,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../constants/theme";
 import {
     getGroupAverage,
@@ -39,6 +40,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 const AVAILABLE_YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
 
 export default function ViewStatisticsScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const navigation = useNavigation();
 
@@ -209,7 +211,7 @@ export default function ViewStatisticsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
 
       {/* Year Selector */}

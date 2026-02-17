@@ -30,10 +30,12 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ResponseTab = "accepted" | "declined" | "pending";
 
 export default function EventDetailsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
   const { user } = useAuth();
@@ -656,7 +658,7 @@ export default function EventDetailsScreen() {
     : false;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>

@@ -31,9 +31,11 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { db } from "../services/core/firebase";
 
 export default function SubgroupSettingsScreen() {
+  const insets = useSafeAreaInsets();
   const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -285,7 +287,7 @@ export default function SubgroupSettingsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}

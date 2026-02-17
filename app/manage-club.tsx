@@ -36,6 +36,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ClubMemberData {
   userId: string;
@@ -57,6 +58,7 @@ interface ClubData {
 }
 
 export default function ManageClubScreen() {
+  const insets = useSafeAreaInsets();
   const { clubId } = useLocalSearchParams();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -430,7 +432,7 @@ export default function ManageClubScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
