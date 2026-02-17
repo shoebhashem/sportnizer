@@ -382,15 +382,17 @@ export default function ManageClubScreen() {
                     disabled={isReactivatingGroup}
                   />
                 </View>
-                <TouchableOpacity
-                  style={styles.devButton}
-                  onPress={() => handleForceCleanup(item)}
-                  disabled={isForceCleaning}
-                >
-                  <Text style={styles.devButtonText}>
-                    🧪 DEV: Force Delete Now
-                  </Text>
-                </TouchableOpacity>
+                {__DEV__ && (
+                  <TouchableOpacity
+                    style={styles.devButton}
+                    onPress={() => handleForceCleanup(item)}
+                    disabled={isForceCleaning}
+                  >
+                    <Text style={styles.devButtonText}>
+                      🧪 DEV: Force Delete Now
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
@@ -526,19 +528,21 @@ export default function ManageClubScreen() {
         }}
       />
 
-      {/* Force Cleanup Modal */}
-      <ConfirmationModal
-        visible={showForceCleanupModal}
-        title="🧪 DEV: Force Hard Delete"
-        message={`⚠️ WARNING: This will IMMEDIATELY and PERMANENTLY delete "${selectedGroup?.name}" without waiting for the grace period. This action cannot be undone. Use only for testing!`}
-        confirmText={isForceCleaning ? "Deleting..." : "Force Delete Now"}
-        cancelText="Cancel"
-        onConfirm={confirmForceCleanup}
-        onCancel={() => {
-          setShowForceCleanupModal(false);
-          setSelectedGroup(null);
-        }}
-      />
+      {/* Force Cleanup Modal (DEV only) */}
+      {__DEV__ && (
+        <ConfirmationModal
+          visible={showForceCleanupModal}
+          title="🧪 DEV: Force Hard Delete"
+          message={`⚠️ WARNING: This will IMMEDIATELY and PERMANENTLY delete "${selectedGroup?.name}" without waiting for the grace period. This action cannot be undone. Use only for testing!`}
+          confirmText={isForceCleaning ? "Deleting..." : "Force Delete Now"}
+          cancelText="Cancel"
+          onConfirm={confirmForceCleanup}
+          onCancel={() => {
+            setShowForceCleanupModal(false);
+            setSelectedGroup(null);
+          }}
+        />
+      )}
 
       {/* FAB: Create Club-wide Event */}
       {isClubAdmin && (
