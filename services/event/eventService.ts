@@ -290,12 +290,17 @@ export async function getEventDetails(
         accepted: 0,
         declined: 0,
         pending: eventData.invitedUserIds?.length || 0,
+        attended: eventData.responseSummary?.attended || 0,
       },
       isActive: eventData.isActive !== false,
+      status: eventData.status || "scheduled",
       createdAt: eventData.createdAt,
       createdBy: eventData.createdBy || "",
       lastModifiedAt: eventData.lastModifiedAt,
       version: eventData.version || 1,
+      completedAt: eventData.completedAt?.toDate?.() || undefined,
+      completedBy: eventData.completedBy || undefined,
+      completedByName: eventData.completedByName || undefined,
     };
   } catch (error) {
     console.error("Error fetching event details:", error);

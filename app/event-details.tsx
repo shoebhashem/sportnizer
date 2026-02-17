@@ -6,14 +6,19 @@ import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserContext";
 import {
+    recordEventAttendance,
+    type AttendanceRecord,
+} from "@/services/event/attendanceService";
+import {
     getEventDetails,
     updateEventResponse,
 } from "@/services/event/eventService";
 import type { EventData } from "@/services/types/event";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -25,12 +30,12 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 type ResponseTab = "accepted" | "declined" | "pending";
 
 export default function EventDetailsScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
   const params = useLocalSearchParams();
@@ -69,10 +74,77 @@ export default function EventDetailsScreen() {
     onConfirm: () => {},
   });
 
+  // Attendance recording state
+  const [isRecordingAttendance, setIsRecordingAttendance] = useState(false);
+  const [attendanceData, setAttendanceData] = useState<Map<string, boolean>>(
+    new Map(),
+  );
+  const [submittingAttendance, setSubmittingAttendance] = useState(false);
+
   useEffect(() => {
     loadEventDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, clubId]);
+
+  // Set dynamic header with edit button
+  useLayoutEffect(() => {
+    if (!event || !userProfile) {
+      navigation.setOptions({
+        headerRight: () => null,
+      });
+      return;
+    }
+
+    // Check if user can edit (inline logic to avoid dependency issues)
+    let showEdit = false;
+    if (event.createdBy === user?.uid) {
+      showEdit = true;
+    } else {
+      const clubAccess = userProfile.clubAccess?.find(
+        (ca) => ca.clubId === event.clubId,
+      );
+      if (clubAccess?.role === "club-admin") {
+        showEdit = true;
+      } else if (event.groupId && clubAccess?.groupAccess) {
+        const groupAccess = clubAccess.groupAccess.find(
+          (ga) => ga.groupId === event.groupId,
+        );
+        if (groupAccess?.roles.includes("coach")) {
+          showEdit = true;
+        }
+      }
+    }
+
+    navigation.setOptions({
+      headerRight: () =>
+        showEdit ? (
+          <TouchableOpacity
+            onPress={() => {
+              if (!event) return;
+              router.push({
+                pathname: "/create-event",
+                params: {
+                  eventId: event.id,
+                  clubId: event.clubId,
+                  clubName: event.clubName,
+                  groupId: event.groupId || undefined,
+                  groupName: event.groupName || undefined,
+                  mode: "edit",
+                },
+              } as any);
+            }}
+            style={{ marginRight: 8, padding: 8 }}
+          >
+            <Ionicons
+              name="create-outline"
+              size={24}
+              color={theme.colors.white}
+            />
+          </TouchableOpacity>
+        ) : null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event, userProfile, navigation]);
 
   const loadEventDetails = async () => {
     if (!eventId || !clubId) {
@@ -399,23 +471,153 @@ export default function EventDetailsScreen() {
     }
   };
 
+  // Attendance Recording Functions
+  const canRecordAttendance = () => {
+    if (!event || !userProfile) return false;
+    if (event.status === "completed") return false; // Cannot record if already completed
+
+    const clubAccess = userProfile.clubAccess?.find(
+      (ca) => ca.clubId === event.clubId,
+    );
+
+    if (!clubAccess) return false;
+
+    // Check club-level role (club-admin)
+    if (clubAccess.role === "club-admin") {
+      return true;
+    }
+
+    // Check group-level roles (admin or coach)
+    if (event.groupId && clubAccess.groupAccess) {
+      const groupAccess = clubAccess.groupAccess.find(
+        (ga) => ga.groupId === event.groupId,
+      );
+
+      if (
+        groupAccess?.roles?.some(
+          (role: string) =>
+            role.toLowerCase() === "admin" || role.toLowerCase() === "coach",
+        )
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const handleStartRecording = () => {
+    if (!event) return;
+
+    // Initialize attendance data with accepted members pre-checked
+    const initialAttendance = new Map<string, boolean>();
+    event.responses?.forEach((response) => {
+      // Pre-check members who accepted
+      initialAttendance.set(response.userId, response.response === "accepted");
+    });
+
+    setAttendanceData(initialAttendance);
+    setIsRecordingAttendance(true);
+  };
+
+  const handleCancelRecording = () => {
+    setIsRecordingAttendance(false);
+    setAttendanceData(new Map());
+  };
+
+  const handleToggleAttendance = (userId: string, attended: boolean) => {
+    setAttendanceData((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(userId, attended);
+      return newMap;
+    });
+  };
+
+  const handleCompleteEvent = () => {
+    if (!event) return;
+
+    const attendedCount = Array.from(attendanceData.values()).filter(
+      (attended) => attended,
+    ).length;
+    const totalInvitees = event.responses?.length || 0;
+
+    setConfirmModal({
+      visible: true,
+      title: "Complete Event?",
+      message: `You are about to mark this event as completed with ${attendedCount} of ${totalInvitees} attendees.\n\n⚠️ Warning: After completing, attendance cannot be modified.`,
+      onConfirm: handleConfirmComplete,
+    });
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!event || !user || !userProfile) return;
+
+    try {
+      setSubmittingAttendance(true);
+      setConfirmModal({ ...confirmModal, visible: false });
+
+      // Build attendance records array
+      const attendanceRecords: AttendanceRecord[] = Array.from(
+        attendanceData.entries(),
+      ).map(([userId, attended]) => ({
+        userId,
+        attended,
+      }));
+
+      // Record attendance
+      await recordEventAttendance(
+        event.id,
+        event.clubId,
+        attendanceRecords,
+        user.uid,
+        userProfile.displayName || userProfile.name || "Coach",
+      );
+
+      // Reload event details
+      await loadEventDetails();
+
+      setIsRecordingAttendance(false);
+      setAttendanceData(new Map());
+
+      setConfirmModal({
+        visible: true,
+        title: "Success",
+        message: "Attendance recorded and event completed successfully!",
+        onConfirm: () => {
+          setConfirmModal({ ...confirmModal, visible: false });
+        },
+      });
+    } catch (error: any) {
+      console.error("Error recording attendance:", error);
+      setConfirmModal({
+        visible: true,
+        title: "Error",
+        message: error.message || "Failed to record attendance",
+        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+      });
+    } finally {
+      setSubmittingAttendance(false);
+    }
+  };
+
   const filteredResponses =
     event?.responses?.filter((r) => r.status === activeTab) || [];
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={styles.loadingText}>Loading event details...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!event) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <Ionicons
             name="alert-circle-outline"
@@ -430,7 +632,7 @@ export default function EventDetailsScreen() {
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -454,23 +656,8 @@ export default function EventDetailsScreen() {
     : false;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
-          <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Event Details</Text>
-        {canEditEvent() && (
-          <TouchableOpacity onPress={handleEdit} style={styles.editIcon}>
-            <Ionicons
-              name="create-outline"
-              size={24}
-              color={theme.colors.white}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Event Header */}
@@ -858,11 +1045,137 @@ export default function EventDetailsScreen() {
           </View>
         )}
 
+        {/* Record Attendance Button (for admins/coaches) */}
+        {canRecordAttendance() &&
+          !isRecordingAttendance &&
+          event.status !== "completed" && (
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.recordAttendanceButton}
+                onPress={handleStartRecording}
+              >
+                <Ionicons
+                  name="checkbox-outline"
+                  size={20}
+                  color={theme.colors.white}
+                />
+                <Text style={styles.recordAttendanceButtonText}>
+                  Record Attendance
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+        {/* Recording Mode Actions */}
+        {isRecordingAttendance && (
+          <View style={styles.recordingActionsContainer}>
+            <TouchableOpacity
+              style={styles.cancelRecordingButton}
+              onPress={handleCancelRecording}
+              disabled={submittingAttendance}
+            >
+              <Text style={styles.cancelRecordingButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.completeEventButton,
+                submittingAttendance && { opacity: 0.5 },
+              ]}
+              onPress={handleCompleteEvent}
+              disabled={submittingAttendance}
+            >
+              {submittingAttendance ? (
+                <ActivityIndicator color={theme.colors.white} size="small" />
+              ) : (
+                <>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.colors.white}
+                  />
+                  <Text style={styles.completeEventButtonText}>
+                    Complete Event
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Event Completed - Attendance Summary */}
+        {event.status === "completed" && (
+          <View style={styles.section}>
+            <View style={styles.attendanceSummaryCard}>
+              <View style={styles.completedBadge}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={theme.colors.white}
+                />
+                <Text style={styles.completedBadgeText}>
+                  Attendance Completed
+                </Text>
+              </View>
+
+              {event.completedByName && event.completedAt && (
+                <Text style={styles.completedInfoText}>
+                  Recorded by {event.completedByName} on{" "}
+                  {format(
+                    new Date(event.completedAt),
+                    "MMM dd, yyyy 'at' h:mm a",
+                  )}
+                </Text>
+              )}
+
+              {/* Attendance Stats */}
+              <View style={styles.attendanceStats}>
+                <View style={styles.attendanceStatItem}>
+                  <Ionicons
+                    name="people"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                  <Text style={styles.attendanceStatLabel}>Total Invitees</Text>
+                  <Text style={styles.attendanceStatValue}>
+                    {event.responses?.length || 0}
+                  </Text>
+                </View>
+                <View style={styles.attendanceStatDivider} />
+                <View style={styles.attendanceStatItem}>
+                  <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                  <Text style={styles.attendanceStatLabel}>Attended</Text>
+                  <Text
+                    style={[styles.attendanceStatValue, { color: "#4CAF50" }]}
+                  >
+                    {event.responseSummary?.attended || 0}
+                  </Text>
+                </View>
+                <View style={styles.attendanceStatDivider} />
+                <View style={styles.attendanceStatItem}>
+                  <Ionicons name="close-circle" size={20} color="#F44336" />
+                  <Text style={styles.attendanceStatLabel}>Absent</Text>
+                  <Text
+                    style={[styles.attendanceStatValue, { color: "#F44336" }]}
+                  >
+                    {(event.responses?.length || 0) -
+                      (event.responseSummary?.attended || 0)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Invitees List */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Invitees ({event.responses?.length || 0})
-          </Text>
+          <View style={styles.inviteesHeader}>
+            <Text style={styles.sectionTitle}>
+              Invitees ({event.responses?.length || 0})
+            </Text>
+            {isRecordingAttendance && (
+              <Text style={styles.recordingModeText}>✓ Check who attended</Text>
+            )}
+          </View>
 
           {event.responses && event.responses.length > 0 ? (
             <FlatList
@@ -880,10 +1193,66 @@ export default function EventDetailsScreen() {
                       ? "#F44336"
                       : "#FFA726";
 
-                const canClickInvitee = canRespondAfterDeadline();
+                const canClickInvitee =
+                  !isRecordingAttendance &&
+                  canRespondAfterDeadline() &&
+                  event.status !== "completed";
+                const isAttended = attendanceData.get(item.userId) || false;
+                const actuallyAttended = item.actualAttendance === true;
+                const wasMarkedAbsent = item.actualAttendance === false;
 
                 const inviteeContent = (
                   <>
+                    {/* Checkbox for recording mode */}
+                    {isRecordingAttendance && (
+                      <TouchableOpacity
+                        style={styles.attendanceCheckbox}
+                        onPress={() =>
+                          handleToggleAttendance(item.userId, !isAttended)
+                        }
+                      >
+                        <View
+                          style={[
+                            styles.checkboxBox,
+                            isAttended && styles.checkboxBoxChecked,
+                          ]}
+                        >
+                          {isAttended && (
+                            <Ionicons
+                              name="checkmark"
+                              size={16}
+                              color={theme.colors.white}
+                            />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Read-only attendance indicator (when event is completed) */}
+                    {event.status === "completed" && !isRecordingAttendance && (
+                      <View style={styles.attendanceIndicator}>
+                        {actuallyAttended ? (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={24}
+                            color="#4CAF50"
+                          />
+                        ) : wasMarkedAbsent ? (
+                          <Ionicons
+                            name="close-circle"
+                            size={24}
+                            color="#F44336"
+                          />
+                        ) : (
+                          <Ionicons
+                            name="help-circle"
+                            size={24}
+                            color="#9E9E9E"
+                          />
+                        )}
+                      </View>
+                    )}
+
                     <View style={styles.inviteeLeft}>
                       {item.photoUrl ? (
                         <Image
@@ -912,18 +1281,41 @@ export default function EventDetailsScreen() {
                       </View>
                     </View>
                     <View style={styles.inviteeRight}>
-                      <View
-                        style={[
-                          styles.inviteeStatusBadge,
-                          { backgroundColor: statusColor },
-                        ]}
-                      >
-                        <Text style={styles.inviteeStatusText}>
-                          {statusValue.charAt(0).toUpperCase() +
-                            statusValue.slice(1)}
-                        </Text>
-                      </View>
-                      {canClickInvitee && (
+                      {!isRecordingAttendance &&
+                        event.status !== "completed" && (
+                          <View
+                            style={[
+                              styles.inviteeStatusBadge,
+                              { backgroundColor: statusColor },
+                            ]}
+                          >
+                            <Text style={styles.inviteeStatusText}>
+                              {statusValue.charAt(0).toUpperCase() +
+                                statusValue.slice(1)}
+                            </Text>
+                          </View>
+                        )}
+                      {event.status === "completed" &&
+                        !isRecordingAttendance && (
+                          <View style={styles.attendanceBadge}>
+                            <Text
+                              style={[
+                                styles.attendanceBadgeText,
+                                actuallyAttended && { color: "#4CAF50" },
+                                wasMarkedAbsent && { color: "#F44336" },
+                                !actuallyAttended &&
+                                  !wasMarkedAbsent && { color: "#9E9E9E" },
+                              ]}
+                            >
+                              {actuallyAttended
+                                ? "Attended"
+                                : wasMarkedAbsent
+                                  ? "Absent"
+                                  : "Not Marked"}
+                            </Text>
+                          </View>
+                        )}
+                      {canClickInvitee && !isRecordingAttendance && (
                         <Ionicons
                           name="chevron-forward"
                           size={20}
@@ -1204,38 +1596,14 @@ export default function EventDetailsScreen() {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: theme.layout.containerPadding,
-    paddingVertical: theme.spacing.md,
     backgroundColor: theme.colors.primary,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.inputBorder,
-  },
-  backIcon: {
-    padding: theme.spacing.xs,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: theme.typography.fontSize.xlarge,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.white,
-    textAlign: "center",
-    marginHorizontal: theme.spacing.sm,
-  },
-  editIcon: {
-    padding: theme.spacing.xs,
   },
   loadingContainer: {
     flex: 1,
@@ -1746,5 +2114,153 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: theme.spacing.xl,
+  },
+  // Attendance Recording Styles
+  recordAttendanceButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.medium,
+    gap: theme.spacing.sm,
+  },
+  recordAttendanceButtonText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.white,
+  },
+  recordingActionsContainer: {
+    flexDirection: "row",
+    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+  },
+  cancelRecordingButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+  },
+  cancelRecordingButtonText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.text,
+  },
+  completeEventButton: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.success,
+    gap: theme.spacing.sm,
+  },
+  completeEventButtonText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.white,
+  },
+  completedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.success,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  completedBadgeText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.white,
+  },
+  completedInfoText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+  },
+  inviteesHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: theme.spacing.sm,
+  },
+  recordingModeText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.primary,
+    fontWeight: theme.typography.fontWeight.semibold,
+  },
+  attendanceCheckbox: {
+    marginRight: theme.spacing.sm,
+  },
+  checkboxBox: {
+    width: 24,
+    height: 24,
+    borderRadius: theme.borderRadius.small,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.background,
+  },
+  checkboxBoxChecked: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  // Attendance Summary Styles
+  attendanceSummaryCard: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+  },
+  attendanceStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  attendanceStatItem: {
+    alignItems: "center",
+    flex: 1,
+    gap: theme.spacing.xs,
+  },
+  attendanceStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: theme.colors.border,
+  },
+  attendanceStatLabel: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+  },
+  attendanceStatValue: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
+  },
+  attendanceIndicator: {
+    marginRight: theme.spacing.sm,
+  },
+  attendanceBadge: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: theme.borderRadius.small,
+  },
+  attendanceBadgeText: {
+    fontSize: theme.typography.fontSize.small,
+    fontWeight: theme.typography.fontWeight.semibold,
   },
 });

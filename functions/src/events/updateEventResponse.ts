@@ -168,6 +168,23 @@ export const updateEventResponse = onCall(
         }
 
         // ============================================================================
+        // STEP 2.5: Retrieve Response Data First (needed for permission checks)
+        // ============================================================================
+        const responses = eventData.responses || [];
+        const responseIndex = responses.findIndex(
+          (r: any) => r.userId === data.userId,
+        );
+
+        if (responseIndex === -1) {
+          throw new HttpsError(
+            "not-found",
+            "Response record not found for this user",
+          );
+        }
+
+        const responseData = responses[responseIndex];
+
+        // ============================================================================
         // RESPOND FOR OTHERS: Validate permission when respondedBy is different from userId
         // ============================================================================
         if (data.respondedBy && data.respondedBy !== data.userId) {
@@ -175,49 +192,68 @@ export const updateEventResponse = onCall(
             `🔍 User ${data.respondedBy} attempting to respond for user ${data.userId}`,
           );
 
-          // Fetch responder's user profile to check permissions
-          const responderDoc = await db
-            .collection("users")
-            .doc(data.respondedBy)
-            .get();
-
-          if (!responderDoc.exists) {
-            throw new HttpsError("not-found", "Responder profile not found");
-          }
-
-          const responderData = responderDoc.data()!;
-          const clubAccess = responderData.clubAccess?.find(
-            (ca: any) => ca.clubId === data.clubId,
-          );
-
           let canRespondForOthers = false;
 
-          // Check if responder is club-admin
-          if (clubAccess?.role === "club-admin") {
+          // Check if responder is a guardian of this youth member
+          if (
+            responseData.isYouthMember &&
+            responseData.guardianIds?.includes(data.respondedBy)
+          ) {
             canRespondForOthers = true;
+            const guardianIndex = responseData.guardianIds.indexOf(
+              data.respondedBy,
+            );
+            const guardianName =
+              responseData.guardianNames?.[guardianIndex] || "Guardian";
             console.log(
-              `✅ User ${data.respondedBy} is club-admin, allowing respond-for-others`,
+              `✅ User ${data.respondedBy} is guardian (${guardianName}) of youth member, allowing respond-for-youth`,
             );
           }
 
-          // Check if responder is admin/coach in the event's group
-          if (
-            !canRespondForOthers &&
-            eventData.targetScope?.groupId &&
-            clubAccess?.groupAccess
-          ) {
-            const groupAccess = clubAccess.groupAccess.find(
-              (ga: any) => ga.groupId === eventData.targetScope.groupId,
+          // If not a guardian, check for admin/coach permissions
+          if (!canRespondForOthers) {
+            // Fetch responder's user profile to check permissions
+            const responderDoc = await db
+              .collection("users")
+              .doc(data.respondedBy)
+              .get();
+
+            if (!responderDoc.exists) {
+              throw new HttpsError("not-found", "Responder profile not found");
+            }
+
+            const responderData = responderDoc.data()!;
+            const clubAccess = responderData.clubAccess?.find(
+              (ca: any) => ca.clubId === data.clubId,
             );
 
-            if (
-              groupAccess?.roles?.includes("admin") ||
-              groupAccess?.roles?.includes("coach")
-            ) {
+            // Check if responder is club-admin
+            if (clubAccess?.role === "club-admin") {
               canRespondForOthers = true;
               console.log(
-                `✅ User ${data.respondedBy} is group admin/coach, allowing respond-for-others`,
+                `✅ User ${data.respondedBy} is club-admin, allowing respond-for-others`,
               );
+            }
+
+            // Check if responder is admin/coach in the event's group
+            if (
+              !canRespondForOthers &&
+              eventData.targetScope?.groupId &&
+              clubAccess?.groupAccess
+            ) {
+              const groupAccess = clubAccess.groupAccess.find(
+                (ga: any) => ga.groupId === eventData.targetScope.groupId,
+              );
+
+              if (
+                groupAccess?.roles?.includes("admin") ||
+                groupAccess?.roles?.includes("coach")
+              ) {
+                canRespondForOthers = true;
+                console.log(
+                  `✅ User ${data.respondedBy} is group admin/coach, allowing respond-for-others`,
+                );
+              }
             }
           }
 
@@ -263,23 +299,8 @@ export const updateEventResponse = onCall(
           }
         }
 
-        // Find user's response object first (to check if it's a youth member)
-        const responses = eventData.responses || [];
-        const responseIndex = responses.findIndex(
-          (r: any) => r.userId === data.userId,
-        );
-
-        if (responseIndex === -1) {
-          throw new HttpsError(
-            "not-found",
-            "Response record not found for this user",
-          );
-        }
-
-        const responseData = responses[responseIndex];
-
         // ============================================================================
-        // PERMISSION CHECK: Allow user to update their own response OR guardians to update youth responses OR admins/coaches to respond for others
+        // FINAL PERMISSION CHECK: Determine responder type and name for audit trail
         // ============================================================================
         let isGuardianResponding = false;
         let isAdminCoachResponding = false;

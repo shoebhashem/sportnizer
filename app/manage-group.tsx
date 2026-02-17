@@ -1,21 +1,32 @@
 import Button from "@/components/Button";
+import FloatingActionButton from "@/components/FloatingActionButton";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
+} from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
+} from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 // Import new services
 import { fetchGroupMembers } from "@/services/fetchGroupMembers";
@@ -27,6 +38,7 @@ import { GroupData, GroupMemberData } from "@/services/types/group";
 export default function ManageGroupScreen() {
   const { groupId, clubId, clubName, tab } = useLocalSearchParams();
   const { user } = useAuth();
+  const navigation = useNavigation();
 
   // DEBUG: Log navigation params
   console.log("🔍 ManageGroup - Navigation Params:", {
@@ -130,6 +142,39 @@ export default function ManageGroupScreen() {
     }, [fetchAllData]),
   );
 
+  // Set dynamic header with group name and settings button
+  useLayoutEffect(() => {
+    if (!group) {
+      navigation.setOptions({
+        title: "Manage Group",
+        headerRight: () => null,
+      });
+      return;
+    }
+
+    navigation.setOptions({
+      title: group.name || "Manage Group",
+      headerRight: () =>
+        canManage ? (
+          <TouchableOpacity
+            onPress={() => {
+              router.push(
+                `/group-settings?groupId=${groupId}&clubId=${clubId}` as any,
+              );
+            }}
+            style={{ marginRight: 8, padding: 8 }}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={24}
+              color={theme.colors.secondary}
+            />
+          </TouchableOpacity>
+        ) : null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group, canManage, navigation]);
+
   const handleSubgroupClick = (subgroupId: string, subgroupName: string) => {
     router.push(
       `/manage-subgroup?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(subgroupName)}` as any,
@@ -177,18 +222,20 @@ export default function ManageGroupScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={styles.loadingText}>Loading group data...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!group) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Group not found</Text>
           <Button
@@ -197,43 +244,17 @@ export default function ManageGroupScreen() {
             theme="secondary"
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.title}>{group.name}</Text>
-          {canManage && (
-            <TouchableOpacity
-              style={styles.kebabMenuButton}
-              onPress={() => {
-                router.push(
-                  `/group-settings?groupId=${groupId}&clubId=${clubId}` as any,
-                );
-              }}
-            >
-              <Ionicons
-                name="ellipsis-vertical"
-                size={24}
-                color={theme.colors.text}
-              />
-            </TouchableOpacity>
-          )}
-          {!canManage && <View style={styles.kebabMenuButton} />}
-        </View>
-
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === "members" && styles.activeTab]}
@@ -286,7 +307,7 @@ export default function ManageGroupScreen() {
 
       {/* Floating Action Button for Create Event */}
       {canManage && (
-        <TouchableOpacity
+        <FloatingActionButton
           onPress={() => {
             // DEBUG: Log params before navigation
             console.log("🔍 ManageGroup - Before navigating to create-event:", {
@@ -309,12 +330,9 @@ export default function ManageGroupScreen() {
               },
             });
           }}
-          style={styles.fab}
-        >
-          <Ionicons name="add" size={28} color="white" />
-        </TouchableOpacity>
+        />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -349,28 +367,6 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     fontSize: theme.typography.fontSize.large,
     textAlign: "center",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.inputBorder,
-    marginBottom: theme.spacing.lg,
-  },
-  backButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.small,
-  },
-  title: {
-    fontSize: theme.typography.fontSize.large,
-    fontWeight: "bold",
-    color: theme.colors.text,
-    flex: 1,
-  },
-  kebabMenuButton: {
-    padding: theme.spacing.xs,
   },
   tabContainer: {
     flexDirection: "row",
@@ -463,22 +459,5 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
     marginTop: 4,
-  },
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.secondary,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8, // Android shadow
-    shadowColor: "#000", // iOS shadow
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    zIndex: 10,
   },
 });

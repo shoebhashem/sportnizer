@@ -10,6 +10,7 @@ import { fetchDependentProfiles } from "@/services/fetchDependentProfiles";
 import type { EventData } from "@/services/types/event";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -21,9 +22,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-type EventFilter = "all" | "training" | "match" | "meeting" | "other";
+type EventFilter = "all" | "training" | "match" | "other";
 type TimeFilter = "upcoming" | "past";
 
 interface ExpandedEventData extends EventData {
@@ -264,19 +264,14 @@ export default function EventsTab() {
         return "fitness-outline" as const;
       case "match":
         return "trophy-outline" as const;
-      case "meeting":
-        return "people-outline" as const;
       case "other":
         return "ellipsis-horizontal-outline" as const;
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Events</Text>
-      </View>
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
       {/* Time Filter (Upcoming / Past) */}
       <View style={styles.timeFilterContainer}>
@@ -322,36 +317,36 @@ export default function EventsTab() {
         style={styles.filterContainer}
         contentContainerStyle={styles.filterContent}
       >
-        {(
-          ["all", "training", "match", "meeting", "other"] as EventFilter[]
-        ).map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            style={[
-              styles.filterButton,
-              eventTypeFilter === filter && styles.activeFilter,
-            ]}
-            onPress={() => handleEventTypeFilter(filter)}
-          >
-            <Ionicons
-              name={getFilterIcon(filter)}
-              size={16}
-              color={
-                eventTypeFilter === filter
-                  ? theme.colors.white
-                  : theme.colors.secondary
-              }
-            />
-            <Text
+        {(["all", "training", "match", "other"] as EventFilter[]).map(
+          (filter) => (
+            <TouchableOpacity
+              key={filter}
               style={[
-                styles.filterText,
-                eventTypeFilter === filter && styles.activeFilterText,
+                styles.filterButton,
+                eventTypeFilter === filter && styles.activeFilter,
               ]}
+              onPress={() => handleEventTypeFilter(filter)}
             >
-              {filter.charAt(0).toUpperCase() + filter.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Ionicons
+                name={getFilterIcon(filter)}
+                size={16}
+                color={
+                  eventTypeFilter === filter
+                    ? theme.colors.white
+                    : theme.colors.secondary
+                }
+              />
+              <Text
+                style={[
+                  styles.filterText,
+                  eventTypeFilter === filter && styles.activeFilterText,
+                ]}
+              >
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ),
+        )}
       </ScrollView>
 
       {/* Events List */}
@@ -405,32 +400,19 @@ export default function EventsTab() {
           )}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    paddingHorizontal: theme.layout.containerPadding,
-    paddingVertical: theme.spacing.md,
     backgroundColor: theme.colors.primary,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.inputBorder,
-  },
-  headerTitle: {
-    fontSize: theme.typography.fontSize.xxlarge,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.white,
   },
   timeFilterContainer: {
     flexDirection: "row",
     backgroundColor: theme.colors.inputBackground,
     marginHorizontal: theme.layout.containerPadding,
-    marginTop: theme.spacing.md,
     marginBottom: theme.spacing.sm,
     borderRadius: theme.borderRadius.medium,
     padding: theme.spacing.xs,

@@ -1,4 +1,5 @@
 import AuthGuard from "@/components/AuthGuard";
+import NotificationBell from "@/components/NotificationBell";
 import UserAvatar from "@/components/UserAvatar";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,35 +7,29 @@ import { useUserProfile } from "@/contexts/UserContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, Tabs } from "expo-router";
 import React from "react";
+import { Platform, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+// Header component with NotificationBell and UserAvatar
+function HeaderRight() {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        marginRight: 8,
+      }}
+    >
+      <NotificationBell iconSize={24} iconColor={theme.colors.white} />
+      <UserAvatar />
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const { user } = useAuth();
   const { userProfile, isLoading, hasLoadedFreshData } = useUserProfile();
-
-  // ✅ MOVE ALL HOOKS TO THE TOP - BEFORE ANY CONDITIONAL RETURNS
-  // Extract groups from nested groupAccess within each club
-  const userGroups = React.useMemo(() => {
-    if (!userProfile?.clubAccess) return [];
-
-    const allGroups = [];
-    for (const clubAccess of userProfile.clubAccess) {
-      if (clubAccess.groupAccess) {
-        for (const groupAccess of clubAccess.groupAccess) {
-          allGroups.push(groupAccess);
-        }
-      }
-    }
-    return allGroups;
-  }, [userProfile?.clubAccess]);
-
-  // Check if user has admin or coach role in any group
-  const canManage = userGroups.some((group) =>
-    group.roles?.some(
-      (role: string) =>
-        role.toLowerCase() === "admin" || role.toLowerCase() === "coach",
-    ),
-  );
 
   // NOW DO CONDITIONAL RETURNS - AFTER ALL HOOKS
   // Wait for userProfile to load before making redirect decisions
@@ -67,7 +62,10 @@ export default function TabLayout() {
 
   return (
     <AuthGuard>
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.primary }}>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: theme.colors.primary }}
+        edges={["top", "bottom"]}
+      >
         <Tabs
           screenOptions={{
             tabBarActiveTintColor: theme.colors.secondary,
@@ -76,8 +74,30 @@ export default function TabLayout() {
             },
             headerShadowVisible: false,
             headerTintColor: theme.colors.white,
+            headerTitleAlign: "center",
+            headerTitleContainerStyle:
+              Platform.OS !== "web"
+                ? {
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }
+                : undefined,
+            headerLeftContainerStyle:
+              Platform.OS !== "web"
+                ? {
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }
+                : undefined,
+            headerRightContainerStyle:
+              Platform.OS !== "web"
+                ? {
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }
+                : undefined,
 
-            headerRight: () => <UserAvatar />,
+            headerRight: () => <HeaderRight />,
             tabBarStyle: {
               backgroundColor: theme.colors.primary,
               height: 60,
@@ -124,22 +144,6 @@ export default function TabLayout() {
               ),
             }}
           />
-          {/* Conditional Manage Tab - Only show for admins/coaches */}
-          {canManage && (
-            <Tabs.Screen
-              name="manage"
-              options={{
-                title: "Manage",
-                tabBarIcon: ({ color, focused }) => (
-                  <Ionicons
-                    name={focused ? "settings" : "settings-outline"}
-                    color={color}
-                    size={24}
-                  />
-                ),
-              }}
-            />
-          )}
           <Tabs.Screen
             name="about"
             options={{

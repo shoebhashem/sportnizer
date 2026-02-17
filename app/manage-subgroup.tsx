@@ -1,4 +1,5 @@
 import Button from "@/components/Button";
+import FloatingActionButton from "@/components/FloatingActionButton";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,23 +8,29 @@ import { groupService } from "@/services/group";
 import { subgroupService } from "@/services/subgroup";
 import { GroupData, GroupMemberData } from "@/services/types/group";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
+} from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ManageSubgroupScreen() {
   const { groupId, subgroupId, clubId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
+  const navigation = useNavigation();
   const [group, setGroup] = useState<GroupData | null>(null);
   const [subgroupMembers, setSubgroupMembers] = useState<GroupMemberData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +44,33 @@ export default function ManageSubgroupScreen() {
       userRoles.includes("club-admin") ||
       userRoles.includes("admin") ||
       userRoles.includes("coach"));
+
+  const displaySubgroupName =
+    typeof subgroupName === "string" ? subgroupName : "Subgroup";
+
+  // Set dynamic header with settings button
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: displaySubgroupName || "Manage Subgroup",
+      headerRight: () =>
+        canManage ? (
+          <TouchableOpacity
+            onPress={() =>
+              router.push(
+                `/subgroup-settings?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(displaySubgroupName)}` as any,
+              )
+            }
+            style={{ marginRight: 8 }}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={24}
+              color={theme.colors.secondary}
+            />
+          </TouchableOpacity>
+        ) : null,
+    });
+  }, [displaySubgroupName, canManage, navigation, groupId, clubId, subgroupId]);
 
   const fetchData = useCallback(async () => {
     if (
@@ -120,18 +154,20 @@ export default function ManageSubgroupScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={styles.loadingText}>Loading subgroup data...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!group) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Subgroup not found</Text>
           <Button
@@ -140,50 +176,17 @@ export default function ManageSubgroupScreen() {
             theme="secondary"
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  const displaySubgroupName =
-    typeof subgroupName === "string" ? subgroupName : "Subgroup";
-
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <View style={styles.titleContainer}>
-            <Text style={styles.groupTitle}>{group.name}</Text>
-            <Text style={styles.subgroupTitle}>{displaySubgroupName}</Text>
-          </View>
-          {canManage && (
-            <TouchableOpacity
-              style={styles.kebabButton}
-              onPress={() =>
-                router.push(
-                  `/subgroup-settings?groupId=${groupId}&clubId=${clubId}&subgroupId=${subgroupId}&subgroupName=${encodeURIComponent(displaySubgroupName)}` as any,
-                )
-              }
-            >
-              <Ionicons
-                name="ellipsis-vertical"
-                size={24}
-                color={theme.colors.text}
-              />
-            </TouchableOpacity>
-          )}
-          {!canManage && <View style={styles.kebabButton} />}
-        </View>
-
         {/* Members Section */}
         <Text style={styles.sectionTitle}>
           Members ({subgroupMembers.length})
@@ -213,7 +216,7 @@ export default function ManageSubgroupScreen() {
 
       {/* FAB: Create Subgroup Event */}
       {canManage && (
-        <TouchableOpacity
+        <FloatingActionButton
           onPress={() => {
             router.push({
               pathname: "/create-event" as any,
@@ -228,12 +231,9 @@ export default function ManageSubgroupScreen() {
               },
             });
           }}
-          style={styles.fab}
-        >
-          <Ionicons name="add" size={28} color="white" />
-        </TouchableOpacity>
+        />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -386,22 +386,5 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     textAlign: "center",
     marginBottom: theme.spacing.lg,
-  },
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.secondary,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8, // Android shadow
-    shadowColor: "#000", // iOS shadow
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    zIndex: 10,
   },
 });

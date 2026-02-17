@@ -2,6 +2,7 @@ import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import CountdownTimer from "@/components/CountdownTimer";
 import DeletionConfirmationModal from "@/components/DeletionConfirmationModal";
+import FloatingActionButton from "@/components/FloatingActionButton";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,20 +12,30 @@ import { ClubGroupData, fetchClubGroups } from "@/services/fetchClubGroups";
 import { fetchClubMembers } from "@/services/fetchClubMembers";
 import { groupService } from "@/services/group";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { httpsCallable } from "firebase/functions";
-import React, { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
+} from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { httpsCallable } from "firebase/functions";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 interface ClubMemberData {
   userId: string;
@@ -48,6 +59,7 @@ interface ClubData {
 export default function ManageClubScreen() {
   const { clubId } = useLocalSearchParams();
   const { user } = useAuth();
+  const navigation = useNavigation();
   const [club, setClub] = useState<ClubData | null>(null);
   const [members, setMembers] = useState<ClubMemberData[]>([]);
   const [groups, setGroups] = useState<ClubGroupData[]>([]);
@@ -234,6 +246,37 @@ export default function ManageClubScreen() {
     }, [fetchAllData]),
   );
 
+  // Set dynamic header with club name and settings button
+  useLayoutEffect(() => {
+    if (!club) {
+      navigation.setOptions({
+        title: "Manage Club",
+        headerRight: () => null,
+      });
+      return;
+    }
+
+    navigation.setOptions({
+      title: club.name || "Manage Club",
+      headerRight: () =>
+        isClubAdmin ? (
+          <TouchableOpacity
+            onPress={() => {
+              router.push(`/club-settings?clubId=${clubId}` as any);
+            }}
+            style={{ marginRight: 8, padding: 8 }}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={24}
+              color={theme.colors.secondary}
+            />
+          </TouchableOpacity>
+        ) : null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [club, isClubAdmin, navigation]);
+
   const renderMemberItem = ({ item }: { item: ClubMemberData }) => {
     return (
       <View style={styles.memberItem}>
@@ -358,18 +401,20 @@ export default function ManageClubScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={styles.loadingText}>Loading club members...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!club) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Club not found</Text>
           <Button
@@ -378,42 +423,17 @@ export default function ManageClubScreen() {
             theme="secondary"
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.title}>{club.name}</Text>
-          {isClubAdmin && (
-            <TouchableOpacity
-              style={styles.kebabMenuButton}
-              onPress={() => {
-                router.push(`/club-settings?clubId=${clubId}` as any);
-              }}
-            >
-              <Ionicons
-                name="ellipsis-vertical"
-                size={24}
-                color={theme.colors.text}
-              />
-            </TouchableOpacity>
-          )}
-          {!isClubAdmin && <View style={styles.kebabMenuButton} />}
-        </View>
-
         {/* Tabs */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -522,7 +542,7 @@ export default function ManageClubScreen() {
 
       {/* FAB: Create Club-wide Event */}
       {isClubAdmin && (
-        <TouchableOpacity
+        <FloatingActionButton
           onPress={() => {
             router.push({
               pathname: "/create-event" as any,
@@ -533,12 +553,9 @@ export default function ManageClubScreen() {
               },
             });
           }}
-          style={styles.fab}
-        >
-          <Ionicons name="add" size={28} color="white" />
-        </TouchableOpacity>
+        />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -551,33 +568,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: theme.layout.containerPadding,
     paddingBottom: theme.spacing.xl,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.sm,
-  },
-  backButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.small,
-  },
-  title: {
-    fontSize: theme.typography.fontSize.xlarge,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.secondary,
-    flex: 1,
-    textAlign: "center",
-    marginHorizontal: theme.spacing.sm,
-  },
-  kebabMenuButton: {
-    padding: theme.spacing.sm,
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
   },
   sectionTitle: {
     fontSize: theme.typography.fontSize.large,
@@ -767,22 +757,5 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.small,
     fontWeight: theme.typography.fontWeight.medium,
     color: theme.colors.primary,
-  },
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.secondary,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8, // Android shadow
-    shadowColor: "#000", // iOS shadow
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    zIndex: 10,
   },
 });

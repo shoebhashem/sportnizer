@@ -272,6 +272,15 @@ export default function GroupSettingsScreen() {
     }
   };
 
+  const handleViewStatistics = () => {
+    if (group && groupId && clubId) {
+      const groupName = encodeURIComponent(group.name);
+      router.push(
+        `/view-statistics?groupId=${groupId}&clubId=${clubId}&groupName=${groupName}` as any,
+      );
+    }
+  };
+
   const handleCreateSubgroup = () => {
     setSubgroupName("");
     setShowCreateSubgroupModal(true);
@@ -504,6 +513,33 @@ export default function GroupSettingsScreen() {
                 <Text style={styles.optionTitle}>Manage Members</Text>
                 <Text style={styles.optionDescription}>
                   Add or remove players, coaches, and admins
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* View Statistics Option - Only for Admin/Coach */}
+          {canManage && (
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={handleViewStatistics}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="bar-chart-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>View Statistics</Text>
+                <Text style={styles.optionDescription}>
+                  View attendance rates and member statistics
                 </Text>
               </View>
               <Ionicons

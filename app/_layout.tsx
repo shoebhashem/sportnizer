@@ -58,6 +58,30 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="event-details"
+              options={{
+                headerShown: true,
+                title: "Event Details",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.white,
+                headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="manage-club"
+              options={{
+                headerShown: true,
+                title: "Manage Club",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.white,
+                headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
               name="manageteams"
               options={{
                 headerShown: true,
@@ -82,8 +106,25 @@ export default function RootLayout() {
             <Stack.Screen
               name="manage-group"
               options={{
-                headerShown: false,
+                headerShown: true,
                 title: "Manage Group",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.white,
+                headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="manage-subgroup"
+              options={{
+                headerShown: true,
+                title: "Manage Subgroup",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.white,
+                headerShadowVisible: false,
               }}
             />
             <Stack.Screen

@@ -22,6 +22,11 @@ export interface EventResponse {
     changedBy: string; // Guardian userId
     changedByName: string; // Guardian name
   }[];
+
+  // Attendance Recording
+  actualAttendance?: boolean; // Whether the person actually attended (recorded after event)
+  recordedBy?: string; // User ID who recorded the attendance
+  recordedAt?: Date; // When attendance was recorded
 }
 
 // Event document structure according to ARCHITECTURE.md
@@ -60,14 +65,21 @@ export interface EventData {
     accepted: number;
     declined: number;
     pending: number;
+    attended?: number; // Number who actually attended (after event completion)
   };
 
   isActive?: boolean;
+  status?: "scheduled" | "completed" | "cancelled"; // Event status
   createdAt: Date; // Changed from any to Date
   createdBy: string;
   lastModifiedAt?: Date; // Changed from any to Date
   updatedAt?: Date; // Alias for lastModifiedAt
   version?: number;
+
+  // Completion metadata (for attendance recording)
+  completedAt?: Date; // When attendance was recorded
+  completedBy?: string; // User ID who recorded attendance
+  completedByName?: string; // Display name of who recorded
 
   // For display purposes (guardian view)
   recipientName?: string; // Which child is this event for

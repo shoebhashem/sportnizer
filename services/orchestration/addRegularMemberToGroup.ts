@@ -1606,7 +1606,7 @@ export const addRegularMemberToGroupService = {
       groupInfo,
       roles: ["player-underage"],
       operation: "add",
-      updateClubMemberListRoles: youthInClub, // Update club member list if youth already in club
+      updateClubMemberListRoles: false, // Skip - already added via updateClubMemberRole at line 1406
     });
 
     const userGroupResponse = userGroupResult.data as {

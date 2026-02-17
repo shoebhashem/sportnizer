@@ -1,6 +1,7 @@
 import { theme } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -12,12 +13,10 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import ConfirmationModal from "../../components/ConfirmationModal";
 import EventCard from "../../components/EventCard";
 import InvitationModal from "../../components/InvitationModal";
-import NotificationBell from "../../components/NotificationBell";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useUser } from "../../contexts/UserContext";
@@ -307,7 +306,7 @@ export default function Index() {
       // Mark this invitation as processed immediately
       setProcessedInvites((prev) => new Set(prev.add(currentInvite.inviteId)));
 
-      // YOUTH INVITATION: Create youth document first, then process invitation
+      // YOUTH INVITATION (NEW): Create youth document first, then process invitation
       if (
         currentInvite.invitationType === "youth_member" &&
         currentInvite.youthData
@@ -350,7 +349,10 @@ export default function Index() {
         // Get guardian info for the invitation processing
         const guardianEmail = currentUser.email || "";
         const guardianName =
-          currentUser.displayName || guardianEmail.split("@")[0] || "Guardian";
+          userProfile?.displayName ||
+          currentUser.displayName ||
+          guardianEmail.split("@")[0] ||
+          "Guardian";
 
         // Now process the invitation with the youth's userId (not guardian's) and guardian info
         const { addRegularMemberToGroupService } =
@@ -376,6 +378,63 @@ export default function Index() {
         }
 
         console.log("✅ Youth invitation processed successfully!");
+      } else if (
+        currentInvite.invitationType === "youth_member_existing" &&
+        currentInvite.existingYouthData
+      ) {
+        // YOUTH INVITATION (EXISTING): Re-adding existing youth member
+        console.log("🔄 Processing existing youth member invitation...");
+
+        // Get guardian info for the invitation processing
+        const guardianEmail = currentUser.email || "";
+        const guardianName =
+          userProfile?.displayName ||
+          currentUser.displayName ||
+          guardianEmail.split("@")[0] ||
+          "Guardian";
+
+        // For existing youth, fetch the relationship from guardian's dependents array
+        const { getFirestore, doc, getDoc } =
+          await import("firebase/firestore");
+        const db = getFirestore();
+        const guardianDocRef = doc(db, "users", currentUser.uid);
+        const guardianDocSnap = await getDoc(guardianDocRef);
+
+        let relationship = "Parent"; // Default fallback
+        if (guardianDocSnap.exists() && currentInvite.existingYouthData) {
+          const guardianData = guardianDocSnap.data();
+          const dependent = guardianData.dependents?.find(
+            (dep: any) => dep.uid === currentInvite.existingYouthData!.youthUid,
+          );
+          if (dependent) {
+            relationship = dependent.relationship || "Parent";
+          }
+        }
+
+        // Process invitation for existing youth with guardian info
+        const { addRegularMemberToGroupService } =
+          await import("@/services/orchestration/addRegularMemberToGroup");
+        const invitationResult =
+          await addRegularMemberToGroupService.processInvitationAfterUserResponse(
+            currentInvite.inviteId, // invitationToken
+            currentInvite.existingYouthData.youthUid, // Use existing youth's userId
+            "accept", // action
+            {
+              // guardianInfo to ensure guardian sync happens
+              guardianUid: currentUser.uid,
+              guardianEmail: guardianEmail,
+              guardianName: guardianName,
+              relationship: relationship,
+            },
+          );
+
+        if (!invitationResult.success) {
+          throw new Error(
+            invitationResult.error || "Failed to process invitation",
+          );
+        }
+
+        console.log("✅ Existing youth invitation processed successfully!");
       } else {
         // REGULAR INVITATION: Standard flow
         await acceptGroupInvite(
@@ -562,16 +621,8 @@ export default function Index() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Sportnizer</Text>
-        <NotificationBell
-          onInvitationPress={handleNotificationInvitationPress}
-          iconSize={24}
-          iconColor={theme.colors.white}
-        />
-      </View>
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
       {/* Club Container */}
       {userProfile?.clubAccess && userProfile.clubAccess.length > 0 && (
@@ -761,7 +812,7 @@ export default function Index() {
           metadata={currentInvite.metadata}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -769,22 +820,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.primary,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: theme.layout.containerPadding,
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.inputBorder,
-  },
-  headerTitle: {
-    fontSize: theme.typography.fontSize.xlarge,
-    color: theme.colors.secondary,
-    fontWeight: theme.typography.fontWeight.bold,
-    flex: 1,
-    textAlign: "center",
   },
   tabSelector: {
     flexDirection: "row",
@@ -871,7 +906,6 @@ const styles = StyleSheet.create({
   // Club Section Styles
   clubSection: {
     marginHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.md,
     marginBottom: theme.spacing.sm,
   },
   clubContainer: {

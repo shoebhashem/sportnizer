@@ -616,6 +616,11 @@ export interface EventDocument {
   cancellationReason?: string; // If status is 'cancelled'
   isActive?: boolean; // Whether the event is active (for soft delete pattern)
 
+  // Completion metadata (added when event is marked as completed)
+  completedAt?: any; // Timestamp - when event was completed
+  completedBy?: string; // userId of who completed the event
+  completedByName?: string; // Display name of who completed the event
+
   // Version tracking (for future notification system)
   version?: number; // Incremented on each update, used to trigger notifications
 }

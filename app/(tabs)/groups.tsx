@@ -2,10 +2,10 @@
 import { theme } from "@/constants/theme";
 import { useUser } from "@/contexts/UserContext";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
     RefreshControl,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
@@ -14,8 +14,7 @@ import {
 } from "react-native";
 
 export default function GroupsScreen() {
-  const { userProfile, isLoading, refreshUserProfile, clearUserData } =
-    useUser();
+  const { userProfile, isLoading, refreshUserProfile } = useUser();
 
   // Extract clubs and groups from userProfile
   const clubs = userProfile?.clubAccess || [];
@@ -148,43 +147,6 @@ export default function GroupsScreen() {
     }
   };
 
-  // Debug function to check data directly from Firestore
-  const handleDebugUserData = async () => {
-    if (!userProfile?.uid) {
-      console.log("❌ No user profile available");
-      return;
-    }
-
-    console.log("🐛 === DETAILED DEBUG START ===");
-    console.log("🐛 UserContext data:", {
-      hasUserProfile: !!userProfile,
-      uid: userProfile.uid,
-      email: userProfile.email,
-      clubAccess: userProfile.clubAccess,
-      clubAccessLength: userProfile.clubAccess?.length || 0,
-    });
-
-    // Import and use the service directly to bypass cache
-    const { fetchUserProfile } = await import("@/services/fetchUserAccess");
-    console.log("🐛 Fetching fresh data from Firestore...");
-
-    const freshData = await fetchUserProfile(userProfile.uid);
-    console.log("🐛 Fresh Firestore data:", {
-      success: freshData.success,
-      error: freshData.error,
-      profile: freshData.profile,
-      clubAccess: freshData.profile?.clubAccess,
-      clubAccessLength: freshData.profile?.clubAccess?.length || 0,
-    });
-
-    console.log("🐛 === DETAILED DEBUG END ===");
-  };
-
-  // Helper function to get groups for a specific club from user groups
-  const getGroupsForClub = (clubId: string) => {
-    return userGroups.filter((group) => group.clubId === clubId);
-  };
-
   const handleGroupPress = (
     groupId: string,
     clubId: string,
@@ -195,53 +157,19 @@ export default function GroupsScreen() {
     );
   };
 
-  const handleClubPress = (clubId: string, clubRole: string) => {
-    // Only club-admins can view club members
-    if (clubRole === "club-admin") {
-      router.push(`/manage-club?clubId=${clubId}` as any);
-    }
-  };
-
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <Text style={styles.loadingText}>Loading clubs and groups...</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Groups</Text>
-        <Text style={styles.subtitle}>Manage your clubs and groups</Text>
-      </View>
-
-      <View style={styles.buttonContainer}>
-        {/* Debug button - remove in production */}
-        <TouchableOpacity
-          style={styles.debugButton}
-          onPress={handleDebugUserData}
-        >
-          <Text style={styles.debugText}>🔍 Debug User Data</Text>
-        </TouchableOpacity>
-
-        {/* Clear Cache button - remove in production */}
-        <TouchableOpacity
-          style={[styles.debugButton, { backgroundColor: theme.colors.error }]}
-          onPress={async () => {
-            console.log("🗑️ Clearing user cache...");
-            await clearUserData();
-            console.log("🔄 Cache cleared, refreshing...");
-            await refreshUserProfile();
-          }}
-        >
-          <Text style={styles.debugText}>🗑️ Clear Cache & Refresh</Text>
-        </TouchableOpacity>
-      </View>
-
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView
-        contentContainerStyle={styles.clubsContainer}
+        contentContainerStyle={styles.groupsContainer}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -251,114 +179,51 @@ export default function GroupsScreen() {
           />
         }
       >
-        {clubs.length === 0 ? (
-          <Text style={styles.noClubsText}>
-            You haven&apos;t joined any clubs yet. Create your groups and
-            organize your sport activities!
+        {userGroups.length === 0 ? (
+          <Text style={styles.noGroupsText}>
+            You haven&apos;t joined any groups yet. Join a club and get started!
           </Text>
         ) : (
-          clubs.map((club) => {
-            const clubGroups = getGroupsForClub(club.clubId);
-            const isClubAdmin = club.role === "club-admin";
-
-            return (
-              <View key={club.clubId} style={styles.clubSection}>
-                <TouchableOpacity
-                  style={[
-                    styles.clubCard,
-                    isClubAdmin && styles.clubCardClickable,
-                  ]}
-                  onPress={() => handleClubPress(club.clubId, club.role)}
-                  disabled={!isClubAdmin}
-                >
-                  <View style={styles.clubHeader}>
-                    <Text style={styles.clubName}>{club.clubName}</Text>
-                    <Text style={styles.groupCount}>
-                      {clubGroups.length} group
-                      {clubGroups.length !== 1 ? "s" : ""}
-                    </Text>
-                  </View>
-                  {isClubAdmin && (
-                    <Text style={styles.clubAdminHint}>
-                      Tap to view club members
-                    </Text>
+          userGroups.map((group) => (
+            <TouchableOpacity
+              key={`${group.groupId}-${group.dependentUid || "direct"}`}
+              style={[
+                styles.groupCard,
+                group.membershipType === "dependent" &&
+                  styles.dependentGroupCard,
+              ]}
+              onPress={() =>
+                handleGroupPress(group.groupId, group.clubId, group.clubName)
+              }
+            >
+              <View style={styles.groupHeader}>
+                <View style={styles.groupTitleContainer}>
+                  <Text style={styles.groupName}>
+                    {group.groupName || `Group ${group.groupId.slice(-4)}`}
+                  </Text>
+                  <Text style={styles.clubNameInGroup}>{group.clubName}</Text>
+                  {group.membershipType === "dependent" && (
+                    <View style={styles.dependentBadge}>
+                      <Text style={styles.badgeText}>
+                        👶 {group.dependentName}
+                      </Text>
+                    </View>
                   )}
-                </TouchableOpacity>
-
-                {/* Always show groups */}
-                {clubGroups.length > 0 && (
-                  <View style={styles.groupsContainer}>
-                    {clubGroups.map((group) => {
-                      console.log("🔍 Rendering group:", {
-                        groupId: group.groupId,
-                        groupName: group.groupName,
-                        roles: group.roles,
-                        membershipType: group.membershipType,
-                        dependentName: group.dependentName,
-                      });
-
-                      return (
-                        <TouchableOpacity
-                          key={`${group.groupId}-${group.dependentUid || "direct"}`}
-                          style={[
-                            styles.groupCard,
-                            group.membershipType === "dependent" &&
-                              styles.dependentGroupCard,
-                          ]}
-                          onPress={() =>
-                            handleGroupPress(
-                              group.groupId,
-                              club.clubId,
-                              club.clubName,
-                            )
-                          }
-                        >
-                          <View style={styles.groupHeader}>
-                            <View style={styles.groupTitleContainer}>
-                              <Text style={styles.groupName}>
-                                {group.groupName ||
-                                  `Group ${group.groupId.slice(-4)}`}
-                              </Text>
-                              <Text style={styles.clubNameInGroup}>
-                                {club.clubName}
-                              </Text>
-                              {group.membershipType === "dependent" && (
-                                <View style={styles.dependentBadge}>
-                                  <Text style={styles.badgeText}>
-                                    👶 {group.dependentName}
-                                  </Text>
-                                </View>
-                              )}
-                              {group.membershipType === "direct" && (
-                                <View style={styles.directBadge}>
-                                  <Text style={styles.badgeText}>👤 You</Text>
-                                </View>
-                              )}
-                            </View>
-                          </View>
-                          <Text style={styles.groupRole}>
-                            Role: {group.roles.join(", ")}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-
-                {/* Show message when club has no groups */}
-                {clubGroups.length === 0 && (
-                  <View style={styles.noGroupsContainer}>
-                    <Text style={styles.noGroupsText}>
-                      No groups in this club yet. Create your first group!
-                    </Text>
-                  </View>
-                )}
+                  {group.membershipType === "direct" && (
+                    <View style={styles.directBadge}>
+                      <Text style={styles.badgeText}>👤 You</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            );
-          })
+              <Text style={styles.groupRole}>
+                Role: {group.roles.join(", ")}
+              </Text>
+            </TouchableOpacity>
+          ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -368,68 +233,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     paddingHorizontal: theme.layout.containerPadding,
   },
-  header: {
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-    alignItems: "center",
-  },
-  title: {
-    fontSize: theme.typography.fontSize.xlarge,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.secondary,
-  },
-  subtitle: {
-    fontSize: theme.typography.fontSize.medium,
-    color: theme.colors.textSecondary,
-    marginTop: theme.spacing.sm,
-    textAlign: "center",
-  },
-  buttonContainer: {
-    marginVertical: theme.spacing.lg,
-  },
-  clubsContainer: {
-    paddingVertical: theme.spacing.md,
-    gap: theme.spacing.md,
-  },
-  clubSection: {
-    marginBottom: theme.spacing.md,
-  },
-  clubCard: {
-    backgroundColor: theme.colors.secondary,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.medium,
-    marginBottom: theme.spacing.sm,
-  },
-  clubCardClickable: {
-    backgroundColor: theme.colors.secondary,
-    opacity: 0.95,
-  },
-  clubHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  clubName: {
-    color: theme.colors.primary,
-    fontWeight: "600",
-    fontSize: theme.typography.fontSize.medium,
-    flex: 1,
-  },
-  clubAdminHint: {
-    color: theme.colors.primary,
-    fontSize: theme.typography.fontSize.small,
-    opacity: 0.7,
-    marginTop: theme.spacing.xs,
-    fontStyle: "italic",
-  },
-  groupCount: {
-    color: theme.colors.primary,
-    fontSize: theme.typography.fontSize.small,
-    opacity: 0.8,
-  },
   groupsContainer: {
-    marginTop: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
+    gap: theme.spacing.md,
   },
   groupCard: {
     backgroundColor: theme.colors.inputBackground,
@@ -490,22 +296,7 @@ const styles = StyleSheet.create({
     color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.normal,
   },
-  noGroupsContainer: {
-    marginTop: theme.spacing.sm,
-    paddingLeft: theme.spacing.md,
-    backgroundColor: theme.colors.inputBackground,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-  },
   noGroupsText: {
-    fontSize: theme.typography.fontSize.small,
-    color: theme.colors.text,
-    fontStyle: "italic",
-    textAlign: "center",
-  },
-  noClubsText: {
     textAlign: "center",
     color: theme.colors.text,
     fontSize: theme.typography.fontSize.medium,
@@ -521,17 +312,5 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.lg,
     color: theme.colors.text,
     fontSize: theme.typography.fontSize.medium,
-  },
-  debugButton: {
-    backgroundColor: theme.colors.error,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.medium,
-    marginTop: theme.spacing.sm,
-  },
-  debugText: {
-    color: theme.colors.primary,
-    textAlign: "center",
-    fontSize: theme.typography.fontSize.small,
-    fontWeight: theme.typography.fontWeight.bold,
   },
 });
