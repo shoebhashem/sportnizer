@@ -1,13 +1,24 @@
-import Button from '@/components/Button';
-import Input from '@/components/Input';
-import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { doc, getDoc, getFirestore, updateDoc } from 'firebase/firestore';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Button from "@/components/Button";
+import Input from "@/components/Input";
+import ProfilePictureUpload from "@/components/ProfilePictureUpload";
+import { getDefaultProfilePicture } from "@/constants/profilePictures";
+import { theme } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { doc, getDoc, getFirestore, updateDoc } from "firebase/firestore";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface Member {
   id: string;
@@ -15,6 +26,8 @@ interface Member {
   birthDate: string;
   role: string;
   joinedAt: any;
+  photoURL?: string;
+  needsGuardian?: boolean;
 }
 
 interface Guardian {
@@ -26,43 +39,48 @@ interface Guardian {
 }
 
 export default function MemberProfileScreen() {
-  const { groupId, memberId } = useLocalSearchParams();
+  const { groupId, memberId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
   const [member, setMember] = useState<Member | null>(null);
   const [guardians, setGuardians] = useState<Guardian[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [currentPhotoURL, setCurrentPhotoURL] = useState("");
+
   // Editable fields
-  const [editedName, setEditedName] = useState('');
-  const [editedBirthDate, setEditedBirthDate] = useState('');
+  const [editedName, setEditedName] = useState("");
+  const [editedBirthDate, setEditedBirthDate] = useState("");
 
   const fetchMemberData = useCallback(async () => {
     if (!groupId || !memberId) return;
-    
+
     try {
       const db = getFirestore();
-      
+
       // Fetch member data
-      const memberDoc = await getDoc(doc(db, 'groups', groupId as string, 'members', memberId as string));
+      const memberDoc = await getDoc(
+        doc(db, "groups", groupId as string, "members", memberId as string),
+      );
       if (memberDoc.exists()) {
         const memberData = {
           id: memberDoc.id,
-          ...memberDoc.data()
+          ...memberDoc.data(),
         } as Member;
-        
+
         setMember(memberData);
         setEditedName(memberData.name);
         setEditedBirthDate(memberData.birthDate);
-        
+        setCurrentPhotoURL(memberData.photoURL || "");
+
         // Fetch guardians for this member
         // Note: In a real implementation, you would fetch from members/{memberId}/guardians subcollection
         // For now, we'll show placeholder data
         setGuardians([]);
       }
     } catch (error) {
-      console.error('Error fetching member data:', error);
+      console.error("Error fetching member data:", error);
     } finally {
       setLoading(false);
     }
@@ -74,35 +92,46 @@ export default function MemberProfileScreen() {
 
   const handleSave = async () => {
     if (!groupId || !memberId || !member) return;
-    
+
     setSaving(true);
     try {
       const db = getFirestore();
-      
-      await updateDoc(doc(db, 'groups', groupId as string, 'members', memberId as string), {
-        name: editedName.trim(),
-        birthDate: editedBirthDate.trim(),
-      });
-      
+
+      await updateDoc(
+        doc(db, "groups", groupId as string, "members", memberId as string),
+        {
+          name: editedName.trim(),
+          birthDate: editedBirthDate.trim(),
+        },
+      );
+
       // Update local state
       setMember({
         ...member,
         name: editedName.trim(),
         birthDate: editedBirthDate.trim(),
       });
-      
+
       setEditing(false);
     } catch (error) {
-      console.error('Error saving member data:', error);
+      console.error("Error saving member data:", error);
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancel = () => {
-    setEditedName(member?.name || '');
-    setEditedBirthDate(member?.birthDate || '');
+    setEditedName(member?.name || "");
+    setEditedBirthDate(member?.birthDate || "");
     setEditing(false);
+  };
+
+  const handleImageUploadSuccess = (newImageUrl: string) => {
+    setCurrentPhotoURL(newImageUrl);
+    Alert.alert(
+      "Success",
+      "Profile picture uploaded! It may take a moment to appear everywhere.",
+    );
   };
 
   if (loading) {
@@ -135,21 +164,21 @@ export default function MemberProfileScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons 
-              name="arrow-back" 
-              size={24} 
-              color={theme.colors.secondary} 
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={theme.colors.secondary}
             />
           </TouchableOpacity>
           <Text style={styles.title}>Member Profile</Text>
           <TouchableOpacity
             style={styles.editButton}
-            onPress={() => editing ? handleCancel() : setEditing(true)}
+            onPress={() => (editing ? handleCancel() : setEditing(true))}
           >
-            <Ionicons 
-              name={editing ? "close" : "create-outline"} 
-              size={24} 
-              color={theme.colors.secondary} 
+            <Ionicons
+              name={editing ? "close" : "create-outline"}
+              size={24}
+              color={theme.colors.secondary}
             />
           </TouchableOpacity>
         </View>
@@ -157,7 +186,27 @@ export default function MemberProfileScreen() {
         {/* Member Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Member Information</Text>
-          
+
+          {/* Profile Picture */}
+          <View style={styles.avatarSection}>
+            <TouchableOpacity
+              onPress={() => setShowImagePicker(true)}
+              style={styles.avatarContainer}
+            >
+              <Image
+                source={{
+                  uri:
+                    currentPhotoURL ||
+                    getDefaultProfilePicture(member.needsGuardian || false),
+                }}
+                style={styles.avatarImage}
+              />
+              <View style={styles.avatarEditIcon}>
+                <Ionicons name="camera" size={16} color={theme.colors.white} />
+              </View>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.infoCard}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Name</Text>
@@ -195,7 +244,7 @@ export default function MemberProfileScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Joined</Text>
               <Text style={styles.infoValue}>
-                {member.joinedAt?.toDate?.()?.toLocaleDateString() || 'Unknown'}
+                {member.joinedAt?.toDate?.()?.toLocaleDateString() || "Unknown"}
               </Text>
             </View>
           </View>
@@ -204,36 +253,60 @@ export default function MemberProfileScreen() {
         {/* Guardian Contacts - Only for children */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Guardian Contacts</Text>
-          
+
           {guardians.length > 0 ? (
             guardians.map((guardian, index) => (
               <View key={index} style={styles.guardianCard}>
                 <View style={styles.guardianHeader}>
-                  <Ionicons name="shield-outline" size={20} color={theme.colors.secondary} />
+                  <Ionicons
+                    name="shield-outline"
+                    size={20}
+                    color={theme.colors.secondary}
+                  />
                   <Text style={styles.guardianRelationship}>
-                    {guardian.relationship.charAt(0).toUpperCase() + guardian.relationship.slice(1)}
+                    {guardian.relationship.charAt(0).toUpperCase() +
+                      guardian.relationship.slice(1)}
                   </Text>
                 </View>
-                
+
                 <View style={styles.guardianContact}>
                   <TouchableOpacity style={styles.contactItem}>
-                    <Ionicons name="mail-outline" size={16} color={theme.colors.textSecondary} />
-                    <Text style={styles.contactText}>{guardian.contactEmail}</Text>
+                    <Ionicons
+                      name="mail-outline"
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.contactText}>
+                      {guardian.contactEmail}
+                    </Text>
                   </TouchableOpacity>
-                  
+
                   <TouchableOpacity style={styles.contactItem}>
-                    <Ionicons name="call-outline" size={16} color={theme.colors.textSecondary} />
-                    <Text style={styles.contactText}>{guardian.contactPhone}</Text>
+                    <Ionicons
+                      name="call-outline"
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.contactText}>
+                      {guardian.contactPhone}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))
           ) : (
             <View style={styles.noGuardiansCard}>
-              <Ionicons name="people-outline" size={48} color={theme.colors.textSecondary} />
-              <Text style={styles.noGuardiansText}>No guardian contacts available</Text>
+              <Ionicons
+                name="people-outline"
+                size={48}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.noGuardiansText}>
+                No guardian contacts available
+              </Text>
               <Text style={styles.noGuardiansSubtext}>
-                Guardian information will appear here once they confirm participation
+                Guardian information will appear here once they confirm
+                participation
               </Text>
             </View>
           )}
@@ -251,6 +324,21 @@ export default function MemberProfileScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Profile Picture Upload Modal */}
+      <ProfilePictureUpload
+        visible={showImagePicker}
+        onClose={() => setShowImagePicker(false)}
+        onSuccess={handleImageUploadSuccess}
+        currentImageUrl={
+          currentPhotoURL ||
+          getDefaultProfilePicture(member?.needsGuardian || false)
+        }
+        targetUserId={memberId as string}
+        clubId={clubId as string}
+        groupId={groupId as string}
+        isForMember={true}
+      />
     </SafeAreaView>
   );
 }
@@ -266,9 +354,9 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.xl,
     paddingHorizontal: theme.spacing.sm,
@@ -282,16 +370,43 @@ const styles = StyleSheet.create({
     color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.bold,
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   editButton: {
     padding: theme.spacing.sm,
     borderRadius: theme.borderRadius.small,
   },
+  avatarSection: {
+    alignItems: "center",
+    marginBottom: theme.spacing.lg,
+  },
+  avatarContainer: {
+    position: "relative",
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: theme.colors.secondary,
+  },
+  avatarEditIcon: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: theme.colors.secondary,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+  },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: theme.spacing.md,
@@ -300,8 +415,8 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
     fontSize: theme.typography.fontSize.medium,
@@ -345,8 +460,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.inputBorder,
   },
   guardianHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: theme.spacing.md,
   },
   guardianRelationship: {
@@ -359,8 +474,8 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.sm,
   },
   contactText: {
@@ -371,7 +486,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.large,
     padding: theme.spacing.xl,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
   },
@@ -379,13 +494,13 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.md,
-    textAlign: 'center',
+    textAlign: "center",
   },
   noGuardiansSubtext: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.sm,
-    textAlign: 'center',
+    textAlign: "center",
   },
   saveButtonContainer: {
     marginTop: theme.spacing.lg,

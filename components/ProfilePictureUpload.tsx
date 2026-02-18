@@ -1,40 +1,35 @@
-import { FontAwesome } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import { FontAwesome } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import React, { useState } from "react";
 import {
-    Alert,
-    Image,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
+  Image,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { theme } from '../constants/theme';
-// TODO: Implement profile picture upload in new memberService/userService
-// import { uploadMemberProfilePicture, uploadUserProfilePicture } from '../services/archived/user/profilePictureService';
-import Button from './Button';
-
-// Temporary placeholder functions until profile picture service is implemented
-const uploadMemberProfilePicture = async (groupId: string, memberId: string, imageUri: string): Promise<{ success: boolean; profilePictureUrl?: string; error?: string }> => {
-  console.warn('uploadMemberProfilePicture not yet implemented');
-  return { success: false, error: 'Profile picture upload not yet implemented' };
-};
-
-const uploadUserProfilePicture = async (imageUri: string): Promise<{ success: boolean; profilePictureUrl?: string; error?: string }> => {
-  console.warn('uploadUserProfilePicture not yet implemented');
-  return { success: false, error: 'Profile picture upload not yet implemented' };
-};
+import { theme } from "../constants/theme";
+import {
+  uploadOwnProfilePicture,
+  uploadProfilePictureForMember,
+} from "../services/profilePictureService";
+import Button from "./Button";
+import ConfirmationModal from "./ConfirmationModal";
 
 interface ProfilePictureUploadProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: (newImageUrl: string) => void;
   currentImageUrl?: string;
-  // For member photos (when guardian uploads for child)
+  // For self-upload
+  userId?: string;
+  // For admin/coach uploading for a member
+  targetUserId?: string;
+  clubId?: string;
   groupId?: string;
-  memberId?: string;
   isForMember?: boolean;
 }
 
@@ -43,19 +38,33 @@ export default function ProfilePictureUpload({
   onClose,
   onSuccess,
   currentImageUrl,
+  userId,
+  targetUserId,
+  clubId,
   groupId,
-  memberId,
-  isForMember = false
+  isForMember = false,
 }: ProfilePictureUploadProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Cross-platform alert modal state (replaces Alert.alert)
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({ visible: false, title: "", message: "" });
+
+  const showAlert = (title: string, message: string) =>
+    setAlertModal({ visible: true, title, message });
+  const hideAlert = () =>
+    setAlertModal({ visible: false, title: "", message: "" });
+
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Sorry, we need camera roll permissions to upload profile pictures.'
+    if (status !== "granted") {
+      showAlert(
+        "Permission Required",
+        "Sorry, we need camera roll permissions to upload profile pictures.",
       );
       return false;
     }
@@ -83,10 +92,10 @@ export default function ProfilePictureUpload({
     if (!hasPermission) return;
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Sorry, we need camera permissions to take photos.'
+    if (status !== "granted") {
+      showAlert(
+        "Permission Required",
+        "Sorry, we need camera permissions to take photos.",
       );
       return;
     }
@@ -108,25 +117,36 @@ export default function ProfilePictureUpload({
     setUploading(true);
     try {
       let result;
-      
-      if (isForMember && groupId && memberId) {
-        // Upload for group member (child)
-        result = await uploadMemberProfilePicture(groupId, memberId, selectedImage);
+
+      if (isForMember && targetUserId && clubId && groupId) {
+        // Admin/coach uploading for a member
+        result = await uploadProfilePictureForMember(
+          targetUserId,
+          clubId,
+          groupId,
+          selectedImage,
+        );
+      } else if (userId) {
+        // Self-upload
+        result = await uploadOwnProfilePicture(userId, selectedImage);
       } else {
-        // Upload for current user
-        result = await uploadUserProfilePicture(selectedImage);
+        showAlert("Error", "Missing user information for upload");
+        return;
       }
 
-      if (result.success && result.profilePictureUrl) {
-        onSuccess(result.profilePictureUrl);
+      if (result.success && result.photoURL) {
+        onSuccess(result.photoURL);
         setSelectedImage(null);
         onClose();
       } else {
-        Alert.alert('Upload Failed', result.error || 'Failed to upload profile picture');
+        showAlert(
+          "Upload Failed",
+          result.error || "Failed to upload profile picture",
+        );
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      Alert.alert('Upload Failed', 'An unexpected error occurred');
+      console.error("Upload error:", error);
+      showAlert("Upload Failed", "An unexpected error occurred");
     } finally {
       setUploading(false);
     }
@@ -148,21 +168,28 @@ export default function ProfilePictureUpload({
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>
-              {isForMember ? 'Upload Member Photo' : 'Upload Profile Picture'}
+              {isForMember ? "Upload Member Photo" : "Upload Profile Picture"}
             </Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <FontAwesome name="times" size={20} color={theme.colors.textSecondary} />
+              <FontAwesome
+                name="times"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
             </TouchableOpacity>
           </View>
 
           {/* Current or Selected Image Preview */}
           <View style={styles.imagePreview}>
             <Image
-              source={{ 
-                uri: selectedImage || currentImageUrl || 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media'
+              source={{
+                uri:
+                  selectedImage ||
+                  currentImageUrl ||
+                  "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
               }}
               style={styles.previewImage}
-              defaultSource={require('@/assets/images/avatars/adult-default.png')}
+              defaultSource={require("@/assets/images/avatars/adult-default.png")}
             />
             {selectedImage && (
               <View style={styles.selectedImageOverlay}>
@@ -179,13 +206,15 @@ export default function ProfilePictureUpload({
               icon="photo"
               theme="secondary"
             />
-            
-            <Button
-              label="Take Photo"
-              onPress={takePhoto}
-              icon="camera"
-              theme="secondary"
-            />
+
+            {Platform.OS !== "web" && (
+              <Button
+                label="Take Photo"
+                onPress={takePhoto}
+                icon="camera"
+                theme="secondary"
+              />
+            )}
 
             {selectedImage && (
               <Button
@@ -198,6 +227,16 @@ export default function ProfilePictureUpload({
           </View>
         </View>
       </View>
+
+      {/* Cross-platform alert modal */}
+      <ConfirmationModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        confirmText="OK"
+        onConfirm={hideAlert}
+        onCancel={hideAlert}
+      />
     </Modal>
   );
 }
@@ -205,40 +244,40 @@ export default function ProfilePictureUpload({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   container: {
     backgroundColor: theme.colors.primary,
     borderRadius: 12,
-    width: '90%',
+    width: "90%",
     maxWidth: 400,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: theme.colors.text,
   },
   closeButton: {
     padding: 4,
   },
   imagePreview: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
-    position: 'relative',
+    position: "relative",
   },
   previewImage: {
     width: 120,
@@ -248,7 +287,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.secondary,
   },
   selectedImageOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     backgroundColor: theme.colors.secondary,
     paddingHorizontal: 8,
@@ -258,7 +297,7 @@ const styles = StyleSheet.create({
   selectedImageText: {
     color: theme.colors.primary,
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   buttonContainer: {
     gap: 12,

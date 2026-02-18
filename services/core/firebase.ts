@@ -1,13 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
 import {
-    Auth,
-    getAuth,
-    getReactNativePersistence,
-    initializeAuth,
+  Auth,
+  getAuth,
+  getReactNativePersistence,
+  initializeAuth,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
+import { getStorage } from "firebase/storage";
 
 // Initialize Firebase
 const firebaseConfig = {
@@ -37,6 +38,7 @@ try {
 
 const db = getFirestore(app);
 const functions = getFunctions(app, "europe-north1"); // Use same region as Functions
+const storage = getStorage(app);
 
 // Connect to Functions emulator in development
 if (__DEV__) {
@@ -44,4 +46,4 @@ if (__DEV__) {
   // connectFunctionsEmulator(functions, 'localhost', 5001);
 }
 
-export { auth, db, functions };
+export { auth, db, functions, storage };

@@ -195,6 +195,18 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="profile"
+              options={{
+                headerShown: true,
+                title: "My Profile",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.white,
+                headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
               name="view-statistics"
               options={{
                 headerShown: true,

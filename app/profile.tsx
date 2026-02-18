@@ -1,0 +1,742 @@
+// /app/profile.tsx — User Profile Screen
+// View mode: displays avatar, name, email, phone, DOB, clubs, groups, sign-out
+// Edit mode: toggle via header ✏️ icon — name, phone, DOB become editable
+
+import { FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { useNavigation, useRouter } from "expo-router";
+import React, { useLayoutEffect, useMemo, useState } from "react";
+import {
+    ActivityIndicator,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import ConfirmationModal from "../components/ConfirmationModal";
+import ProfilePictureUpload from "../components/ProfilePictureUpload";
+import { getDefaultProfilePicture } from "../constants/profilePictures";
+import { theme } from "../constants/theme";
+import { useAuth } from "../contexts/AuthContext";
+import { useUser } from "../contexts/UserContext";
+import { signOutUser, updateUserProfile } from "../services/auth/authService";
+
+export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const navigation = useNavigation();
+  const { user } = useAuth();
+  const { userProfile, refreshUserProfile } = useUser();
+
+  // View / Edit mode
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Editable form state
+  const [displayName, setDisplayName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+
+  // UI state
+  const [saving, setSaving] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [currentPhotoURL, setCurrentPhotoURL] = useState("");
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  // Generic alert modal state (replaces Alert.alert for cross-platform)
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ visible: false, title: "", message: "" });
+
+  const showAlert = (title: string, message: string, onConfirm?: () => void) =>
+    setAlertModal({ visible: true, title, message, onConfirm });
+  const hideAlert = () => {
+    alertModal.onConfirm?.();
+    setAlertModal({ visible: false, title: "", message: "" });
+  };
+
+  // Initialize form state from profile
+  const initFormFromProfile = React.useCallback(() => {
+    setDisplayName(userProfile?.displayName || "");
+    setPhoneNumber(userProfile?.phoneNumber || "");
+    setDateOfBirth(
+      userProfile?.dateOfBirth
+        ? new Date(userProfile.dateOfBirth).toLocaleDateString()
+        : "",
+    );
+  }, [userProfile]);
+
+  // Set currentPhotoURL from profile on mount / profile change
+  React.useEffect(() => {
+    setCurrentPhotoURL(
+      userProfile?.photoURL ||
+        user?.photoURL ||
+        getDefaultProfilePicture(false),
+    );
+    initFormFromProfile();
+  }, [userProfile, user, initFormFromProfile]);
+
+  // Clubs & groups from profile
+  const userClubs = userProfile?.clubAccess || [];
+  const userGroups = useMemo(() => {
+    if (!userProfile?.clubAccess) return [];
+    const groups: {
+      clubName: string;
+      groupName: string;
+      roles: string[];
+    }[] = [];
+    for (const ca of userProfile.clubAccess) {
+      if (ca.groupAccess) {
+        for (const ga of ca.groupAccess) {
+          groups.push({
+            clubName: ca.clubName,
+            groupName: ga.groupName,
+            roles: ga.roles,
+          });
+        }
+      }
+    }
+    return groups;
+  }, [userProfile?.clubAccess]);
+
+  // Display name helper (same logic as old UserAvatar)
+  const getDisplayName = () => {
+    if (userProfile?.displayName) return userProfile.displayName;
+    if (user?.displayName) {
+      if (user.displayName.includes(".") || user.displayName.includes("_")) {
+        return user.displayName
+          .replace(/[._]/g, " ")
+          .split(" ")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(" ");
+      }
+      return user.displayName;
+    }
+    const emailName = user?.email?.split("@")[0] || "User";
+    return emailName.charAt(0).toUpperCase() + emailName.slice(1).toLowerCase();
+  };
+
+  const getInitials = (email: string) => {
+    return email.split("@")[0]?.charAt(0).toUpperCase() || "U";
+  };
+
+  // ----- Header icons -----
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () =>
+        isEditing ? (
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity
+              onPress={handleCancelEdit}
+              style={{ marginRight: 12, padding: 8 }}
+            >
+              <Ionicons
+                name="close-outline"
+                size={26}
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSave}
+              style={{ marginRight: 8, padding: 8 }}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={theme.colors.white} />
+              ) : (
+                <Ionicons
+                  name="checkmark-outline"
+                  size={26}
+                  color={theme.colors.secondary}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={handleStartEdit}
+            style={{ marginRight: 8, padding: 8 }}
+          >
+            <Ionicons
+              name="create-outline"
+              size={24}
+              color={theme.colors.white}
+            />
+          </TouchableOpacity>
+        ),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, saving, displayName, phoneNumber, dateOfBirth, navigation]);
+
+  // ----- Actions -----
+  const handleStartEdit = () => {
+    initFormFromProfile();
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    initFormFromProfile();
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (!displayName.trim()) {
+      showAlert("Validation", "Display name cannot be empty.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const profileData: {
+        displayName?: string;
+        phoneNumber?: string | null;
+        dateOfBirth?: Date | null;
+      } = {};
+
+      // Only include changed fields
+      if (displayName.trim() !== (userProfile?.displayName || "")) {
+        profileData.displayName = displayName.trim();
+      }
+      const newPhone = phoneNumber.trim() || null;
+      if (newPhone !== (userProfile?.phoneNumber || null)) {
+        profileData.phoneNumber = newPhone;
+      }
+      // Parse DOB
+      if (dateOfBirth.trim()) {
+        const parsed = new Date(dateOfBirth.trim());
+        if (!isNaN(parsed.getTime())) {
+          const existingDOB = userProfile?.dateOfBirth
+            ? new Date(userProfile.dateOfBirth).toLocaleDateString()
+            : "";
+          if (dateOfBirth.trim() !== existingDOB) {
+            profileData.dateOfBirth = parsed;
+          }
+        }
+      } else if (userProfile?.dateOfBirth) {
+        profileData.dateOfBirth = null; // cleared
+      }
+
+      if (Object.keys(profileData).length === 0) {
+        setIsEditing(false);
+        return; // nothing changed
+      }
+
+      const result = await updateUserProfile(profileData);
+      if (result.success) {
+        await refreshUserProfile();
+        setIsEditing(false);
+        showAlert("Success", "Profile updated successfully!");
+      } else {
+        showAlert(
+          "Error",
+          result.error?.message || "Failed to update profile.",
+        );
+      }
+    } catch (error: any) {
+      console.error("Error saving profile:", error);
+      showAlert("Error", "An unexpected error occurred.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImageUploadSuccess = async (newImageUrl: string) => {
+    setCurrentPhotoURL(newImageUrl);
+    // Refresh user profile so the tab bar avatar also updates
+    await refreshUserProfile();
+    showAlert(
+      "Success",
+      "Profile picture uploaded! It may take a moment to appear everywhere.",
+    );
+  };
+
+  // ----- Sign Out -----
+  const handleSignOutPress = () => setShowSignOutModal(true);
+
+  const handleSignOutConfirm = async () => {
+    setIsSigningOut(true);
+    setShowSignOutModal(false);
+    try {
+      const result = await signOutUser();
+      if (result.success) {
+        router.replace("/login");
+      } else {
+        showAlert("Error", "Failed to sign out. Please try again.");
+      }
+    } catch (error) {
+      console.error("Sign out error:", error);
+      showAlert("Error", "An error occurred while signing out.");
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  if (!user || !userProfile) {
+    return (
+      <View style={[styles.loadingContainer, { paddingBottom: insets.bottom }]}>
+        <ActivityIndicator size="large" color={theme.colors.secondary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={100}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ---- Avatar Section ---- */}
+          <View style={styles.avatarSection}>
+            <TouchableOpacity
+              onPress={() => setShowImagePicker(true)}
+              style={styles.avatarContainer}
+              activeOpacity={0.8}
+            >
+              {currentPhotoURL ? (
+                <Image
+                  source={{ uri: currentPhotoURL }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarInitials}>
+                    {getInitials(user.email || "U")}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.cameraIconBadge}>
+                <MaterialIcons
+                  name="photo-camera"
+                  size={18}
+                  color={theme.colors.white}
+                />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.tapToChangeText}>Tap to change picture</Text>
+          </View>
+
+          {/* ---- Info Section ---- */}
+          <View style={styles.infoSection}>
+            {/* Display Name */}
+            <View style={styles.fieldRow}>
+              <View style={styles.fieldIconContainer}>
+                <FontAwesome
+                  name="user"
+                  size={16}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Name</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={displayName}
+                    onChangeText={setDisplayName}
+                    placeholder="Enter your name"
+                    placeholderTextColor={theme.colors.textSecondary}
+                  />
+                ) : (
+                  <Text style={styles.fieldValue}>{getDisplayName()}</Text>
+                )}
+              </View>
+            </View>
+
+            {/* Email (always read-only) */}
+            <View style={styles.fieldRow}>
+              <View style={styles.fieldIconContainer}>
+                <FontAwesome
+                  name="envelope"
+                  size={14}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Email</Text>
+                <Text style={styles.fieldValue}>
+                  {userProfile?.email || user.email}
+                </Text>
+              </View>
+            </View>
+
+            {/* Phone */}
+            <View style={styles.fieldRow}>
+              <View style={styles.fieldIconContainer}>
+                <FontAwesome
+                  name="phone"
+                  size={16}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Phone</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    placeholder="Enter phone number"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    keyboardType="phone-pad"
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.fieldValue,
+                      !userProfile?.phoneNumber && styles.fieldEmpty,
+                    ]}
+                  >
+                    {userProfile?.phoneNumber || "Not set"}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Date of Birth */}
+            <View style={styles.fieldRow}>
+              <View style={styles.fieldIconContainer}>
+                <FontAwesome
+                  name="birthday-cake"
+                  size={14}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Date of Birth</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={dateOfBirth}
+                    onChangeText={setDateOfBirth}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.colors.textSecondary}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.fieldValue,
+                      !userProfile?.dateOfBirth && styles.fieldEmpty,
+                    ]}
+                  >
+                    {userProfile?.dateOfBirth
+                      ? new Date(userProfile.dateOfBirth).toLocaleDateString()
+                      : "Not set"}
+                  </Text>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* ---- Clubs Section ---- */}
+          {userClubs.length > 0 && (
+            <View style={styles.membershipSection}>
+              <Text style={styles.sectionTitle}>Clubs</Text>
+              {userClubs.map((club, index) => (
+                <View key={`club-${index}`} style={styles.membershipCard}>
+                  <View style={styles.membershipCardHeader}>
+                    <FontAwesome
+                      name="shield"
+                      size={16}
+                      color={theme.colors.secondary}
+                    />
+                    <Text style={styles.membershipName}>{club.clubName}</Text>
+                  </View>
+                  <View style={styles.rolesRow}>
+                    <View style={styles.roleTag}>
+                      <Text style={styles.roleTagText}>
+                        {club.role || "member"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* ---- Groups Section ---- */}
+          {userGroups.length > 0 && (
+            <View style={styles.membershipSection}>
+              <Text style={styles.sectionTitle}>Groups</Text>
+              {userGroups.map((group, index) => (
+                <View key={`group-${index}`} style={styles.membershipCard}>
+                  <View style={styles.membershipCardHeader}>
+                    <FontAwesome
+                      name="users"
+                      size={14}
+                      color={theme.colors.secondary}
+                    />
+                    <Text style={styles.membershipName}>{group.groupName}</Text>
+                    <Text style={styles.clubNameSubtext}>{group.clubName}</Text>
+                  </View>
+                  <View style={styles.rolesRow}>
+                    {group.roles?.map((role, ri) => (
+                      <View key={`role-${ri}`} style={styles.roleTag}>
+                        <Text style={styles.roleTagText}>{role}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* ---- Sign Out ---- */}
+          <View style={styles.signOutSection}>
+            <TouchableOpacity
+              style={styles.signOutButton}
+              onPress={handleSignOutPress}
+              disabled={isSigningOut}
+            >
+              <FontAwesome
+                name="sign-out"
+                size={16}
+                color={theme.colors.error}
+              />
+              <Text style={styles.signOutText}>
+                {isSigningOut ? "Signing Out..." : "Sign Out"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Profile Picture Upload Modal */}
+      <ProfilePictureUpload
+        visible={showImagePicker}
+        onClose={() => setShowImagePicker(false)}
+        onSuccess={handleImageUploadSuccess}
+        currentImageUrl={currentPhotoURL}
+        userId={user.uid}
+      />
+
+      {/* Sign Out Confirmation Modal */}
+      <ConfirmationModal
+        visible={showSignOutModal}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        onConfirm={handleSignOutConfirm}
+        onCancel={() => setShowSignOutModal(false)}
+        confirmButtonTheme="primary"
+      />
+
+      {/* Generic Alert Modal (cross-platform replacement for Alert.alert) */}
+      <ConfirmationModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        confirmText="OK"
+        onConfirm={hideAlert}
+        onCancel={hideAlert}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  // ---- Avatar ----
+  avatarSection: {
+    alignItems: "center",
+    marginBottom: 28,
+  },
+  avatarContainer: {
+    position: "relative",
+    marginBottom: 8,
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: theme.colors.secondary,
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: theme.colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: theme.colors.inputBorder,
+  },
+  avatarInitials: {
+    color: theme.colors.primary,
+    fontSize: 36,
+    fontWeight: "bold",
+  },
+  cameraIconBadge: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    backgroundColor: theme.colors.secondary,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+  },
+  tapToChangeText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+  },
+  // ---- Info Fields ----
+  infoSection: {
+    marginBottom: 24,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    overflow: "hidden",
+  },
+  fieldRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+  },
+  fieldIconContainer: {
+    width: 28,
+    alignItems: "center",
+  },
+  fieldContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  fieldValue: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  fieldEmpty: {
+    color: theme.colors.textSecondary,
+    fontStyle: "italic",
+  },
+  fieldInput: {
+    fontSize: 16,
+    color: theme.colors.text,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.secondary,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+  },
+  // ---- Membership Sections ----
+  membershipSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: theme.colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  membershipCard: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    padding: 14,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.secondary,
+  },
+  membershipCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  membershipName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.colors.text,
+    flex: 1,
+  },
+  clubNameSubtext: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  rolesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  roleTag: {
+    backgroundColor: theme.colors.secondary,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  roleTagText: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  // ---- Sign Out ----
+  signOutSection: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.inputBorder,
+    paddingTop: 20,
+  },
+  signOutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: theme.colors.error + "10",
+    borderWidth: 1,
+    borderColor: theme.colors.error + "30",
+  },
+  signOutText: {
+    color: theme.colors.error,
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+});
