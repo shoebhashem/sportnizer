@@ -73,16 +73,18 @@ export const validateMemberForInvitation = async (
       return await validateYouthInvitation(
         response.userProfile,
         clubId,
-        groupId,
-        groupName,
+        groupId!,
+        groupName!,
       );
+    } else if (role === "club-admin") {
+      return await validateClubAdminInvitation(response.userProfile, clubId);
     } else {
       return await validateAdultInvitation(
         response.userProfile,
         role,
         clubId,
-        groupId,
-        groupName,
+        groupId!,
+        groupName!,
       );
     }
   } catch (error: any) {
@@ -97,6 +99,63 @@ export const validateMemberForInvitation = async (
     };
   }
 };
+
+/**
+ * Validates club admin invitations
+ * Checks if user already has club-admin role at the club level
+ */
+async function validateClubAdminInvitation(
+  userProfile: any,
+  clubId: string,
+): Promise<ValidationResponse> {
+  console.log("🛡️ Validating club admin invitation");
+
+  // Check if user is in the target club
+  const clubAccess = userProfile.clubAccess?.find(
+    (c: any) => c.clubId === clubId,
+  );
+
+  if (!clubAccess) {
+    // User not in club at all - can invite as club admin
+    console.log("✅ User not in club - can invite as club admin");
+    return {
+      success: true,
+      userExists: true,
+      canInvite: true,
+      inGroup: false,
+      statusMessage: "Existing user - will receive in-app notification",
+      actionType: "existing_user_new_to_group",
+    };
+  }
+
+  // Check if user already has club-admin role
+  if (clubAccess.role === "club-admin") {
+    console.log("❌ User is already a club admin - cannot invite");
+    return {
+      success: true,
+      userExists: true,
+      canInvite: false,
+      inGroup: true,
+      hasRequestedRole: true,
+      currentRoles: ["club-admin"],
+      statusMessage: "This user is already a club administrator",
+      actionType: "existing_user_has_role",
+    };
+  }
+
+  // User in club with different role - can be promoted to club admin
+  console.log("✅ User in club but not admin - can invite as club admin");
+  return {
+    success: true,
+    userExists: true,
+    canInvite: true,
+    inGroup: true,
+    hasRequestedRole: false,
+    currentRoles: [clubAccess.role || "member"],
+    statusMessage: `User is in the club. They will be promoted to club administrator.`,
+    actionType: "existing_user_add_role",
+  };
+}
 
 /**
  * Validates adult role invitations (player, coach, admin)

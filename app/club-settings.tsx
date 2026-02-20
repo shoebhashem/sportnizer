@@ -325,6 +325,42 @@ export default function ClubSettingsScreen() {
             </TouchableOpacity>
           )}
 
+          {/* Add Club Admin Option - Only for Club Admin */}
+          {isClubAdmin && (
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => {
+                router.push({
+                  pathname: "/add-adult-member",
+                  params: {
+                    clubId: clubId as string,
+                    clubName: club?.name || "",
+                    role: "club-admin",
+                  },
+                } as any);
+              }}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Add Club Admin</Text>
+                <Text style={styles.optionDescription}>
+                  Invite a club administrator
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
           {/* Delete Group Option - Navigate to manage-club to select group */}
           {isClubAdmin && !isScheduledForDeletion && (
             <TouchableOpacity

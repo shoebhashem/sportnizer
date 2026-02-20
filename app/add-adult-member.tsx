@@ -51,7 +51,7 @@ import {
  * Role Configuration
  * Defines UI text and labels for each supported role
  */
-type RoleType = "player" | "coach" | "admin";
+type RoleType = "player" | "coach" | "admin" | "club-admin";
 
 interface RoleConfig {
   title: string;
@@ -89,6 +89,15 @@ const roleConfigs: Record<RoleType, RoleConfig> = {
     roleLabel: "admin",
     pluralLabel: "admins",
     icon: "shield",
+  },
+  "club-admin": {
+    title: "Add Club Admin",
+    subtitle: "Invite club administrators",
+    infoText:
+      "Invite administrators to manage this entire club. Club admins can manage all groups, create events, and control club settings.",
+    roleLabel: "club administrator",
+    pluralLabel: "club administrators",
+    icon: "shield-checkmark",
   },
 };
 
@@ -202,8 +211,10 @@ export default function AddAdultMemberScreen() {
         email: trimmedEmail,
         role: memberRole,
         clubId: clubId as string,
-        groupId: groupId as string,
-        groupName: groupName as string,
+        ...(memberRole !== "club-admin" && {
+          groupId: groupId as string,
+          groupName: groupName as string,
+        }),
       });
 
       setEmailValidation((prev) => ({
@@ -307,8 +318,10 @@ export default function AddAdultMemberScreen() {
               email,
               role: memberRole,
               clubId: clubId as string,
-              groupId: groupId as string,
-              groupName: groupName as string,
+              ...(memberRole !== "club-admin" && {
+                groupId: groupId as string,
+                groupName: groupName as string,
+              }),
             });
 
             setEmailValidation((prev) => ({
@@ -415,15 +428,21 @@ export default function AddAdultMemberScreen() {
     setSendingInvitations(true);
 
     try {
+      const isClubAdminInvitation = memberRole === "club-admin";
       const result = await addRegularMemberToGroupService.inviteUsersToGroup({
         emails: validEmails,
         clubId: clubId as string,
         clubName: clubName as string,
-        groupId: groupId as string,
-        groupName: groupName as string,
+        ...(isClubAdminInvitation
+          ? {}
+          : {
+              groupId: groupId as string,
+              groupName: groupName as string,
+            }),
         inviterName: user.displayName || user.email || "Unknown User",
         inviterUid: user.uid,
         role: memberRole,
+        ...(isClubAdminInvitation && { invitationType: "club_admin" as const }),
       });
 
       console.log("📧 Invitation workflow result:", result);

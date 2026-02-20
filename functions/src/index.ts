@@ -91,10 +91,6 @@ export { validateInvitationToken } from "./invitations/validateInvitationToken";
 // Notification Functions (Atomic)
 export { createNotification } from "./notifications/createNotification";
 
-// Recipient Selection Functions (Atomic)
-export { calculateRecipientCount } from "./recipients/calculateRecipientCount";
-export { validateRecipientSelection } from "./recipients/validateRecipientSelection";
-
 // ✅ Legacy HTTP endpoint functions and unused helpers have been removed
 // Current invitation workflow uses: sendGroupInvitation, respondToEmailInvite, markInvitationUsed, validateInvitationToken
 

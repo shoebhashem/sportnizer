@@ -96,11 +96,35 @@ export const updateUserClubInfo = onCall(
             };
           }
         } else {
-          // Club is already active
-          return {
-            success: false,
-            error: "User is already a member of this club",
-          };
+          // Club is already active - check if we need to promote to club-admin
+          const currentRole = existingClub.role || "member";
+          const normalizedRequestedRole =
+            role === "club-admin" ? "club-admin" : "member";
+
+          if (
+            normalizedRequestedRole === "club-admin" &&
+            currentRole !== "club-admin"
+          ) {
+            // Promoting existing member to club-admin
+            console.log(
+              `⬆️ Promoting user ${uid} to club-admin in club ${clubInfo.clubId}`,
+            );
+            const now = new Date();
+            clubAccess[existingClubIndex] = {
+              ...existingClub,
+              role: "club-admin",
+              lastModifiedAt: now,
+            };
+          } else {
+            // No role change needed - return success (no-op)
+            console.log(
+              `ℹ️ User ${uid} already has role '${currentRole}' - no update needed`,
+            );
+            return {
+              success: true,
+              message: "User is already a member of this club",
+            };
+          }
         }
       } else {
         // Add new club membership with new structure

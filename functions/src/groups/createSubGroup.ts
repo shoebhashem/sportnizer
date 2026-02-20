@@ -1,13 +1,16 @@
-import * as admin from 'firebase-admin';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
-import { CreateSubGroupRequest, CreateSubGroupResponse } from '../types/interfaces';
-import { config } from '../utils/config';
-import { validateRequiredFields } from '../utils/validation';
+import * as admin from "firebase-admin";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
+import {
+    CreateSubGroupRequest,
+    CreateSubGroupResponse,
+} from "../types/interfaces";
+import { config } from "../utils/config";
+import { validateRequiredFields } from "../utils/validation";
 
 /**
  * Create a new subgroup within a group
  * Creates subgroup document with unique ID and initializes empty allMembers collection
- * 
+ *
  * Architecture: /clubs/{clubId}/groups/{groupId}/subgroups/{subgroupId}
  * Permissions: admin, coach, group creator, or club admin
  */
@@ -17,124 +20,141 @@ export const createSubGroup = onCall(
   },
   async (request): Promise<CreateSubGroupResponse> => {
     try {
-      const { uid, clubId, groupId, subGroupName, description, color } = request.data as CreateSubGroupRequest;
+      const { uid, clubId, groupId, subGroupName, description, color } =
+        request.data as CreateSubGroupRequest;
 
       // Validate required fields
-      validateRequiredFields(request.data, ['uid', 'clubId', 'groupId', 'subGroupName']);
+      validateRequiredFields(request.data, [
+        "uid",
+        "clubId",
+        "groupId",
+        "subGroupName",
+      ]);
 
       // Verify user is authenticated
       if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'User must be authenticated');
+        throw new HttpsError("unauthenticated", "User must be authenticated");
       }
 
       // Validate subgroup name
       const trimmedSubGroupName = subGroupName.trim();
-      
+
       if (trimmedSubGroupName.length < 2) {
         return {
           success: false,
-          error: 'Subgroup name must be at least 2 characters long'
+          error: "Subgroup name must be at least 2 characters long",
         };
       }
 
       if (trimmedSubGroupName.length > 50) {
         return {
           success: false,
-          error: 'Subgroup name cannot exceed 50 characters'
+          error: "Subgroup name cannot exceed 50 characters",
         };
       }
 
       const db = admin.firestore();
 
       // Verify group exists
-      const groupRef = db.collection('clubs').doc(clubId).collection('groups').doc(groupId);
+      const groupRef = db
+        .collection("clubs")
+        .doc(clubId)
+        .collection("groups")
+        .doc(groupId);
       const groupDoc = await groupRef.get();
-      
+
       if (!groupDoc.exists) {
-        throw new HttpsError('not-found', 'Group not found');
+        throw new HttpsError("not-found", "Group not found");
       }
 
       const groupData = groupDoc.data();
       if (!groupData) {
-        throw new HttpsError('not-found', 'Group data not found');
+        throw new HttpsError("not-found", "Group data not found");
       }
 
       // Verify club exists
-      const clubDoc = await db.collection('clubs').doc(clubId).get();
+      const clubDoc = await db.collection("clubs").doc(clubId).get();
       if (!clubDoc.exists) {
-        throw new HttpsError('not-found', 'Club not found');
+        throw new HttpsError("not-found", "Club not found");
       }
 
       // Check user permissions
       const groupMembersDoc = await db
-        .collection('clubs')
+        .collection("clubs")
         .doc(clubId)
-        .collection('groups')
+        .collection("groups")
         .doc(groupId)
-        .collection('allMembers')
-        .doc('members')
+        .collection("allMembers")
+        .doc("members")
         .get();
 
       const clubMembersDoc = await db
-        .collection('clubs')
+        .collection("clubs")
         .doc(clubId)
-        .collection('allMembers')
-        .doc('members')
+        .collection("allMembers")
+        .doc("members")
         .get();
 
       const isGroupCreator = groupData.createdBy === uid;
-      
+
       // Check group membership and roles
       let isGroupAdminOrCoach = false;
       if (groupMembersDoc.exists) {
         const groupMembers = groupMembersDoc.data()?.members || [];
-        const userGroupMembership = groupMembers.find((member: any) => member.userId === uid);
+        const userGroupMembership = groupMembers.find(
+          (member: any) => member.userId === uid,
+        );
         const userRoles = userGroupMembership?.roles || [];
-        isGroupAdminOrCoach = userRoles.includes('admin') || userRoles.includes('coach');
+        isGroupAdminOrCoach =
+          userRoles.includes("admin") || userRoles.includes("coach");
       }
 
       // Check club admin
       let isClubAdmin = false;
       if (clubMembersDoc.exists) {
         const clubMembers = clubMembersDoc.data()?.members || [];
-        const userClubMembership = clubMembers.find((member: any) => member.userId === uid);
-        isClubAdmin = userClubMembership?.roles?.includes('club-admin') || false;
+        const userClubMembership = clubMembers.find(
+          (member: any) => member.userId === uid,
+        );
+        isClubAdmin =
+          userClubMembership?.roles?.includes("club-admin") || false;
       }
 
       if (!isGroupCreator && !isGroupAdminOrCoach && !isClubAdmin) {
         throw new HttpsError(
-          'permission-denied',
-          'You do not have permission to create subgroups in this group'
+          "permission-denied",
+          "You do not have permission to create subgroups in this group",
         );
       }
 
       // Check if subgroup name already exists (case-insensitive)
       const existingSubgroupsQuery = await db
-        .collection('clubs')
+        .collection("clubs")
         .doc(clubId)
-        .collection('groups')
+        .collection("groups")
         .doc(groupId)
-        .collection('subgroups')
+        .collection("subgroups")
         .get();
 
-      const nameExists = existingSubgroupsQuery.docs.some(doc => 
-        doc.data().name.toLowerCase() === trimmedSubGroupName.toLowerCase()
+      const nameExists = existingSubgroupsQuery.docs.some(
+        (doc) =>
+          doc.data().name.toLowerCase() === trimmedSubGroupName.toLowerCase(),
       );
 
       if (nameExists) {
         return {
           success: false,
-          error: 'A subgroup with this name already exists'
+          error: "A subgroup with this name already exists",
         };
       }
 
       // Generate unique subgroup ID
       const subgroupRef = db
-        .collection('clubs')
+        .collection("clubs")
         .doc(clubId)
-        .collection('groups')
+        .collection("groups")
         .doc(groupId)
-        .collection('subgroups')
+        .collection("subgroups")
         .doc(); // Auto-generate ID
 
       const subgroupId = subgroupRef.id;
@@ -146,9 +166,9 @@ export const createSubGroup = onCall(
       batch.update(groupRef, {
         subGroups: admin.firestore.FieldValue.arrayUnion({
           id: subgroupId,
-          name: trimmedSubGroupName
+          name: trimmedSubGroupName,
         }),
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
+        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // Create subgroup document
@@ -156,46 +176,46 @@ export const createSubGroup = onCall(
         name: trimmedSubGroupName,
         createdBy: uid,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        description: description || '',
-        color: color || ''
+        description: description || "",
+        color: color || "",
       });
 
       // Create empty allMembers/members document
       const subgroupMembersRef = subgroupRef
-        .collection('allMembers')
-        .doc('members');
+        .collection("allMembers")
+        .doc("members");
 
       batch.set(subgroupMembersRef, {
         members: [],
-        memberCount: 0,
         version: 1,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastModified: admin.firestore.FieldValue.serverTimestamp()
+        lastModified: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // Commit batch
       await batch.commit();
 
-      console.log(`✅ Subgroup created: ${subgroupId} (${trimmedSubGroupName}) in group ${groupId}`);
+      console.log(
+        `✅ Subgroup created: ${subgroupId} (${trimmedSubGroupName}) in group ${groupId}`,
+      );
 
       return {
         success: true,
-        message: 'Subgroup created successfully',
+        message: "Subgroup created successfully",
         subGroupId: subgroupId,
-        subGroupName: trimmedSubGroupName
+        subGroupName: trimmedSubGroupName,
       };
-
     } catch (error) {
-      console.error('❌ Error creating subgroup:', error);
-      
+      console.error("❌ Error creating subgroup:", error);
+
       if (error instanceof HttpsError) {
         throw error;
       }
-      
+
       throw new HttpsError(
-        'internal',
-        `Failed to create subgroup: ${error instanceof Error ? error.message : 'Unknown error'}`
+        "internal",
+        `Failed to create subgroup: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
-  }
+  },
 );

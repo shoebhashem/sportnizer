@@ -333,8 +333,8 @@ export default function ManageClubScreen() {
                     size={14}
                     color={theme.colors.textSecondary}
                   />{" "}
-                  {item.memberCount}{" "}
-                  {item.memberCount === 1 ? "member" : "members"}
+                  {item.membersCount}{" "}
+                  {item.membersCount === 1 ? "member" : "members"}
                 </Text>
               </View>
             </View>
@@ -556,6 +556,7 @@ export default function ManageClubScreen() {
                 clubId: clubId as string,
                 clubName: club?.name || "",
                 sourceScreen: "manage-club",
+                memberCount: members.length,
               },
             });
           }}

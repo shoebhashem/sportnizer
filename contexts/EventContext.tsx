@@ -1,15 +1,15 @@
 /**
- * Event Context - Role-Based Event Management
+ * Event Context - Real-Time Event Management
  *
- * Implements role-based event fetching strategy:
- * - Privileged users (admins/coaches): Real-time Firestore listeners
- * - Regular users (players): Cache + pull-to-refresh + background refresh
+ * Implements real-time event fetching for all users:
+ * - Real-time Firestore listeners for instant updates
+ * - Cache for instant display on app startup
+ * - Pull-to-refresh available for all users
  *
  * Benefits:
- * - 67-73% cost reduction (privileged users only get listeners)
- * - Better UX (admins see real-time updates, players get instant cached data)
+ * - Consistent UX (all users see real-time updates)
  * - Works offline (cached events)
- * - Pull-to-refresh available for all users
+ * - Efficient reads (listener only charged for changed documents)
  *
  * Pattern follows UserContext.tsx (version-based caching + cross-platform storage)
  */
@@ -21,7 +21,6 @@ import {
     fetchEvents,
 } from "@/services/event/eventListener";
 import { storage } from "@/utils/CrossPlatformStorage";
-import { isPrivilegedUser } from "@/utils/roleUtils";
 import React, {
     createContext,
     ReactNode,
@@ -59,9 +58,6 @@ const STORAGE_KEYS = {
   LAST_CLUB_ID: "events_last_club_id_v1",
 } as const;
 
-// TTL for cache expiration (10 minutes for regular users)
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
 // Rate limiting for manual refresh (30 seconds minimum between refreshes)
 const REFRESH_RATE_LIMIT_MS = 30 * 1000; // 30 seconds
 
@@ -81,7 +77,6 @@ export function EventProvider({ children }: EventProviderProps) {
   // Refs for cleanup and rate limiting
   const listenerUnsubscribeRef = useRef<(() => void) | null>(null);
   const lastRefreshTimeRef = useRef<number>(0);
-  const backgroundRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get current club ID from user profile
   const currentClubId = userProfile?.clubAccess?.[0]?.clubId || null;
@@ -240,7 +235,7 @@ export function EventProvider({ children }: EventProviderProps) {
   );
 
   // ============================================================================
-  // Role-Based Listener Management
+  // Real-Time Listener Management
   // ============================================================================
 
   const setupEventListener = useCallback(
@@ -251,7 +246,7 @@ export function EventProvider({ children }: EventProviderProps) {
         listenerUnsubscribeRef.current = null;
       }
 
-      console.log(`🎧 Setting up real-time event listener for privileged user`);
+      console.log(`🎧 Setting up real-time event listener`);
 
       const unsubscribe = attachEventListener(
         { clubId, userId, includePastEvents: true },
@@ -270,35 +265,13 @@ export function EventProvider({ children }: EventProviderProps) {
 
       listenerUnsubscribeRef.current = unsubscribe;
       setHasActiveListener(true);
+      setIsPrivileged(true); // All users with listeners get real-time updates
     },
     [saveToCache, fetchEventsFromFirestore],
   );
 
-  const setupBackgroundRefresh = useCallback(
-    (userId: string, clubId: string) => {
-      // Clear existing timer
-      if (backgroundRefreshTimerRef.current) {
-        clearInterval(backgroundRefreshTimerRef.current);
-        backgroundRefreshTimerRef.current = null;
-      }
-
-      console.log(
-        `⏰ Setting up background refresh (every 10 minutes) for regular user`,
-      );
-
-      // Background refresh every 10 minutes for regular users
-      const timer = setInterval(() => {
-        console.log(`⏰ Background refresh triggered`);
-        fetchEventsFromFirestore(userId, clubId, true);
-      }, CACHE_TTL_MS);
-
-      backgroundRefreshTimerRef.current = timer;
-    },
-    [fetchEventsFromFirestore],
-  );
-
   // ============================================================================
-  // Main Effect - Setup based on user role
+  // Main Effect - Setup real-time listener
   // ============================================================================
 
   useEffect(() => {
@@ -309,14 +282,10 @@ export function EventProvider({ children }: EventProviderProps) {
         setIsLoading(false);
         setIsPrivileged(false);
 
-        // Cleanup
+        // Cleanup listener
         if (listenerUnsubscribeRef.current) {
           listenerUnsubscribeRef.current();
           listenerUnsubscribeRef.current = null;
-        }
-        if (backgroundRefreshTimerRef.current) {
-          clearInterval(backgroundRefreshTimerRef.current);
-          backgroundRefreshTimerRef.current = null;
         }
 
         return;
@@ -325,19 +294,8 @@ export function EventProvider({ children }: EventProviderProps) {
       try {
         setIsLoading(true);
 
-        // Check if user is privileged (uses cached permissions)
-        const privileged = await isPrivilegedUser(
-          firebaseUser.uid,
-          currentClubId,
-        );
-        setIsPrivileged(privileged);
-
         // Load cache first for instant display
-        const {
-          events: cachedEvents,
-          cacheAge,
-          cachedClubId,
-        } = await loadFromCache();
+        const { events: cachedEvents, cachedClubId } = await loadFromCache();
 
         // Check if cache is valid for current club
         const cacheValidForClub = cachedClubId === currentClubId;
@@ -346,31 +304,13 @@ export function EventProvider({ children }: EventProviderProps) {
           setEvents(cachedEvents);
           setIsFromCache(true);
           console.log(
-            `📱 Showing ${cachedEvents.length} cached events while setting up`,
+            `📱 Showing ${cachedEvents.length} cached events while setting up listener`,
           );
         }
 
-        if (privileged) {
-          // PRIVILEGED USER: Real-time listener
-          console.log(`🎯 Privileged user detected - using real-time listener`);
-          setupEventListener(firebaseUser.uid, currentClubId);
-        } else {
-          // REGULAR USER: Cache + background refresh
-          console.log(
-            `👤 Regular user detected - using cache + background refresh`,
-          );
-
-          // Check if cache is stale
-          const cacheStale = cacheAge > CACHE_TTL_MS || !cacheValidForClub;
-
-          if (cacheStale || cachedEvents.length === 0) {
-            // Cache expired or wrong club - fetch fresh data
-            await fetchEventsFromFirestore(firebaseUser.uid, currentClubId);
-          }
-
-          // Setup background refresh
-          setupBackgroundRefresh(firebaseUser.uid, currentClubId);
-        }
+        // Setup real-time listener for all users
+        console.log(`🎧 Setting up real-time listener for all users`);
+        setupEventListener(firebaseUser.uid, currentClubId);
       } catch (error) {
         console.error("❌ Error setting up events:", error);
       } finally {
@@ -387,19 +327,8 @@ export function EventProvider({ children }: EventProviderProps) {
         listenerUnsubscribeRef.current = null;
         setHasActiveListener(false);
       }
-      if (backgroundRefreshTimerRef.current) {
-        clearInterval(backgroundRefreshTimerRef.current);
-        backgroundRefreshTimerRef.current = null;
-      }
     };
-  }, [
-    firebaseUser,
-    currentClubId,
-    loadFromCache,
-    setupEventListener,
-    setupBackgroundRefresh,
-    fetchEventsFromFirestore,
-  ]);
+  }, [firebaseUser, currentClubId, loadFromCache, setupEventListener]);
 
   // ============================================================================
   // Public API

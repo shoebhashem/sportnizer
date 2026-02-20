@@ -38,12 +38,16 @@ export interface GroupInvitationRequest {
   emails: string[]; // List of email addresses to invite (e.g., ["john@email.com", "mary@email.com"])
   clubId: string; // Unique ID of the sports club (e.g., "club_abc123")
   clubName: string; // Human-readable club name (e.g., "Manchester United FC")
-  groupId: string; // Unique ID of the specific team/group (e.g., "group_xyz789")
-  groupName: string; // Human-readable group name (e.g., "Under 16 Boys Team")
+  groupId?: string; // Unique ID of the specific team/group (optional for club_admin invitations)
+  groupName?: string; // Human-readable group name (optional for club_admin invitations)
   inviterName: string; // Name of person sending invites (e.g., "Coach Smith")
   inviterUid: string; // Unique ID of person sending invites (e.g., "user_def456")
-  invitationType?: "youth_member" | "youth_member_existing" | "regular"; // Type of invitation (optional, defaults to 'regular')
-  role?: "player" | "player-underage" | "coach" | "admin"; // Role to assign (optional, defaults to 'player')
+  invitationType?:
+    | "youth_member"
+    | "youth_member_existing"
+    | "regular"
+    | "club_admin"; // Type of invitation (optional, defaults to 'regular')
+  role?: "player" | "player-underage" | "coach" | "admin" | "club-admin"; // Role to assign (optional, defaults to 'player')
   youthData?: {
     // Youth member specific data (optional, required for new youth invitations)
     childName: string; // Name of the child/youth member
@@ -650,10 +654,22 @@ export const addRegularMemberToGroupService = {
         lastModifiedAt: new Date(),
       };
 
-      // 🎯 STEP 4: CONDITIONAL LOGIC - Handle membership based on user type and youth flow
+      // 🎯 STEP 4: CONDITIONAL LOGIC - Handle membership based on user type and invitation type
       const isNewUser = invitationData.status === "accepted_pending_signup";
+      const isClubAdminInvitation = invitationType === "club_admin";
 
-      if (isExistingYouthFlow) {
+      if (isClubAdminInvitation) {
+        // 🔐 CLUB ADMIN PATH: Only add to club (no group operations)
+        console.log("🔐 Processing CLUB ADMIN invitation - club-level only");
+
+        await this.callAtomicFunctionsForClubAdmin(
+          invitationData,
+          memberData,
+          userId,
+          invitationToken,
+          isNewUser,
+        );
+      } else if (isExistingYouthFlow) {
         // 🔄 EXISTING YOUTH PATH: Youth already exists, check if in club
         console.log(
           "🔄 Processing for EXISTING YOUTH - checking club membership",
@@ -704,10 +720,15 @@ export const addRegularMemberToGroupService = {
         `✅ Successfully orchestrated all atomic functions for user ${userId}`,
       );
 
+      // Return appropriate message based on invitation type
+      const welcomeMessage = isClubAdminInvitation
+        ? `Welcome! You are now a Club Admin for ${invitationData.clubName}.`
+        : `Welcome to ${invitationData.groupName}! You have been successfully added to the group.`;
+
       return {
         success: true,
         action: "accepted",
-        message: `Welcome to ${invitationData.groupName}! You have been successfully added to the group.`,
+        message: welcomeMessage,
       };
     } catch (error: any) {
       // 🚨 If anything goes wrong during this complex process
@@ -1667,6 +1688,181 @@ export const addRegularMemberToGroupService = {
 
     // STEP 8: Clean up notification
     await cleanupInvitationNotification(guardianUserId, invitationToken);
+  },
+
+  /**
+   * 🔧 HELPER METHOD: Call atomic functions for Club Admin invitations
+   * - Used for club-admin invitations (club-level only, no group operations)
+   * - Handles both new and existing users
+   * - Only calls addMemberToClub and updateUserClubInfo
+   */
+  async callAtomicFunctionsForClubAdmin(
+    invitationData: any,
+    memberData: any,
+    userId: string,
+    invitationToken: string,
+    isNewUser: boolean,
+  ) {
+    console.log("🔐 Processing Club Admin invitation...");
+
+    // Prepare club-admin specific member data
+    const clubAdminMemberData = {
+      userId: userId,
+      name: memberData.name,
+      email: invitationData.email,
+      roles: ["club-admin"],
+      joinedAt: new Date(),
+      photoURL:
+        "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
+      addedBy: invitationData.inviterUid,
+      needsGuardian: false,
+      guardiansContacts: [],
+    };
+
+    // Prepare club info for user document
+    const clubInfo = {
+      clubId: invitationData.clubId,
+      clubName: invitationData.clubName,
+      role: "club-admin", // Permission level
+      joinedAt: new Date(),
+      lastModifiedAt: new Date(),
+    };
+
+    if (!isNewUser) {
+      // EXISTING USER: Check if already a club member
+      console.log("🔍 Checking existing club membership for existing user...");
+
+      const checkMembershipFn = httpsCallable(functions, "checkMembership");
+      const membershipResult = await checkMembershipFn({
+        userId: userId,
+        clubId: invitationData.clubId,
+      });
+
+      const membershipData = membershipResult.data as {
+        success: boolean;
+        isClubMember: boolean;
+        error?: string;
+      };
+
+      if (membershipData.isClubMember) {
+        // Already a club member - just update role to add club-admin
+        console.log("✅ User already in club - adding club-admin role");
+
+        const updateClubMemberRoleFn = httpsCallable(
+          functions,
+          "updateClubMemberRole",
+        );
+        const roleResult = await updateClubMemberRoleFn({
+          clubId: invitationData.clubId,
+          userId: userId,
+          operation: "add",
+          roleToAdd: "club-admin",
+        });
+
+        const roleResponse = roleResult.data as {
+          success: boolean;
+          error?: string;
+        };
+        if (!roleResponse.success) {
+          throw new Error(
+            `Failed to add club-admin role: ${roleResponse.error}`,
+          );
+        }
+        console.log("✅ Club-admin role added to existing member");
+
+        // Also update user's clubAccess[].role to 'club-admin'
+        console.log("📞 Updating user's club access role...");
+        const updateUserClubInfoFn = httpsCallable(
+          functions,
+          "updateUserClubInfo",
+        );
+        const userClubResult = await updateUserClubInfoFn({
+          uid: userId,
+          clubInfo,
+          role: "club-admin",
+        });
+
+        const userClubResponse = userClubResult.data as {
+          success: boolean;
+          error?: string;
+        };
+        if (!userClubResponse.success) {
+          console.warn(
+            `⚠️ Failed to update user club info: ${userClubResponse.error}`,
+          );
+        } else {
+          console.log("✅ User club access updated to club-admin");
+        }
+
+        // Mark invitation as used
+        console.log("📞 Marking invitation as accepted...");
+        const markInvitationUsedFn = httpsCallable(
+          functions,
+          "markInvitationUsed",
+        );
+        await markInvitationUsedFn({
+          invitationToken: invitationToken,
+          userId: userId,
+          status: "accepted",
+        });
+
+        // Clean up notification
+        await cleanupInvitationNotification(userId, invitationToken);
+
+        return;
+      }
+    }
+
+    // NEW USER or EXISTING USER NOT IN CLUB: Add to club as club-admin
+    console.log("📞 Adding user to club as club-admin...");
+    const addMemberToClubFn = httpsCallable(functions, "addMemberToClub");
+    const clubResult = await addMemberToClubFn({
+      clubId: invitationData.clubId,
+      memberData: clubAdminMemberData,
+    });
+
+    const clubResponse = clubResult.data as {
+      success: boolean;
+      error?: string;
+    };
+    if (!clubResponse.success) {
+      throw new Error(
+        `Failed to add club-admin to club: ${clubResponse.error}`,
+      );
+    }
+    console.log("✅ Club-admin added to club successfully");
+
+    // Update user's club info in their profile
+    console.log("📞 Updating user's club info...");
+    const updateUserClubInfoFn = httpsCallable(functions, "updateUserClubInfo");
+    const userClubResult = await updateUserClubInfoFn({
+      uid: userId,
+      clubInfo,
+      role: "club-admin",
+    });
+
+    const userClubResponse = userClubResult.data as {
+      success: boolean;
+      error?: string;
+    };
+    if (!userClubResponse.success) {
+      throw new Error(
+        `Failed to update user club info: ${userClubResponse.error}`,
+      );
+    }
+    console.log("✅ User club info updated successfully");
+
+    // Mark invitation as used
+    console.log("📞 Marking invitation as accepted...");
+    const markInvitationUsedFn = httpsCallable(functions, "markInvitationUsed");
+    await markInvitationUsedFn({
+      invitationToken: invitationToken,
+      userId: userId,
+      status: "accepted",
+    });
+
+    // Clean up notification
+    await cleanupInvitationNotification(userId, invitationToken);
   },
 }; // 🔚 END OF SERVICE OBJECT
 

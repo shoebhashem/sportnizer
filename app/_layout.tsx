@@ -51,13 +51,6 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
-              name="select-recipients"
-              options={{
-                headerShown: false,
-                title: "Select Recipients",
-              }}
-            />
-            <Stack.Screen
               name="event-details"
               options={{
                 headerShown: true,

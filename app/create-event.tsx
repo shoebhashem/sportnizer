@@ -166,7 +166,14 @@ export default function CreateEventScreen() {
   const eventId = params.eventId as string | undefined;
 
   const [selectedRoles, setSelectedRoles] = useState<GroupRole[]>([]);
-  const [memberCount, setMemberCount] = useState<number>(0);
+  // Use memberCount from params if present, else default to 0
+  const initialMemberCount =
+    typeof params.memberCount === "string"
+      ? parseInt(params.memberCount, 10)
+      : typeof params.memberCount === "number"
+        ? params.memberCount
+        : 0;
+  const [memberCount, setMemberCount] = useState<number>(initialMemberCount);
   const [showRoleFilterModal, setShowRoleFilterModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
@@ -341,10 +348,11 @@ export default function CreateEventScreen() {
 
   // Load member count on mount
   useEffect(() => {
-    if (eventContext) {
+    // Only load member count if not passed from parent
+    if (eventContext && initialMemberCount === 0) {
       loadMemberCount();
     }
-  }, [eventContext, loadMemberCount]);
+  }, [eventContext, loadMemberCount, initialMemberCount]);
 
   const eventTypes = [
     { key: "practice", label: "Training", icon: "dribbble" },

@@ -6,12 +6,14 @@ import Button from "./Button";
 interface InvitationModalProps {
   visible: boolean;
   groupName: string;
+  clubName?: string; // For club-level invitations
   inviterName: string;
   onAccept: () => void;
   onReject: () => void;
   loading?: boolean;
   role?: string; // Role being assigned (coach, player, admin, etc.)
   inviteeName?: string; // Name of the person being invited (instead of "you")
+  invitationType?: string; // Type of invitation (regular, club_admin, etc.)
   youthData?: {
     childName: string;
     dateOfBirth: string;
@@ -31,17 +33,20 @@ interface InvitationModalProps {
 const InvitationModal: React.FC<InvitationModalProps> = ({
   visible,
   groupName,
+  clubName,
   inviterName,
   onAccept,
   onReject,
   loading = false,
   role,
   inviteeName,
+  invitationType,
   youthData,
   existingYouthData,
   metadata,
 }) => {
   const isRoleUpdate = metadata?.action === "role_update";
+  const isClubAdminInvitation = invitationType === "club_admin";
   const newRole = metadata?.newRole || role || "member";
   const recipientName = inviteeName || "you";
 
@@ -62,9 +67,19 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
         return "youth player";
       case "guardian":
         return "guardian";
+      case "club-admin":
+        return "club administrator";
       default:
         return "member";
     }
+  };
+
+  // Get the appropriate title based on invitation type
+  const getModalTitle = () => {
+    if (isRoleUpdate) return "Role Update";
+    if (isClubAdminInvitation) return "Club Admin Invitation";
+    if (isYouthInvitation) return "Child Member Invitation";
+    return "Group Invitation";
   };
 
   return (
@@ -77,13 +92,7 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
     >
       <View style={styles.overlay}>
         <View style={styles.modal}>
-          <Text style={styles.title}>
-            {isRoleUpdate
-              ? "Role Update"
-              : isYouthInvitation
-                ? "Child Member Invitation"
-                : "Group Invitation"}
-          </Text>
+          <Text style={styles.title}>{getModalTitle()}</Text>
 
           {isYouthInvitation ? (
             <>
@@ -108,6 +117,19 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
 
               <Text style={styles.question}>
                 Would you like to accept this role update?
+              </Text>
+            </>
+          ) : isClubAdminInvitation ? (
+            <>
+              <Text style={styles.message}>
+                <Text style={styles.bold}>{inviterName}</Text> has invited{" "}
+                <Text style={styles.bold}>{recipientName}</Text> to become a{" "}
+                <Text style={styles.bold}>Club Administrator</Text> for{" "}
+                <Text style={styles.bold}>{clubName || groupName}</Text>.
+              </Text>
+
+              <Text style={styles.question}>
+                Would you like to accept this role?
               </Text>
             </>
           ) : (

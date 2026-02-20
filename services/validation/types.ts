@@ -10,10 +10,10 @@
 
 export interface ValidationRequest {
   email: string; // Email to validate
-  role: "player" | "coach" | "admin" | "player-underage";
+  role: "player" | "coach" | "admin" | "player-underage" | "club-admin";
   clubId: string; // Target club ID
-  groupId: string; // Target group ID
-  groupName: string; // For display messages
+  groupId?: string; // Target group ID (optional for club-admin)
+  groupName?: string; // For display messages (optional for club-admin)
 }
 
 export interface ValidationResponse {

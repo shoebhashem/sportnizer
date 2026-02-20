@@ -230,6 +230,7 @@ export default function ManageSubgroupScreen() {
                 subgroupId: subgroupId as string,
                 subgroupName: displaySubgroupName,
                 sourceScreen: "manage-subgroup",
+                memberCount: subgroupMembers.length,
               },
             });
           }}

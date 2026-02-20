@@ -1,79 +1,57 @@
-import Button from '@/components/Button';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { router } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { signOutUser } from '../../services/auth/authService';
+import { theme } from "@/constants/theme";
+import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function AboutScreen() {
-  const { user } = useAuth();
-  const [showSignOutModal, setShowSignOutModal] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
-
-  const handleSignOutPress = () => {
-    setShowSignOutModal(true);
-  };
-
-  const handleSignOutConfirm = async () => {
-    setIsSigningOut(true);
-    setShowSignOutModal(false);
-    
-    try {
-      const result = await signOutUser();
-      if (result.success) {
-        router.replace('/login');
-      } else {
-        // Show error in a simple alert for now
-        alert('Failed to sign out. Please try again.');
-      }
-    } catch (error) {
-      console.error('Sign out error:', error);
-      alert('An error occurred while signing out. Please try again.');
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
-
-  const handleSignOutCancel = () => {
-    setShowSignOutModal(false);
+  const handleEmailPress = () => {
+    Linking.openURL("mailto:support@sportnizer.com");
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>About Sportnizer</Text>
-        <Text style={styles.description}>
-          Sportnizer helps you organize and manage your sports groups, schedule events, and track team statistics.
+
+        <Text style={styles.paragraph}>
+          Sportnizer is a clean and focused platform designed to help teams and
+          clubs organize their sports activities in a simple and structured way.
         </Text>
-        
-        <View style={styles.userInfo}>
-          <Text style={styles.userLabel}>Signed in as:</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
-        </View>
-      </View>
 
-      <View style={styles.footer}>
-        <Button
-          label="Sign Out"
-          onPress={handleSignOutPress}
-          theme="secondary"
-          loading={isSigningOut}
-          disabled={isSigningOut}
-        />
-      </View>
+        <Text style={styles.sectionTitle}>Built From Real Experience</Text>
 
-      <ConfirmationModal
-        visible={showSignOutModal}
-        title="Sign Out"
-        message="Are you sure you want to sign out?"
-        confirmText="Sign Out"
-        cancelText="Cancel"
-        onConfirm={handleSignOutConfirm}
-        onCancel={handleSignOutCancel}
-        confirmButtonTheme="primary"
-      />
+        <Text style={styles.paragraph}>
+          Sportnizer was created from firsthand experience in youth sports. As a
+          volunteer coach and parent involved in organizing teams, training
+          sessions and matches, it became clear how much time was spent managing
+          logistics instead of focusing on the sport itself.
+        </Text>
+
+        <Text style={styles.paragraph}>
+          Many tools felt overly complex for everyday team management.
+          Sportnizer was built to simplify the essentials — managing members,
+          planning events and tracking attendance — in a clear and modern way.
+        </Text>
+
+        <Text style={styles.paragraph}>
+          The goal is simple: make organizing sports easier, so more time can be
+          spent on the field.
+        </Text>
+
+        <Text style={styles.sectionTitle}>Continuously Improving</Text>
+
+        <Text style={styles.paragraph}>
+          Sportnizer is actively evolving and continuously improving based on
+          real-world use and feedback from teams and clubs.
+        </Text>
+
+        <Text style={styles.paragraph}>
+          If you experience any issues, find a bug, or have suggestions for
+          improvement, we would truly appreciate hearing from you.
+        </Text>
+
+        <Text style={styles.email} onPress={handleEmailPress}>
+          support@sportnizer.com
+        </Text>
+      </ScrollView>
     </View>
   );
 }
@@ -85,39 +63,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.layout.containerPadding,
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: theme.spacing.xxl,
   },
   title: {
     fontSize: theme.typography.fontSize.xlarge,
     color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.bold,
-    marginBottom: theme.spacing.lg,
-    textAlign: 'center',
+    marginBottom: theme.spacing.xl,
+    textAlign: "center",
   },
-  description: {
+  sectionTitle: {
+    fontSize: theme.typography.fontSize.large,
+    color: theme.colors.secondary,
+    fontWeight: theme.typography.fontWeight.medium,
+    marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.md,
+  },
+  paragraph: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.text,
-    textAlign: 'center',
     lineHeight: 24,
-    marginBottom: theme.spacing.xxl,
+    marginBottom: theme.spacing.lg,
   },
-  userInfo: {
-    alignItems: 'center',
-    marginTop: theme.spacing.xl,
-  },
-  userLabel: {
-    fontSize: theme.typography.fontSize.small,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
-  },
-  userEmail: {
+  email: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.secondary,
     fontWeight: theme.typography.fontWeight.medium,
-  },
-  footer: {
-    paddingBottom: theme.spacing.xl,
+    marginTop: theme.spacing.md,
   },
 });

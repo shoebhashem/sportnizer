@@ -329,6 +329,7 @@ export default function ManageGroupScreen() {
                 groupId: groupId as string,
                 groupName: group?.name || "",
                 sourceScreen: "manage-group",
+                memberCount: members.length,
               },
             });
           }}

@@ -1,5 +1,5 @@
-import * as nodemailer from 'nodemailer';
-import { config } from './config';
+import * as nodemailer from "nodemailer";
+import { config } from "./config";
 
 // Initialize Nodemailer transporter
 export const emailTransporter = nodemailer.createTransport({
@@ -18,7 +18,7 @@ export const emailTransporter = nodemailer.createTransport({
 export const groupInvitationTemplate = (
   groupName: string,
   inviterName: string,
-  invitationLink: string
+  invitationLink: string,
 ) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
     <h2 style="color: #333;">You're invited to join ${groupName}!</h2>
@@ -44,7 +44,7 @@ export const groupInvitationWithActionsTemplate = (
   clubName: string,
   inviterName: string,
   acceptLink: string,
-  rejectLink: string
+  rejectLink: string,
 ) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #007AFF, #5AC8FA); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
@@ -100,12 +100,81 @@ export const groupInvitationWithActionsTemplate = (
 `;
 
 /**
+ * Email template for club admin invitations
+ * Used for inviting users to become club administrators
+ */
+export const clubAdminInvitationTemplate = (
+  clubName: string,
+  inviterName: string,
+  acceptLink: string,
+  rejectLink: string,
+) => `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #5856D6, #AF52DE); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+      <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Sportnizer</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0; font-size: 16px;">Club Administration</p>
+    </div>
+    
+    <div style="padding: 40px 30px;">
+      <h2 style="color: #333; margin: 0 0 20px; font-size: 24px; text-align: center;">You're invited to become a Club Admin!</h2>
+      
+      <div style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 20px 0; border-left: 4px solid #5856D6;">
+        <p style="margin: 0; color: #555; font-size: 16px; line-height: 1.5;">
+          <strong style="color: #333;">${inviterName}</strong> has invited you to become a 
+          <strong style="color: #5856D6;">Club Administrator</strong> for <strong style="color: #333;">${clubName}</strong>.
+        </p>
+      </div>
+      
+      <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 25px 0;">
+        As a Club Admin, you'll have full access to manage the club, including:
+      </p>
+      
+      <ul style="color: #666; font-size: 15px; line-height: 1.8; margin: 15px 0 25px 20px;">
+        <li>Create and manage groups within the club</li>
+        <li>Add and remove club members</li>
+        <li>Create club-wide events and announcements</li>
+        <li>Manage club settings and permissions</li>
+      </ul>
+      
+      <div style="text-align: center; margin: 40px 0;">
+        <p style="color: #333; font-size: 18px; font-weight: 500; margin-bottom: 25px;">Ready to help manage ${clubName}?</p>
+        
+        <div style="display: inline-block;">
+          <a href="${acceptLink}" 
+             style="background-color: #34C759; color: white; padding: 14px 28px; text-decoration: none; border-radius: 25px; display: inline-block; margin: 0 10px; font-weight: 600; font-size: 16px; min-width: 120px; text-align: center; box-shadow: 0 2px 6px rgba(52, 199, 89, 0.3);">
+            ✅ Accept Invitation
+          </a>
+          
+          <a href="${rejectLink}" 
+             style="background-color: #FF3B30; color: white; padding: 14px 28px; text-decoration: none; border-radius: 25px; display: inline-block; margin: 0 10px; font-weight: 600; font-size: 16px; min-width: 120px; text-align: center; box-shadow: 0 2px 6px rgba(255, 59, 48, 0.3);">
+            ❌ Decline
+          </a>
+        </div>
+      </div>
+      
+      <div style="background-color: #f1f3f4; border-radius: 6px; padding: 15px; margin: 30px 0;">
+        <p style="margin: 0; color: #666; font-size: 14px; text-align: center;">
+          <strong>New to Sportnizer?</strong> No problem! Clicking "Accept Invitation" will guide you through creating your account.
+        </p>
+      </div>
+    </div>
+    
+    <div style="background-color: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
+      <p style="margin: 0; color: #6c757d; font-size: 12px; text-align: center; line-height: 1.4;">
+        This invitation was sent by <strong>${inviterName}</strong> from ${clubName}.<br>
+        If you didn't expect this invitation, you can safely ignore this email or click "Decline" above.
+      </p>
+    </div>
+  </div>
+`;
+
+/**
  * Email template for email verification
  */
 export const emailVerificationTemplate = (
   fullName: string,
   verificationLink: string,
-  isResend = false
+  isResend = false,
 ) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
     <div style="text-align: center; margin-bottom: 30px;">
@@ -113,12 +182,13 @@ export const emailVerificationTemplate = (
     </div>
     
     <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-      <h2 style="color: #333; margin-bottom: 20px;">${isResend ? 'Verify Your Email - Resent' : `Welcome ${fullName}!`}</h2>
+      <h2 style="color: #333; margin-bottom: 20px;">${isResend ? "Verify Your Email - Resent" : `Welcome ${fullName}!`}</h2>
       
       <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 25px;">
-        ${isResend 
-          ? 'You requested a new verification email for your Sportnizer account. Please click the button below to verify your email address and activate your account.'
-          : 'Thank you for signing up for Sportnizer! To complete your registration and start using the app, please verify your email address by clicking the button below.'
+        ${
+          isResend
+            ? "You requested a new verification email for your Sportnizer account. Please click the button below to verify your email address and activate your account."
+            : "Thank you for signing up for Sportnizer! To complete your registration and start using the app, please verify your email address by clicking the button below."
         }
       </p>
       
@@ -136,7 +206,7 @@ export const emailVerificationTemplate = (
       </p>
       
       <p style="color: #999; font-size: 12px; margin-top: 25px;">
-        This verification link will expire in 24 hours. ${isResend ? 'If you didn\'t request this email, please ignore it.' : 'If you didn\'t create an account with Sportnizer, please ignore this email.'}
+        This verification link will expire in 24 hours. ${isResend ? "If you didn't request this email, please ignore it." : "If you didn't create an account with Sportnizer, please ignore this email."}
       </p>
     </div>
     
@@ -153,7 +223,7 @@ export const guardianInvitationTemplate = (
   memberName: string,
   groupName: string,
   inviterName: string,
-  invitationLink: string
+  invitationLink: string,
 ) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
     <div style="text-align: center; margin-bottom: 30px;">

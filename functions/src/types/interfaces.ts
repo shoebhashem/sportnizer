@@ -101,14 +101,18 @@ export interface GroupInvitationRequest {
   emails: string[];
   clubId: string;
   clubName: string;
-  groupId: string;
-  groupName: string;
+  groupId?: string; // Optional for club_admin invitations
+  groupName?: string; // Optional for club_admin invitations
   inviterName: string;
   inviterUid?: string; // Optional: UID of inviter (defaults to request.auth.uid)
-  invitationType?: "regular" | "youth_member" | "youth_member_existing"; // Optional: Type of invitation
+  invitationType?:
+    | "regular"
+    | "youth_member"
+    | "youth_member_existing"
+    | "club_admin"; // Optional: Type of invitation
   youthData?: YouthData; // Optional: Youth member data for NEW youth invitations
   existingYouthData?: ExistingYouthData; // Optional: Existing youth data for REUSE invitations
-  role?: "player" | "player-underage" | "coach" | "admin"; // Optional: Role to assign (defaults to 'player')
+  role?: "player" | "player-underage" | "coach" | "admin" | "club-admin"; // Optional: Role to assign (defaults to 'player')
 }
 
 export interface ProcessInvitationRequest {

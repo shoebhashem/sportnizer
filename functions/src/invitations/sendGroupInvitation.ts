@@ -2,19 +2,20 @@ import * as admin from "firebase-admin";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
-  CreateNotificationRequest,
-  GroupInvitationRequest,
-  InvitationResult,
+    CreateNotificationRequest,
+    GroupInvitationRequest,
+    InvitationResult,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import {
-  emailTransporter,
-  groupInvitationWithActionsTemplate,
-  guardianInvitationTemplate,
+    clubAdminInvitationTemplate,
+    emailTransporter,
+    groupInvitationWithActionsTemplate,
+    guardianInvitationTemplate,
 } from "../utils/email";
 import {
-  validateArrayField,
-  validateRequiredFields,
+    validateArrayField,
+    validateRequiredFields,
 } from "../utils/validation";
 
 export const sendGroupInvitation = onCall(
@@ -51,15 +52,26 @@ export const sendGroupInvitation = onCall(
         hasExistingYouthData: !!existingYouthData,
       });
 
-      // Validate required fields
-      validateRequiredFields(request.data, [
-        "emails",
-        "clubId",
-        "clubName",
-        "groupId",
-        "groupName",
-        "inviterName",
-      ]);
+      // Validate required fields - groupId/groupName optional for club_admin
+      const isClubAdminInvitation = invitationType === "club_admin";
+
+      if (isClubAdminInvitation) {
+        validateRequiredFields(request.data, [
+          "emails",
+          "clubId",
+          "clubName",
+          "inviterName",
+        ]);
+      } else {
+        validateRequiredFields(request.data, [
+          "emails",
+          "clubId",
+          "clubName",
+          "groupId",
+          "groupName",
+          "inviterName",
+        ]);
+      }
       validateArrayField(emails, "emails");
 
       // Verify the user is authenticated
@@ -99,18 +111,21 @@ export const sendGroupInvitation = onCall(
           const invitationToken = db.collection("invitations").doc().id;
 
           // STEP 3: Create invitation document (source of truth for both user types)
+          const isClubAdminInvite = invitationType === "club_admin";
           const invitationData: any = {
             email: normalizedEmail,
             clubId,
             clubName,
-            groupId,
-            groupName,
+            groupId: isClubAdminInvite ? null : groupId,
+            groupName: isClubAdminInvite ? null : groupName,
             inviterName,
             inviterUid: actualInviterUid,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             used: false,
             status: "pending",
-            type: "group_invitation",
+            type: isClubAdminInvite
+              ? "club_admin_invitation"
+              : "group_invitation",
             workflowVersion: "3.0", // Updated to Version 3.0 (dual-storage architecture)
             respondedAt: null,
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
@@ -118,7 +133,7 @@ export const sendGroupInvitation = onCall(
             userId: existingUserId,
 
             // Role assignment
-            role: role || "player", // Store role for later assignment (default to 'player')
+            role: isClubAdminInvite ? "club-admin" : role || "player", // Store role for later assignment
 
             // Youth-specific fields (optional)
             invitationType: invitationType || "regular",
@@ -136,20 +151,28 @@ export const sendGroupInvitation = onCall(
           if (userExists && existingUserId) {
             // EXISTING USER PATH: Create notification (dual write)
             try {
-              const notificationType =
+              let notificationType: string;
+              let notificationTitle: string;
+
+              if (invitationType === "club_admin") {
+                notificationType = "club_admin_invitation";
+                notificationTitle = "Club Admin Invitation";
+              } else if (
                 invitationType === "youth_member" ||
                 invitationType === "youth_member_existing"
-                  ? "youth_member_invitation"
-                  : "group_invitation";
-              const notificationTitle =
-                invitationType === "youth_member" ||
-                invitationType === "youth_member_existing"
-                  ? "New Child Invitation"
-                  : "Group Invitation";
+              ) {
+                notificationType = "youth_member_invitation";
+                notificationTitle = "New Child Invitation";
+              } else {
+                notificationType = "group_invitation";
+                notificationTitle = "Group Invitation";
+              }
 
               // Create role-aware notification message
               let notificationMessage: string;
-              if (invitationType === "youth_member") {
+              if (invitationType === "club_admin") {
+                notificationMessage = `${inviterName} invited you to become a Club Admin for ${clubName}`;
+              } else if (invitationType === "youth_member") {
                 notificationMessage = `Add ${youthData?.childName || "child"} to ${groupName}`;
               } else if (invitationType === "youth_member_existing") {
                 notificationMessage = `Add ${existingYouthData?.youthName || "child"} to ${groupName}`;
@@ -176,14 +199,22 @@ export const sendGroupInvitation = onCall(
                   sourceCollection: "invitations",
                   clubId,
                   clubName,
-                  groupId,
-                  groupName,
+                  groupId:
+                    invitationType === "club_admin" ? undefined : groupId,
+                  groupName:
+                    invitationType === "club_admin" ? undefined : groupName,
                   youthData:
                     invitationType === "youth_member" ? youthData : undefined,
                   priority: "normal",
                   metadata: {
-                    action: "new_member",
-                    role: role || "player",
+                    action:
+                      invitationType === "club_admin"
+                        ? "club_admin"
+                        : "new_member",
+                    role:
+                      invitationType === "club_admin"
+                        ? "club-admin"
+                        : role || "player",
                     ...(invitationType === "youth_member_existing" &&
                       existingYouthData?.youthUid && {
                         existingYouthUid: existingYouthData.youthUid,
@@ -215,7 +246,17 @@ export const sendGroupInvitation = onCall(
               let emailSubject: string;
 
               // Choose email template based on invitation type
-              if (
+              if (invitationType === "club_admin") {
+                // Club admin invitation - use club admin template
+                emailHtml = clubAdminInvitationTemplate(
+                  clubName,
+                  inviterName,
+                  acceptLink,
+                  rejectLink,
+                );
+                emailSubject = `You're invited to become a Club Admin for ${clubName} on Sportnizer`;
+                console.log(`📧 Sending club admin invitation email`);
+              } else if (
                 (invitationType === "youth_member" ||
                   invitationType === "youth_member_existing") &&
                 (youthData || existingYouthData)
@@ -227,7 +268,7 @@ export const sendGroupInvitation = onCall(
                   "your child";
                 emailHtml = guardianInvitationTemplate(
                   childName,
-                  groupName,
+                  groupName || "",
                   inviterName,
                   `${config.baseUrl}/signup?invite=${invitationToken}`,
                 );
@@ -238,7 +279,7 @@ export const sendGroupInvitation = onCall(
               } else {
                 // Regular invitation - use standard template
                 emailHtml = groupInvitationWithActionsTemplate(
-                  groupName,
+                  groupName || "",
                   clubName,
                   inviterName,
                   acceptLink,

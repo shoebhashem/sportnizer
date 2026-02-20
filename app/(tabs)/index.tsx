@@ -799,11 +799,13 @@ export default function Index() {
         <InvitationModal
           visible={isInviteModalVisible}
           groupName={currentInvite.groupName}
+          clubName={currentInvite.clubName}
           inviterName={currentInvite.invitedByName || "Someone"}
           role={currentInvite.metadata?.role}
           inviteeName={
             userProfile?.displayName || user?.displayName || undefined
           }
+          invitationType={currentInvite.invitationType}
           onAccept={handleAcceptInvite}
           onReject={handleRejectInvite}
           loading={inviteLoading}

@@ -2,7 +2,7 @@
 export const theme = {
   colors: {
     primary: "#25292e", // Dark background
-    secondary: "#ffd33d", // Yellow accent
+    secondary: "#ffcb3deb", // Yellow accent
     white: "#fff",
     background: "#1a1d21", // Slightly lighter than primary for contrast
     text: "#fff",
