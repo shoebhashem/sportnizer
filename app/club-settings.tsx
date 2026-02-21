@@ -9,27 +9,27 @@ import { createNewGroupInExistingClub } from "@/services/orchestration/createNew
 import { ClubData } from "@/services/types/club";
 import { Ionicons } from "@expo/vector-icons";
 import {
-    router,
-    useFocusEffect,
-    useLocalSearchParams,
-    useNavigation,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
 } from "react";
 import {
-    ActivityIndicator,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -202,7 +202,7 @@ export default function ClubSettingsScreen() {
 
         // Navigate to the new group's manage screen
         router.push(
-          `/manage-group?groupId=${result.groupId}&clubId=${clubId}&clubName=${encodeURIComponent(clubName as string)}` as any,
+          `/manage-group?groupId=${result.groupId}&clubId=${clubId}&clubName=${encodeURIComponent(club?.name || "")}` as any,
         );
       } else {
         console.log("Group creation failed:", result.error);
@@ -222,9 +222,9 @@ export default function ClubSettingsScreen() {
   };
 
   const isScheduledForDeletion = !club?.isActive && club?.deletionScheduledAt;
-  const isClubAdmin =
-    club?.admins?.includes(firebaseUser?.uid || "") ||
-    club?.createdBy === firebaseUser?.uid;
+  const isClubAdmin = userProfile?.clubAccess?.some(
+    (c) => c.clubId === clubId && c.role === "club-admin",
+  );
 
   if (loading) {
     return (
