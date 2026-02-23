@@ -2,7 +2,7 @@
 export const theme = {
   colors: {
     primary: "#25292e", // Dark background
-    secondary: "#ffcb3deb", // Yellow accent
+    secondary: "#f5a623", // Yellow accent
     white: "#fff",
     background: "#1a1d21", // Slightly lighter than primary for contrast
     text: "#fff",
@@ -15,10 +15,10 @@ export const theme = {
     inputBackground: "#3a3f44",
     inputBorder: "#555",
     inputBorderFocused: "#ffd33d",
-    accent: "#007bff",
+    accent: "#007bff", // #4a90d9 alternative
     badge: {
       you: "#ffd33d", // Yellow for "You"
-      child: "#4CAF50", // Green for children
+      child: "#4a90d9", // Blue for children
     },
   },
 

@@ -369,5 +369,55 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
     }
+
+    // ---------------------------
+    // Membership Fees collection
+    // ---------------------------
+    match /membershipFees/{feeId} {
+      // Read: Club admins can read all fees for their club
+      //       Group members can read fees for their group
+      allow read: if isSignedIn() && (
+        // Club admin can see all fees for their club
+        isClubAdmin(resource.data.clubId) ||
+        // Group members can see fees for their group
+        hasGroupAccess(resource.data.clubId, resource.data.groupId)
+      );
+      
+      // Create: Backend only (via createMembershipFee function)
+      allow create: if false;
+      
+      // Update: Backend only (via webhook for payment tracking)
+      allow update: if false;
+      
+      // Delete: Never delete fees, use status='closed' instead
+      allow delete: if false;
+    }
+
+    // ---------------------------
+    // Payments collection
+    // ---------------------------
+    match /payments/{paymentId} {
+      // Read: Users can read their own payments (as payer or beneficiary)
+      //       Club admins can read all payments for their club
+      allow read: if isSignedIn() && (
+        // User is the payer
+        request.auth.uid == resource.data.payerId ||
+        // User is the beneficiary
+        request.auth.uid == resource.data.beneficiaryId ||
+        // User is club admin
+        isClubAdmin(resource.data.clubId)
+      );
+      
+      // Write: Backend only (via checkout and webhook functions)
+      allow create, update, delete: if false;
+    }
+
+    // ---------------------------
+    // Stripe Events collection (idempotency tracking)
+    // ---------------------------
+    match /stripeEvents/{eventId} {
+      // All access is backend only (webhook handler)
+      allow read, write: if false;
+    }
   }
 }

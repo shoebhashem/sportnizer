@@ -17,6 +17,7 @@ import {
 import ConfirmationModal from "../../components/ConfirmationModal";
 import EventCard from "../../components/EventCard";
 import InvitationModal from "../../components/InvitationModal";
+import PaymentCard from "../../components/PaymentCard";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useUser } from "../../contexts/UserContext";
@@ -28,6 +29,7 @@ import {
     GroupInviteInfo,
     rejectGroupInvite,
 } from "../../services/fetchGroupInvites";
+import { paymentService, PendingPayment } from "../../services/paymentService";
 import { NewsFlowItem } from "../../services/types";
 import type { EventData } from "../../services/types/event";
 
@@ -78,6 +80,28 @@ export default function Index() {
     new Set(),
   ); // Track processed invites
   const [hasLoadedInitialInvites, setHasLoadedInitialInvites] = useState(false); // Track if we've done initial load
+
+  // Pending payments state
+  const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
+
+  // Load pending payments
+  const loadPendingPayments = useCallback(async () => {
+    try {
+      const result = await paymentService.getPendingPayments();
+      if (result.success && result.payments) {
+        setPendingPayments(result.payments);
+      }
+    } catch (error) {
+      console.log("Could not load pending payments:", error);
+    }
+  }, []);
+
+  // Load pending payments on mount
+  useEffect(() => {
+    if (user?.uid) {
+      loadPendingPayments();
+    }
+  }, [user?.uid, loadPendingPayments]);
 
   const loadInvitations = useCallback(async () => {
     try {
@@ -255,6 +279,8 @@ export default function Index() {
       await refreshEvents();
       // Reload invitations
       await loadInvitations();
+      // Reload pending payments
+      await loadPendingPayments();
     } catch (error) {
       console.error("Error refreshing:", error);
     } finally {
@@ -748,6 +774,22 @@ export default function Index() {
                 </>
               )}
             </View>
+
+            {/* Pending Payments Section */}
+            {pendingPayments.length > 0 && (
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Pending Payments</Text>
+                </View>
+                {pendingPayments.map((payment) => (
+                  <PaymentCard
+                    key={payment.feeId}
+                    payment={payment}
+                    onPaymentComplete={loadPendingPayments}
+                  />
+                ))}
+              </View>
+            )}
 
             {/* News Flow Section */}
             <View style={styles.sectionContainer}>

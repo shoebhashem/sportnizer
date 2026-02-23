@@ -6,6 +6,7 @@ import { theme } from "@/constants/theme";
 import { useUser } from "@/contexts/UserContext";
 import { clubService } from "@/services/club";
 import { createNewGroupInExistingClub } from "@/services/orchestration/createNewGroupInExistingClub";
+import { paymentService } from "@/services/paymentService";
 import { ClubData } from "@/services/types/club";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -52,6 +53,12 @@ export default function ClubSettingsScreen() {
   const [sportType, setSportType] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
 
+  // Stripe payment state
+  const [stripeAccountStatus, setStripeAccountStatus] = useState<string | null>(
+    null,
+  );
+  const isStripeEnabled = stripeAccountStatus === "active";
+
   // Set dynamic header with club name
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -67,6 +74,23 @@ export default function ClubSettingsScreen() {
 
       if (clubResult.success && clubResult.data) {
         setClub(clubResult.data as ClubData);
+
+        // Check Stripe account status from club data
+        if (clubResult.data.stripe?.accountId) {
+          try {
+            const statusResult = await paymentService.checkStripeStatus(clubId);
+            if (statusResult.success && statusResult.status?.chargesEnabled) {
+              setStripeAccountStatus("active");
+            } else if (
+              statusResult.success &&
+              statusResult.status?.requiresAction
+            ) {
+              setStripeAccountStatus("pending");
+            }
+          } catch (stripeError) {
+            console.log("Could not fetch Stripe status:", stripeError);
+          }
+        }
       }
     } catch (error) {
       console.error("Error fetching club data:", error);
@@ -361,6 +385,84 @@ export default function ClubSettingsScreen() {
             </TouchableOpacity>
           )}
 
+          {/* Payment Settings Option - Only for Club Admin */}
+          {isClubAdmin && (
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => {
+                router.push({
+                  pathname: "/stripe-onboarding",
+                  params: {
+                    clubId: clubId as string,
+                    clubName: club?.name || "",
+                  },
+                } as any);
+              }}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="card-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Payment Settings</Text>
+                <Text style={styles.optionDescription}>
+                  {isStripeEnabled
+                    ? "Manage payment account"
+                    : "Set up to collect membership fees"}
+                </Text>
+              </View>
+              {isStripeEnabled ? (
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusBadgeText}>Active</Text>
+                </View>
+              ) : (
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Create Fee Option - Only for Club Admin with active Stripe */}
+          {isClubAdmin && isStripeEnabled && (
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => {
+                router.push({
+                  pathname: "/create-membership-fee",
+                  params: {
+                    clubId: clubId as string,
+                    clubName: club?.name || "",
+                  },
+                } as any);
+              }}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="receipt-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Create Fee</Text>
+                <Text style={styles.optionDescription}>
+                  Request payments from members
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
           {/* Delete Group Option - Navigate to manage-club to select group */}
           {isClubAdmin && !isScheduledForDeletion && (
             <TouchableOpacity
@@ -625,6 +727,17 @@ const styles = StyleSheet.create({
   optionDescription: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
+  },
+  statusBadge: {
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    color: theme.colors.white,
+    fontSize: 12,
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,

@@ -106,3 +106,17 @@ export { cleanupDeletedEntities } from "./scheduled/cleanupDeletedEntities";
 
 // Admin/Development Functions
 export { devForceCleanup } from "./admin/devForceCleanup";
+
+// Stripe Connect Functions (Account Management)
+export { checkStripeAccountStatus } from "./stripe/checkStripeAccountStatus";
+export { createCheckoutSession } from "./stripe/createCheckoutSession";
+export { createStripeConnectedAccount } from "./stripe/createStripeConnectedAccount";
+export { createStripeOnboardingLink } from "./stripe/createStripeOnboardingLink";
+export { resetPaymentSetup } from "./stripe/resetPaymentSetup";
+export { stripeWebhookHandler } from "./stripe/stripeWebhookHandler";
+
+// Payment Functions (Membership Fees)
+export { createMembershipFee } from "./payments/createMembershipFee";
+export { getMembershipFees } from "./payments/getMembershipFees";
+export { getUserPendingPayments } from "./payments/getUserPendingPayments";
+

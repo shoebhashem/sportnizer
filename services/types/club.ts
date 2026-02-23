@@ -1,4 +1,4 @@
-import { GuardianContact } from './group';
+import { GuardianContact } from "./group";
 
 // Club document structure according to ARCHITECTURE.md
 export interface ClubData {
@@ -19,12 +19,30 @@ export interface ClubData {
   // Subscription limits (usage tracking)
   activeGroupCount?: number; // Count of groups with isActive=true
   maxGroups?: number; // Maximum groups allowed in this club (default: 10)
+  // Stripe Connect payment setup
+  stripe?: {
+    accountId: string;
+    country: string;
+    currency: string;
+    status: "pending" | "active" | "restricted" | "inactive";
+    chargesEnabled?: boolean;
+    payoutsEnabled?: boolean;
+    onboardingComplete?: boolean;
+    createdAt: any;
+    lastUpdatedAt: any;
+  };
 }
-
 
 export interface ClubMemberData {
   userId: string;
-  roles: ("club-admin" | "admin" | "coach" | "player" | "player-underage" | "guardian")[]; // Updated role hierarchy
+  roles: (
+    | "club-admin"
+    | "admin"
+    | "coach"
+    | "player"
+    | "player-underage"
+    | "guardian"
+  )[]; // Updated role hierarchy
   photoURL: string;
   name: string;
   email: string;
@@ -41,4 +59,3 @@ export interface ClubAllMembersDocument {
   lastUpdated: any; // Firestore timestamp
   memberCount: number;
 }
-

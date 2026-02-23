@@ -55,7 +55,9 @@ export async function isPrivilegedUser(
     // Check 2: Does user have admin or coach role in ANY group?
     // Uses fetchUserProfile which has version-based caching (efficient)
     const userProfile = await fetchUserProfile(userId);
-    const clubAccess = userProfile.clubAccess?.find((c) => c.clubId === clubId);
+    const clubAccess = userProfile.profile?.clubAccess?.find(
+      (c) => c.clubId === clubId,
+    );
 
     if (clubAccess?.groupAccess && clubAccess.groupAccess.length > 0) {
       // Check if user has management role in any group
@@ -127,7 +129,9 @@ export async function getUserRoleType(
 
     // Check group roles
     const userProfile = await fetchUserProfile(userId);
-    const clubAccess = userProfile.clubAccess?.find((c) => c.clubId === clubId);
+    const clubAccess = userProfile.profile?.clubAccess?.find(
+      (c) => c.clubId === clubId,
+    );
 
     if (clubAccess?.groupAccess && clubAccess.groupAccess.length > 0) {
       const hasAdminRole = clubAccess.groupAccess.some((g) =>

@@ -211,6 +211,54 @@ export default function RootLayout() {
                 headerShadowVisible: false,
               }}
             />
+            <Stack.Screen
+              name="stripe-onboarding"
+              options={{
+                headerShown: true,
+                title: "Payment Setup",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="stripe-return"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="stripe-refresh"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="payment-success"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="payment-cancelled"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="create-membership-fee"
+              options={{
+                headerShown: true,
+                title: "Create Fee",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
+              }}
+            />
           </Stack>
         </AuthProvider>
       </EventProvider>

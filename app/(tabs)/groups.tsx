@@ -5,12 +5,12 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function GroupsScreen() {
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.inputBorder,
   },
   dependentGroupCard: {
-    borderLeftColor: theme.colors.success, // Different color for dependent groups
+    borderLeftColor: theme.colors.badge.child, // Different color for dependent groups
     backgroundColor: theme.colors.inputBackground,
   },
   groupHeader: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.small,
   },
   dependentBadge: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: theme.colors.badge.child,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 2,
     borderRadius: theme.borderRadius.small,

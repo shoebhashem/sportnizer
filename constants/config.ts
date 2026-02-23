@@ -5,10 +5,11 @@
  * Handles URLs, deep linking, and Firebase functions across development and production
  */
 
-export type Environment = 'development' | 'production';
+export type Environment = "development" | "production";
 
 export interface AppConfig {
   webUrl: string;
+  appUrl: string; // Main app URL for redirects
   deepLinkScheme: string;
   universalLinkDomain: string;
   functionsUrl: string;
@@ -16,24 +17,26 @@ export interface AppConfig {
 
 export const appConfig: Record<Environment, AppConfig> = {
   development: {
-    webUrl: 'http://localhost:8081',
-    deepLinkScheme: 'sportnizer-dev',
-    universalLinkDomain: 'localhost:8081',
-    functionsUrl: 'https://europe-north1-sportnizer-dev.cloudfunctions.net'
+    webUrl: "http://localhost:8081",
+    appUrl: "http://localhost:8081",
+    deepLinkScheme: "sportnizer-dev",
+    universalLinkDomain: "localhost:8081",
+    functionsUrl: "https://europe-north1-sportnizer-dev.cloudfunctions.net",
   },
   production: {
-    webUrl: 'https://sportnizer.app',
-    deepLinkScheme: 'sportnizer',
-    universalLinkDomain: 'sportnizer.app',
-    functionsUrl: 'https://europe-north1-sportnizer.cloudfunctions.net'
-  }
+    webUrl: "https://app.sportnizer.com",
+    appUrl: "https://app.sportnizer.com",
+    deepLinkScheme: "sportnizer",
+    universalLinkDomain: "app.sportnizer.com",
+    functionsUrl: "https://europe-north1-sportnizer.cloudfunctions.net",
+  },
 };
 
 /**
  * Get current environment configuration
  */
 export const getCurrentConfig = (): AppConfig => {
-  const environment: Environment = __DEV__ ? 'development' : 'production';
+  const environment: Environment = __DEV__ ? "development" : "production";
   return appConfig[environment];
 };
 
@@ -44,9 +47,13 @@ export const getCurrentConfig = (): AppConfig => {
  * @param environment - Target environment (defaults to current)
  * @returns Universal link that opens app on mobile, web on browser
  */
-export const generateInviteLink = (token: string, forWeb = false, environment?: Environment): string => {
+export const generateInviteLink = (
+  token: string,
+  forWeb = false,
+  environment?: Environment,
+): string => {
   const config = environment ? appConfig[environment] : getCurrentConfig();
-  
+
   // For development, provide both options
   if (__DEV__) {
     // If explicitly requesting web URL or if we want to share via browser
@@ -56,7 +63,7 @@ export const generateInviteLink = (token: string, forWeb = false, environment?: 
     // Default to custom scheme for native app testing
     return `${config.deepLinkScheme}://join/${token}`;
   }
-  
+
   // Production always uses web URLs for universal compatibility
   return `${config.webUrl}/join/${token}`;
 };
@@ -67,7 +74,10 @@ export const generateInviteLink = (token: string, forWeb = false, environment?: 
  * @param environment - Target environment (defaults to current)
  * @returns Web URL for sharing via browsers
  */
-export const generateWebInviteLink = (token: string, environment?: Environment): string => {
+export const generateWebInviteLink = (
+  token: string,
+  environment?: Environment,
+): string => {
   const config = environment ? appConfig[environment] : getCurrentConfig();
   return `${config.webUrl}/join/${token}`;
 };
@@ -78,21 +88,24 @@ export const generateWebInviteLink = (token: string, environment?: Environment):
  * @param environment - Target environment (defaults to current)
  * @returns Object with different link formats
  */
-export const generateInviteLinks = (token: string, environment?: Environment) => {
+export const generateInviteLinks = (
+  token: string,
+  environment?: Environment,
+) => {
   const config = environment ? appConfig[environment] : getCurrentConfig();
-  
+
   return {
     // Primary: Universal link (works on all platforms)
     universal: `${config.webUrl}/join/${token}`,
-    
+
     // Fallback: Custom scheme (guaranteed to work if app is installed)
     deepLink: `${config.deepLinkScheme}://join/${token}`,
-    
+
     // For sharing: Smart link that detects platform
     share: `${config.webUrl}/join/${token}`,
-    
+
     // Web-specific (for web-only contexts)
-    web: `${config.webUrl}/join/${token}`
+    web: `${config.webUrl}/join/${token}`,
   };
 };
 
@@ -102,21 +115,21 @@ export const generateInviteLinks = (token: string, environment?: Environment) =>
 export const invitationConfig = {
   // Default expiration time in days
   defaultExpirationDays: 7,
-  
+
   // Maximum expiration time in days
   maxExpirationDays: 30,
-  
+
   // Minimum expiration time in days
   minExpirationDays: 1,
-  
+
   // Default invitation type
-  defaultInvitationType: 'group-member' as const
+  defaultInvitationType: "group-member" as const,
 };
 
 /**
  * Supported invitation types
  */
-export type InvitationType = 'group-member' | 'guardian' | 'coach' | 'admin';
+export type InvitationType = "group-member" | "guardian" | "coach" | "admin";
 
 /**
  * Get Firebase Functions URL for current environment
