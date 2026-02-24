@@ -12,7 +12,9 @@ export type NotificationType =
   | "role_changed"
   | "member_joined"
   | "event_cancelled"
-  | "payment_request";
+  | "payment_request"
+  | "news"
+  | "news_updated";
 
 export interface NotificationData {
   id: string;
@@ -589,7 +591,14 @@ export interface EventDocument {
 
   // Optional role filter (if not specified, all members are invited)
   roleFilter?:
-    | ("player" | "player-underage" | "coach" | "admin" | "guardian")[]
+    | (
+        | "player"
+        | "player-underage"
+        | "coach"
+        | "admin"
+        | "guardian"
+        | "club-admin"
+      )[]
     | null;
 
   // Capacity limits (optional)
@@ -699,6 +708,7 @@ export interface CreateEventRequestV2 {
     | "coach"
     | "admin"
     | "guardian"
+    | "club-admin"
   )[];
 
   // Optional capacity limits
@@ -831,4 +841,148 @@ export interface UpdateUserEventsInfoResponse {
   failed: string[];
   useBatchProcessing: boolean;
   message: string;
+}
+
+// ============================================================================
+// News Interfaces
+// ============================================================================
+
+export interface NewsDocument {
+  // News metadata
+  newsId: string;
+  title: string;
+  description: string;
+
+  // Targeting & Recipients
+  targetScope: {
+    level: "club" | "group" | "subgroup";
+    clubId: string;
+    clubName: string;
+    groupId?: string;
+    groupName?: string;
+    subgroupId?: string;
+    subgroupName?: string;
+  };
+
+  // List of user IDs who should see this news
+  // For youth members: Contains guardian userIds
+  recipientUserIds: string[];
+
+  // Optional role filter
+  roleFilter?:
+    | (
+        | "player"
+        | "player-underage"
+        | "coach"
+        | "admin"
+        | "guardian"
+        | "club-admin"
+      )[]
+    | null;
+
+  // Email delivery
+  emailDelivery: {
+    enabled: boolean;
+    sentAt?: any; // Timestamp
+    sentCount?: number;
+    failedCount?: number;
+  };
+
+  // Read tracking
+  readBy?: {
+    userId: string;
+    readAt: any; // Timestamp
+  }[];
+  readCount?: number;
+
+  // Metadata
+  createdBy: string;
+  createdByName: string;
+  createdAt: any; // Timestamp
+  updatedAt?: any; // Timestamp
+
+  // Status
+  isActive: boolean;
+  version: number;
+}
+
+export interface CreateNewsRequest {
+  clubId: string;
+  clubName: string;
+  title: string;
+  description: string;
+
+  // Targeting
+  targetScope: {
+    level: "club" | "group" | "subgroup";
+    groupId?: string;
+    groupName?: string;
+    subgroupId?: string;
+    subgroupName?: string;
+  };
+
+  // Optional role filter (defaults to all members)
+  roleFilter?: (
+    | "player"
+    | "player-underage"
+    | "coach"
+    | "admin"
+    | "guardian"
+    | "club-admin"
+  )[];
+
+  // Email delivery option
+  sendEmail?: boolean;
+
+  // Creator info
+  createdBy: string;
+  createdByName: string;
+}
+
+export interface CreateNewsResponse {
+  success: boolean;
+  newsId?: string;
+  totalRecipients?: number;
+  emailsSent?: number;
+  emailsFailed?: number;
+  message?: string;
+  error?: string;
+}
+
+export interface UpdateNewsRequest {
+  newsId: string;
+  clubId: string;
+  title?: string;
+  description?: string;
+  updatedBy: string;
+  updatedByName: string;
+}
+
+export interface UpdateNewsResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface DeleteNewsRequest {
+  newsId: string;
+  clubId: string;
+}
+
+export interface DeleteNewsResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface MarkNewsReadRequest {
+  newsId: string;
+  clubId: string;
+  userId: string;
+}
+
+export interface MarkNewsReadResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
 }

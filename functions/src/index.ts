@@ -65,6 +65,7 @@ export { updateMemberRole } from "./members/updateMemberRole";
 // Member Status & Discovery Functions (Atomic)
 export { checkAndMarkGuardianInactive } from "./members/checkAndMarkGuardianInactive";
 export { checkGuardianDependentStatus } from "./members/checkGuardianDependentStatus";
+export { getMemberContactDetails } from "./members/getMemberContactDetails";
 export { getMemberGroupMemberships } from "./members/getMemberGroupMemberships";
 export { updateGuardianDependentClubRemoval } from "./members/updateGuardianDependentClubRemoval";
 
@@ -127,3 +128,5 @@ export { createMembershipFee } from "./payments/createMembershipFee";
 export { getMembershipFees } from "./payments/getMembershipFees";
 export { getUserPendingPayments } from "./payments/getUserPendingPayments";
 
+// News Functions
+export { createNews } from "./news/createNews";

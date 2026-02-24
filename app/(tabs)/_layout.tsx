@@ -119,6 +119,19 @@ export default function TabLayout() {
             }}
           />
           <Tabs.Screen
+            name="news"
+            options={{
+              title: "News",
+              tabBarIcon: ({ color, focused }) => (
+                <Ionicons
+                  name={focused ? "newspaper" : "newspaper-outline"}
+                  color={color}
+                  size={24}
+                />
+              ),
+            }}
+          />
+          <Tabs.Screen
             name="events"
             options={{
               title: "Events",

@@ -4,30 +4,29 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import ConfirmationModal from "../../components/ConfirmationModal";
 import EventCard from "../../components/EventCard";
 import InvitationModal from "../../components/InvitationModal";
-import PaymentCard from "../../components/PaymentCard";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useUser } from "../../contexts/UserContext";
 import { getCurrentUser } from "../../services/auth/authService";
 import { fetchDependentProfiles } from "../../services/fetchDependentProfiles";
 import {
-    acceptGroupInvite,
-    fetchGroupInvites,
-    GroupInviteInfo,
-    rejectGroupInvite,
+  acceptGroupInvite,
+  fetchGroupInvites,
+  GroupInviteInfo,
+  rejectGroupInvite,
 } from "../../services/fetchGroupInvites";
 import { paymentService, PendingPayment } from "../../services/paymentService";
 import { NewsFlowItem } from "../../services/types";
@@ -771,52 +770,6 @@ export default function Index() {
                       />
                     </TouchableOpacity>
                   )}
-                </>
-              )}
-            </View>
-
-            {/* Pending Payments Section */}
-            {pendingPayments.length > 0 && (
-              <View style={styles.sectionContainer}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Pending Payments</Text>
-                </View>
-                {pendingPayments.map((payment) => (
-                  <PaymentCard
-                    key={payment.feeId}
-                    payment={payment}
-                    onPaymentComplete={loadPendingPayments}
-                  />
-                ))}
-              </View>
-            )}
-
-            {/* News Flow Section */}
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>News Flow</Text>
-              </View>
-
-              {newsItems.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Ionicons
-                    name="newspaper-outline"
-                    size={48}
-                    color={theme.colors.textSecondary}
-                  />
-                  <Text style={styles.emptyText}>No recent news</Text>
-                  <Text style={styles.emptySubtext}>
-                    Check back later for announcements
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  {newsItems.map((item, index) => (
-                    <View key={`${item.id}-${index}`} style={styles.newsCard}>
-                      <Text style={styles.newsTitle}>{item.title}</Text>
-                      <Text style={styles.newsMessage}>{item.message}</Text>
-                    </View>
-                  ))}
                 </>
               )}
             </View>

@@ -2,7 +2,8 @@ import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import CountdownTimer from "@/components/CountdownTimer";
 import DeletionConfirmationModal from "@/components/DeletionConfirmationModal";
-import FloatingActionButton from "@/components/FloatingActionButton";
+import { NewsEventFAB } from "@/components/FloatingActionButton";
+import MemberContactModal from "@/components/MemberContactModal";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,28 +14,28 @@ import { fetchClubMembers } from "@/services/fetchClubMembers";
 import { groupService } from "@/services/group";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-  useNavigation,
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { httpsCallable } from "firebase/functions";
 import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useState,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
 } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -77,6 +78,10 @@ export default function ManageClubScreen() {
   const [isReactivatingGroup, setIsReactivatingGroup] = useState(false);
   const [showForceCleanupModal, setShowForceCleanupModal] = useState(false);
   const [isForceCleaning, setIsForceCleaning] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<ClubMemberData | null>(
+    null,
+  );
+  const [showMemberModal, setShowMemberModal] = useState(false);
 
   const fetchAllData = useCallback(async () => {
     if (!clubId || typeof clubId !== "string") return;
@@ -279,9 +284,16 @@ export default function ManageClubScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [club, isClubAdmin, navigation]);
 
+  const handleMemberPress = (member: ClubMemberData) => {
+    if (isClubAdmin) {
+      setSelectedMember(member);
+      setShowMemberModal(true);
+    }
+  };
+
   const renderMemberItem = ({ item }: { item: ClubMemberData }) => {
-    return (
-      <View style={styles.memberItem}>
+    const content = (
+      <>
         <Image
           style={styles.memberAvatar}
           source={{
@@ -291,12 +303,33 @@ export default function ManageClubScreen() {
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{item.name}</Text>
           <Text style={styles.memberRole}>
-            {item.clubRole || item.roles?.join(", ") || "member"}
+            {item.clubRole || [...new Set(item.roles)]?.join(", ") || "member"}
             {item.needsGuardian && " (Child/Youth)"}
           </Text>
         </View>
-      </View>
+        {isClubAdmin && (
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={theme.colors.textSecondary}
+          />
+        )}
+      </>
     );
+
+    if (isClubAdmin) {
+      return (
+        <TouchableOpacity
+          style={styles.memberItem}
+          onPress={() => handleMemberPress(item)}
+          activeOpacity={0.7}
+        >
+          {content}
+        </TouchableOpacity>
+      );
+    }
+
+    return <View style={styles.memberItem}>{content}</View>;
   };
 
   const renderGroupItem = ({ item }: { item: ClubGroupData }) => {
@@ -546,10 +579,20 @@ export default function ManageClubScreen() {
         />
       )}
 
-      {/* FAB: Create Club-wide Event */}
+      {/* FAB: Create Club-wide Event or News */}
       {isClubAdmin && (
-        <FloatingActionButton
-          onPress={() => {
+        <NewsEventFAB
+          onNewsPress={() => {
+            router.push({
+              pathname: "/create-news" as any,
+              params: {
+                clubId: clubId as string,
+                clubName: club?.name || "",
+                sourceScreen: "manage-club",
+              },
+            });
+          }}
+          onEventPress={() => {
             router.push({
               pathname: "/create-event" as any,
               params: {
@@ -560,6 +603,22 @@ export default function ManageClubScreen() {
               },
             });
           }}
+        />
+      )}
+
+      {/* Member Contact Details Modal */}
+      {selectedMember && (
+        <MemberContactModal
+          visible={showMemberModal}
+          onClose={() => {
+            setShowMemberModal(false);
+            setSelectedMember(null);
+          }}
+          userId={selectedMember.userId}
+          clubId={clubId as string}
+          initialName={selectedMember.name}
+          initialPhotoURL={selectedMember.photoURL}
+          isYouth={selectedMember.needsGuardian}
         />
       )}
     </View>

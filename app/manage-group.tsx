@@ -1,5 +1,6 @@
 import Button from "@/components/Button";
-import FloatingActionButton from "@/components/FloatingActionButton";
+import { NewsEventFAB } from "@/components/FloatingActionButton";
+import MemberContactModal from "@/components/MemberContactModal";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -60,6 +61,10 @@ export default function ManageGroupScreen() {
   const [activeTab, setActiveTab] = useState<"members" | "subgroups">(
     tab === "subgroups" ? "subgroups" : "members",
   );
+  const [selectedMember, setSelectedMember] = useState<GroupMemberData | null>(
+    null,
+  );
+  const [showMemberModal, setShowMemberModal] = useState(false);
 
   const fetchAllData = useCallback(async () => {
     if (
@@ -183,9 +188,16 @@ export default function ManageGroupScreen() {
     );
   };
 
+  const handleMemberPress = (member: GroupMemberData) => {
+    if (canManage) {
+      setSelectedMember(member);
+      setShowMemberModal(true);
+    }
+  };
+
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
-    return (
-      <View style={styles.memberItem}>
+    const content = (
+      <>
         <Image
           style={styles.memberAvatar}
           source={{
@@ -198,8 +210,29 @@ export default function ManageGroupScreen() {
             {item.roles.join(", ")} {item.needsGuardian && "(Child/Youth)"}
           </Text>
         </View>
-      </View>
+        {canManage && (
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={theme.colors.textSecondary}
+          />
+        )}
+      </>
     );
+
+    if (canManage) {
+      return (
+        <TouchableOpacity
+          style={styles.memberItem}
+          onPress={() => handleMemberPress(item)}
+          activeOpacity={0.7}
+        >
+          {content}
+        </TouchableOpacity>
+      );
+    }
+
+    return <View style={styles.memberItem}>{content}</View>;
   };
 
   const renderSubgroupItem = ({ item }: { item: SubGroup }) => {
@@ -307,10 +340,22 @@ export default function ManageGroupScreen() {
         )}
       </ScrollView>
 
-      {/* Floating Action Button for Create Event */}
+      {/* Floating Action Buttons for Create News & Event */}
       {canManage && (
-        <FloatingActionButton
-          onPress={() => {
+        <NewsEventFAB
+          onNewsPress={() => {
+            router.push({
+              pathname: "/create-news" as any,
+              params: {
+                clubId: clubId as string,
+                clubName: clubName as string,
+                groupId: groupId as string,
+                groupName: group?.name || "",
+                sourceScreen: "manage-group",
+              },
+            });
+          }}
+          onEventPress={() => {
             // DEBUG: Log params before navigation
             console.log("🔍 ManageGroup - Before navigating to create-event:", {
               clubId,
@@ -333,6 +378,23 @@ export default function ManageGroupScreen() {
               },
             });
           }}
+        />
+      )}
+
+      {/* Member Contact Details Modal */}
+      {selectedMember && (
+        <MemberContactModal
+          visible={showMemberModal}
+          onClose={() => {
+            setShowMemberModal(false);
+            setSelectedMember(null);
+          }}
+          userId={selectedMember.userId}
+          clubId={clubId as string}
+          groupId={groupId as string}
+          initialName={selectedMember.name}
+          initialPhotoURL={selectedMember.photoURL}
+          isYouth={selectedMember.needsGuardian}
         />
       )}
     </View>

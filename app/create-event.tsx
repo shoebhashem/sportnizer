@@ -16,9 +16,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../components/Button";
 import ConfirmationModal from "../components/ConfirmationModal";
 import CustomDateTimePicker from "../components/DateTimePicker";
-import RoleFilterModal from "../components/RoleFilterModal";
+import RoleFilterModal, { ClubRole } from "../components/RoleFilterModal";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
+import { useUser } from "../contexts/UserContext";
 import { eventCreationService } from "../services/event/createEvent";
 import { getEventDetails } from "../services/event/eventService";
 import { fetchGroupMembers } from "../services/fetchGroupMembers";
@@ -45,8 +46,6 @@ interface EventData {
   };
 }
 
-type GroupRole = "player" | "player-underage" | "coach" | "admin";
-
 interface EventContext {
   level: "club" | "group" | "subgroup";
   clubId: string;
@@ -69,6 +68,7 @@ export default function CreateEventScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user } = useAuth();
+  const { userProfile } = useUser();
 
   // DEBUG: Log received params
   console.log("🔍 CreateEvent - Received Params:", {
@@ -165,7 +165,7 @@ export default function CreateEventScreen() {
   const isEditMode = !!params.eventId;
   const eventId = params.eventId as string | undefined;
 
-  const [selectedRoles, setSelectedRoles] = useState<GroupRole[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<ClubRole[]>([]);
   // Use memberCount from params if present, else default to 0
   const initialMemberCount =
     typeof params.memberCount === "string"
@@ -332,7 +332,7 @@ export default function CreateEventScreen() {
         if (selectedRoles.length > 0) {
           filteredMembers = result.members.filter((member) =>
             member.roles?.some((role) =>
-              selectedRoles.includes(role as GroupRole),
+              selectedRoles.includes(role as ClubRole),
             ),
           );
         }
@@ -549,7 +549,11 @@ export default function CreateEventScreen() {
             ? eventData.responseDeadline.date.toISOString()
             : undefined,
         createdBy: user.uid,
-        createdByName: user.displayName || user.email || "Unknown",
+        createdByName:
+          userProfile?.displayName ||
+          user.displayName ||
+          user.email ||
+          "Unknown",
       };
 
       // DEBUG: Log request before calling backend
@@ -2224,6 +2228,7 @@ export default function CreateEventScreen() {
         selectedRoles={selectedRoles}
         onApply={(roles) => setSelectedRoles(roles)}
         onClose={() => setShowRoleFilterModal(false)}
+        level={eventContext?.level}
       />
 
       {/* Confirmation Modal */}

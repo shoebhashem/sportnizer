@@ -1,9 +1,9 @@
 /**
  * 🎭 ROLE FILTER MODAL COMPONENT
- * 
+ *
  * A reusable modal component for filtering group members by role.
  * Used in event creation to select which roles should receive event invitations.
- * 
+ *
  * Features:
  * - Full-screen modal with checkboxes for each role
  * - Multi-select capability (select multiple roles at once)
@@ -12,8 +12,8 @@
  * - Apply/Cancel actions
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
 import {
     Modal,
     SafeAreaView,
@@ -22,53 +22,74 @@ import {
     Text,
     TouchableOpacity,
     View,
-} from 'react-native';
-import { theme as defaultTheme } from '../constants/theme';
+} from "react-native";
+import { theme as defaultTheme } from "../constants/theme";
 
-// Role type definition (matches backend GroupRole)
-export type GroupRole = 'player' | 'player-underage' | 'coach' | 'admin';
+// Role type definition - Group roles (matches backend GroupRole)
+export type GroupRole = "player" | "player-underage" | "coach" | "admin";
+
+// Extended role type for club level
+export type ClubRole = GroupRole | "club-admin" | "guardian";
 
 // Role display information
 interface RoleInfo {
-  value: GroupRole;
+  value: ClubRole;
   label: string;
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
 }
 
-// Available roles for filtering
-const ROLES: RoleInfo[] = [
+// Group-level roles for filtering
+const GROUP_ROLES: RoleInfo[] = [
   {
-    value: 'player',
-    label: 'Players',
-    description: 'Regular team players',
-    icon: 'people',
+    value: "player",
+    label: "Players",
+    description: "Regular team players",
+    icon: "people",
   },
   {
-    value: 'player-underage',
-    label: 'Youth Players',
-    description: 'Underage players (guardians notified)',
-    icon: 'school',
+    value: "player-underage",
+    label: "Youth Players",
+    description: "Underage players (guardians notified)",
+    icon: "school",
   },
   {
-    value: 'coach',
-    label: 'Coaches',
-    description: 'Team coaches and assistants',
-    icon: 'fitness',
+    value: "coach",
+    label: "Coaches",
+    description: "Team coaches and assistants",
+    icon: "fitness",
   },
   {
-    value: 'admin',
-    label: 'Admins',
-    description: 'Group administrators',
-    icon: 'shield',
+    value: "admin",
+    label: "Admins",
+    description: "Group administrators",
+    icon: "shield",
+  },
+];
+
+// Club-level roles for filtering (includes additional roles)
+const CLUB_ROLES: RoleInfo[] = [
+  ...GROUP_ROLES,
+  {
+    value: "club-admin",
+    label: "Club Admins",
+    description: "Club administrators",
+    icon: "key",
+  },
+  {
+    value: "guardian",
+    label: "Guardians",
+    description: "Parents/guardians of youth members",
+    icon: "people-circle",
   },
 ];
 
 interface RoleFilterModalProps {
   visible: boolean;
-  selectedRoles: GroupRole[];
-  onApply: (roles: GroupRole[]) => void;
+  selectedRoles: ClubRole[];
+  onApply: (roles: ClubRole[]) => void;
   onClose: () => void;
+  level?: "club" | "group" | "subgroup";
 }
 
 export default function RoleFilterModal({
@@ -76,9 +97,14 @@ export default function RoleFilterModal({
   selectedRoles,
   onApply,
   onClose,
+  level = "group",
 }: RoleFilterModalProps) {
   const theme = defaultTheme.colors;
-  const [tempSelectedRoles, setTempSelectedRoles] = React.useState<GroupRole[]>(selectedRoles);
+  const [tempSelectedRoles, setTempSelectedRoles] =
+    React.useState<ClubRole[]>(selectedRoles);
+
+  // Select roles based on level
+  const ROLES = level === "club" ? CLUB_ROLES : GROUP_ROLES;
 
   // Reset temporary selection when modal opens
   React.useEffect(() => {
@@ -88,11 +114,9 @@ export default function RoleFilterModal({
   }, [visible, selectedRoles]);
 
   // Toggle role selection
-  const toggleRole = (role: GroupRole) => {
+  const toggleRole = (role: ClubRole) => {
     setTempSelectedRoles((prev) =>
-      prev.includes(role)
-        ? prev.filter((r) => r !== role)
-        : [...prev, role]
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
     );
   };
 
@@ -125,30 +149,54 @@ export default function RoleFilterModal({
       presentationStyle="fullScreen"
       onRequestClose={handleCancel}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.primary }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.primary }]}
+      >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: theme.inputBorder }]}>
           <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
             <Ionicons name="close" size={24} color={theme.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Filter by Role</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>
+            Filter by Role
+          </Text>
           <TouchableOpacity onPress={handleApply} style={styles.headerButton}>
-            <Text style={[styles.applyText, { color: theme.secondary }]}>Apply</Text>
+            <Text style={[styles.applyText, { color: theme.secondary }]}>
+              Apply
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Quick Actions */}
-        <View style={[styles.quickActions, { borderBottomColor: theme.inputBorder }]}>
-          <TouchableOpacity onPress={handleSelectAll} style={styles.quickActionButton}>
-            <Text style={[styles.quickActionText, { color: theme.secondary }]}>Select All</Text>
+        <View
+          style={[
+            styles.quickActions,
+            { borderBottomColor: theme.inputBorder },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={handleSelectAll}
+            style={styles.quickActionButton}
+          >
+            <Text style={[styles.quickActionText, { color: theme.secondary }]}>
+              Select All
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleClearAll} style={styles.quickActionButton}>
-            <Text style={[styles.quickActionText, { color: theme.secondary }]}>Clear All</Text>
+          <TouchableOpacity
+            onPress={handleClearAll}
+            style={styles.quickActionButton}
+          >
+            <Text style={[styles.quickActionText, { color: theme.secondary }]}>
+              Clear All
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Role List */}
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+        >
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
             Select which roles should receive this event invitation
           </Text>
@@ -162,7 +210,9 @@ export default function RoleFilterModal({
                   styles.roleItem,
                   {
                     backgroundColor: theme.inputBackground,
-                    borderColor: isSelected ? theme.secondary : theme.inputBorder,
+                    borderColor: isSelected
+                      ? theme.secondary
+                      : theme.inputBorder,
                     borderWidth: isSelected ? 2 : 1,
                   },
                 ]}
@@ -172,18 +222,29 @@ export default function RoleFilterModal({
                   <View
                     style={[
                       styles.iconContainer,
-                      { backgroundColor: isSelected ? theme.secondary : theme.inputBorder },
+                      {
+                        backgroundColor: isSelected
+                          ? theme.secondary
+                          : theme.inputBorder,
+                      },
                     ]}
                   >
                     <Ionicons
                       name={role.icon}
                       size={24}
-                      color={isSelected ? '#FFFFFF' : theme.textSecondary}
+                      color={isSelected ? "#FFFFFF" : theme.textSecondary}
                     />
                   </View>
                   <View style={styles.roleTextContainer}>
-                    <Text style={[styles.roleLabel, { color: theme.text }]}>{role.label}</Text>
-                    <Text style={[styles.roleDescription, { color: theme.textSecondary }]}>
+                    <Text style={[styles.roleLabel, { color: theme.text }]}>
+                      {role.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.roleDescription,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
                       {role.description}
                     </Text>
                   </View>
@@ -192,24 +253,42 @@ export default function RoleFilterModal({
                   style={[
                     styles.checkbox,
                     {
-                      borderColor: isSelected ? theme.secondary : theme.inputBorder,
-                      backgroundColor: isSelected ? theme.secondary : 'transparent',
+                      borderColor: isSelected
+                        ? theme.secondary
+                        : theme.inputBorder,
+                      backgroundColor: isSelected
+                        ? theme.secondary
+                        : "transparent",
                     },
                   ]}
                 >
-                  {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                  )}
                 </View>
               </TouchableOpacity>
             );
           })}
 
           {/* Selection Summary */}
-          <View style={[styles.summary, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
-            <Ionicons name="information-circle-outline" size={20} color={theme.secondary} />
+          <View
+            style={[
+              styles.summary,
+              {
+                backgroundColor: theme.inputBackground,
+                borderColor: theme.inputBorder,
+              },
+            ]}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={20}
+              color={theme.secondary}
+            />
             <Text style={[styles.summaryText, { color: theme.textSecondary }]}>
               {tempSelectedRoles.length === 0
-                ? 'No roles selected - entire group will be invited'
-                : `${tempSelectedRoles.length} role${tempSelectedRoles.length > 1 ? 's' : ''} selected`}
+                ? "No roles selected - entire group will be invited"
+                : `${tempSelectedRoles.length} role${tempSelectedRoles.length > 1 ? "s" : ""} selected`}
             </Text>
           </View>
         </ScrollView>
@@ -223,9 +302,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -236,15 +315,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   applyText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
@@ -254,7 +333,7 @@ const styles = StyleSheet.create({
   },
   quickActionText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   content: {
     flex: 1,
@@ -268,24 +347,24 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   roleItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
   },
   roleItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   iconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   roleTextContainer: {
@@ -293,7 +372,7 @@ const styles = StyleSheet.create({
   },
   roleLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   roleDescription: {
@@ -305,12 +384,12 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   summary: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,

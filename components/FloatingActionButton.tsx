@@ -1,24 +1,125 @@
 import { theme } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, ViewStyle } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
 
+// Single FAB Props (backward compatible)
 interface FloatingActionButtonProps {
   onPress: () => void;
   text?: string;
   style?: ViewStyle;
+  icon?: keyof typeof Ionicons.glyphMap;
+  color?: string;
 }
 
+// Multi-FAB Props for stacked buttons
+interface MultiFABProps {
+  buttons: {
+    id: string;
+    text: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+    onPress: () => void;
+  }[];
+  style?: ViewStyle;
+}
+
+/**
+ * Single Floating Action Button (backward compatible)
+ */
 export default function FloatingActionButton({
   onPress,
   text = "New Event",
   style,
+  icon = "add",
+  color = theme.colors.secondary,
 }: FloatingActionButtonProps) {
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.fab, style]}>
-      <Text style={styles.fabText}>{text}</Text>
-      <Ionicons name="add" size={20} color={theme.colors.secondary} />
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.fab, { borderColor: color }, style]}
+    >
+      <Text style={[styles.fabText, { color }]}>{text}</Text>
+      <Ionicons name={icon} size={20} color={color} />
     </TouchableOpacity>
+  );
+}
+
+/**
+ * Multi-FAB Component - Stacked vertically
+ * Each button has its own color and icon
+ */
+export function MultiFAB({ buttons, style }: MultiFABProps) {
+  return (
+    <View style={[styles.multiFabContainer, style]}>
+      {buttons.map((button, index) => (
+        <TouchableOpacity
+          key={button.id}
+          onPress={button.onPress}
+          style={[
+            styles.fab,
+            styles.stackedFab,
+            { borderColor: button.color },
+            index > 0 && { marginTop: 56 }, // Spacing between buttons
+          ]}
+        >
+          <Text style={[styles.fabText, { color: button.color }]}>
+            {button.text}
+          </Text>
+          <Ionicons name={button.icon} size={22} color={button.color} />
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * Pre-configured dual FAB for News + Events
+ * News (blue) on top, Events (yellow) on bottom
+ */
+export function NewsEventFAB({
+  onNewsPress,
+  onEventPress,
+  style,
+}: {
+  onNewsPress: () => void;
+  onEventPress: () => void;
+  style?: ViewStyle;
+}) {
+  return (
+    <View style={[styles.dualFabContainer, style]}>
+      {/* News FAB (Blue) - Top */}
+      <TouchableOpacity
+        onPress={onNewsPress}
+        style={[styles.fab, styles.newsFab]}
+      >
+        <Text style={[styles.fabText, styles.newsText]}>News</Text>
+        <Ionicons
+          name="newspaper-outline"
+          size={22}
+          color={theme.colors.badge.child}
+        />
+      </TouchableOpacity>
+
+      {/* Event FAB (Yellow) - Bottom */}
+      <TouchableOpacity
+        onPress={onEventPress}
+        style={[styles.fab, styles.eventFab]}
+      >
+        <Text style={[styles.fabText, styles.eventText]}>Event</Text>
+        <Ionicons
+          name="calendar-outline"
+          size={22}
+          color={theme.colors.secondary}
+        />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -44,11 +145,49 @@ const styles = StyleSheet.create({
   },
   fabText: {
     position: "absolute",
-    top: -28,
+    top: -20,
     fontSize: 11,
     fontWeight: "700",
     color: theme.colors.secondary,
     textAlign: "center",
     width: 80,
+  },
+  multiFabContainer: {
+    position: "absolute",
+    bottom: 80,
+    right: 24,
+    alignItems: "center",
+    zIndex: 10,
+  },
+  stackedFab: {
+    position: "relative",
+    bottom: 0,
+    right: 0,
+  },
+  dualFabContainer: {
+    position: "absolute",
+    bottom: 80,
+    right: 24,
+    alignItems: "center",
+    zIndex: 10,
+  },
+  newsFab: {
+    position: "relative",
+    bottom: 0,
+    right: 0,
+    marginBottom: 24,
+    borderColor: theme.colors.badge.child,
+  },
+  newsText: {
+    color: theme.colors.badge.child,
+  },
+  eventFab: {
+    position: "relative",
+    bottom: 0,
+    right: 0,
+    borderColor: theme.colors.secondary,
+  },
+  eventText: {
+    color: theme.colors.secondary,
   },
 });

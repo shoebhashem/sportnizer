@@ -28,7 +28,7 @@ export default function AboutScreen() {
         <Text style={styles.paragraph}>
           Many tools felt overly complex for everyday team management.
           Sportnizer was built to simplify the essentials — managing members,
-          planning events and tracking attendance — in a clear and modern way.
+          planning events and tracking attendance in a clear and simple way.
         </Text>
 
         <Text style={styles.paragraph}>

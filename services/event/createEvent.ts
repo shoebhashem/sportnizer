@@ -43,7 +43,14 @@ export interface CreateEventV2Request {
   };
 
   // Optional filters
-  roleFilter?: ("player" | "player-underage" | "coach" | "admin")[];
+  roleFilter?: (
+    | "player"
+    | "player-underage"
+    | "coach"
+    | "admin"
+    | "guardian"
+    | "club-admin"
+  )[];
 
   // Optional capacity
   capacityLimit?: number;

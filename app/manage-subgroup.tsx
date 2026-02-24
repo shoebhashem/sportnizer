@@ -1,5 +1,6 @@
 import Button from "@/components/Button";
-import FloatingActionButton from "@/components/FloatingActionButton";
+import { NewsEventFAB } from "@/components/FloatingActionButton";
+import MemberContactModal from "@/components/MemberContactModal";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,22 +10,22 @@ import { subgroupService } from "@/services/subgroup";
 import { GroupData, GroupMemberData } from "@/services/types/group";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-  useNavigation,
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -37,6 +38,10 @@ export default function ManageSubgroupScreen() {
   const [subgroupMembers, setSubgroupMembers] = useState<GroupMemberData[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [selectedMember, setSelectedMember] = useState<GroupMemberData | null>(
+    null,
+  );
+  const [showMemberModal, setShowMemberModal] = useState(false);
 
   // Check if user can manage subgroup (inherits from group permissions)
   const canManage =
@@ -137,22 +142,52 @@ export default function ManageSubgroupScreen() {
     }, [fetchData]),
   );
 
-  const renderMemberItem = ({ item }: { item: GroupMemberData }) => (
-    <View style={styles.memberItem}>
-      <Image
-        style={styles.memberAvatar}
-        source={{
-          uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian),
-        }}
-      />
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberName}>{item.name}</Text>
-        <Text style={styles.memberRole}>
-          {item.roles.join(", ")} {item.needsGuardian && "(Child/Youth)"}
-        </Text>
-      </View>
-    </View>
-  );
+  const handleMemberPress = (member: GroupMemberData) => {
+    if (canManage) {
+      setSelectedMember(member);
+      setShowMemberModal(true);
+    }
+  };
+
+  const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
+    const content = (
+      <>
+        <Image
+          style={styles.memberAvatar}
+          source={{
+            uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian),
+          }}
+        />
+        <View style={styles.memberInfo}>
+          <Text style={styles.memberName}>{item.name}</Text>
+          <Text style={styles.memberRole}>
+            {item.roles.join(", ")} {item.needsGuardian && "(Child/Youth)"}
+          </Text>
+        </View>
+        {canManage && (
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={theme.colors.textSecondary}
+          />
+        )}
+      </>
+    );
+
+    if (canManage) {
+      return (
+        <TouchableOpacity
+          style={styles.memberItem}
+          onPress={() => handleMemberPress(item)}
+          activeOpacity={0.7}
+        >
+          {content}
+        </TouchableOpacity>
+      );
+    }
+
+    return <View style={styles.memberItem}>{content}</View>;
+  };
 
   if (loading) {
     return (
@@ -216,10 +251,24 @@ export default function ManageSubgroupScreen() {
         )}
       </ScrollView>
 
-      {/* FAB: Create Subgroup Event */}
+      {/* FAB: Create Subgroup News or Event */}
       {canManage && (
-        <FloatingActionButton
-          onPress={() => {
+        <NewsEventFAB
+          onNewsPress={() => {
+            router.push({
+              pathname: "/create-news" as any,
+              params: {
+                clubId: clubId as string,
+                clubName: group.clubName || "",
+                groupId: groupId as string,
+                groupName: group.name || "",
+                subgroupId: subgroupId as string,
+                subgroupName: displaySubgroupName,
+                sourceScreen: "manage-subgroup",
+              },
+            });
+          }}
+          onEventPress={() => {
             router.push({
               pathname: "/create-event" as any,
               params: {
@@ -234,6 +283,23 @@ export default function ManageSubgroupScreen() {
               },
             });
           }}
+        />
+      )}
+
+      {/* Member Contact Details Modal */}
+      {selectedMember && (
+        <MemberContactModal
+          visible={showMemberModal}
+          onClose={() => {
+            setShowMemberModal(false);
+            setSelectedMember(null);
+          }}
+          userId={selectedMember.userId}
+          clubId={clubId as string}
+          groupId={groupId as string}
+          initialName={selectedMember.name}
+          initialPhotoURL={selectedMember.photoURL}
+          isYouth={selectedMember.needsGuardian}
         />
       )}
     </View>

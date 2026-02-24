@@ -272,3 +272,49 @@ export const emailVerificationTemplate = (
       ${primaryButton("Verify Your Email", verificationLink)}
     </div>
   `);
+
+// =======================================================
+// NEWS EMAIL TEMPLATE
+// =======================================================
+export const newsEmailTemplate = (
+  newsTitle: string,
+  newsDescription: string,
+  senderName: string,
+  targetName: string, // group/club name
+) =>
+  emailWrapper(`
+    ${emailHeader("News from " + targetName)}
+
+    <div style="padding: 40px 30px;">
+      <h2 style="color:${BRAND.textDark}; margin-top:0; text-align:center;">
+        ${newsTitle}
+      </h2>
+
+      <div style="
+        background-color: #f8f9fa;
+        border-left: 4px solid ${BRAND.accent};
+        padding: 20px;
+        margin: 25px 0;
+        border-radius: 0 8px 8px 0;
+      ">
+        <p style="
+          color:${BRAND.textDark};
+          font-size:16px;
+          line-height:1.7;
+          margin: 0;
+          white-space: pre-wrap;
+        ">
+          ${newsDescription}
+        </p>
+      </div>
+
+      <p style="
+        color:${BRAND.textLight};
+        font-size:14px;
+        text-align:center;
+        margin-top:30px;
+      ">
+        Sent by <strong>${senderName}</strong> via <strong style="color:${BRAND.accent};">${targetName}</strong>
+      </p>
+    </div>
+  `);

@@ -7,18 +7,24 @@ import {
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
 
+/**
+ * Add a member to a subgroup
+ *
+ * Architecture: Adds member to /clubs/{clubId}/groups/{groupId}/subgroups/{subgroupId}/allMembers/members
+ *
+ * New approach:
+ * - Uses subGroupId instead of subGroupName
+ * - Copies member data from group's allMembers to subgroup's allMembers
+ * - Creates subgroup's allMembers/members doc if it doesn't exist
+ */
 export const addMemberToSubGroup = onCall(
   {
     region: config.region,
   },
   async (request): Promise<AddMemberToSubGroupResponse> => {
     try {
-      const {
-        clubId,
-        groupId,
-        subGroupId,
-        userId,
-      }: AddMemberToSubGroupRequest = request.data;
+      const { clubId, groupId, subGroupId, userId } =
+        request.data as AddMemberToSubGroupRequest;
 
       // Validate required fields
       validateRequiredFields(request.data, [
@@ -37,9 +43,11 @@ export const addMemberToSubGroup = onCall(
         `Adding user ${userId} to subgroup ${subGroupId} in group ${groupId}`,
       );
 
+      const db = admin.firestore();
+      const currentUserId = request.auth.uid;
+
       // Verify group exists
-      const groupRef = admin
-        .firestore()
+      const groupRef = db
         .collection("clubs")
         .doc(clubId)
         .collection("groups")
@@ -50,63 +58,112 @@ export const addMemberToSubGroup = onCall(
         throw new HttpsError("not-found", "Group not found");
       }
 
-      // Get current group allMembers document
-      const groupMemberRef = admin
-        .firestore()
-        .collection("clubs")
-        .doc(clubId)
-        .collection("groups")
-        .doc(groupId)
-        .collection("allMembers")
-        .doc("members");
+      const groupData = groupDoc.data();
 
+      // Check permissions: only coach, admin, club-admin, or group creator can manage subgroup members
+      const groupMemberRef = groupRef.collection("allMembers").doc("members");
       const groupMembersDoc = await groupMemberRef.get();
+
       if (!groupMembersDoc.exists) {
         throw new HttpsError("not-found", "Group members document not found");
       }
 
       const groupMembersData = groupMembersDoc.data();
-      const currentMembers = groupMembersData?.members || [];
-
-      // Find the specific member by userId
-      const memberIndex = currentMembers.findIndex(
-        (member: any) => member.userId === userId,
+      const groupMembers = groupMembersData?.members || [];
+      const currentUserMember = groupMembers.find(
+        (m: any) => m.userId === currentUserId,
       );
-      if (memberIndex === -1) {
+
+      const isGroupCreator = groupData?.createdBy === currentUserId;
+
+      console.log("Permission check:", {
+        currentUserId,
+        isGroupCreator,
+        hasCurrentUserMember: !!currentUserMember,
+        currentUserRoles: currentUserMember?.roles || "none",
+      });
+
+      const hasPermission =
+        isGroupCreator ||
+        (currentUserMember &&
+          (currentUserMember.roles?.includes("coach") ||
+            currentUserMember.roles?.includes("admin") ||
+            currentUserMember.roles?.includes("club-admin")));
+
+      if (!hasPermission) {
+        console.error("Permission denied:", {
+          currentUserId,
+          isGroupCreator,
+          hasCurrentUserMember: !!currentUserMember,
+          currentUserRoles: currentUserMember?.roles,
+        });
+        throw new HttpsError(
+          "permission-denied",
+          "Only coaches, admins, or group creators can manage subgroup members",
+        );
+      }
+
+      // Find the member in the group's allMembers
+      const memberToAdd = groupMembers.find((m: any) => m.userId === userId);
+      if (!memberToAdd) {
         throw new HttpsError("not-found", "User is not a member of this group");
       }
 
-      const member = currentMembers[memberIndex];
-      const currentSubGroups = member.belongsToSubGroups || [];
+      // Verify subgroup exists
+      const subgroupRef = groupRef.collection("subgroups").doc(subGroupId);
+      const subgroupDoc = await subgroupRef.get();
+
+      if (!subgroupDoc.exists) {
+        throw new HttpsError("not-found", "Subgroup not found");
+      }
+
+      // Get or create subgroup members document
+      const subgroupMemberRef = subgroupRef
+        .collection("allMembers")
+        .doc("members");
+
+      const subgroupMembersDoc = await subgroupMemberRef.get();
+
+      let currentSubgroupMembers: any[] = [];
+      if (subgroupMembersDoc.exists) {
+        const subgroupMembersData = subgroupMembersDoc.data();
+        currentSubgroupMembers = subgroupMembersData?.members || [];
+      }
 
       // Check if user is already in this subgroup
-      if (currentSubGroups.includes(subGroupId)) {
+      const existingMemberIndex = currentSubgroupMembers.findIndex(
+        (m: any) => m.userId === userId,
+      );
+      if (existingMemberIndex !== -1) {
         return {
           success: false,
           error: "User is already a member of this subgroup",
         };
       }
 
-      // Update the member's belongsToSubGroups array
-      const updatedMember = {
-        ...member,
-        belongsToSubGroups: [...currentSubGroups, subGroupId],
-      };
+      // Add the member to subgroup's members array
+      const updatedMembers = [...currentSubgroupMembers, memberToAdd];
 
-      // Replace the member in the array
-      const updatedMembers = [...currentMembers];
-      updatedMembers[memberIndex] = updatedMember;
-
-      // Update the document with the new members array
-      await groupMemberRef.update({
-        members: updatedMembers,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        version: admin.firestore.FieldValue.increment(1), // Increment version
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      // Update or create the subgroup members document
+      if (subgroupMembersDoc.exists) {
+        await subgroupMemberRef.update({
+          members: updatedMembers,
+          memberCount: updatedMembers.length,
+          version: admin.firestore.FieldValue.increment(1),
+          lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        await subgroupMemberRef.set({
+          members: updatedMembers,
+          memberCount: updatedMembers.length,
+          version: 1,
+          lastModified: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
 
       console.log(
-        `Successfully added user ${userId} to subgroup ${subGroupId}`,
+        `✅ Successfully added user ${userId} to subgroup ${subGroupId}`,
       );
 
       return {

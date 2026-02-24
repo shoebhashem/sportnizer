@@ -265,6 +265,29 @@ service cloud.firestore {
         // Create/Update/Delete: Only club admins can manage club-level events
         allow create, update, delete: if isClubAdmin(clubId);
       }
+
+      // Club-level News subcollection
+      match /news/{newsId} {
+        // Read: Only recipients OR club admins can read news
+        allow read: if isSignedIn() && (
+          request.auth.uid in resource.data.recipientUserIds ||
+          isClubAdmin(clubId)
+        );
+        
+        // Update: Recipients can mark news as read (only readBy/readCount fields)
+        allow update: if isSignedIn() && 
+          request.auth.uid in resource.data.recipientUserIds &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy', 'readCount']);
+        
+        // Delete: Creator or club admin can delete news
+        allow delete: if isSignedIn() && (
+          resource.data.createdBy == request.auth.uid ||
+          isClubAdmin(clubId)
+        );
+        
+        // Create: Only via Cloud Functions (Admin SDK bypasses rules)
+        allow create: if false;
+      }
       
       // Note: Cloud Functions using Admin SDK bypass these rules entirely
 
