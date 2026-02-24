@@ -13,14 +13,14 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 type EventFilter = "all" | "training" | "match" | "other";
@@ -311,35 +311,21 @@ export default function EventsTab() {
       </View>
 
       {/* Event Type Filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterContainer}
-        contentContainerStyle={styles.filterContent}
-      >
+      <View style={styles.filterContainer}>
         {(["all", "training", "match", "other"] as EventFilter[]).map(
           (filter) => (
             <TouchableOpacity
               key={filter}
               style={[
-                styles.filterButton,
-                eventTypeFilter === filter && styles.activeFilter,
+                styles.filterTab,
+                eventTypeFilter === filter && styles.filterTabActive,
               ]}
               onPress={() => handleEventTypeFilter(filter)}
             >
-              <Ionicons
-                name={getFilterIcon(filter)}
-                size={16}
-                color={
-                  eventTypeFilter === filter
-                    ? theme.colors.white
-                    : theme.colors.secondary
-                }
-              />
               <Text
                 style={[
-                  styles.filterText,
-                  eventTypeFilter === filter && styles.activeFilterText,
+                  styles.filterTabText,
+                  eventTypeFilter === filter && styles.filterTabTextActive,
                 ]}
               >
                 {filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -347,7 +333,7 @@ export default function EventsTab() {
             </TouchableOpacity>
           ),
         )}
-      </ScrollView>
+      </View>
 
       {/* Events List */}
       {loading ? (
@@ -435,35 +421,29 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
   },
   filterContainer: {
-    maxHeight: 50,
-    marginBottom: theme.spacing.sm,
-  },
-  filterContent: {
-    paddingHorizontal: theme.layout.containerPadding,
-    gap: theme.spacing.sm,
-  },
-  filterButton: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full,
+    marginHorizontal: theme.layout.containerPadding,
+    marginBottom: theme.spacing.sm,
     backgroundColor: theme.colors.inputBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.secondary,
+    borderRadius: theme.borderRadius.medium,
+    padding: 4,
   },
-  activeFilter: {
+  filterTab: {
+    flex: 1,
+    paddingVertical: theme.spacing.sm,
+    alignItems: "center",
+    borderRadius: theme.borderRadius.small,
+  },
+  filterTabActive: {
     backgroundColor: theme.colors.secondary,
-    borderColor: theme.colors.secondary,
   },
-  filterText: {
-    fontSize: theme.typography.fontSize.small,
-    fontWeight: theme.typography.fontWeight.medium,
-    color: theme.colors.secondary,
-    marginLeft: theme.spacing.xs,
+  filterTabText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: theme.colors.textSecondary,
   },
-  activeFilterText: {
-    color: theme.colors.white,
+  filterTabTextActive: {
+    color: theme.colors.primary,
   },
   content: {
     flex: 1,

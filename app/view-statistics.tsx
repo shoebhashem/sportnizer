@@ -17,11 +17,10 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../constants/theme";
@@ -261,77 +260,29 @@ export default function ViewStatisticsScreen() {
       {statistics ? (
         <>
           {/* Filter Tabs */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filterContainer}
-            contentContainerStyle={styles.filterContentContainer}
-          >
-            <TouchableOpacity
-              style={[
-                styles.filterTab,
-                selectedFilter === "all" && styles.filterTabActive,
-              ]}
-              onPress={() => handleFilterChange("all")}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  selectedFilter === "all" && styles.filterTabTextActive,
-                ]}
-              >
-                All
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterTab,
-                selectedFilter === "training" && styles.filterTabActive,
-              ]}
-              onPress={() => handleFilterChange("training")}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  selectedFilter === "training" && styles.filterTabTextActive,
-                ]}
-              >
-                Training
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterTab,
-                selectedFilter === "match" && styles.filterTabActive,
-              ]}
-              onPress={() => handleFilterChange("match")}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  selectedFilter === "match" && styles.filterTabTextActive,
-                ]}
-              >
-                Match
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterTab,
-                selectedFilter === "other" && styles.filterTabActive,
-              ]}
-              onPress={() => handleFilterChange("other")}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  selectedFilter === "other" && styles.filterTabTextActive,
-                ]}
-              >
-                Other
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
+          <View style={styles.filterContainer}>
+            {(["all", "training", "match", "other"] as EventTypeFilter[]).map(
+              (filter) => (
+                <TouchableOpacity
+                  key={filter}
+                  style={[
+                    styles.filterTab,
+                    selectedFilter === filter && styles.filterTabActive,
+                  ]}
+                  onPress={() => handleFilterChange(filter)}
+                >
+                  <Text
+                    style={[
+                      styles.filterTabText,
+                      selectedFilter === filter && styles.filterTabTextActive,
+                    ]}
+                  >
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ),
+            )}
+          </View>
 
           {/* Stats Summary Card */}
           <View style={styles.summaryCard}>
@@ -449,28 +400,29 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   filterContainer: {
-    maxHeight: 50,
-  },
-  filterContentContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    flexDirection: "row",
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    padding: 4,
   },
   filterTab: {
-    paddingHorizontal: theme.spacing.lg,
+    flex: 1,
     paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.medium,
-    backgroundColor: theme.colors.inputBackground,
+    alignItems: "center",
+    borderRadius: theme.borderRadius.small,
   },
   filterTabActive: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.secondary,
   },
   filterTabText: {
-    fontSize: theme.typography.fontSize.medium,
-    fontWeight: theme.typography.fontWeight.medium,
-    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: "500",
+    color: theme.colors.textSecondary,
   },
   filterTabTextActive: {
-    color: theme.colors.white,
+    color: theme.colors.primary,
   },
   summaryCard: {
     margin: theme.spacing.lg,

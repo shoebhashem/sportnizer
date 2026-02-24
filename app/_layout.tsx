@@ -4,6 +4,15 @@ import { EventProvider } from "@/contexts/EventContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { Stack } from "expo-router";
 
+// Suppress console logs in production to prevent exposing sensitive data
+if (!__DEV__) {
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+}
+
 export default function RootLayout() {
   return (
     <UserProvider>

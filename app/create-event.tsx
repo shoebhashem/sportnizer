@@ -2,14 +2,14 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -357,7 +357,7 @@ export default function CreateEventScreen() {
   const eventTypes = [
     { key: "practice", label: "Training", icon: "dribbble" },
     { key: "game", label: "Match", icon: "trophy" },
-    { key: "other", label: "Custom", icon: "calendar" },
+    { key: "other", label: "Other", icon: "calendar" },
   ];
 
   // Auto-generate title for Training and Match events
@@ -367,23 +367,13 @@ export default function CreateEventScreen() {
     return "";
   };
 
-  // Update title when event type changes (for Training/Match)
-  useEffect(() => {
-    if (eventData.type === "practice" || eventData.type === "game") {
-      const autoTitle = getAutoTitle(eventData.type);
-      if (eventData.title !== autoTitle) {
-        setEventData((prev) => ({ ...prev, title: autoTitle }));
-      }
-    }
-  }, [eventData.type]);
-
   const validateEventData = (): boolean => {
-    // For custom events, title is required
-    if (eventData.type === "other" && !eventData.title.trim()) {
+    // Title is required for all event types
+    if (!eventData.title.trim()) {
       setModal({
         visible: true,
         title: "Missing Information",
-        message: "Please enter an event title for custom events",
+        message: "Please enter an event title",
         type: "error",
       });
       return false;
@@ -665,7 +655,7 @@ export default function CreateEventScreen() {
       };
 
       // Call update service
-      const { functions } = await import("../firebaseConfig");
+      const { functions } = await import("../services/core/firebase");
       const { httpsCallable } = await import("firebase/functions");
       const updateEventFn = httpsCallable(functions, "updateEvent");
 
@@ -1102,39 +1092,37 @@ export default function CreateEventScreen() {
               </View>
             </View>
 
-            {/* Custom Event Title (only for "other" type) */}
-            {eventData.type === "other" && (
-              <View style={{ marginBottom: 20 }}>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: "600",
-                    color: theme.colors.text,
-                    marginBottom: 8,
-                  }}
-                >
-                  Event Title *
-                </Text>
-                <TextInput
-                  style={{
-                    borderWidth: 1,
-                    borderColor: theme.colors.inputBorder,
-                    borderRadius: 8,
-                    padding: 12,
-                    fontSize: 16,
-                    backgroundColor: theme.colors.inputBackground,
-                    color: theme.colors.text,
-                  }}
-                  value={eventData.title}
-                  onChangeText={(text) =>
-                    setEventData((prev) => ({ ...prev, title: text }))
-                  }
-                  placeholder="Enter custom event title"
-                  placeholderTextColor={theme.colors.textSecondary}
-                  maxLength={100}
-                />
-              </View>
-            )}
+            {/* Event Title */}
+            <View style={{ marginBottom: 20 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.text,
+                  marginBottom: 8,
+                }}
+              >
+                Event Title *
+              </Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 16,
+                  backgroundColor: theme.colors.inputBackground,
+                  color: theme.colors.text,
+                }}
+                value={eventData.title}
+                onChangeText={(text) =>
+                  setEventData((prev) => ({ ...prev, title: text }))
+                }
+                placeholder="Enter event title"
+                placeholderTextColor={theme.colors.textSecondary}
+                maxLength={100}
+              />
+            </View>
 
             {/* Recipients Section */}
             <View style={{ marginBottom: 20 }}>

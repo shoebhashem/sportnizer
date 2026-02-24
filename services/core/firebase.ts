@@ -12,13 +12,13 @@ import { getStorage } from "firebase/storage";
 
 // Initialize Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyAXb_sjYkj9YfieuZ3pK-DGlFYVCKMTn2I",
-  authDomain: "sportnizer.firebaseapp.com",
-  projectId: "sportnizer",
-  storageBucket: "sportnizer.firebasestorage.app",
-  messagingSenderId: "363301763041",
-  appId: "1:363301763041:web:81f010704483d11cf544a0",
-  measurementId: "G-9FV4DRN0YV",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
