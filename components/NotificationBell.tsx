@@ -7,6 +7,7 @@ import {
     subscribeToUserNotifications,
     type NotificationData,
 } from "@/services/fetchNotifications";
+import { paymentService } from "@/services/paymentService";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -20,6 +21,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import ConfirmationModal from "./ConfirmationModal";
 
 /**
  * 🔔 NotificationBell Component
@@ -53,6 +55,13 @@ export default function NotificationBell({
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Payment modal state
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [selectedPaymentNotification, setSelectedPaymentNotification] =
+    useState<NotificationData | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // Get current user ID
   useEffect(() => {
@@ -133,6 +142,14 @@ export default function NotificationBell({
         setModalVisible(false);
         break;
 
+      case "payment_request":
+        // Show payment confirmation modal
+        setSelectedPaymentNotification(notification);
+        setPaymentError(null);
+        setPaymentModalVisible(true);
+        setModalVisible(false);
+        break;
+
       default:
         console.log("Notification clicked:", notification);
         setModalVisible(false);
@@ -152,6 +169,56 @@ export default function NotificationBell({
   const handleMarkAllAsRead = async () => {
     if (!currentUserId) return;
     await markAllNotificationsAsRead(currentUserId);
+  };
+
+  // Handle payment - Pay Now
+  const handlePayNow = async () => {
+    if (!selectedPaymentNotification?.metadata) return;
+
+    const { feeId, beneficiaryId } = selectedPaymentNotification.metadata;
+    if (!feeId || !beneficiaryId) {
+      setPaymentError("Missing payment information");
+      return;
+    }
+
+    setPaymentLoading(true);
+    setPaymentError(null);
+
+    try {
+      const result = await paymentService.startPayment(feeId, beneficiaryId);
+
+      if (!result.success) {
+        setPaymentError(result.error || "Payment failed");
+        return;
+      }
+
+      // Payment started successfully - modal will close, user redirected to Stripe
+      setPaymentModalVisible(false);
+      setSelectedPaymentNotification(null);
+    } catch (error: any) {
+      console.error("Payment error:", error);
+      setPaymentError(error.message || "An error occurred");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // Handle payment - Pay Later (just close modal)
+  const handlePayLater = () => {
+    setPaymentModalVisible(false);
+    setSelectedPaymentNotification(null);
+    setPaymentError(null);
+  };
+
+  // Format currency for display
+  const formatPaymentAmount = (amount?: number, currency?: string): string => {
+    if (!amount || !currency) return "";
+    // Amount is in smallest unit (cents/öre), convert to main unit
+    const mainAmount = amount / 100;
+    return new Intl.NumberFormat("sv-SE", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    }).format(mainAmount);
   };
 
   // Get icon for notification type
@@ -175,6 +242,8 @@ export default function NotificationBell({
         return "users";
       case "event_cancelled":
         return "calendar-times-o";
+      case "payment_request":
+        return "credit-card";
       default:
         return "bell";
     }
@@ -332,6 +401,36 @@ export default function NotificationBell({
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Payment Confirmation Modal */}
+      <ConfirmationModal
+        visible={paymentModalVisible}
+        title="Payment Required"
+        message={
+          selectedPaymentNotification
+            ? `${selectedPaymentNotification.message}\n\nAmount: ${formatPaymentAmount(
+                selectedPaymentNotification.metadata?.amount,
+                selectedPaymentNotification.metadata?.currency,
+              )}${selectedPaymentNotification.groupName ? `\nGroup: ${selectedPaymentNotification.groupName}` : ""}`
+            : ""
+        }
+        confirmText={paymentLoading ? "Processing..." : "Pay Now"}
+        cancelText="Later"
+        onConfirm={handlePayNow}
+        onCancel={handlePayLater}
+        confirmDisabled={paymentLoading}
+      />
+
+      {/* Payment Error Modal */}
+      <ConfirmationModal
+        visible={!!paymentError}
+        title="Payment Error"
+        message={paymentError || ""}
+        confirmText="OK"
+        onConfirm={() => setPaymentError(null)}
+        onCancel={() => setPaymentError(null)}
+        showCancel={false}
+      />
     </>
   );
 }

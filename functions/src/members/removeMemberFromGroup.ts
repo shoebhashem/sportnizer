@@ -1,8 +1,8 @@
 import * as admin from "firebase-admin";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
-    RemoveMemberFromGroupRequest,
-    RemoveMemberFromGroupResponse,
+  RemoveMemberFromGroupRequest,
+  RemoveMemberFromGroupResponse,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
@@ -56,26 +56,73 @@ export const removeMemberFromGroup = onCall(
         );
       }
 
-      // Check if user is club-admin OR has admin/coach role in this specific group
+      // Check if user is club-admin OR has admin role in this specific group
+      // Permission rules:
+      // - club-admin: Can remove any member type (player, youth, coach, admin)
+      // - admin (in group): Can remove players and youth players only
+      // - coach: Cannot remove members
       const isClubAdmin = userClubAccess.role === "club-admin";
       const groupAccess = userClubAccess.groupAccess || [];
       const userGroupAccess = groupAccess.find(
         (g: any) => g.groupId === groupId,
       );
-      const hasGroupPermission =
-        userGroupAccess &&
-        (userGroupAccess.roles.includes("admin") ||
-          userGroupAccess.roles.includes("coach"));
+      const isGroupAdmin =
+        userGroupAccess && userGroupAccess.roles.includes("admin");
 
-      if (!isClubAdmin && !hasGroupPermission) {
-        throw new HttpsError(
-          "permission-denied",
-          "Insufficient permissions. Only coaches, admins, and club admins can remove members from groups.",
-        );
+      // First, get the member being removed to check their roles
+      const groupMemberRefForCheck = admin
+        .firestore()
+        .collection("clubs")
+        .doc(clubId)
+        .collection("groups")
+        .doc(groupId)
+        .collection("allMembers")
+        .doc("members");
+
+      const groupMembersDocForCheck = await groupMemberRefForCheck.get();
+      if (!groupMembersDocForCheck.exists) {
+        throw new HttpsError("not-found", "Group members document not found");
+      }
+
+      const membersDataForCheck = groupMembersDocForCheck.data()?.members || [];
+      const memberToRemove = membersDataForCheck.find(
+        (m: any) => m.userId === userId,
+      );
+
+      if (!memberToRemove) {
+        throw new HttpsError("not-found", "Member not found in this group");
+      }
+
+      const memberRolesBeingRemoved = memberToRemove.roles || [];
+      const isRemovingStaffRole = memberRolesBeingRemoved.some((role: string) =>
+        ["admin", "coach"].includes(role),
+      );
+
+      // Permission check based on what's being removed
+      if (
+        isRemovingStaffRole ||
+        roleToRemove === "admin" ||
+        roleToRemove === "coach"
+      ) {
+        // Removing coach or admin - requires club-admin
+        if (!isClubAdmin) {
+          throw new HttpsError(
+            "permission-denied",
+            "Only club administrators can remove coaches and admins from groups.",
+          );
+        }
+      } else {
+        // Removing player or player-underage - requires club-admin or group admin
+        if (!isClubAdmin && !isGroupAdmin) {
+          throw new HttpsError(
+            "permission-denied",
+            "Insufficient permissions. Only club administrators and group admins can remove members from groups.",
+          );
+        }
       }
 
       console.log(
-        `Permission validated for user ${callingUserId} (${isClubAdmin ? "club-admin" : "group admin/coach"})`,
+        `Permission validated for user ${callingUserId} (${isClubAdmin ? "club-admin" : "group admin"})`,
       );
       console.log(
         `Removing user ${userId} from group ${groupId} in club ${clubId}`,

@@ -13,10 +13,10 @@
 
 export const STRIPE_CONFIG = {
   /**
-   * Platform takes 3% of each payment
+   * Platform takes 2% of each payment
    * This is Sportnizer's commission on every transaction
    */
-  platformFeePercent: 3,
+  platformFeePercent: 2,
 
   /**
    * Default currency (fallback only - each club uses their own based on country)

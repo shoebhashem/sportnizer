@@ -472,9 +472,14 @@ export default function GroupSettingsScreen() {
     }
   };
 
-  const isAdmin = userRole === "club-admin" || userRole === "admin";
   const isGroupCreator = group?.createdBy === user?.uid;
-  const canManage =
+
+  // Permission levels:
+  // - canManageMembers: Can add/remove players (club-admin, admin)
+  // - canManageStaff: Can add/remove coaches/admins (club-admin only)
+  // - canManageGroup: Can view stats, create subgroups (club-admin, admin, coach)
+  const canManageMembers = isClubAdmin || userRole === "admin";
+  const canManageGroup =
     userRole === "club-admin" ||
     userRole === "admin" ||
     userRole === "coach" ||
@@ -536,7 +541,7 @@ export default function GroupSettingsScreen() {
               deletionScheduledAt={group.deletionScheduledAt?.toMillis?.()}
               compact={false}
             />
-            {isAdmin && (
+            {canManageMembers && (
               <View style={styles.undoButtonContainer}>
                 <Button
                   label={isReactivating ? "Reactivating..." : "Undo Deletion"}
@@ -559,8 +564,8 @@ export default function GroupSettingsScreen() {
 
         {/* Settings Options */}
         <View style={styles.optionsContainer}>
-          {/* Add Members Section - Expandable */}
-          {canManage && (
+          {/* Add Members Section - Expandable (club-admin and admin only) */}
+          {canManageMembers && (
             <>
               <TouchableOpacity
                 style={styles.expandableHeader}
@@ -577,7 +582,9 @@ export default function GroupSettingsScreen() {
                 <View style={styles.optionContent}>
                   <Text style={styles.optionTitle}>Add Members</Text>
                   <Text style={styles.optionDescription}>
-                    Add players, coaches, and admins
+                    {isClubAdmin
+                      ? "Add players, coaches, and admins"
+                      : "Add players to the group"}
                   </Text>
                 </View>
                 <Ionicons
@@ -602,7 +609,10 @@ export default function GroupSettingsScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.subOptionItem}
+                    style={[
+                      styles.subOptionItem,
+                      !isClubAdmin && styles.subOptionItemLast,
+                    ]}
                     onPress={handleAddYouthPlayer}
                   >
                     <Text style={styles.subOptionTitle}>Add Youth Player</Text>
@@ -645,8 +655,8 @@ export default function GroupSettingsScreen() {
             </>
           )}
 
-          {/* Remove Members Section - Expandable */}
-          {canManage && (
+          {/* Remove Members Section - Expandable (club-admin and admin only) */}
+          {canManageMembers && (
             <>
               <TouchableOpacity
                 style={styles.expandableHeader}
@@ -665,7 +675,9 @@ export default function GroupSettingsScreen() {
                     Remove Members
                   </Text>
                   <Text style={styles.optionDescription}>
-                    Remove players, coaches, and admins
+                    {isClubAdmin
+                      ? "Remove players, coaches, and admins"
+                      : "Remove players from the group"}
                   </Text>
                 </View>
                 <Ionicons
@@ -692,7 +704,10 @@ export default function GroupSettingsScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.subOptionItem}
+                    style={[
+                      styles.subOptionItem,
+                      !isClubAdmin && styles.subOptionItemLast,
+                    ]}
                     onPress={handleRemoveYouthPlayer}
                   >
                     <Text style={[styles.subOptionTitle, styles.dangerText]}>
@@ -745,8 +760,8 @@ export default function GroupSettingsScreen() {
             </>
           )}
 
-          {/* View Statistics Option - Only for Admin/Coach */}
-          {canManage && (
+          {/* View Statistics Option - For club-admin, admin, and coach */}
+          {canManageGroup && (
             <TouchableOpacity
               style={styles.optionItem}
               onPress={handleViewStatistics}
@@ -772,8 +787,8 @@ export default function GroupSettingsScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Create Subgroup Option - Only for Admin/Coach */}
-          {canManage && (
+          {/* Create Subgroup Option - For club-admin, admin, and coach */}
+          {canManageGroup && (
             <TouchableOpacity
               style={styles.optionItem}
               onPress={handleCreateSubgroup}
@@ -799,8 +814,44 @@ export default function GroupSettingsScreen() {
             </TouchableOpacity>
           )}
 
+          {/* Track Payments Option - Club-admin only */}
+          {isClubAdmin && (
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() =>
+                router.push({
+                  pathname: "/track-payments",
+                  params: {
+                    clubId: clubId as string,
+                    groupId: groupId as string,
+                    groupName: group?.name || "",
+                  },
+                } as any)
+              }
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="card-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Track Payments</Text>
+                <Text style={styles.optionDescription}>
+                  View payment status for membership fees
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
           {/* Manage Subgroups Section */}
-          {canManage && group?.subGroups && group.subGroups.length > 0 && (
+          {canManageGroup && group?.subGroups && group.subGroups.length > 0 && (
             <View style={styles.subgroupsSection}>
               <Text style={styles.sectionHeader}>
                 Subgroups ({group.subGroups.length})
@@ -842,7 +893,7 @@ export default function GroupSettingsScreen() {
           )}
 
           {/* Send Confirmation Link - Only for children's groups */}
-          {canManage &&
+          {canManageGroup &&
             false /* TODO: Add children's group detection logic */ && (
               <TouchableOpacity
                 style={styles.optionItem}

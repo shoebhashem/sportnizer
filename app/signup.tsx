@@ -1,26 +1,41 @@
-import Button from '@/components/Button';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import Input from '@/components/Input';
-import { theme } from '@/constants/theme';
-import { functions } from '@/services/core/firebase';
-import { router, useLocalSearchParams } from 'expo-router';
-import { httpsCallable } from 'firebase/functions';
-import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { signUpUser } from '../services/auth/authService';
-import { addRegularMemberToGroupService } from '../services/orchestration/addRegularMemberToGroup';
+import Button from "@/components/Button";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import Input from "@/components/Input";
+import { theme } from "@/constants/theme";
+import { functions } from "@/services/core/firebase";
+import { router, useLocalSearchParams } from "expo-router";
+import { httpsCallable } from "firebase/functions";
+import React, { useEffect, useState } from "react";
+import {
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { signUpUser } from "../services/auth/authService";
+import { addRegularMemberToGroupService } from "../services/orchestration/addRegularMemberToGroup";
 
 export default function SignupScreen() {
-  const { invite, verified, action } = useLocalSearchParams<{ invite?: string; verified?: string; action?: string }>();
-  
-  console.log('🔍 SignupScreen mounted with params:', { invite, verified, action });
-  console.log('🎫 Invitation token type:', typeof invite, 'value:', invite);
-  
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { invite, verified, action } = useLocalSearchParams<{
+    invite?: string;
+    verified?: string;
+    action?: string;
+  }>();
+
+  console.log("🔍 SignupScreen mounted with params:", {
+    invite,
+    verified,
+    action,
+  });
+  console.log("🎫 Invitation token type:", typeof invite, "value:", invite);
+
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [invitationInfo, setInvitationInfo] = useState<{
     groupName: string;
@@ -32,17 +47,20 @@ export default function SignupScreen() {
     dateOfBirth: string;
     relationship: string;
   } | null>(null);
-  
+
+  // Store the expected invitation email to enforce it during signup
+  const [invitationEmail, setInvitationEmail] = useState<string | null>(null);
+
   // Error states
-  const [fullNameError, setFullNameError] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [confirmPasswordError, setConfirmPasswordError] = useState('');
-  
+  const [fullNameError, setFullNameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+
   // Modal states
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
-  const [modalMessage, setModalMessage] = useState('');
+  const [modalMessage, setModalMessage] = useState("");
 
   // Load invitation info if invite token is present
   useEffect(() => {
@@ -54,51 +72,61 @@ export default function SignupScreen() {
   const loadInvitationDetails = async (inviteToken: string) => {
     try {
       // Call validateInvitationToken to get invitation details without processing
-      const validateTokenFn = httpsCallable(functions, 'validateInvitationToken');
+      const validateTokenFn = httpsCallable(
+        functions,
+        "validateInvitationToken",
+      );
       const result = await validateTokenFn({ invitationToken: inviteToken });
       const validation = result.data as any;
-      
+
       if (validation.success && validation.invitationData) {
         const invData = validation.invitationData;
         setInvitationInfo({
-          groupName: invData.groupName || 'the group',
-          inviterName: invData.inviterName || 'a team member',
-          invitationType: invData.invitationType
+          groupName: invData.groupName || "the group",
+          inviterName: invData.inviterName || "a team member",
+          invitationType: invData.invitationType,
         });
-        
-        // If this is a youth invitation, store the youth data and pre-fill guardian email
-        if (invData.invitationType === 'youth_member' && invData.youthData) {
+
+        // Pre-fill email for ALL invitation types
+        if (invData.email) {
+          setEmail(invData.email);
+          setInvitationEmail(invData.email); // Store for validation
+          console.log("📧 Email pre-filled from invitation:", invData.email);
+        }
+
+        // If this is a youth invitation, store the youth data
+        if (invData.invitationType === "youth_member" && invData.youthData) {
           setYouthData(invData.youthData);
-          // Pre-fill the email field with guardian's email from invitation
-          if (invData.email) {
-            setEmail(invData.email);
-          }
-          console.log('👶 Youth invitation detected:', invData.youthData);
+          console.log("👶 Youth invitation detected:", invData.youthData);
         }
       } else {
         // Fallback to generic info if validation fails
         setInvitationInfo({
-          groupName: 'the group',
-          inviterName: 'a team member'
+          groupName: "the group",
+          inviterName: "a team member",
         });
       }
     } catch (error) {
-      console.error('Error loading invitation details:', error);
+      console.error("Error loading invitation details:", error);
       // Fallback to generic info
       setInvitationInfo({
-        groupName: 'the group', 
-        inviterName: 'a team member'
+        groupName: "the group",
+        inviterName: "a team member",
       });
     }
   };
 
   // Handle email verification status
   useEffect(() => {
-    if (verified === 'success') {
-      setModalMessage('✅ Email verified successfully!\n\nYour account is now activated. You can now sign in to your Sportnizer account.');
+    if (verified === "success") {
+      setModalMessage(
+        "✅ Email verified successfully!\n\nYour account is now activated. You can now sign in to your Sportnizer account.",
+      );
       setSuccessModalVisible(true);
-    } else if (verified === 'already') {
-      setModalMessage('✅ Email already verified!\n\nYour account is already activated. You can sign in to your Sportnizer account.');
+    } else if (verified === "already") {
+      setModalMessage(
+        "✅ Email already verified!\n\nYour account is already activated. You can sign in to your Sportnizer account.",
+      );
       setSuccessModalVisible(true);
     }
   }, [verified]);
@@ -110,46 +138,54 @@ export default function SignupScreen() {
 
   const validateForm = () => {
     let isValid = true;
-    
+
     // Reset errors
-    setFullNameError('');
-    setEmailError('');
-    setPasswordError('');
-    setConfirmPasswordError('');
+    setFullNameError("");
+    setEmailError("");
+    setPasswordError("");
+    setConfirmPasswordError("");
 
     // Validate full name
     if (!fullName.trim()) {
-      setFullNameError('Full name is required');
+      setFullNameError("Full name is required");
       isValid = false;
     } else if (fullName.trim().length < 2) {
-      setFullNameError('Full name must be at least 2 characters');
+      setFullNameError("Full name must be at least 2 characters");
       isValid = false;
     }
 
     // Validate email
     if (!email.trim()) {
-      setEmailError('Email is required');
+      setEmailError("Email is required");
       isValid = false;
     } else if (!validateEmail(email)) {
-      setEmailError('Please enter a valid email address');
+      setEmailError("Please enter a valid email address");
+      isValid = false;
+    } else if (
+      invite &&
+      invitationEmail &&
+      email.toLowerCase().trim() !== invitationEmail.toLowerCase().trim()
+    ) {
+      // For invited users, verify email matches invitation
+      setEmailError("Email must match the invitation email address");
       isValid = false;
     }
 
     // Validate password
     if (!password.trim()) {
-      setPasswordError('Password is required');
+      setPasswordError("Password is required");
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
+      setPasswordError("Password must be at least 6 characters");
       isValid = false;
     }
 
     // Validate confirm password
     if (!confirmPassword.trim()) {
-      setConfirmPasswordError('Please confirm your password');
+      setConfirmPasswordError("Please confirm your password");
       isValid = false;
     } else if (password !== confirmPassword) {
-      setConfirmPasswordError('Passwords do not match');
+      setConfirmPasswordError("Passwords do not match");
       isValid = false;
     }
 
@@ -160,155 +196,193 @@ export default function SignupScreen() {
     if (!validateForm()) return;
 
     setLoading(true);
-    
+
     try {
-      console.log('🚀 Starting signup process with invitation token:', invite);
+      console.log("🚀 Starting signup process with invitation token:", invite);
       // Pass invitation token to signUpUser to skip email verification for invited users
-      const result = await signUpUser(email.trim(), password, fullName.trim(), invite || undefined);
-      
-      console.log('📊 Signup result:', result);
-      
+      const result = await signUpUser(
+        email.trim(),
+        password,
+        fullName.trim(),
+        invite || undefined,
+      );
+
+      console.log("📊 Signup result:", result);
+
       if (result.success && result.user) {
         if (invite && !result.requiresEmailVerification) {
           // Invited user account created, now process membership via unified orchestration service
           try {
-            console.log('✅ Account created. Processing invitation...');
-            
+            console.log("✅ Account created. Processing invitation...");
+
             // YOUTH INVITATION: Create youth document first, then process invitation
-            if (invitationInfo?.invitationType === 'youth_member' && youthData) {
-              console.log('👶 Creating youth member document...');
-              
-              const createYouthFn = httpsCallable(functions, 'createYouthMemberDocument');
+            if (
+              invitationInfo?.invitationType === "youth_member" &&
+              youthData
+            ) {
+              console.log("👶 Creating youth member document...");
+
+              const createYouthFn = httpsCallable(
+                functions,
+                "createYouthMemberDocument",
+              );
               const youthResult = await createYouthFn({
                 guardianUid: result.user.uid,
                 guardianEmail: result.user.email || email.trim(),
                 guardianName: fullName.trim(),
                 childName: youthData.childName,
                 dateOfBirth: youthData.dateOfBirth,
-                relationship: youthData.relationship
+                relationship: youthData.relationship,
               });
-              
+
               const youthResponse = youthResult.data as any;
               if (!youthResponse.success) {
-                throw new Error(youthResponse.error || 'Failed to create youth member');
+                throw new Error(
+                  youthResponse.error || "Failed to create youth member",
+                );
               }
-              
-              console.log('✅ Youth member document created:', youthResponse.youthUid);
-              
-              // Now process the invitation with the youth's userId and guardian info
-              const invitationResult = await addRegularMemberToGroupService.processInvitationAfterUserResponse(
-                invite,                      // invitationToken
-                youthResponse.youthUid,      // Use youth's userId, not guardian's
-                'accept',                    // action
-                {                            // guardianInfo to avoid permission issues
-                  guardianUid: result.user.uid,
-                  guardianEmail: result.user.email || email.trim(),
-                  guardianName: fullName.trim(),
-                  relationship: youthData.relationship
-                }
+
+              console.log(
+                "✅ Youth member document created:",
+                youthResponse.youthUid,
               );
-              
+
+              // Now process the invitation with the youth's userId and guardian info
+              const invitationResult =
+                await addRegularMemberToGroupService.processInvitationAfterUserResponse(
+                  invite, // invitationToken
+                  youthResponse.youthUid, // Use youth's userId, not guardian's
+                  "accept", // action
+                  {
+                    // guardianInfo to avoid permission issues
+                    guardianUid: result.user.uid,
+                    guardianEmail: result.user.email || email.trim(),
+                    guardianName: fullName.trim(),
+                    relationship: youthData.relationship,
+                  },
+                );
+
               if (!invitationResult.success) {
-                throw new Error(invitationResult.error || 'Failed to process invitation');
+                throw new Error(
+                  invitationResult.error || "Failed to process invitation",
+                );
               }
-              
-              console.log('✅ Youth invitation processed successfully!');
-              
+
+              console.log("✅ Youth invitation processed successfully!");
+
               setModalMessage(
                 `🎉 Welcome to Sportnizer!\n\n` +
-                `${youthData.childName} has been added to ${invitationInfo.groupName}.\n\n` +
-                `You can now manage their membership!`
+                  `${youthData.childName} has been added to ${invitationInfo.groupName}.\n\n` +
+                  `You can now manage their membership!`,
               );
               setSuccessModalVisible(true);
-              
             } else {
               // REGULAR INVITATION: Standard flow
-              console.log('✅ Processing regular invitation via orchestration service...');
-              
-              const invitationResult = await addRegularMemberToGroupService.processInvitationAfterUserResponse(
-                invite,           // invitationToken
-                result.user.uid,  // userId
-                'accept'          // action
+              console.log(
+                "✅ Processing regular invitation via orchestration service...",
               );
-              
+
+              const invitationResult =
+                await addRegularMemberToGroupService.processInvitationAfterUserResponse(
+                  invite, // invitationToken
+                  result.user.uid, // userId
+                  "accept", // action
+                );
+
               if (!invitationResult.success) {
-                throw new Error(invitationResult.error || 'Failed to process invitation');
+                throw new Error(
+                  invitationResult.error || "Failed to process invitation",
+                );
               }
-              
-              console.log('✅ Invitation processed successfully via orchestration service!');
-              
+
+              console.log(
+                "✅ Invitation processed successfully via orchestration service!",
+              );
+
               // Get invitation info for welcome message
-              const validateTokenFn = httpsCallable(functions, 'validateInvitationToken');
-              const validationResult = await validateTokenFn({ invitationToken: invite });
+              const validateTokenFn = httpsCallable(
+                functions,
+                "validateInvitationToken",
+              );
+              const validationResult = await validateTokenFn({
+                invitationToken: invite,
+              });
               const validation = validationResult.data as any;
-              const groupName = validation?.invitationData?.groupName || 'the group';
-              
+              const groupName =
+                validation?.invitationData?.groupName || "the group";
+
               setModalMessage(
                 `🎉 Welcome to Sportnizer!\n\n` +
-                `You've been added to ${groupName}.\n\n` +
-                `You can now access all features immediately!`
+                  `You've been added to ${groupName}.\n\n` +
+                  `You can now access all features immediately!`,
               );
               setSuccessModalVisible(true);
             }
-            
           } catch (invitationError) {
-            console.error('❌ Error processing invitation:', invitationError);
+            console.error("❌ Error processing invitation:", invitationError);
             // User account was created successfully, but membership failed
-            const errorContext = youthData ? `adding ${youthData.childName} to the group` : 'adding you to the group';
+            const errorContext = youthData
+              ? `adding ${youthData.childName} to the group`
+              : "adding you to the group";
             setModalMessage(
               `Account created successfully!\n\n` +
-              `However, there was an issue ${errorContext}. ` +
-              `Please contact ${invitationInfo?.inviterName || 'the group admin'} for assistance.`
+                `However, there was an issue ${errorContext}. ` +
+                `Please contact ${invitationInfo?.inviterName || "the group admin"} for assistance.`,
             );
             setSuccessModalVisible(true);
           }
-          
+
           return; // Exit early - don't show regular signup message
-        } 
-        
-        // Regular signup flow
-        let successMessage = result.message || 'Account created successfully!';
-        
-        // If this is club creation flow, update the message
-        if (action === 'createClub' && result.requiresEmailVerification) {
-          successMessage = result.message + `\n\nAfter verifying your email and logging in, you'll be able to create your club.`;
         }
-        
+
+        // Regular signup flow
+        let successMessage = result.message || "Account created successfully!";
+
+        // If this is club creation flow, update the message
+        if (action === "createClub" && result.requiresEmailVerification) {
+          successMessage =
+            result.message +
+            `\n\nAfter verifying your email and logging in, you'll be able to create your club.`;
+        }
+
         // If there is an invitation token and regular email verification is required, inform user
         if (invite && result.requiresEmailVerification) {
           // Update message to mention invitation will be processed after verification
-          successMessage = result.message + `\n\nAfter verifying your email, your invitation to ${invitationInfo?.groupName || 'the group'} will be automatically processed.`;
+          successMessage =
+            result.message +
+            `\n\nAfter verifying your email, your invitation to ${invitationInfo?.groupName || "the group"} will be automatically processed.`;
         }
-        
+
         setModalMessage(successMessage);
         setSuccessModalVisible(true);
       } else {
         // Show error
-        let errorMessage = 'An error occurred. Please try again.';
-        
+        let errorMessage = "An error occurred. Please try again.";
+
         switch (result.error?.code) {
-          case 'auth/email-already-in-use':
-            errorMessage = 'An account with this email already exists.';
+          case "auth/email-already-in-use":
+            errorMessage = "An account with this email already exists.";
             break;
-          case 'auth/invalid-email':
-            errorMessage = 'Invalid email address.';
+          case "auth/invalid-email":
+            errorMessage = "Invalid email address.";
             break;
-          case 'auth/weak-password':
-            errorMessage = 'Password is too weak. Please choose a stronger password.';
+          case "auth/weak-password":
+            errorMessage =
+              "Password is too weak. Please choose a stronger password.";
             break;
-          case 'auth/network-request-failed':
-            errorMessage = 'Network error. Please check your connection.';
+          case "auth/network-request-failed":
+            errorMessage = "Network error. Please check your connection.";
             break;
           default:
             errorMessage = result.error?.message || errorMessage;
         }
-        
+
         setModalMessage(errorMessage);
         setErrorModalVisible(true);
       }
     } catch (error) {
-      console.error('Signup error:', error);
-      setModalMessage('An unexpected error occurred. Please try again.');
+      console.error("Signup error:", error);
+      setModalMessage("An unexpected error occurred. Please try again.");
       setErrorModalVisible(true);
     } finally {
       setLoading(false);
@@ -316,37 +390,41 @@ export default function SignupScreen() {
   };
 
   const handleBackToLogin = () => {
-    router.replace('/login');
+    router.replace("/login");
   };
 
   const handleSuccessModalConfirm = () => {
     setSuccessModalVisible(false);
-    
+
     // If this is email verification success or invited user success, redirect to login
-    if (verified === 'success' || verified === 'already' || (invite && modalMessage.includes('🎉 Welcome to Sportnizer'))) {
-      router.replace('/login');
-    } else if (action === 'createClub') {
+    if (
+      verified === "success" ||
+      verified === "already" ||
+      (invite && modalMessage.includes("🎉 Welcome to Sportnizer"))
+    ) {
+      router.replace("/login");
+    } else if (action === "createClub") {
       // Store the club creation intent in the modal message so user knows what to do next
       // After email verification, they should log in and will be redirected to create club
-      router.replace('/login');
+      router.replace("/login");
     } else {
       // For regular signup success (pending email verification), stay on signup screen
-      router.replace('/signup');
+      router.replace("/signup");
     }
   };
 
   const handleErrorModalClose = () => {
     setErrorModalVisible(false);
-    setModalMessage('');
+    setModalMessage("");
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
@@ -356,19 +434,21 @@ export default function SignupScreen() {
             {invitationInfo ? (
               <>
                 <Text style={styles.subtitle}>
-                  {youthData 
+                  {youthData
                     ? `You have been invited to add ${youthData.childName} to ${invitationInfo.groupName} by ${invitationInfo.inviterName}`
-                    : `You have been invited to join ${invitationInfo.groupName} by ${invitationInfo.inviterName}`
-                  }
+                    : `You have been invited to join ${invitationInfo.groupName} by ${invitationInfo.inviterName}`}
                 </Text>
                 {youthData && (
                   <Text style={styles.guardianNote}>
-                    Please create your own guardian account below to manage {youthData.childName}&apos;s participation.
+                    Please create your own guardian account below to manage{" "}
+                    {youthData.childName}&apos;s participation.
                   </Text>
                 )}
               </>
             ) : (
-              <Text style={styles.subtitle}>Create your account to get started</Text>
+              <Text style={styles.subtitle}>
+                Create your account to get started
+              </Text>
             )}
           </View>
 
@@ -390,6 +470,12 @@ export default function SignupScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               error={emailError}
+              editable={!invitationEmail}
+              helperText={
+                invitationEmail
+                  ? "Email is pre-filled from your invitation"
+                  : undefined
+              }
             />
 
             <Input
@@ -467,11 +553,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: theme.layout.containerPadding,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: theme.spacing.xxl,
   },
   title: {
@@ -488,19 +574,19 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: theme.spacing.sm,
   },
   guardianNote: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.secondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: theme.spacing.md,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     paddingHorizontal: theme.spacing.md,
   },
   form: {
-    width: '100%',
+    width: "100%",
   },
   buttonContainer: {
     marginTop: theme.spacing.lg,

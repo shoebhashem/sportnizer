@@ -18,7 +18,8 @@ export const theme = {
     accent: "#007bff", // #4a90d9 alternative
     badge: {
       you: "#ffd33d", // Yellow for "You"
-      child: "#4a90d9", // Blue for children
+      accent: "#007bff", // #4a90d9 alternative
+      child: "#007bff", // Blue for children
     },
   },
 

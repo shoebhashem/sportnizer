@@ -112,7 +112,7 @@ const STRIPE_FEE_ESTIMATES: Record<
   US: { percentage: 2.9, fixed: 30 },
 };
 
-const PLATFORM_FEE_PERCENT = 3;
+const PLATFORM_FEE_PERCENT = 2;
 
 export const paymentService = {
   // ---------------------------

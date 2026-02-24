@@ -11,7 +11,8 @@ export type NotificationType =
   | "poll"
   | "role_changed"
   | "member_joined"
-  | "event_cancelled";
+  | "event_cancelled"
+  | "payment_request";
 
 export interface NotificationData {
   id: string;

@@ -445,27 +445,36 @@ async function dismissPaymentNotifications(
   // Dismiss notifications from each user's subcollection
   let totalDismissed = 0;
   for (const userId of userIdsToCheck) {
+    // Query for pending payment notifications using the consistent structure
+    // Notifications now use read/dismissed fields instead of status
     const notificationsQuery = await db
       .collection("users")
       .doc(userId)
       .collection("notifications")
       .where("type", "==", "payment_request")
-      .where("data.feeId", "==", feeId)
-      .where("data.beneficiaryId", "==", beneficiaryId)
-      .where("status", "==", "pending")
+      .where("dismissed", "==", false)
       .get();
 
-    if (!notificationsQuery.empty) {
+    // Filter by feeId and beneficiaryId in code (metadata fields)
+    const matchingDocs = notificationsQuery.docs.filter((doc) => {
+      const data = doc.data();
+      const metadata = data.metadata || {};
+      return (
+        metadata.feeId === feeId && metadata.beneficiaryId === beneficiaryId
+      );
+    });
+
+    if (matchingDocs.length > 0) {
       const batch = db.batch();
-      notificationsQuery.docs.forEach((doc) => {
+      matchingDocs.forEach((doc) => {
         batch.update(doc.ref, {
-          status: "dismissed",
-          dismissedReason: "payment_completed",
-          dismissedAt: admin.firestore.FieldValue.serverTimestamp(),
+          dismissed: true,
+          read: true,
+          actionTakenAt: admin.firestore.FieldValue.serverTimestamp(),
         });
       });
       await batch.commit();
-      totalDismissed += notificationsQuery.docs.length;
+      totalDismissed += matchingDocs.length;
     }
   }
 

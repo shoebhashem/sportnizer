@@ -9,21 +9,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
 } from "react";
 import {
-    ActivityIndicator,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -422,8 +422,8 @@ export default function StripeOnboardingScreen() {
               color={theme.colors.secondary}
             />
             <Text style={styles.feeInfoText}>
-              Sportnizer takes a 3% platform fee. Stripe fees (~1.5-2.9%) are
-              charged to your club.
+              Sportnizer takes a 2% platform fee. Stripe fees (~1.5% in Europe -
+              ~2.9% in the US) are charged to your club.
             </Text>
           </View>
         </View>

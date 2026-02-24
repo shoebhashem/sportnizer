@@ -1,5 +1,26 @@
 import { GuardianContact } from "./group";
 
+// Subscription types
+export type SubscriptionTier = "free" | "basic" | "pro" | "enterprise";
+export type SubscriptionStatus =
+  | "active"
+  | "past_due"
+  | "cancelled"
+  | "trialing";
+
+// Subscription data stored in clubs/{clubId}.subscription
+export interface ClubSubscription {
+  tier: SubscriptionTier;
+  status: SubscriptionStatus;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  stripePriceId: string | null;
+  currentPeriodStart: any | null; // Firestore Timestamp
+  currentPeriodEnd: any | null; // Firestore Timestamp
+  cancelAtPeriodEnd: boolean;
+  paymentFailedAt: any | null; // Firestore Timestamp
+}
+
 // Club document structure according to ARCHITECTURE.md
 export interface ClubData {
   id: string;
@@ -16,10 +37,19 @@ export interface ClubData {
   createdBy: string;
   lastModifiedAt: any; // Firestore Timestamp
   version: number;
+
+  // Total member count across all groups (used for subscription limits)
+  totalCounts?: number;
+
   // Subscription limits (usage tracking)
   activeGroupCount?: number; // Count of groups with isActive=true
-  maxGroups?: number; // Maximum groups allowed in this club (default: 10)
-  // Stripe Connect payment setup
+  maxGroups?: number; // Maximum groups allowed in this club (default: 99)
+  maxMembers?: number; // Maximum members allowed in this club (based on subscription tier)
+
+  // Club subscription to Sportnizer platform
+  subscription?: ClubSubscription;
+
+  // Stripe Connect payment setup (for receiving payments from members)
   stripe?: {
     accountId: string;
     country: string;

@@ -385,6 +385,40 @@ export default function ClubSettingsScreen() {
             </TouchableOpacity>
           )}
 
+          {/* Subscription Option - Only for Club Admin */}
+          {isClubAdmin && (
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => {
+                router.push({
+                  pathname: "/subscription-settings",
+                  params: {
+                    clubId: clubId as string,
+                  },
+                } as any);
+              }}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="diamond-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Subscription</Text>
+                <Text style={styles.optionDescription}>
+                  Manage your club subscription plan
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
           {/* Payment Settings Option - Only for Club Admin */}
           {isClubAdmin && (
             <TouchableOpacity

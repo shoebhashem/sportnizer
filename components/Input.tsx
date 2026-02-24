@@ -1,7 +1,7 @@
-import { theme } from '@/constants/theme';
-import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { theme } from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 type Props = {
   label: string;
@@ -9,22 +9,26 @@ type Props = {
   onChangeText: (text: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  keyboardType?: "default" | "email-address" | "numeric" | "phone-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
   error?: string;
   onBlur?: () => void;
+  editable?: boolean;
+  helperText?: string;
 };
 
-export default function Input({ 
-  label, 
-  value, 
-  onChangeText, 
-  placeholder, 
-  secureTextEntry = false, 
-  keyboardType = 'default',
-  autoCapitalize = 'sentences',
+export default function Input({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  secureTextEntry = false,
+  keyboardType = "default",
+  autoCapitalize = "sentences",
   error,
-  onBlur
+  onBlur,
+  editable = true,
+  helperText,
 }: Props) {
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -35,13 +39,16 @@ export default function Input({
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[
-        styles.inputContainer,
-        isFocused && styles.inputContainerFocused,
-        error && styles.inputContainerError
-      ]}>
+      <View
+        style={[
+          styles.inputContainer,
+          isFocused && styles.inputContainerFocused,
+          error && styles.inputContainerError,
+          !editable && styles.inputContainerDisabled,
+        ]}
+      >
         <TextInput
-          style={styles.input}
+          style={[styles.input, !editable && styles.inputDisabled]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -50,7 +57,8 @@ export default function Input({
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           autoComplete="off"
-          textContentType={isPassword ? 'oneTimeCode' : 'none'}
+          textContentType={isPassword ? "oneTimeCode" : "none"}
+          editable={editable}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
             setIsFocused(false);
@@ -60,19 +68,22 @@ export default function Input({
           }}
         />
         {isPassword && (
-          <Pressable 
+          <Pressable
             style={styles.eyeIcon}
             onPress={() => setShowPassword(!showPassword)}
           >
-            <Ionicons 
-              name={showPassword ? 'eye-off' : 'eye'} 
-              size={20} 
-              color={theme.colors.textSecondary} 
+            <Ionicons
+              name={showPassword ? "eye-off" : "eye"}
+              size={20}
+              color={theme.colors.textSecondary}
             />
           </Pressable>
         )}
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
+      {helperText && !error && (
+        <Text style={styles.helperText}>{helperText}</Text>
+      )}
     </View>
   );
 }
@@ -88,8 +99,8 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.medium,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: theme.colors.inputBackground,
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
@@ -108,12 +119,24 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.text,
   },
+  inputDisabled: {
+    color: theme.colors.textSecondary,
+  },
+  inputContainerDisabled: {
+    backgroundColor: theme.colors.background,
+    opacity: 0.7,
+  },
   eyeIcon: {
     padding: theme.spacing.sm,
   },
   errorText: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.error,
+    marginTop: theme.spacing.xs,
+  },
+  helperText: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
     marginTop: theme.spacing.xs,
   },
 });

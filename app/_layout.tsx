@@ -37,20 +37,6 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
-              name="create-poll"
-              options={{
-                headerShown: false,
-                title: "Create Poll",
-              }}
-            />
-            <Stack.Screen
-              name="create-recurring-event"
-              options={{
-                headerShown: false,
-                title: "Create Recurring Event",
-              }}
-            />
-            <Stack.Screen
               name="event-details"
               options={{
                 headerShown: true,
@@ -137,6 +123,30 @@ export default function RootLayout() {
               options={{
                 headerShown: true,
                 title: "Club Settings",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="subscription-settings"
+              options={{
+                headerShown: true,
+                title: "Subscription",
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.secondary,
+                headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="track-payments"
+              options={{
+                headerShown: true,
+                title: "Track Payments",
                 headerStyle: {
                   backgroundColor: theme.colors.primary,
                 },

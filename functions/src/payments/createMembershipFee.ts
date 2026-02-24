@@ -5,6 +5,7 @@ import {
     isSupportedCurrency,
     SupportedCurrency,
 } from "../config/stripe";
+import { createNotificationDirect } from "../notifications/createNotification";
 import { config } from "../utils/config";
 
 /**
@@ -240,8 +241,9 @@ export const createMembershipFee = onCall(
 
       await membersDoc.ref.update({ members: updatedMembers });
 
-      // 11. Create notifications for each target member
-      const batch = db.batch();
+      // 11. Create notifications for each target member using createNotificationDirect
+      // This ensures consistent notification structure with read/dismissed fields
+      const notificationPromises: Promise<string>[] = [];
 
       for (const member of targetMembers) {
         // Check if this is a youth member using the same pattern as createEventV2
@@ -251,67 +253,74 @@ export const createMembershipFee = onCall(
           member.guardiansContacts.length > 0;
 
         if (isYouthMember) {
-          // For youth members, notify all guardians (using guardiansContacts from allMembers)
+          // For youth members, notify all guardians
           for (const guardian of member.guardiansContacts) {
             if (guardian.guardianUid) {
-              // Store in user's notifications subcollection for NotificationBell
-              const notificationRef = db
-                .collection("users")
-                .doc(guardian.guardianUid)
-                .collection("notifications")
-                .doc();
-              batch.set(notificationRef, {
-                userId: guardian.guardianUid,
-                type: "payment_request",
-                title: "Membership Fee Due",
-                message: `Payment required for ${member.name}: ${trimmedTitle}`,
-                status: "pending",
-                data: {
-                  feeId: feeRef.id,
-                  beneficiaryId: member.userId,
-                  beneficiaryName: member.name,
+              notificationPromises.push(
+                createNotificationDirect(guardian.guardianUid, {
+                  type: "payment_request",
+                  title: "Membership Fee Due",
+                  message: `Payment required for ${member.name}: ${trimmedTitle}`,
+                  sourceId: feeRef.id,
+                  sourceCollection: "membershipFees",
                   clubId,
+                  clubName: clubData.name || "Club",
                   groupId,
                   groupName: groupData.name,
-                  amount,
-                  currency: normalizedCurrency,
-                  dueDate: dueDateTimestamp,
-                },
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-              });
+                  priority: "high",
+                  metadata: {
+                    feeId: feeRef.id,
+                    beneficiaryId: member.userId,
+                    beneficiaryName: member.name,
+                    amount,
+                    currency: normalizedCurrency,
+                    dueDate: dueDateTimestamp,
+                  },
+                }).catch((err) => {
+                  console.error(
+                    `Failed to create notification for guardian ${guardian.guardianUid}:`,
+                    err,
+                  );
+                  return ""; // Return empty string on failure, don't block
+                }),
+              );
             }
           }
         } else {
           // For adult members, notify directly
-          // Store in user's notifications subcollection for NotificationBell
-          const notificationRef = db
-            .collection("users")
-            .doc(member.userId)
-            .collection("notifications")
-            .doc();
-          batch.set(notificationRef, {
-            userId: member.userId,
-            type: "payment_request",
-            title: "Membership Fee Due",
-            message: `Payment required: ${trimmedTitle}`,
-            status: "pending",
-            data: {
-              feeId: feeRef.id,
-              beneficiaryId: member.userId,
-              beneficiaryName: member.name,
+          notificationPromises.push(
+            createNotificationDirect(member.userId, {
+              type: "payment_request",
+              title: "Membership Fee Due",
+              message: `Payment required: ${trimmedTitle}`,
+              sourceId: feeRef.id,
+              sourceCollection: "membershipFees",
               clubId,
+              clubName: clubData.name || "Club",
               groupId,
               groupName: groupData.name,
-              amount,
-              currency: normalizedCurrency,
-              dueDate: dueDateTimestamp,
-            },
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
+              priority: "high",
+              metadata: {
+                feeId: feeRef.id,
+                beneficiaryId: member.userId,
+                beneficiaryName: member.name,
+                amount,
+                currency: normalizedCurrency,
+                dueDate: dueDateTimestamp,
+              },
+            }).catch((err) => {
+              console.error(
+                `Failed to create notification for user ${member.userId}:`,
+                err,
+              );
+              return ""; // Return empty string on failure, don't block
+            }),
+          );
         }
       }
 
-      await batch.commit();
+      // Wait for all notifications (failures are caught individually)
+      await Promise.all(notificationPromises);
 
       return {
         success: true,

@@ -115,6 +115,13 @@ export { createStripeOnboardingLink } from "./stripe/createStripeOnboardingLink"
 export { resetPaymentSetup } from "./stripe/resetPaymentSetup";
 export { stripeWebhookHandler } from "./stripe/stripeWebhookHandler";
 
+// Platform Subscription Functions (Club subscriptions to Sportnizer)
+export { createCustomerPortalSession } from "./subscriptions/createCustomerPortalSession";
+export { createSubscriptionCheckout } from "./subscriptions/createSubscriptionCheckout";
+export { getSubscriptionStatus } from "./subscriptions/getSubscriptionStatus";
+export { subscriptionWebhookHandler } from "./subscriptions/subscriptionWebhookHandler";
+export { updateSubscription } from "./subscriptions/updateSubscription";
+
 // Payment Functions (Membership Fees)
 export { createMembershipFee } from "./payments/createMembershipFee";
 export { getMembershipFees } from "./payments/getMembershipFees";
