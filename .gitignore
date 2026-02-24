@@ -40,5 +40,4 @@ yarn-error.*
 app-example
 .vscode/copilot-config.json
 settings.json
-ARCHITECTURE.md
 .copilot-instructions.md
