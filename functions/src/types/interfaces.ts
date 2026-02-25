@@ -197,6 +197,16 @@ export interface CreateUserAccountRequest {
   fullName: string;
   uid: string;
   invitationToken?: string; // Optional invitation token for invitation-based signups
+  // Legal acceptance data (required for new signups)
+  legalAcceptance?: {
+    termsVersion: string;
+    privacyVersion: string;
+    acceptanceMethod: "signup" | "login_re-acceptance" | "app_prompt";
+    clientInfo: {
+      platform: "ios" | "android" | "web";
+      appVersion: string;
+    };
+  };
 }
 
 export interface CreateUserAccountResponse {
@@ -984,5 +994,36 @@ export interface MarkNewsReadRequest {
 export interface MarkNewsReadResponse {
   success: boolean;
   message?: string;
+  error?: string;
+}
+
+// Legal acceptance interfaces
+export interface LegalAcceptanceRequest {
+  termsVersion: string;
+  privacyVersion: string;
+  acceptanceMethod: "signup" | "login_re-acceptance" | "app_prompt";
+  clientInfo: {
+    platform: "ios" | "android" | "web";
+    appVersion: string;
+  };
+}
+
+export interface LegalAcceptanceResponse {
+  success: boolean;
+  acceptanceId?: string;
+  error?: string;
+}
+
+export interface LegalConfigResponse {
+  success: boolean;
+  config?: {
+    currentTermsVersion: string;
+    currentPrivacyVersion: string;
+    termsLastUpdated: any;
+    privacyLastUpdated: any;
+    termsEffectiveDate: any;
+    privacyEffectiveDate: any;
+    materialChangesSummary: string | null;
+  };
   error?: string;
 }

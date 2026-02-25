@@ -21,10 +21,21 @@ export const createUserAccount = onCall(
         fullName,
         uid,
         invitationToken,
+        legalAcceptance,
       }: CreateUserAccountRequest = request.data;
 
       // Validate required fields
       validateRequiredFields(request.data, ["email", "fullName", "uid"]);
+
+      // Validate legal acceptance for new signups
+      if (legalAcceptance) {
+        if (!legalAcceptance.termsVersion || !legalAcceptance.privacyVersion) {
+          throw new HttpsError(
+            "invalid-argument",
+            "Legal acceptance requires terms and privacy versions",
+          );
+        }
+      }
 
       // Check if user is invited
       const isInvitedUser = !!invitationToken;
@@ -70,10 +81,41 @@ export const createUserAccount = onCall(
         // Subscription limits (usage tracking)
         activeClubsAsAdmin: 0, // No clubs created yet
         maxClubsAsAdmin: DEFAULT_LIMITS.maxClubsAsAdmin, // Free tier default: 1
+        // Legal acceptance fields
+        acceptedTermsVersion: legalAcceptance?.termsVersion || null,
+        acceptedPrivacyVersion: legalAcceptance?.privacyVersion || null,
+        legalAcceptedAt: legalAcceptance
+          ? admin.firestore.FieldValue.serverTimestamp()
+          : null,
       };
 
+      // Use batch write if legal acceptance is provided
+      const batch = db.batch();
+
       // Save user profile to Firestore
-      await db.collection("users").doc(uid).set(userProfile);
+      batch.set(db.collection("users").doc(uid), userProfile);
+
+      // Create legal acceptance audit record if provided
+      if (legalAcceptance) {
+        const acceptanceRef = db.collection("legal_acceptances").doc();
+        batch.set(acceptanceRef, {
+          acceptanceId: acceptanceRef.id,
+          userId: uid,
+          termsVersion: legalAcceptance.termsVersion,
+          privacyVersion: legalAcceptance.privacyVersion,
+          acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+          acceptanceMethod: legalAcceptance.acceptanceMethod || "signup",
+          clientInfo: legalAcceptance.clientInfo || {
+            platform: "web",
+            appVersion: "unknown",
+          },
+        });
+        console.log(
+          `📋 Legal acceptance will be recorded: Terms ${legalAcceptance.termsVersion}, Privacy ${legalAcceptance.privacyVersion}`,
+        );
+      }
+
+      await batch.commit();
 
       console.log(
         `User profile created for ${uid}, processing email verification...`,

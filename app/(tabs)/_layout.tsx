@@ -1,13 +1,17 @@
 import AuthGuard from "@/components/AuthGuard";
+import LegalAcceptanceScreen from "@/components/LegalAcceptanceScreen";
 import NotificationBell from "@/components/NotificationBell";
 import UserAvatar from "@/components/UserAvatar";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserContext";
+import { signOutUser } from "@/services/auth/authService";
+import { legalService } from "@/services/legal/legalService";
+import { VersionCheckResult } from "@/services/types/legal";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, Tabs } from "expo-router";
-import React from "react";
-import { Platform, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Platform, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // Header component with NotificationBell and UserAvatar
@@ -29,12 +33,98 @@ function HeaderRight() {
 
 export default function TabLayout() {
   const { user } = useAuth();
-  const { userProfile, isLoading, hasLoadedFreshData } = useUserProfile();
+  const { userProfile, isLoading, hasLoadedFreshData, refreshUserProfile } =
+    useUserProfile();
+
+  // Legal acceptance state
+  const [legalCheckResult, setLegalCheckResult] =
+    useState<VersionCheckResult | null>(null);
+  const [isCheckingLegal, setIsCheckingLegal] = useState(true);
+  const [isAcceptingLegal, setIsAcceptingLegal] = useState(false);
+
+  // Check legal versions when user is authenticated
+  useEffect(() => {
+    const checkLegalAcceptance = async () => {
+      if (!user?.uid) {
+        setIsCheckingLegal(false);
+        return;
+      }
+
+      try {
+        console.log("⚖️ Checking legal acceptance for user:", user.uid);
+        const result = await legalService.checkLegalVersions(user.uid);
+        console.log("⚖️ Legal check result:", result);
+        setLegalCheckResult(result);
+      } catch (error) {
+        console.error("Error checking legal versions:", error);
+        // On error, don't block the user
+        setLegalCheckResult({
+          requiresAcceptance: false,
+          termsOutdated: false,
+          privacyOutdated: false,
+          neverAccepted: false,
+          materialChangesSummary: null,
+          currentTermsVersion: "",
+          currentPrivacyVersion: "",
+        });
+      } finally {
+        setIsCheckingLegal(false);
+      }
+    };
+
+    checkLegalAcceptance();
+  }, [user?.uid]);
+
+  // Handle legal acceptance
+  const handleLegalAccept = async () => {
+    if (!legalCheckResult) return;
+
+    setIsAcceptingLegal(true);
+    try {
+      const result = await legalService.acceptCurrentLegalDocuments(
+        "login_re-acceptance",
+      );
+
+      if (result.success) {
+        console.log("✅ Legal acceptance recorded successfully");
+        // Refresh user profile to get updated legal acceptance
+        await refreshUserProfile();
+        // Clear the legal check - user has now accepted
+        setLegalCheckResult({
+          ...legalCheckResult,
+          requiresAcceptance: false,
+        });
+      } else {
+        console.error("Failed to record legal acceptance:", result.error);
+      }
+    } catch (error) {
+      console.error("Error recording legal acceptance:", error);
+    } finally {
+      setIsAcceptingLegal(false);
+    }
+  };
+
+  // Handle sign out from legal screen
+  const handleLegalSignOut = async () => {
+    await signOutUser();
+  };
 
   // NOW DO CONDITIONAL RETURNS - AFTER ALL HOOKS
   // Wait for userProfile to load before making redirect decisions
-  if (isLoading) {
-    return null; // or a loading spinner
+  if (isLoading || isCheckingLegal) {
+    return (
+      <SafeAreaView
+        style={{
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+        edges={["top", "bottom"]}
+      >
+        <ActivityIndicator size="large" color={theme.colors.accent} />
+      </SafeAreaView>
+    );
   }
 
   // Redirect based on auth state and club membership
@@ -43,8 +133,24 @@ export default function TabLayout() {
     return <Redirect href="/welcome" />;
   }
 
+  // Check if user needs to accept legal documents
+  if (legalCheckResult?.requiresAcceptance) {
+    console.log("⚖️ User needs to accept legal documents");
+    return (
+      <LegalAcceptanceScreen
+        mode={legalCheckResult.neverAccepted ? "signup" : "re-acceptance"}
+        termsVersion={legalCheckResult.currentTermsVersion}
+        privacyVersion={legalCheckResult.currentPrivacyVersion}
+        materialChangesSummary={legalCheckResult.materialChangesSummary}
+        onAccept={handleLegalAccept}
+        onCancel={handleLegalSignOut}
+        isLoading={isAcceptingLegal}
+      />
+    );
+  }
+
   // ⚠️ CRITICAL: Wait for fresh data to be loaded before checking clubAccess
-  // This prevents redirecting to create-club-form when user was just added to a club
+  // This prevents issues when user was just added to a club
   // during signup (the profile needs to be refreshed from Firestore first)
   if (!hasLoadedFreshData && user) {
     // Still loading fresh data - show loading state
@@ -52,13 +158,8 @@ export default function TabLayout() {
     return null;
   }
 
-  if (!userProfile?.clubAccess || userProfile.clubAccess.length === 0) {
-    // Authenticated but no clubs - redirect directly to create club form
-    console.log(
-      "🔄 TabLayout: No clubs found, redirecting to create-club-form",
-    );
-    return <Redirect href="/create-club-form" />;
-  }
+  // Users without clubs can now access the app - they'll see "Create Club" card on home screen
+  // No longer forcing redirect to create-club-form
 
   return (
     <AuthGuard>

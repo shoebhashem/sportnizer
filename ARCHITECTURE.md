@@ -26,6 +26,7 @@
 - [Frontend/UI Architecture](#frontendui-architecture)
 - [Firestore Security Rules & Access Control](#-firestore-security-rules--access-control)
 - [Stripe Connect & Payment System](#-stripe-connect--payment-system)
+- [Legal & Compliance System](#-legal--compliance-system)
 - [Implementation Notes](#implementation-notes)
 
 ---
@@ -15445,6 +15446,430 @@ firestore.rules                  - Add payment collection rules
 ---
 
 _This payment system integrates with Stripe Connect using the Platform model with destination charges. Clubs receive payments directly into their Stripe accounts, with Sportnizer collecting a 2% platform fee. The architecture supports international clubs with automatic currency detection and provides guardian payment flows for underage members._
+
+---
+
+## ⚖️ Legal & Compliance System
+
+### Overview
+
+Sportnizer implements a version-controlled legal acceptance system that tracks user consent to Terms of Service and Privacy Policy. The system supports:
+
+- **Initial acceptance** during signup
+- **Re-acceptance** when legal documents are updated
+- **Audit trail** of all acceptances
+- **GDPR-compatible** data controller/processor model
+
+### Data Controller vs Data Processor Roles
+
+**Critical Distinction:**
+
+| Role                | Entity     | Responsibilities                                                                                                                                 |
+| ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Data Controller** | Each Club  | Determines purposes/means of processing member data, obtains guardian consent for youth members, responds to data subject requests for club data |
+| **Data Processor**  | Sportnizer | Processes club data on behalf of clubs, provides platform infrastructure, implements security measures                                           |
+
+Sportnizer acts as **Data Controller** only for account-level data (login credentials, account settings). For all club membership data, the Club is the Data Controller and Sportnizer is the Data Processor.
+
+### Legal Document Versioning
+
+#### Version Format
+
+```
+TERMS_YYYY.X     (e.g., TERMS_2026.1)
+PRIVACY_YYYY.X   (e.g., PRIVACY_2026.1)
+```
+
+- `YYYY` = Year of publication
+- `X` = Sequential revision number within year
+
+#### Version Constants
+
+```typescript
+// constants/legal.ts
+export const CURRENT_TERMS_VERSION = "TERMS_2026.1";
+export const CURRENT_PRIVACY_VERSION = "PRIVACY_2026.1";
+
+export const LEGAL_URLS = {
+  termsOfService: "https://sportnizer.com/legal/terms",
+  privacyPolicy: "https://sportnizer.com/legal/privacy",
+};
+```
+
+### Firestore Data Model
+
+#### Legal Config Document
+
+```typescript
+// /config/legal (single document)
+{
+  currentTermsVersion: "TERMS_2026.1",
+  currentPrivacyVersion: "PRIVACY_2026.1",
+  effectiveDate: Timestamp,
+  materialChangesSummary: string | null,  // Summary of changes for re-acceptance UI
+  lastUpdated: Timestamp
+}
+```
+
+#### Legal Acceptance Records
+
+```typescript
+// /legal_acceptances/{acceptanceId}
+{
+  userId: string,
+  termsVersion: "TERMS_2026.1",
+  privacyVersion: "PRIVACY_2026.1",
+  acceptedAt: Timestamp,
+  acceptanceMethod: "signup" | "login_re-acceptance" | "app_prompt",
+  ipAddress?: string,           // Optional, for audit purposes
+  userAgent?: string,           // Optional, device/browser info
+  createdAt: Timestamp
+}
+```
+
+#### User Document Fields
+
+```typescript
+// /users/{userId} - legalAcceptance field
+{
+  // ... existing user fields ...
+  legalAcceptance: {
+    termsVersion: "TERMS_2026.1",
+    privacyVersion: "PRIVACY_2026.1",
+    acceptedAt: Timestamp,
+    acceptanceMethod: "signup" | "login_re-acceptance" | "app_prompt"
+  }
+}
+```
+
+### Acceptance Flows
+
+#### 1. Signup Flow (Initial Acceptance)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SIGNUP WITH LEGAL                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. User fills signup form                                   │
+│  2. User checks required checkbox:                           │
+│     ☑ "I agree to the Terms of Service and Privacy Policy"  │
+│  3. User clicks "Create Account"                            │
+│  4. createUserAccount function:                              │
+│     - Creates Firebase Auth user                             │
+│     - Creates user document WITH legalAcceptance field       │
+│     - Creates /legal_acceptances/{id} audit record           │
+│     - Sends verification email                               │
+│  5. User proceeds to email verification                      │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 2. Re-Acceptance Flow (Updated Terms)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    RE-ACCEPTANCE FLOW                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Triggered when user's accepted version < current version    │
+│                                                              │
+│  1. User opens app / navigates to tabs                       │
+│  2. _layout.tsx checks legal versions:                       │
+│     - Fetches /config/legal for current versions             │
+│     - Compares with user.legalAcceptance versions            │
+│  3. If outdated → Shows LegalAcceptanceScreen (blocking)     │
+│     - Displays key changes summary                           │
+│     - Links to full Terms and Privacy Policy                 │
+│     - Requires checkbox acceptance                           │
+│  4. User accepts → recordLegalAcceptance function:           │
+│     - Updates user document legalAcceptance field            │
+│     - Creates new /legal_acceptances/{id} audit record       │
+│  5. App refreshes profile and proceeds to normal flow        │
+│                                                              │
+│  Alternative: User can sign out instead of accepting         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Firebase Functions
+
+#### Function Locations
+
+```
+functions/src/legal/
+└── legalFunctions.ts
+    ├── getLegalConfig      # Fetches current legal config
+    └── recordLegalAcceptance  # Records acceptance (re-acceptance flow)
+```
+
+#### getLegalConfig
+
+```typescript
+// Callable function - returns current legal config
+{
+  input: {},
+  output: {
+    currentTermsVersion: string,
+    currentPrivacyVersion: string,
+    effectiveDate: Timestamp,
+    materialChangesSummary: string | null
+  }
+}
+```
+
+#### recordLegalAcceptance
+
+```typescript
+// Callable function - records re-acceptance
+{
+  input: {
+    termsVersion: string,
+    privacyVersion: string,
+    acceptanceMethod: "login_re-acceptance" | "app_prompt"
+  },
+  output: {
+    success: boolean,
+    message: string
+  }
+}
+```
+
+### Frontend Components
+
+#### LegalAcceptanceScreen
+
+Full-screen blocking component shown when re-acceptance is required:
+
+```typescript
+// components/LegalAcceptanceScreen.tsx
+props: {
+  onAccepted: () => void;  // Called after successful acceptance
+}
+
+features:
+- Displays key points summary
+- Links to full Terms of Service
+- Links to full Privacy Policy
+- Checkbox for acceptance
+- Accept button (disabled until checkbox checked)
+- Sign Out option
+```
+
+#### LegalSettingsSection
+
+Displays legal document links and acceptance status in user profile:
+
+```typescript
+// components/LegalSettingsSection.tsx
+props: {
+  showAcceptanceStatus?: boolean;  // Default: true
+}
+
+features:
+- Links to Terms of Service
+- Links to Privacy Policy
+- Shows current version numbers
+- Shows "Accepted" or "Update Required" badges
+- Shows last acceptance date
+```
+
+### Client-Side Services
+
+#### Legal Service
+
+```typescript
+// services/legal/legalService.ts
+
+checkLegalVersions(user): Promise<VersionCheckResult>
+  // Compares user's accepted versions with current config
+  // Returns: { needsReacceptance: boolean, materialChangesSummary?: string }
+
+recordAcceptance(data): Promise<void>
+  // Calls recordLegalAcceptance function
+  // Updates user profile after success
+```
+
+### Legal Documents
+
+Legal documents are stored in Markdown format for version control:
+
+```
+docs/
+├── TERMS_OF_SERVICE.md    # Version: TERMS_2026.1
+└── PRIVACY_POLICY.md      # Version: PRIVACY_2026.1
+```
+
+#### Terms of Service Key Sections
+
+1. Definitions (Club, Member, Youth Member, Guardian)
+2. Acceptance of Terms
+3. Account Registration (includes **Authority-to-Bind Clause**)
+4. Club Responsibilities as Data Controller
+5. Sportnizer Role as Data Processor
+6. Embedded Data Processing Agreement (DPA)
+7. Youth Members and Guardian Consent
+8. Member Data Processing
+9. Acceptable Use
+10. Intellectual Property
+11. Disclaimers and Limitations
+12. Indemnification
+13. Governing Law
+14. Changes to Terms
+15. Standard Clauses (Entire Agreement, Severability, Waiver, Assignment)
+
+#### Authority-to-Bind Clause (Section 3.3)
+
+> "By creating or administering a Club on Sportnizer, you represent and warrant that you have the legal authority to bind the Club entity (if applicable) to these Terms. If you are acting on behalf of an organization, you represent that you have the authority to enter into these Terms on behalf of that organization."
+
+#### Privacy Policy Key Sections
+
+1. Data Controller vs Data Processor Roles
+2. Data We Collect (Account, Profile, Membership, Youth, Event, Payment, Usage)
+3. How We Use Data
+4. Legal Basis for Processing
+5. Youth Members and Guardian Consent
+6. Data Sharing (Sub-processors table)
+7. International Data Transfers
+8. Data Retention (30-day soft delete)
+9. Your Rights (Access, Rectification, Erasure, Portability, etc.)
+10. Data Export (available upon request)
+11. Cookies and Tracking
+12. Security Measures
+13. Changes to Policy
+14. Jurisdiction-specific Information (EEA, California)
+
+### Integration Points
+
+#### Signup Flow Integration
+
+```typescript
+// app/signup.tsx
+- Adds checkbox: "I agree to the Terms of Service and Privacy Policy"
+- Validates checkbox is checked before submission
+- Passes legalAcceptance data to createUserAccount
+```
+
+#### Layout Integration
+
+```typescript
+// app/(tabs)/_layout.tsx
+- Checks legal versions on mount and when userProfile changes
+- Shows LegalAcceptanceScreen if re-acceptance needed
+- Blocks app access until accepted or signed out
+```
+
+#### Profile Integration
+
+```typescript
+// app/profile.tsx
+- Includes LegalSettingsSection component
+- Shows links to legal documents
+- Displays acceptance status
+```
+
+### Updating Legal Documents
+
+When legal documents need to be updated:
+
+1. **Update document files**:
+   - Edit `docs/TERMS_OF_SERVICE.md` and/or `docs/PRIVACY_POLICY.md`
+   - Update version number in document header
+   - Update "Last Updated" date
+
+2. **Update version constants**:
+
+   ```typescript
+   // constants/legal.ts
+   export const CURRENT_TERMS_VERSION = "TERMS_2026.2"; // Increment
+   ```
+
+3. **Update Firestore config**:
+
+   ```typescript
+   // /config/legal document
+   {
+     currentTermsVersion: "TERMS_2026.2",
+     materialChangesSummary: "Updated data retention policy and added new sub-processor.",
+     lastUpdated: Timestamp.now()
+   }
+   ```
+
+4. **Deploy and test**:
+   - Deploy Firebase Functions
+   - Test re-acceptance flow with existing user
+   - Verify audit records created
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         LEGAL FLOW                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │   Signup     │───▶│ createUser   │───▶│ User Doc +   │       │
+│  │   Screen     │    │ Account      │    │ Audit Record │       │
+│  └──────────────┘    └──────────────┘    └──────────────┘       │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │   Legal      │◀───│ Version      │◀───│ /config/     │       │
+│  │   Check      │    │ Compare      │    │ legal        │       │
+│  └──────────────┘    └──────────────┘    └──────────────┘       │
+│         │                                                        │
+│         ▼ (if outdated)                                          │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │   Acceptance │───▶│ recordLegal  │───▶│ User Doc +   │       │
+│  │   Screen     │    │ Acceptance   │    │ Audit Record │       │
+│  └──────────────┘    └──────────────┘    └──────────────┘       │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌──────────────┐                                                │
+│  │   Main App   │                                                │
+│  │   Access     │                                                │
+│  └──────────────┘                                                │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### File Structure
+
+```
+constants/
+└── legal.ts                    # Version constants, URLs
+
+services/
+├── types/
+│   ├── legal.ts               # Legal TypeScript interfaces
+│   └── user.ts                # Updated with legalAcceptance field
+└── legal/
+    └── legalService.ts        # Frontend legal service
+
+functions/src/
+├── legal/
+│   └── legalFunctions.ts      # getLegalConfig, recordLegalAcceptance
+├── auth/
+│   └── createUserAccount.ts   # Updated to record initial acceptance
+└── types/
+    └── interfaces.ts          # Updated with legal interfaces
+
+components/
+├── LegalAcceptanceScreen.tsx  # Full-screen re-acceptance UI
+└── LegalSettingsSection.tsx   # Profile legal links section
+
+app/
+├── signup.tsx                 # Updated with legal checkbox
+├── profile.tsx                # Updated with LegalSettingsSection
+└── (tabs)/
+    └── _layout.tsx            # Updated with re-acceptance check
+
+docs/
+├── TERMS_OF_SERVICE.md        # Full Terms of Service document
+└── PRIVACY_POLICY.md          # Full Privacy Policy document
+```
+
+---
 
 ## Implementation Notes
 

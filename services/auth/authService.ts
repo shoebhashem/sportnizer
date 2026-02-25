@@ -1,10 +1,10 @@
 import { auth, db, functions } from "@/services/core/firebase";
 import {
-    createUserWithEmailAndPassword,
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    signOut,
-    User,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  User,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -53,11 +53,22 @@ export const signInUser = async (email: string, password: string) => {
 };
 
 // ---------------------- SIGN UP ----------------------
+export interface LegalAcceptanceData {
+  termsVersion: string;
+  privacyVersion: string;
+  acceptanceMethod: "signup" | "login_re-acceptance" | "app_prompt";
+  clientInfo: {
+    platform: "ios" | "android" | "web";
+    appVersion: string;
+  };
+}
+
 export const signUpUser = async (
   email: string,
   password: string,
   fullName: string,
   invitationToken?: string,
+  legalAcceptance?: LegalAcceptanceData,
 ) => {
   try {
     // Create Firebase Auth user first
@@ -87,6 +98,7 @@ export const signUpUser = async (
         fullName: fullName.trim(),
         uid: user.uid,
         invitationToken: invitationToken || undefined,
+        legalAcceptance: legalAcceptance || undefined,
       });
 
       const responseData = result.data as {

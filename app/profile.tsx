@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import ConfirmationModal from "../components/ConfirmationModal";
+import LegalSettingsSection from "../components/LegalSettingsSection";
 import ProfilePictureUpload from "../components/ProfilePictureUpload";
 import { getDefaultProfilePicture } from "../constants/profilePictures";
 import { theme } from "../constants/theme";
@@ -493,6 +494,9 @@ export default function ProfileScreen() {
               ))}
             </View>
           )}
+
+          {/* ---- Legal Settings ---- */}
+          <LegalSettingsSection showAcceptanceStatus={true} />
 
           {/* ---- Sign Out ---- */}
           <View style={styles.signOutSection}>

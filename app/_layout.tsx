@@ -72,6 +72,18 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="club-info"
+                options={{
+                  headerShown: true,
+                  title: "Club Info",
+                  headerStyle: {
+                    backgroundColor: theme.colors.primary,
+                  },
+                  headerTintColor: theme.colors.white,
+                  headerShadowVisible: false,
+                }}
+              />
+              <Stack.Screen
                 name="manageteams"
                 options={{
                   headerShown: true,

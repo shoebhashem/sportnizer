@@ -1,14 +1,18 @@
 import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import Input from "@/components/Input";
+import { LEGAL_URLS } from "@/constants/legal";
 import { theme } from "@/constants/theme";
 import { functions } from "@/services/core/firebase";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { httpsCallable } from "firebase/functions";
 import React, { useEffect, useState } from "react";
 import {
     KeyboardAvoidingView,
+    Linking,
     Platform,
+    Pressable,
     ScrollView,
     StyleSheet,
     Text,
@@ -16,6 +20,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signUpUser } from "../services/auth/authService";
+import { legalService } from "../services/legal/legalService";
 import { addRegularMemberToGroupService } from "../services/orchestration/addRegularMemberToGroup";
 
 export default function SignupScreen() {
@@ -61,6 +66,25 @@ export default function SignupScreen() {
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
+
+  // Legal acceptance state
+  const [hasAcceptedLegal, setHasAcceptedLegal] = useState(false);
+  const [legalVersions, setLegalVersions] = useState<{
+    termsVersion: string;
+    privacyVersion: string;
+  } | null>(null);
+
+  // Load legal versions on mount
+  useEffect(() => {
+    const loadLegalVersions = async () => {
+      const acceptance = await legalService.getLegalAcceptanceForSignup();
+      setLegalVersions({
+        termsVersion: acceptance.termsVersion,
+        privacyVersion: acceptance.privacyVersion,
+      });
+    };
+    loadLegalVersions();
+  }, []);
 
   // Load invitation info if invite token is present
   useEffect(() => {
@@ -189,6 +213,15 @@ export default function SignupScreen() {
       isValid = false;
     }
 
+    // Validate legal acceptance
+    if (!hasAcceptedLegal) {
+      setModalMessage(
+        "Please accept the Terms of Service and Privacy Policy to create an account.",
+      );
+      setErrorModalVisible(true);
+      isValid = false;
+    }
+
     return isValid;
   };
 
@@ -199,12 +232,29 @@ export default function SignupScreen() {
 
     try {
       console.log("🚀 Starting signup process with invitation token:", invite);
-      // Pass invitation token to signUpUser to skip email verification for invited users
+
+      // Prepare legal acceptance data
+      const legalAcceptanceData = legalVersions
+        ? {
+            termsVersion: legalVersions.termsVersion,
+            privacyVersion: legalVersions.privacyVersion,
+            acceptanceMethod: "signup" as const,
+            clientInfo: {
+              platform: legalService.getCurrentPlatform(),
+              appVersion: legalService.getAppVersion(),
+            },
+          }
+        : undefined;
+
+      console.log("📋 Legal acceptance data:", legalAcceptanceData);
+
+      // Pass invitation token and legal acceptance to signUpUser
       const result = await signUpUser(
         email.trim(),
         password,
         fullName.trim(),
         invite || undefined,
+        legalAcceptanceData,
       );
 
       console.log("📊 Signup result:", result);
@@ -498,6 +548,49 @@ export default function SignupScreen() {
               error={confirmPasswordError}
             />
 
+            {/* Legal Acceptance Checkbox */}
+            <Pressable
+              style={styles.legalContainer}
+              onPress={() => setHasAcceptedLegal(!hasAcceptedLegal)}
+            >
+              <View
+                style={[
+                  styles.checkbox,
+                  hasAcceptedLegal && styles.checkboxChecked,
+                ]}
+              >
+                {hasAcceptedLegal && (
+                  <Ionicons
+                    name="checkmark"
+                    size={16}
+                    color={theme.colors.primary}
+                  />
+                )}
+              </View>
+              <Text style={styles.legalText}>
+                I have read and agree to the{" "}
+                <Text
+                  style={styles.legalLink}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Linking.openURL(LEGAL_URLS.termsOfService);
+                  }}
+                >
+                  Terms of Service
+                </Text>{" "}
+                and{" "}
+                <Text
+                  style={styles.legalLink}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Linking.openURL(LEGAL_URLS.privacyPolicy);
+                  }}
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
+            </Pressable>
+
             <View style={styles.buttonContainer}>
               <Button
                 label="Create Account"
@@ -590,5 +683,36 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginTop: theme.spacing.lg,
+  },
+  legalContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.xs,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: theme.colors.inputBorder,
+    marginRight: theme.spacing.sm,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
+  },
+  legalText: {
+    flex: 1,
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    lineHeight: 20,
+  },
+  legalLink: {
+    color: theme.colors.accent,
+    textDecorationLine: "underline",
   },
 });

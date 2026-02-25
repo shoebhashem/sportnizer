@@ -27,6 +27,9 @@ export interface ClubData {
   name: string;
   description: string;
   location: string;
+  address?: string; // Full street address (separate from location/city)
+  phoneNumber?: string; // Club contact phone number
+  logoUrl?: string; // URL to club logo image (resized)
   admins: string[]; // User IDs with club-admin role
   memberCount: number;
   isActive: boolean;

@@ -23,13 +23,20 @@ export interface UserProfile {
   groupsCreated?: number;
   events: EventInvitation[];
   eventsResponses: any[]; // TODO: Define proper EventResponses type
-  verificationStatus?: 'pending' | 'verified' | 'rejected';
+  verificationStatus?: "pending" | "verified" | "rejected";
   createdAt?: Date;
   lastActive?: Date;
   version?: number; // Version for cache optimization
   // Youth member relationships
   dependents?: DependentInfo[]; // For guardians - list of youth members they manage
   guardians?: GuardianInfo[]; // For youth members - list of guardians
+  // Legal acceptance tracking
+  legalAcceptance?: {
+    termsVersion: string;
+    privacyVersion: string;
+    acceptedAt: Date;
+    acceptanceMethod: string;
+  };
 }
 
 // Dependent (youth member) info stored in guardian's document
@@ -55,7 +62,7 @@ export interface GuardianInfo {
 export interface ClubAccess {
   clubId: string;
   clubName: string;
-  role: 'club-admin' | 'member'; // role in the club - matches ARCHITECTURE.md
+  role: "club-admin" | "member"; // role in the club - matches ARCHITECTURE.md
   joinedAt: Date;
   lastModifiedAt: Date;
   isActive?: boolean; // false when club is soft-deleted
@@ -83,23 +90,23 @@ export interface EventAccess {
   startDate: Date;
   startTime: string;
   location: string;
-  response: 'pending' | 'accepted' | 'declined'; // pending initially until user responds
-  targetScope: 'club' | 'group' | 'subgroup';
+  response: "pending" | "accepted" | "declined"; // pending initially until user responds
+  targetScope: "club" | "group" | "subgroup";
   targetId: string; // clubId, groupId, or subGroupId
 }
 
 export interface PollAccess {
   pollId: string;
   pollName: string;
-  response: 'pending' | 'submitted';
-  targetScope: 'club' | 'group' | 'subgroup';
+  response: "pending" | "submitted";
+  targetScope: "club" | "group" | "subgroup";
 }
 
 export interface AnnouncementAccess {
   announcementId: string;
   announcementName: string;
   readAt?: Date;
-  targetScope: 'club' | 'group' | 'subgroup';
+  targetScope: "club" | "group" | "subgroup";
 }
 
 export interface GroupInvite {
@@ -109,15 +116,14 @@ export interface GroupInvite {
   clubId?: string; // Optional since it's nested within ClubAccess
   invitedBy: string;
   invitedByName?: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: "pending" | "accepted" | "rejected";
   message?: string;
   createdAt: Date;
 }
 
-
 export interface EventInvitation {
   eventId: string;
-  response: 'not replied' | 'accepted' | 'declined';
+  response: "not replied" | "accepted" | "declined";
   invitedAt?: Date;
   respondedAt?: Date;
 }

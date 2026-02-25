@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -22,6 +23,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useUser } from "../../contexts/UserContext";
 import { getCurrentUser } from "../../services/auth/authService";
+import { clubService } from "../../services/club";
 import { fetchDependentProfiles } from "../../services/fetchDependentProfiles";
 import {
   acceptGroupInvite,
@@ -84,6 +86,9 @@ export default function Index() {
   // Pending payments state
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
 
+  // Club logos state
+  const [clubLogos, setClubLogos] = useState<Record<string, string | null>>({});
+
   // Load pending payments
   const loadPendingPayments = useCallback(async () => {
     try {
@@ -123,6 +128,37 @@ export default function Index() {
       loadPendingPayments();
     }
   }, [user?.uid, loadPendingPayments]);
+
+  // Load club logos when userProfile changes
+  useEffect(() => {
+    const fetchClubLogos = async () => {
+      if (!userProfile?.clubAccess || userProfile.clubAccess.length === 0) {
+        return;
+      }
+
+      const logos: Record<string, string | null> = {};
+
+      await Promise.all(
+        userProfile.clubAccess.map(async (club) => {
+          try {
+            const result = await clubService.getClub(club.clubId);
+            if (result.success && result.data?.logoUrl) {
+              logos[club.clubId] = result.data.logoUrl;
+            } else {
+              logos[club.clubId] = null;
+            }
+          } catch (error) {
+            console.log(`Could not fetch logo for club ${club.clubId}:`, error);
+            logos[club.clubId] = null;
+          }
+        }),
+      );
+
+      setClubLogos(logos);
+    };
+
+    fetchClubLogos();
+  }, [userProfile?.clubAccess]);
 
   const loadInvitations = useCallback(async () => {
     try {
@@ -671,55 +707,119 @@ export default function Index() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Club Container */}
-      {userProfile?.clubAccess && userProfile.clubAccess.length > 0 && (
-        <View style={styles.clubSection}>
-          {userProfile.clubAccess.map((club) => (
-            <TouchableOpacity
-              key={club.clubId}
-              style={styles.clubContainer}
-              onPress={() => {
-                if (club.role === "club-admin") {
-                  router.push(`/manage-club?clubId=${club.clubId}`);
-                }
-              }}
-              disabled={club.role !== "club-admin"}
-            >
-              <View style={styles.clubHeader}>
-                <View style={styles.clubIcon}>
-                  <Ionicons
-                    name="trophy"
-                    size={24}
-                    color={theme.colors.secondary}
-                  />
-                </View>
-                <View style={styles.clubInfo}>
-                  <Text style={styles.clubName}>{club.clubName}</Text>
-                  {club.role === "club-admin" && (
-                    <View style={styles.adminBadge}>
-                      <Ionicons
-                        name="shield-checkmark"
-                        size={12}
-                        color={theme.colors.secondary}
-                      />
-                      <Text style={styles.adminText}>
-                        Admin • Tap to manage
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                {club.role === "club-admin" && (
-                  <Ionicons
-                    name="chevron-forward"
-                    size={20}
-                    color={theme.colors.textSecondary}
-                  />
-                )}
+      {/* Club Container - Unified for all 3 cases */}
+      <View style={styles.clubSection}>
+        {/* Case 1: No club - Show Create Club card */}
+        {(!userProfile?.clubAccess || userProfile.clubAccess.length === 0) && (
+          <TouchableOpacity
+            style={styles.clubContainer}
+            onPress={() => router.push("/create-club-form")}
+            activeOpacity={0.7}
+          >
+            <View style={styles.clubHeader}>
+              <View style={[styles.clubIcon, styles.createClubIcon]}>
+                <Ionicons
+                  name="add-circle"
+                  size={28}
+                  color={theme.colors.secondary}
+                />
               </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+              <View style={styles.clubInfo}>
+                <Text style={styles.clubName}>Create Club</Text>
+                <Text style={styles.clubSubtext}>
+                  Start managing your sports organization
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Case 2 & 3: Has club - Show club card(s) */}
+        {userProfile?.clubAccess && userProfile.clubAccess.length > 0 && (
+          <>
+            {userProfile.clubAccess.map((club) => {
+              const isAdmin = club.role === "club-admin";
+              return (
+                <TouchableOpacity
+                  key={club.clubId}
+                  style={styles.clubContainer}
+                  onPress={() => {
+                    if (isAdmin) {
+                      router.push(`/manage-club?clubId=${club.clubId}`);
+                    }
+                  }}
+                  disabled={!isAdmin}
+                  activeOpacity={isAdmin ? 0.7 : 1}
+                >
+                  <View style={styles.clubHeader}>
+                    <View style={styles.clubIcon}>
+                      {clubLogos[club.clubId] ? (
+                        <Image
+                          source={{ uri: clubLogos[club.clubId]! }}
+                          style={styles.clubLogoImage}
+                        />
+                      ) : (
+                        <Ionicons
+                          name="trophy"
+                          size={24}
+                          color={theme.colors.secondary}
+                        />
+                      )}
+                    </View>
+                    <View style={styles.clubInfo}>
+                      <Text style={styles.clubName}>{club.clubName}</Text>
+                      {isAdmin ? (
+                        <View style={styles.adminBadge}>
+                          <Ionicons
+                            name="shield-checkmark"
+                            size={12}
+                            color={theme.colors.secondary}
+                          />
+                          <Text style={styles.adminText}>
+                            Admin • Tap to manage
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.clubSubtext}>Member</Text>
+                      )}
+                    </View>
+                    {/* Info icon for all users */}
+                    <TouchableOpacity
+                      style={styles.infoIconButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        router.push(
+                          `/club-info?clubId=${club.clubId}&mode=${isAdmin ? "edit" : "view"}`,
+                        );
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={24}
+                        color={theme.colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                    {isAdmin && (
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={theme.colors.textSecondary}
+                        style={{ marginLeft: 4 }}
+                      />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
+      </View>
 
       {/* Content */}
       <ScrollView
@@ -972,6 +1072,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: theme.spacing.md,
   },
+  clubLogoImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
   clubInfo: {
     flex: 1,
   },
@@ -990,6 +1095,17 @@ const styles = StyleSheet.create({
     color: theme.colors.secondary,
     marginLeft: theme.spacing.xs,
     fontWeight: theme.typography.fontWeight.medium,
+  },
+  createClubIcon: {
+    backgroundColor: theme.colors.secondary + "20",
+  },
+  clubSubtext: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+  },
+  infoIconButton: {
+    padding: theme.spacing.xs,
+    marginRight: theme.spacing.xs,
   },
 
   // Section Styles

@@ -20,6 +20,7 @@ export { getClubMembers } from "./clubs/getClubMembers";
 export { reactivateClub } from "./clubs/reactivateClub";
 export { updateClub } from "./clubs/updateClub";
 export { updateUserClubDeletion } from "./clubs/updateUserClubDeletion";
+export { uploadClubLogo } from "./clubs/uploadClubLogo";
 
 // Group Management Functions (Atomic)
 export { createGroup } from "./groups/createGroup";
@@ -130,3 +131,6 @@ export { getUserPendingPayments } from "./payments/getUserPendingPayments";
 
 // News Functions
 export { createNews } from "./news/createNews";
+
+// Legal Functions
+export { getLegalConfig, recordLegalAcceptance } from "./legal/legalFunctions";
