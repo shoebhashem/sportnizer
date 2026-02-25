@@ -1,13 +1,21 @@
-import Button from '@/components/Button';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import { theme } from '@/constants/theme';
-import { fetchGroupMembers } from '@/services/fetchGroupMembers';
-import { subgroupService } from '@/services/subgroup';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Button from "@/components/Button";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import { theme } from "@/constants/theme";
+import { fetchGroupMembers } from "@/services/fetchGroupMembers";
+import { subgroupService } from "@/services/subgroup";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 interface Member {
   userId: string;
@@ -24,10 +32,14 @@ export default function ManageSubgroupMembersScreen() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [errorModal, setErrorModal] = useState<{ visible: boolean; title: string; message: string }>({
+  const [errorModal, setErrorModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({
     visible: false,
-    title: '',
-    message: ''
+    title: "",
+    message: "",
   });
 
   const showError = (title: string, message: string) => {
@@ -35,67 +47,89 @@ export default function ManageSubgroupMembersScreen() {
   };
 
   const fetchMembersAndSubgroup = useCallback(async () => {
-    if (!groupId || !clubId || !subgroupId || 
-        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupId !== 'string') return;
+    if (
+      !groupId ||
+      !clubId ||
+      !subgroupId ||
+      typeof groupId !== "string" ||
+      typeof clubId !== "string" ||
+      typeof subgroupId !== "string"
+    )
+      return;
 
     setLoading(true);
-    console.log('Fetching members with params:', { groupId, clubId, subgroupId });
+    console.log("Fetching members with params:", {
+      groupId,
+      clubId,
+      subgroupId,
+    });
     try {
       // Fetch all group members and current subgroup members
       const [groupMembersResult, subgroupMembersResult] = await Promise.all([
         fetchGroupMembers(clubId, groupId),
-        subgroupService.getSubgroupMembers(clubId, groupId, subgroupId)
+        subgroupService.getSubgroupMembers(clubId, groupId, subgroupId),
       ]);
-      
-      const allGroupMembers = groupMembersResult.success ? groupMembersResult.members || [] : [];
-      const subgroupMembers = subgroupMembersResult.success ? subgroupMembersResult.members || [] : [];
-      
+
+      const allGroupMembers = groupMembersResult.success
+        ? groupMembersResult.members || []
+        : [];
+      const subgroupMembers = subgroupMembersResult.success
+        ? subgroupMembersResult.members || []
+        : [];
+
       if (allGroupMembers.length === 0) {
-        console.log('No members found in group');
+        console.log("No members found in group");
         setMembers([]);
         setLoading(false);
         return;
       }
-      
+
       // Create a Set of subgroup member IDs for quick lookup
-      const subgroupMemberIds = new Set(subgroupMembers.map((m: any) => m.userId));
-      
-      const processedMembers: Member[] = allGroupMembers.map((memberData: any) => {
-        // Handle both old role field and new roles array
-        let memberRole = 'member';
-        let memberRoles: string[] = [];
-        
-        if (memberData.roles && Array.isArray(memberData.roles)) {
-          // New schema: roles array
-          memberRoles = memberData.roles;
-          memberRole = memberRoles[0] || 'member'; // Use first role as primary for display
-        } else {
-          // Old schema: role string
-          memberRole = memberData.role || 'member';
-          memberRoles = [memberRole];
-        }
+      const subgroupMemberIds = new Set(
+        subgroupMembers.map((m: any) => m.userId),
+      );
 
-        // Get member name
-        const memberName = memberData.name || memberData.email?.split('@')[0] || 'Unknown User';
-        
-        // Check if member is currently in this subgroup
-        const isInSubgroup = subgroupMemberIds.has(memberData.userId);
+      const processedMembers: Member[] = allGroupMembers.map(
+        (memberData: any) => {
+          // Handle both old role field and new roles array
+          let memberRole = "member";
+          let memberRoles: string[] = [];
 
-        return {
-          userId: memberData.userId,
-          role: memberRole,
-          roles: memberRoles,
-          name: memberName,
-          email: memberData.email || '',
-          selected: isInSubgroup,
-          originallySelected: isInSubgroup
-        };
-      });
+          if (memberData.roles && Array.isArray(memberData.roles)) {
+            // New schema: roles array
+            memberRoles = memberData.roles;
+            memberRole = memberRoles[0] || "member"; // Use first role as primary for display
+          } else {
+            // Old schema: role string
+            memberRole = memberData.role || "member";
+            memberRoles = [memberRole];
+          }
+
+          // Get member name
+          const memberName =
+            memberData.name ||
+            memberData.email?.split("@")[0] ||
+            "Unknown User";
+
+          // Check if member is currently in this subgroup
+          const isInSubgroup = subgroupMemberIds.has(memberData.userId);
+
+          return {
+            userId: memberData.userId,
+            role: memberRole,
+            roles: memberRoles,
+            name: memberName,
+            email: memberData.email || "",
+            selected: isInSubgroup,
+            originallySelected: isInSubgroup,
+          };
+        },
+      );
 
       setMembers(processedMembers);
     } catch (error) {
-      console.error('Error fetching members:', error);
-      showError('Error', 'Failed to load members');
+      console.error("Error fetching members:", error);
+      showError("Error", "Failed to load members");
     } finally {
       setLoading(false);
     }
@@ -106,86 +140,104 @@ export default function ManageSubgroupMembersScreen() {
   }, [fetchMembersAndSubgroup]);
 
   const toggleMemberSelection = (userId: string) => {
-    setMembers(prev => prev.map(member => 
-      member.userId === userId 
-        ? { ...member, selected: !member.selected }
-        : member
-    ));
+    setMembers((prev) =>
+      prev.map((member) =>
+        member.userId === userId
+          ? { ...member, selected: !member.selected }
+          : member,
+      ),
+    );
   };
 
   const handleSave = async () => {
-    if (!groupId || !clubId || !subgroupId || 
-        typeof groupId !== 'string' || typeof clubId !== 'string' || typeof subgroupId !== 'string') return;
+    if (
+      !groupId ||
+      !clubId ||
+      !subgroupId ||
+      typeof groupId !== "string" ||
+      typeof clubId !== "string" ||
+      typeof subgroupId !== "string"
+    )
+      return;
 
     setSaving(true);
     try {
       // Find members whose selection changed
-      const membersToAdd = members.filter(m => m.selected && !m.originallySelected);
-      const membersToRemove = members.filter(m => !m.selected && m.originallySelected);
-      
-      console.log(`Changes: ${membersToAdd.length} to add, ${membersToRemove.length} to remove`);
-      
+      const membersToAdd = members.filter(
+        (m) => m.selected && !m.originallySelected,
+      );
+      const membersToRemove = members.filter(
+        (m) => !m.selected && m.originallySelected,
+      );
+
+      console.log(
+        `Changes: ${membersToAdd.length} to add, ${membersToRemove.length} to remove`,
+      );
+
       // Process additions using the new atomic function
       for (const member of membersToAdd) {
         try {
-          console.log('Adding member to subgroup:', {
+          console.log("Adding member to subgroup:", {
             clubId,
             groupId,
             subGroupId: subgroupId,
             userId: member.userId,
-            memberName: member.name
+            memberName: member.name,
           });
-          
+
           const result = await subgroupService.addMemberToSubgroup(
             clubId,
             groupId,
             subgroupId,
-            member.userId
+            member.userId,
           );
-          
+
           if (!result.success) {
-            console.error('Failed to add member:', result.error);
-            showError('Error', `Failed to add ${member.name}: ${result.error}`);
+            console.error("Failed to add member:", result.error);
+            showError("Error", `Failed to add ${member.name}: ${result.error}`);
           }
         } catch (error) {
-          console.error('Error adding member to subgroup:', error);
-          showError('Error', `Failed to add ${member.name} to subgroup`);
+          console.error("Error adding member to subgroup:", error);
+          showError("Error", `Failed to add ${member.name} to subgroup`);
         }
       }
-      
+
       // Process removals using the new atomic function
       for (const member of membersToRemove) {
         try {
-          console.log('Removing member from subgroup:', {
+          console.log("Removing member from subgroup:", {
             clubId,
             groupId,
             subGroupId: subgroupId,
             userId: member.userId,
-            memberName: member.name
+            memberName: member.name,
           });
-          
+
           const result = await subgroupService.removeMemberFromSubgroup(
             clubId,
             groupId,
             subgroupId,
-            member.userId
+            member.userId,
           );
-          
+
           if (!result.success) {
-            console.error('Failed to remove member:', result.error);
-            showError('Error', `Failed to remove ${member.name}: ${result.error}`);
+            console.error("Failed to remove member:", result.error);
+            showError(
+              "Error",
+              `Failed to remove ${member.name}: ${result.error}`,
+            );
           }
         } catch (error) {
-          console.error('Error removing member from subgroup:', error);
-          showError('Error', `Failed to remove ${member.name} from subgroup`);
+          console.error("Error removing member from subgroup:", error);
+          showError("Error", `Failed to remove ${member.name} from subgroup`);
         }
       }
 
       // Navigate back on success
       router.back();
     } catch (error) {
-      console.error('Error saving subgroup members:', error);
-      showError('Error', 'Failed to save subgroup members');
+      console.error("Error saving subgroup members:", error);
+      showError("Error", "Failed to save subgroup members");
     } finally {
       setSaving(false);
     }
@@ -196,7 +248,7 @@ export default function ManageSubgroupMembersScreen() {
   };
 
   const renderMemberItem = ({ item }: { item: Member }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.memberItem}
       onPress={() => toggleMemberSelection(item.userId)}
     >
@@ -214,27 +266,28 @@ export default function ManageSubgroupMembersScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={styles.loadingText}>Loading members...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView 
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Manage Members</Text>
-          <Text style={styles.subtitle}>
-            Select members for {typeof subgroupName === 'string' ? subgroupName : 'Subgroup'}
-          </Text>
-        </View>
+        {/* Subtitle showing subgroup name */}
+        <Text style={styles.subtitle}>
+          Select members for{" "}
+          {typeof subgroupName === "string" ? subgroupName : "Subgroup"}
+        </Text>
 
         <View style={styles.content}>
           <Text style={styles.instructionText}>
@@ -251,7 +304,9 @@ export default function ManageSubgroupMembersScreen() {
             />
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No members found in this group</Text>
+              <Text style={styles.emptyText}>
+                No members found in this group
+              </Text>
             </View>
           )}
 
@@ -263,7 +318,7 @@ export default function ManageSubgroupMembersScreen() {
               loading={saving}
               disabled={saving}
             />
-            
+
             <Button
               label="Cancel"
               onPress={handleCancel}
@@ -279,10 +334,14 @@ export default function ManageSubgroupMembersScreen() {
         title={errorModal.title}
         message={errorModal.message}
         confirmText="OK"
-        onConfirm={() => setErrorModal({ visible: false, title: '', message: '' })}
-        onCancel={() => setErrorModal({ visible: false, title: '', message: '' })}
+        onConfirm={() =>
+          setErrorModal({ visible: false, title: "", message: "" })
+        }
+        onCancel={() =>
+          setErrorModal({ visible: false, title: "", message: "" })
+        }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -296,22 +355,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.layout.containerPadding,
     paddingBottom: theme.spacing.xl,
   },
-  header: {
-    alignItems: 'center',
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-  },
-  title: {
-    fontSize: theme.typography.fontSize.xlarge,
-    color: theme.colors.secondary,
-    fontWeight: theme.typography.fontWeight.bold,
-    textAlign: 'center',
-  },
   subtitle: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
+    textAlign: "center",
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
     lineHeight: 22,
   },
   content: {
@@ -319,8 +368,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: theme.spacing.xl,
   },
   loadingText: {
@@ -332,7 +381,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.text,
     marginBottom: theme.spacing.md,
-    textAlign: 'center',
+    textAlign: "center",
   },
   membersList: {
     flex: 1,
@@ -343,9 +392,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.small,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.xs,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   memberInfo: {
     flex: 1,
@@ -359,7 +408,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
     fontWeight: theme.typography.fontWeight.medium,
-    textTransform: 'capitalize',
+    textTransform: "capitalize",
   },
   checkbox: {
     width: 24,
@@ -368,18 +417,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: theme.colors.textSecondary,
     backgroundColor: theme.colors.inputBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyState: {
     padding: theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyText: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   buttonContainer: {

@@ -362,9 +362,16 @@ export const paymentService = {
 
       return { success: true };
     } catch (error: any) {
-      console.error("❌ Error starting payment:", error);
+      // Check for expected/handled errors first - don't log these as errors
+      const isExpectedError =
+        error.message?.includes("already been paid") ||
+        error.message?.includes("already in progress");
 
-      // Handle specific error messages
+      if (!isExpectedError) {
+        console.error("❌ Error starting payment:", error);
+      }
+
+      // Handle specific error messages gracefully
       if (error.message?.includes("already been paid")) {
         return { success: false, error: "This fee has already been paid." };
       }
@@ -396,7 +403,7 @@ export const paymentService = {
       amount * (feeStructure.percentage / 100) + feeStructure.fixed,
     );
 
-    // Calculate platform fee (3%)
+    // Calculate platform fee (2%)
     const platformFee = Math.floor(amount * (PLATFORM_FEE_PERCENT / 100));
 
     // Calculate club receives

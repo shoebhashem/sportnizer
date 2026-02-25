@@ -24,6 +24,7 @@ export default function PaymentCard({
 }: PaymentCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [localPaidStatus, setLocalPaidStatus] = useState(false);
 
   // Format amount for display
   const formattedAmount = paymentService.formatAmount(
@@ -64,8 +65,8 @@ export default function PaymentCard({
     return `${payment.daysRemaining} days remaining`;
   };
 
-  // Check if payment is paid
-  const isPaid = payment.status === "paid";
+  // Check if payment is paid (from backend status or detected locally)
+  const isPaid = payment.status === "paid" || localPaidStatus;
 
   // Get card style based on status
   const getCardStyle = () => {
@@ -106,12 +107,33 @@ export default function PaymentCard({
       );
 
       if (!result.success) {
-        setError(result.error || "Payment failed");
+        // Check if the error indicates fee is already paid
+        const errorLower = (result.error || "").toLowerCase();
+        if (
+          errorLower.includes("already been paid") ||
+          errorLower.includes("already paid")
+        ) {
+          setLocalPaidStatus(true);
+          onPaymentComplete?.(); // Trigger refresh
+        } else {
+          setError(result.error || "Payment failed");
+        }
       }
       // Note: The actual payment completion will be handled by webhook
       // and the component will be refreshed from the parent
     } catch (err: any) {
-      setError(err.message || "Failed to start payment");
+      // Check if the error indicates fee is already paid
+      const errorMsg = err.message || "";
+      const errorLower = errorMsg.toLowerCase();
+      if (
+        errorLower.includes("already been paid") ||
+        errorLower.includes("already paid")
+      ) {
+        setLocalPaidStatus(true);
+        onPaymentComplete?.(); // Trigger refresh
+      } else {
+        setError(errorMsg || "Failed to start payment");
+      }
     } finally {
       setIsLoading(false);
     }

@@ -177,6 +177,8 @@ export default function NotificationBell({
 
     const { feeId, beneficiaryId } = selectedPaymentNotification.metadata;
     if (!feeId || !beneficiaryId) {
+      setPaymentModalVisible(false);
+      setSelectedPaymentNotification(null);
       setPaymentError("Missing payment information");
       return;
     }
@@ -188,7 +190,28 @@ export default function NotificationBell({
       const result = await paymentService.startPayment(feeId, beneficiaryId);
 
       if (!result.success) {
-        setPaymentError(result.error || "Payment failed");
+        // Close payment modal first, then show error
+        setPaymentModalVisible(false);
+        setSelectedPaymentNotification(null);
+
+        // Check if already paid - show friendly message and dismiss notification
+        if (
+          result.error?.includes("already been paid") ||
+          result.error?.includes("already paid")
+        ) {
+          setPaymentError(
+            "This fee has already been paid. The notification will be removed.",
+          );
+          // Dismiss the notification since it's already paid
+          if (currentUserId && selectedPaymentNotification?.id) {
+            await dismissNotification(
+              currentUserId,
+              selectedPaymentNotification.id,
+            );
+          }
+        } else {
+          setPaymentError(result.error || "Payment failed");
+        }
         return;
       }
 
@@ -197,6 +220,8 @@ export default function NotificationBell({
       setSelectedPaymentNotification(null);
     } catch (error: any) {
       console.error("Payment error:", error);
+      setPaymentModalVisible(false);
+      setSelectedPaymentNotification(null);
       setPaymentError(error.message || "An error occurred");
     } finally {
       setPaymentLoading(false);

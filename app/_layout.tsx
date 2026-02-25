@@ -118,6 +118,18 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="manage-subgroup-members"
+                options={{
+                  headerShown: true,
+                  title: "Manage Members",
+                  headerStyle: {
+                    backgroundColor: theme.colors.primary,
+                  },
+                  headerTintColor: theme.colors.white,
+                  headerShadowVisible: false,
+                }}
+              />
+              <Stack.Screen
                 name="group-settings"
                 options={{
                   headerShown: true,

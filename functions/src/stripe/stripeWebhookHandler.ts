@@ -193,9 +193,11 @@ async function handleCheckoutCompleted(
   });
 
   // 3. Update member's payment status in allMembers
+  // Note: Using new Date() instead of serverTimestamp() because Firestore
+  // doesn't allow FieldValue.serverTimestamp() inside arrays
   await updateMemberPaymentStatus(db, clubId, groupId, beneficiaryId, {
     status: "paid",
-    paidAt: admin.firestore.FieldValue.serverTimestamp(),
+    paidAt: new Date(),
     paidBy:
       paymentData.payerId === beneficiaryId
         ? null // Paid by self
@@ -356,7 +358,7 @@ async function updateMemberPaymentStatus(
   beneficiaryId: string,
   statusUpdate: {
     status: string;
-    paidAt: admin.firestore.FieldValue | null;
+    paidAt: Date | null;
     paidBy: string | null;
   },
 ) {

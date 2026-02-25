@@ -6,28 +6,17 @@ import { theme } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PaymentSuccessScreen() {
   // These params can be used for verification if needed
   useLocalSearchParams<{ session_id?: string; payment_id?: string }>();
-  const [countdown, setCountdown] = useState(5);
 
   const handleContinue = () => {
     router.replace("/(tabs)");
   };
-
-  // Auto-redirect after countdown
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else {
-      router.replace("/(tabs)");
-    }
-  }, [countdown]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -57,11 +46,6 @@ export default function PaymentSuccessScreen() {
             your home screen.
           </Text>
         </View>
-
-        {/* Countdown */}
-        <Text style={styles.countdown}>
-          Returning to app in {countdown} seconds...
-        </Text>
 
         {/* Continue Button */}
         <Button
@@ -122,10 +106,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
     lineHeight: 20,
-  },
-  countdown: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginBottom: 24,
   },
 });

@@ -14,21 +14,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
 } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -542,7 +542,7 @@ export default function CreateMembershipFeeScreen() {
               </View>
 
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Sportnizer fee (3%):</Text>
+                <Text style={styles.breakdownLabel}>Sportnizer fee (2%):</Text>
                 <Text style={styles.breakdownValueMuted}>
                   -{formatCurrency(feeEstimate.platformFee)}
                 </Text>

@@ -223,6 +223,8 @@ export const createCheckoutSession = onCall(
           transfer_data: {
             destination: clubData.stripe.accountId,
           },
+          // Send receipt to payer's email
+          receipt_email: payerDoc.data()?.email,
           metadata: {
             paymentId: paymentRef.id,
             feeId,

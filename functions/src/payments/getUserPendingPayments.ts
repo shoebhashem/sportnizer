@@ -19,6 +19,7 @@ interface PendingPayment {
   dueDate: admin.firestore.Timestamp | null;
   isOverdue: boolean;
   daysRemaining: number | null;
+  status: "pending" | "paid";
 }
 
 /**
@@ -63,12 +64,13 @@ export const getUserPendingPayments = onCall(
 
       // 3. Find all active payment notifications for the user
       // Query from user's notifications subcollection
+      // Note: notifications use 'dismissed: false' instead of 'status: pending'
       const notificationsQuery = await db
         .collection("users")
         .doc(userId)
         .collection("notifications")
         .where("type", "==", "payment_request")
-        .where("status", "==", "pending")
+        .where("dismissed", "==", false)
         .get();
 
       const pendingPayments: PendingPayment[] = [];
@@ -76,46 +78,44 @@ export const getUserPendingPayments = onCall(
 
       for (const notificationDoc of notificationsQuery.docs) {
         const notification = notificationDoc.data();
-        const data = notification.data || {};
+        // Metadata contains fee-specific payment details (feeId, amount, etc.)
+        // Club/group info is stored at notification root level
+        const metadata = notification.metadata || {};
 
-        // Get club name (we may need to cache this for performance)
-        let clubName = "Unknown Club";
-        try {
-          const clubDoc = await db.collection("clubs").doc(data.clubId).get();
-          if (clubDoc.exists) {
-            clubName = clubDoc.data()?.name || "Unknown Club";
-          }
-        } catch (e) {
-          console.warn("Could not fetch club name:", e);
-        }
+        // Club and group names are stored at notification root level by createMembershipFee
+        const clubId = notification.clubId || metadata.clubId;
+        const clubName = notification.clubName || "Unknown Club";
+        const groupId = notification.groupId || metadata.groupId;
+        const groupName = notification.groupName || "Unknown Group";
 
         // Calculate due date status
         let isOverdue = false;
         let daysRemaining: number | null = null;
 
-        if (data.dueDate) {
-          const dueDate = data.dueDate.toDate
-            ? data.dueDate.toDate()
-            : new Date(data.dueDate);
+        if (metadata.dueDate) {
+          const dueDate = metadata.dueDate.toDate
+            ? metadata.dueDate.toDate()
+            : new Date(metadata.dueDate);
           const timeDiff = dueDate.getTime() - now.getTime();
           daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
           isOverdue = daysRemaining < 0;
         }
 
         pendingPayments.push({
-          feeId: data.feeId,
-          feeTitle: notification.title || data.title || "Membership Fee",
-          beneficiaryId: data.beneficiaryId,
-          beneficiaryName: data.beneficiaryName,
-          clubId: data.clubId,
+          feeId: metadata.feeId,
+          feeTitle: notification.title || metadata.title || "Membership Fee",
+          beneficiaryId: metadata.beneficiaryId,
+          beneficiaryName: metadata.beneficiaryName,
+          clubId,
           clubName,
-          groupId: data.groupId,
-          groupName: data.groupName,
-          amount: data.amount,
-          currency: data.currency,
-          dueDate: data.dueDate || null,
+          groupId,
+          groupName,
+          amount: metadata.amount,
+          currency: metadata.currency,
+          dueDate: metadata.dueDate || null,
           isOverdue,
           daysRemaining,
+          status: "pending", // All non-dismissed notifications are pending
         });
       }
 

@@ -2,7 +2,7 @@ import { theme } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
 import ConfirmationModal from "../../components/ConfirmationModal";
 import EventCard from "../../components/EventCard";
 import InvitationModal from "../../components/InvitationModal";
+import PaymentCard from "../../components/PaymentCard";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useUser } from "../../contexts/UserContext";
@@ -94,6 +95,27 @@ export default function Index() {
       console.log("Could not load pending payments:", error);
     }
   }, []);
+
+  // Filter pending payments due within 7 days (for home screen display)
+  const urgentPayments = useMemo(() => {
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+    return pendingPayments.filter((payment) => {
+      // Only show pending (not paid) payments
+      if (payment.status === "paid") return false;
+
+      // Show if overdue or due within 7 days
+      if (payment.isOverdue) return true;
+
+      if (payment.dueDate) {
+        return payment.dueDate <= sevenDaysFromNow;
+      }
+
+      // If no due date, don't show on home screen
+      return false;
+    });
+  }, [pendingPayments]);
 
   // Load pending payments on mount
   useEffect(() => {
@@ -714,6 +736,31 @@ export default function Index() {
           </View>
         ) : (
           <>
+            {/* Urgent Payments Section - Due within 7 days */}
+            {urgentPayments.length > 0 && (
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.paymentTitleRow}>
+                    <Ionicons
+                      name="card-outline"
+                      size={20}
+                      color={theme.colors.secondary}
+                    />
+                    <Text style={styles.sectionTitle}>
+                      Upcoming Payments ({urgentPayments.length})
+                    </Text>
+                  </View>
+                </View>
+                {urgentPayments.map((payment) => (
+                  <PaymentCard
+                    key={`${payment.feeId}-${payment.beneficiaryId}`}
+                    payment={payment}
+                    onPaymentComplete={loadPendingPayments}
+                  />
+                ))}
+              </View>
+            )}
+
             {/* Next 7 Days Events Section */}
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
@@ -960,6 +1007,11 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.xlarge,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.text,
+  },
+  paymentTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   viewAllText: {
     fontSize: theme.typography.fontSize.medium,

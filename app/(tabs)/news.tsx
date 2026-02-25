@@ -2,16 +2,18 @@
 // Simple chronological list with read status
 
 import NewsCard from "@/components/NewsCard";
+import PaymentCard from "@/components/PaymentCard";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNews } from "@/contexts/NewsContext";
 import { useUser } from "@/contexts/UserContext";
 import { fetchDependentProfiles } from "@/services/fetchDependentProfiles";
 import { hasUserReadNews, News } from "@/services/news";
+import { paymentService, PendingPayment } from "@/services/paymentService";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -44,6 +46,28 @@ export default function NewsTab() {
   const [expandedNews, setExpandedNews] = useState<ExpandedNewsData[]>([]);
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
+
+  // Fetch pending payments
+  const fetchPendingPayments = useCallback(async () => {
+    try {
+      const result = await paymentService.getPendingPayments();
+      if (result.success && result.payments) {
+        // Filter to only show pending (not paid) payments
+        const pending = result.payments.filter((p) => p.status !== "paid");
+        setPendingPayments(pending);
+      }
+    } catch (error) {
+      console.error("Error fetching pending payments:", error);
+    }
+  }, []);
+
+  // Refresh payments when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchPendingPayments();
+    }, [fetchPendingPayments]),
+  );
 
   // Expand news for dependents (similar to events)
   useEffect(() => {
@@ -114,8 +138,35 @@ export default function NewsTab() {
   // Handle pull-to-refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await refreshNews();
+    await Promise.all([refreshNews(), fetchPendingPayments()]);
     setRefreshing(false);
+  };
+
+  // Render payment cards header
+  const renderListHeader = () => {
+    if (pendingPayments.length === 0) return null;
+
+    return (
+      <View style={styles.paymentsSection}>
+        <View style={styles.paymentsSectionHeader}>
+          <Ionicons
+            name="card-outline"
+            size={20}
+            color={theme.colors.secondary}
+          />
+          <Text style={styles.paymentsSectionTitle}>
+            Pending Payments ({pendingPayments.length})
+          </Text>
+        </View>
+        {pendingPayments.map((payment) => (
+          <PaymentCard
+            key={`${payment.feeId}-${payment.beneficiaryId}`}
+            payment={payment}
+            onPaymentComplete={fetchPendingPayments}
+          />
+        ))}
+      </View>
+    );
   };
 
   // Handle news card press
@@ -234,6 +285,7 @@ export default function NewsTab() {
             `${item.id}-${item.inviteeUserId}-${index}`
           }
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={renderListHeader}
           ListEmptyComponent={renderEmptyState}
           refreshControl={
             <RefreshControl
@@ -335,5 +387,22 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 8,
     textAlign: "center",
+  },
+  paymentsSection: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+  },
+  paymentsSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  paymentsSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: theme.colors.text,
   },
 });
