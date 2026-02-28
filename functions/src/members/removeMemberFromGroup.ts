@@ -374,6 +374,9 @@ export const removeMemberFromGroup = onCall(
                   if (guardianRoles.length === 0) {
                     clubMembers[guardianIndex].isActive = false;
                     clubMembers[guardianIndex].inactiveSince = new Date();
+                    clubMembers[guardianIndex].scheduledForDeletion = new Date(
+                      Date.now() + 30 * 24 * 60 * 60 * 1000,
+                    ); // 30 days
                     console.log(
                       `    ⚠️ Guardian ${guardianName} has no roles left - marked as inactive`,
                     );
@@ -611,6 +614,9 @@ export const removeMemberFromGroup = onCall(
                 if (currentRoles.length === 0) {
                   clubMembers[clubMemberIndex].isActive = false;
                   clubMembers[clubMemberIndex].inactiveSince = new Date();
+                  clubMembers[clubMemberIndex].scheduledForDeletion = new Date(
+                    Date.now() + 30 * 24 * 60 * 60 * 1000,
+                  ); // 30 days
                   console.log(
                     `⚠️ Member ${userId} has no roles left - marked as inactive in club member list`,
                   );

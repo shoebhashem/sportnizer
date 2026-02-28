@@ -10,22 +10,22 @@ import { subgroupService } from "@/services/subgroup";
 import { GroupData, GroupMemberData } from "@/services/types/group";
 import { Ionicons } from "@expo/vector-icons";
 import {
-    router,
-    useFocusEffect,
-    useLocalSearchParams,
-    useNavigation,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -384,15 +384,17 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   membersList: {
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
+    flex: 1,
   },
   memberItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.small,
+    marginBottom: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
   },
   memberAvatar: {
     width: 50,

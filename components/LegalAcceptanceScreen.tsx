@@ -8,6 +8,7 @@
 import Button from "@/components/Button";
 import { LEGAL_URLS } from "@/constants/legal";
 import { theme } from "@/constants/theme";
+import { useUser } from "@/contexts/UserContext";
 import { legalService } from "@/services/legal/legalService";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
@@ -18,7 +19,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    View
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -86,6 +87,7 @@ export default function LegalAcceptanceScreen({
 }: LegalAcceptanceScreenProps) {
   const [hasAgreed, setHasAgreed] = useState(false);
   const [effectiveDate, setEffectiveDate] = useState<string>("");
+  const { refreshUserProfile } = useUser();
 
   useEffect(() => {
     // Fetch effective date
@@ -137,6 +139,11 @@ export default function LegalAcceptanceScreen({
   };
 
   const isReAcceptance = mode === "re-acceptance";
+
+  const handleAccept = async () => {
+    await refreshUserProfile();
+    onAccept();
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -279,7 +286,7 @@ export default function LegalAcceptanceScreen({
         <View style={[styles.buttonWrapper, !onCancel && styles.buttonFull]}>
           <Button
             label={isLoading ? "Please wait..." : "I Agree & Continue"}
-            onPress={onAccept}
+            onPress={handleAccept}
             theme="primary"
             disabled={!hasAgreed || isLoading}
           />
