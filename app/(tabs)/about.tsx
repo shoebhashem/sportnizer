@@ -1,55 +1,51 @@
 import { theme } from "@/constants/theme";
+import { useTranslation } from "react-i18next";
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function AboutScreen() {
+  const { t } = useTranslation(["screens"]);
+
   const handleEmailPress = () => {
-    Linking.openURL("mailto:support@sportnizer.com");
+    Linking.openURL("mailto:support@clubnizer.com");
   };
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>About Sportnizer</Text>
+        <Text style={styles.title}>{t("screens:about.title")}</Text>
 
-        <Text style={styles.paragraph}>
-          Sportnizer is a clean and focused platform designed to help teams and
-          clubs organize their sports activities in a simple and structured way.
-        </Text>
+        <Text style={styles.paragraph}>{t("screens:about.description")}</Text>
 
-        <Text style={styles.sectionTitle}>Built From Real Experience</Text>
-
-        <Text style={styles.paragraph}>
-          Sportnizer was created from firsthand experience in youth sports. As a
-          volunteer coach and parent involved in organizing teams, training
-          sessions and matches, it became clear how much time was spent managing
-          logistics instead of focusing on the sport itself.
+        <Text style={styles.sectionTitle}>
+          {t("screens:about.builtFromExperienceTitle")}
         </Text>
 
         <Text style={styles.paragraph}>
-          Many tools felt overly complex for everyday team management.
-          Sportnizer was built to simplify the essentials — managing members,
-          planning events and tracking attendance in a clear and simple way.
+          {t("screens:about.builtFromExperienceParagraph1")}
         </Text>
 
         <Text style={styles.paragraph}>
-          The goal is simple: make organizing sports easier, so more time can be
-          spent on the field.
-        </Text>
-
-        <Text style={styles.sectionTitle}>Continuously Improving</Text>
-
-        <Text style={styles.paragraph}>
-          Sportnizer is actively evolving and continuously improving based on
-          real-world use and feedback from teams and clubs.
+          {t("screens:about.builtFromExperienceParagraph2")}
         </Text>
 
         <Text style={styles.paragraph}>
-          If you experience any issues, find a bug, or have suggestions for
-          improvement, we would truly appreciate hearing from you.
+          {t("screens:about.builtFromExperienceParagraph3")}
+        </Text>
+
+        <Text style={styles.sectionTitle}>
+          {t("screens:about.continuouslyImprovingTitle")}
+        </Text>
+
+        <Text style={styles.paragraph}>
+          {t("screens:about.continuouslyImprovingParagraph1")}
+        </Text>
+
+        <Text style={styles.paragraph}>
+          {t("screens:about.continuouslyImprovingParagraph2")}
         </Text>
 
         <Text style={styles.email} onPress={handleEmailPress}>
-          support@sportnizer.com
+          {t("screens:about.supportEmail")}
         </Text>
       </ScrollView>
     </View>

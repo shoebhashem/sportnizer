@@ -1,6 +1,7 @@
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -65,6 +66,7 @@ interface ModalState {
 }
 
 export default function CreateEventScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user } = useAuth();
@@ -212,8 +214,8 @@ export default function CreateEventScreen() {
       if (!event) {
         setModal({
           visible: true,
-          title: "Error",
-          message: "Event not found",
+          title: t("common:error"),
+          message: t("screens:createEvent.eventNotFound"),
           type: "error",
         });
         router.back();
@@ -228,8 +230,8 @@ export default function CreateEventScreen() {
         if (eventEndTime < now) {
           setModal({
             visible: true,
-            title: "Event Ended",
-            message: "This event has ended and cannot be edited",
+            title: t("screens:createEvent.eventEnded"),
+            message: t("screens:createEvent.eventEndedMessage"),
             type: "error",
           });
           setTimeout(() => router.back(), 2000);
@@ -298,8 +300,8 @@ export default function CreateEventScreen() {
       console.error("Error loading event:", error);
       setModal({
         visible: true,
-        title: "Error",
-        message: "Failed to load event data",
+        title: t("common:error"),
+        message: t("screens:createEvent.failedToLoadEvent"),
         type: "error",
       });
     } finally {
@@ -355,9 +357,9 @@ export default function CreateEventScreen() {
   }, [eventContext, loadMemberCount, initialMemberCount]);
 
   const eventTypes = [
-    { key: "practice", label: "Training", icon: "dribbble" },
-    { key: "game", label: "Match", icon: "trophy" },
-    { key: "other", label: "Other", icon: "calendar" },
+    { key: "practice", label: t("common:training"), icon: "dribbble" },
+    { key: "game", label: t("common:match"), icon: "trophy" },
+    { key: "other", label: t("common:other"), icon: "calendar" },
   ];
 
   // Auto-generate title for Training and Match events
@@ -372,8 +374,8 @@ export default function CreateEventScreen() {
     if (!eventData.title.trim()) {
       setModal({
         visible: true,
-        title: "Missing Information",
-        message: "Please enter an event title",
+        title: t("common:validation.missingInformation"),
+        message: t("screens:createEvent.errors.titleRequired"),
         type: "error",
       });
       return false;
@@ -382,8 +384,8 @@ export default function CreateEventScreen() {
     if (!eventData.location.trim()) {
       setModal({
         visible: true,
-        title: "Missing Information",
-        message: "Please enter a location",
+        title: t("common:validation.missingInformation"),
+        message: t("screens:createEvent.errors.locationRequired"),
         type: "error",
       });
       return false;
@@ -401,8 +403,8 @@ export default function CreateEventScreen() {
     if (endDateTime <= startDateTime) {
       setModal({
         visible: true,
-        title: "Invalid Time",
-        message: "Event end time must be after start time",
+        title: t("screens:createEvent.errors.invalidTime"),
+        message: t("screens:createEvent.errors.endBeforeStart"),
         type: "error",
       });
       return false;
@@ -414,8 +416,8 @@ export default function CreateEventScreen() {
       if (startDateTime < now) {
         setModal({
           visible: true,
-          title: "Invalid Time",
-          message: "Event must start in the future",
+          title: t("screens:createEvent.errors.invalidTime"),
+          message: t("screens:createEvent.errors.startInPast"),
           type: "error",
         });
         return false;
@@ -434,8 +436,8 @@ export default function CreateEventScreen() {
       if (gatheringDateTime >= startDateTime) {
         setModal({
           visible: true,
-          title: "Invalid Time",
-          message: "Gathering time must be before event start time",
+          title: t("screens:createEvent.errors.invalidTime"),
+          message: t("screens:createEvent.errors.gatheringAfterStart"),
           type: "error",
         });
         return false;
@@ -447,8 +449,8 @@ export default function CreateEventScreen() {
       if (eventData.responseDeadline.date >= startDateTime) {
         setModal({
           visible: true,
-          title: "Invalid Deadline",
-          message: "Response deadline must be before event start time",
+          title: t("screens:createEvent.errors.invalidDeadline"),
+          message: t("screens:createEvent.errors.deadlineAfterStart"),
           type: "error",
         });
         return false;
@@ -581,8 +583,8 @@ export default function CreateEventScreen() {
       // Show success message
       setModal({
         visible: true,
-        title: "Success!",
-        message: `Event "${eventData.title}" has been created and sent to ${result.totalRecipients} recipients.`,
+        title: t("screens:createEvent.eventCreated"),
+        message: t("screens:createEvent.eventCreatedMessage", { title: eventData.title, count: result.totalRecipients }),
         type: "success",
       });
     } catch (error) {
@@ -592,8 +594,8 @@ export default function CreateEventScreen() {
 
       setModal({
         visible: true,
-        title: "Creation Failed",
-        message: `There was an error creating the event: ${errorMessage}. Please try again.`,
+        title: t("screens:createEvent.creationFailed"),
+        message: t("screens:createEvent.creationFailedMessage", { error: errorMessage }),
         type: "error",
       });
     } finally {
@@ -678,8 +680,8 @@ export default function CreateEventScreen() {
       // Show success message
       setModal({
         visible: true,
-        title: "Success!",
-        message: `Event "${eventData.title}" has been updated successfully.`,
+        title: t("screens:createEvent.eventUpdated"),
+        message: t("screens:createEvent.eventUpdatedMessage", { title: eventData.title }),
         type: "success",
       });
     } catch (error) {
@@ -689,8 +691,8 @@ export default function CreateEventScreen() {
 
       setModal({
         visible: true,
-        title: "Update Failed",
-        message: `There was an error updating the event: ${errorMessage}. Please try again.`,
+        title: t("screens:createEvent.updateFailed"),
+        message: t("screens:createEvent.updateFailedMessage", { error: errorMessage }),
         type: "error",
       });
     } finally {
@@ -748,15 +750,15 @@ export default function CreateEventScreen() {
 
   const getButtonLabel = (): string => {
     if (isCreating) {
-      return isEditMode ? "Saving Changes..." : "Creating Event...";
+      return isEditMode ? t("screens:createEvent.savingChanges") : t("screens:createEvent.creatingEvent");
     }
     if (isEditMode) {
-      return "Save Changes";
+      return t("screens:createEvent.saveChanges");
     }
     if (eventContext && eventContext.level !== "club" && memberCount > 0) {
-      return `Create Event (${memberCount} recipients)`;
+      return t("screens:createEvent.createEventWithRecipients", { count: memberCount });
     }
-    return "Create Event";
+    return t("screens:createEvent.createEvent");
   };
 
   const isButtonDisabled = (): boolean => {
@@ -764,18 +766,18 @@ export default function CreateEventScreen() {
   };
 
   const getRecipientLabel = (): string => {
-    if (selectedRoles.length === 0) return "All roles";
+    if (selectedRoles.length === 0) return t("screens:createEvent.allRoles");
     if (selectedRoles.length === 1) {
       const role = selectedRoles[0];
       return role === "player-underage"
-        ? "Youth Players"
+        ? t("common:youthPlayers")
         : role === "player"
-          ? "Players"
+          ? t("common:players")
           : role === "coach"
-            ? "Coaches"
-            : "Admins";
+            ? t("common:coaches")
+            : t("common:admins");
     }
-    return `${selectedRoles.length} roles selected`;
+    return t("screens:createEvent.rolesSelected", { count: selectedRoles.length });
   };
 
   const formatDate = (date: Date) => {
@@ -824,7 +826,7 @@ export default function CreateEventScreen() {
               borderRadius: 8,
             }}
           >
-            <Text style={{ color: "white", fontWeight: "600" }}>Go Back</Text>
+            <Text style={{ color: "white", fontWeight: "600" }}>{t("common:goBack")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -855,7 +857,7 @@ export default function CreateEventScreen() {
             color: theme.colors.text,
           }}
         >
-          {isEditMode ? "Edit Event" : "Create Event"}
+          {isEditMode ? t("screens:createEvent.editEvent") : t("screens:createEvent.createEvent")}
         </Text>
       </View>
 
@@ -871,7 +873,7 @@ export default function CreateEventScreen() {
         >
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={{ marginTop: 16, color: theme.colors.text }}>
-            Loading event...
+            {t("screens:createEvent.loadingEvent")}
           </Text>
         </View>
       ) : (
@@ -896,7 +898,7 @@ export default function CreateEventScreen() {
                   marginBottom: 12,
                 }}
               >
-                Creation Mode
+                {t("screens:createEvent.creationMode")}
               </Text>
 
               <View
@@ -957,7 +959,7 @@ export default function CreateEventScreen() {
                         fontSize: 16,
                       }}
                     >
-                      Simple
+                      {t("screens:createEvent.simpleMode")}
                     </Text>
                     <Text
                       style={{
@@ -969,7 +971,7 @@ export default function CreateEventScreen() {
                         marginTop: 2,
                       }}
                     >
-                      Quick setup
+                      {t("screens:createEvent.quickSetup")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -1015,7 +1017,7 @@ export default function CreateEventScreen() {
                         fontSize: 16,
                       }}
                     >
-                      Advanced
+                      {t("screens:createEvent.advancedMode")}
                     </Text>
                     <Text
                       style={{
@@ -1027,7 +1029,7 @@ export default function CreateEventScreen() {
                         marginTop: 2,
                       }}
                     >
-                      Full control
+                      {t("screens:createEvent.fullControl")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -1044,7 +1046,7 @@ export default function CreateEventScreen() {
                   marginBottom: 12,
                 }}
               >
-                Event Type *
+                {t("screens:createEvent.eventType")}
               </Text>
               <View
                 style={{
@@ -1106,7 +1108,7 @@ export default function CreateEventScreen() {
                   marginBottom: 8,
                 }}
               >
-                Event Title *
+                {t("screens:createEvent.eventTitle")}
               </Text>
               <TextInput
                 style={{
@@ -1122,7 +1124,7 @@ export default function CreateEventScreen() {
                 onChangeText={(text) =>
                   setEventData((prev) => ({ ...prev, title: text }))
                 }
-                placeholder="Enter event title"
+                placeholder={t("screens:createEvent.eventTitlePlaceholder")}
                 placeholderTextColor={theme.colors.textSecondary}
                 maxLength={100}
               />
@@ -1138,7 +1140,7 @@ export default function CreateEventScreen() {
                   marginBottom: 8,
                 }}
               >
-                Recipients
+                {t("screens:createEvent.recipients")}
               </Text>
               <View
                 style={{
@@ -1221,7 +1223,7 @@ export default function CreateEventScreen() {
                             : theme.colors.text,
                       }}
                     >
-                      Filter Roles
+                      {t("screens:createEvent.filterRoles")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1245,7 +1247,7 @@ export default function CreateEventScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Start Date
+                  {t("screens:createEvent.startDate")}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowStartDatePicker(true)}
@@ -1280,7 +1282,7 @@ export default function CreateEventScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Start Time
+                  {t("screens:createEvent.startTime")}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowStartTimePicker(true)}
@@ -1318,7 +1320,7 @@ export default function CreateEventScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Duration
+                  {t("screens:createEvent.duration")}
                 </Text>
                 <View
                   style={{
@@ -1328,10 +1330,10 @@ export default function CreateEventScreen() {
                   }}
                 >
                   {[
-                    { minutes: 60, label: "1 hour" },
-                    { minutes: 90, label: "1.5 hours" },
-                    { minutes: 120, label: "2 hours" },
-                    { minutes: 180, label: "3 hours" },
+                    { minutes: 60, label: t("screens:createEvent.duration1Hour") },
+                    { minutes: 90, label: t("screens:createEvent.duration1_5Hours") },
+                    { minutes: 120, label: t("screens:createEvent.duration2Hours") },
+                    { minutes: 180, label: t("screens:createEvent.duration3Hours") },
                   ].map((option) => (
                     <TouchableOpacity
                       key={option.minutes}
@@ -1438,7 +1440,7 @@ export default function CreateEventScreen() {
                         marginLeft: 4,
                       }}
                     >
-                      min
+                      {t("screens:createEvent.min")}
                     </Text>
                   </View>
                 </View>
@@ -1456,7 +1458,7 @@ export default function CreateEventScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Gathering Time (Optional)
+                  {t("screens:createEvent.gatheringTimeOptional")}
                 </Text>
                 <View
                   style={{
@@ -1497,7 +1499,7 @@ export default function CreateEventScreen() {
                       >
                         {eventData.gatheringTime
                           ? formatTime(eventData.gatheringTime)
-                          : "No gathering time"}
+                          : t("screens:createEvent.noGatheringTime")}
                       </Text>
                       <FontAwesome
                         name="clock-o"
@@ -1550,7 +1552,7 @@ export default function CreateEventScreen() {
                         fontSize: 14,
                       }}
                     >
-                      {eventData.gatheringTime ? "Remove" : "Add"}
+                      {eventData.gatheringTime ? t("common:remove") : t("common:add")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1575,7 +1577,7 @@ export default function CreateEventScreen() {
                       marginBottom: 8,
                     }}
                   >
-                    End Date
+                    {t("screens:createEvent.endDate")}
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowEndDatePicker(true)}
@@ -1610,7 +1612,7 @@ export default function CreateEventScreen() {
                       marginBottom: 8,
                     }}
                   >
-                    End Time
+                    {t("screens:createEvent.endTime")}
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowEndTimePicker(true)}
@@ -1648,7 +1650,7 @@ export default function CreateEventScreen() {
                   marginBottom: 8,
                 }}
               >
-                Location *
+                {t("screens:createEvent.locationRequired")}
               </Text>
               <TextInput
                 style={{
@@ -1664,7 +1666,7 @@ export default function CreateEventScreen() {
                 onChangeText={(text) =>
                   setEventData((prev) => ({ ...prev, location: text }))
                 }
-                placeholder="Enter event location"
+                placeholder={t("screens:createEvent.locationPlaceholder")}
                 placeholderTextColor={theme.colors.textSecondary}
                 maxLength={200}
               />
@@ -1680,7 +1682,7 @@ export default function CreateEventScreen() {
                   marginBottom: 8,
                 }}
               >
-                Description
+                {t("screens:createEvent.descriptionLabel")}
               </Text>
               <TextInput
                 style={{
@@ -1698,7 +1700,7 @@ export default function CreateEventScreen() {
                 onChangeText={(text) =>
                   setEventData((prev) => ({ ...prev, description: text }))
                 }
-                placeholder="Enter event description (optional)"
+                placeholder={t("screens:createEvent.descriptionPlaceholder")}
                 placeholderTextColor={theme.colors.textSecondary}
                 multiline
                 maxLength={500}
@@ -1716,7 +1718,7 @@ export default function CreateEventScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Capacity Limit
+                  {t("screens:createEvent.capacityLimit")}
                 </Text>
 
                 {/* Enable/Disable Toggle */}
@@ -1772,7 +1774,7 @@ export default function CreateEventScreen() {
                         fontWeight: "500",
                       }}
                     >
-                      Limit number of attendees
+                      {t("screens:createEvent.limitNumberOfAttendees")}
                     </Text>
                     <Text
                       style={{
@@ -1781,8 +1783,7 @@ export default function CreateEventScreen() {
                         marginTop: 2,
                       }}
                     >
-                      Only first {eventData.capacity.maxAttendees || 10} members
-                      who accept can attend
+                      {t("screens:createEvent.onlyFirstNMembers", { count: eventData.capacity.maxAttendees || 10 })}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -1798,7 +1799,7 @@ export default function CreateEventScreen() {
                         marginBottom: 8,
                       }}
                     >
-                      Maximum Attendees
+                      {t("screens:createEvent.maximumAttendees")}
                     </Text>
                     <TextInput
                       style={{
@@ -1838,7 +1839,7 @@ export default function CreateEventScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Response Deadline
+                  {t("screens:createEvent.responseDeadline")}
                 </Text>
                 <Text
                   style={{
@@ -1847,7 +1848,7 @@ export default function CreateEventScreen() {
                     marginBottom: 12,
                   }}
                 >
-                  When should members respond by? Default is event start date.
+                  {t("screens:createEvent.responseDeadlineHint")}
                 </Text>
 
                 {/* Enable/Disable Custom Deadline Toggle */}
@@ -1910,7 +1911,7 @@ export default function CreateEventScreen() {
                         fontWeight: "500",
                       }}
                     >
-                      Set custom response deadline
+                      {t("screens:createEvent.setCustomDeadline")}
                     </Text>
                     <Text
                       style={{
@@ -1920,8 +1921,8 @@ export default function CreateEventScreen() {
                       }}
                     >
                       {eventData.responseDeadline.enabled
-                        ? `Deadline: ${eventData.responseDeadline.date ? eventData.responseDeadline.date.toLocaleDateString() : "Select date"}`
-                        : "Members can respond until event start date"}
+                        ? `${t("screens:createEvent.deadlineDate")}: ${eventData.responseDeadline.date ? eventData.responseDeadline.date.toLocaleDateString() : t("screens:createEvent.deadlineSelectDate")}`
+                        : t("screens:createEvent.membersCanRespondUntilStart")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -1937,7 +1938,7 @@ export default function CreateEventScreen() {
                         marginBottom: 8,
                       }}
                     >
-                      Deadline Date
+                      {t("screens:createEvent.deadlineDate")}
                     </Text>
                     <TouchableOpacity
                       onPress={() => setShowResponseDeadlinePicker(true)}
@@ -1956,7 +1957,7 @@ export default function CreateEventScreen() {
                       <Text style={{ color: theme.colors.text, fontSize: 16 }}>
                         {eventData.responseDeadline.date
                           ? eventData.responseDeadline.date.toLocaleDateString()
-                          : "Select deadline date"}
+                          : t("screens:createEvent.deadlineSelectDate")}
                       </Text>
                       <FontAwesome
                         name="calendar"
@@ -1974,7 +1975,7 @@ export default function CreateEventScreen() {
                         marginBottom: 8,
                       }}
                     >
-                      Deadline Time
+                      {t("screens:createEvent.deadlineTime")}
                     </Text>
                     <TouchableOpacity
                       onPress={() => setShowResponseDeadlineTimePicker(true)}
@@ -1992,7 +1993,7 @@ export default function CreateEventScreen() {
                       <Text style={{ color: theme.colors.text, fontSize: 16 }}>
                         {eventData.responseDeadline.date
                           ? formatTime(eventData.responseDeadline.date)
-                          : "Select deadline time"}
+                          : t("screens:createEvent.deadlineSelectTime")}
                       </Text>
                       <FontAwesome
                         name="clock-o"
@@ -2087,7 +2088,7 @@ export default function CreateEventScreen() {
           setShowStartDatePicker(false);
         }}
         onCancel={() => setShowStartDatePicker(false)}
-        title="Select Start Date"
+        title={t("screens:createEvent.selectStartDate")}
       />
 
       {/* Start Time Picker */}
@@ -2122,7 +2123,7 @@ export default function CreateEventScreen() {
           setShowStartTimePicker(false);
         }}
         onCancel={() => setShowStartTimePicker(false)}
-        title="Select Start Time"
+        title={t("screens:createEvent.selectStartTime")}
       />
 
       {/* Gathering Time Picker */}
@@ -2153,7 +2154,7 @@ export default function CreateEventScreen() {
           setShowGatheringTimePicker(false);
         }}
         onCancel={() => setShowGatheringTimePicker(false)}
-        title="Select Gathering Time"
+        title={t("screens:createEvent.selectGatheringTime")}
       />
 
       {/* End Date Picker */}
@@ -2166,7 +2167,7 @@ export default function CreateEventScreen() {
           setShowEndDatePicker(false);
         }}
         onCancel={() => setShowEndDatePicker(false)}
-        title="Select End Date"
+        title={t("screens:createEvent.selectEndDate")}
       />
 
       {/* End Time Picker */}
@@ -2179,7 +2180,7 @@ export default function CreateEventScreen() {
           setShowEndTimePicker(false);
         }}
         onCancel={() => setShowEndTimePicker(false)}
-        title="Select End Time"
+        title={t("screens:createEvent.selectEndTime")}
       />
 
       {/* Response Deadline Date Picker */}
@@ -2195,7 +2196,7 @@ export default function CreateEventScreen() {
           setShowResponseDeadlinePicker(false);
         }}
         onCancel={() => setShowResponseDeadlinePicker(false)}
-        title="Select Response Deadline"
+        title={t("screens:createEvent.selectResponseDeadline")}
       />
 
       {/* Response Deadline Time Picker */}
@@ -2219,7 +2220,7 @@ export default function CreateEventScreen() {
           setShowResponseDeadlineTimePicker(false);
         }}
         onCancel={() => setShowResponseDeadlineTimePicker(false)}
-        title="Select Response Deadline Time"
+        title={t("screens:createEvent.selectResponseDeadlineTime")}
       />
 
       {/* Role Filter Modal */}

@@ -254,7 +254,7 @@ export const sendGroupInvitation = onCall(
                   acceptLink,
                   rejectLink,
                 );
-                emailSubject = `You're invited to become a Club Admin for ${clubName} on Sportnizer`;
+                emailSubject = `You're invited to become a Club Admin for ${clubName} on Clubnizer`;
                 console.log(`📧 Sending club admin invitation email`);
               } else if (
                 (invitationType === "youth_member" ||
@@ -285,7 +285,7 @@ export const sendGroupInvitation = onCall(
                   acceptLink,
                   rejectLink,
                 );
-                emailSubject = `Invitation to join ${groupName} on Sportnizer`;
+                emailSubject = `Invitation to join ${groupName} on Clubnizer`;
                 console.log(`📧 Sending regular invitation email`);
               }
 

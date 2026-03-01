@@ -24,6 +24,7 @@ import React, {
     useLayoutEffect,
     useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     RefreshControl,
@@ -38,6 +39,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 type TierKey = "free" | "basic" | "pro" | "enterprise";
 
 export default function SubscriptionSettingsScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
@@ -218,7 +220,9 @@ export default function SubscriptionSettingsScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading subscription...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:subscriptionSettings.loadingSubscription")}
+          </Text>
         </View>
       </View>
     );
@@ -257,7 +261,9 @@ export default function SubscriptionSettingsScreen() {
                   size={14}
                   color={theme.colors.warning}
                 />
-                <Text style={styles.warningBadgeText}>Payment Due</Text>
+                <Text style={styles.warningBadgeText}>
+                  {t("screens:subscriptionSettings.paymentDue")}
+                </Text>
               </View>
             )}
           </View>
@@ -269,12 +275,14 @@ export default function SubscriptionSettingsScreen() {
           {/* Usage Progress */}
           <View style={styles.usageSection}>
             <View style={styles.usageHeader}>
-              <Text style={styles.usageLabel}>Member Usage</Text>
+              <Text style={styles.usageLabel}>
+                {t("screens:subscriptionSettings.memberUsage")}
+              </Text>
               <Text style={styles.usageText}>
                 {subscriptionStatus?.currentMembers || 0}
                 {" / "}
                 {subscriptionStatus?.maxMembers === -1
-                  ? "Unlimited"
+                  ? t("screens:subscriptionSettings.unlimited")
                   : subscriptionStatus?.maxMembers || 0}
               </Text>
             </View>
@@ -298,7 +306,7 @@ export default function SubscriptionSettingsScreen() {
                   size={14}
                   color={theme.colors.warning}
                 />{" "}
-                You&apos;re approaching your member limit
+                {t("screens:subscriptionSettings.approachingLimit")}
               </Text>
             )}
           </View>
@@ -308,13 +316,16 @@ export default function SubscriptionSettingsScreen() {
             <View style={styles.gracePeriodBanner}>
               <Ionicons name="time" size={20} color={theme.colors.warning} />
               <View style={styles.gracePeriodContent}>
-                <Text style={styles.gracePeriodTitle}>Payment Required</Text>
+                <Text style={styles.gracePeriodTitle}>
+                  {t("screens:subscriptionSettings.paymentRequired")}
+                </Text>
                 <Text style={styles.gracePeriodText}>
-                  Your payment failed.{" "}
-                  {subscriptionStatus.daysUntilGracePeriodEnds !== null
-                    ? `${subscriptionStatus.daysUntilGracePeriodEnds} days`
-                    : "Time"}{" "}
-                  remaining to update payment before restrictions apply.
+                  {t("screens:subscriptionSettings.paymentFailedWarning", {
+                    days:
+                      subscriptionStatus.daysUntilGracePeriodEnds !== null
+                        ? subscriptionStatus.daysUntilGracePeriodEnds
+                        : "?",
+                  })}
                 </Text>
               </View>
             </View>
@@ -325,8 +336,8 @@ export default function SubscriptionSettingsScreen() {
             <View style={styles.billingInfo}>
               <Text style={styles.billingLabel}>
                 {subscriptionStatus.cancelAtPeriodEnd
-                  ? "Access until"
-                  : "Next billing date"}
+                  ? t("screens:subscriptionSettings.accessUntil")
+                  : t("screens:subscriptionSettings.nextBillingDate")}
               </Text>
               <Text style={styles.billingValue}>
                 {formatDate(subscriptionStatus.currentPeriodEnd)}
@@ -346,7 +357,9 @@ export default function SubscriptionSettingsScreen() {
                 size={20}
                 color={theme.colors.secondary}
               />
-              <Text style={styles.manageBillingText}>Manage Billing</Text>
+              <Text style={styles.manageBillingText}>
+                {t("screens:subscriptionSettings.manageBilling")}
+              </Text>
               {processingAction ? (
                 <ActivityIndicator
                   size="small"
@@ -367,14 +380,18 @@ export default function SubscriptionSettingsScreen() {
         {!isEnterprise && (
           <View style={styles.upgradeSectionContainer}>
             <Text style={styles.sectionTitle}>
-              {isFreeTier ? "Upgrade Your Plan" : "Change Plan"}
+              {isFreeTier
+                ? t("screens:subscriptionSettings.upgradeYourPlan")
+                : t("screens:subscriptionSettings.changePlan")}
             </Text>
 
             {/* Basic Tier */}
             {currentTier !== "basic" && (
               <View style={styles.tierCard}>
                 <View style={styles.tierHeader}>
-                  <Text style={styles.tierName}>Basic</Text>
+                  <Text style={styles.tierName}>
+                    {t("screens:subscriptionSettings.basic")}
+                  </Text>
                   <View style={styles.tierPrice}>
                     <Text style={styles.priceAmount}>
                       {
@@ -396,7 +413,9 @@ export default function SubscriptionSettingsScreen() {
                       color={theme.colors.success}
                     />
                     <Text style={styles.featureText}>
-                      Up to {SUBSCRIPTION_TIERS.basic.maxMembers} members
+                      {t("screens:subscriptionSettings.upToNMembers", {
+                        maxMembers: SUBSCRIPTION_TIERS.basic.maxMembers,
+                      })}
                     </Text>
                   </View>
                   <View style={styles.featureRow}>
@@ -405,14 +424,16 @@ export default function SubscriptionSettingsScreen() {
                       size={18}
                       color={theme.colors.success}
                     />
-                    <Text style={styles.featureText}>Priority support</Text>
+                    <Text style={styles.featureText}>
+                      {t("screens:subscriptionSettings.prioritySupport")}
+                    </Text>
                   </View>
                 </View>
                 <Button
                   label={
                     currentTier === "pro"
-                      ? "Switch to Basic"
-                      : "Upgrade to Basic"
+                      ? t("screens:subscriptionSettings.switchToBasic")
+                      : t("screens:subscriptionSettings.upgradeToBasic")
                   }
                   onPress={() => handleUpgrade("basic")}
                   theme={currentTier === "pro" ? "secondary" : "primary"}
@@ -425,10 +446,14 @@ export default function SubscriptionSettingsScreen() {
             {currentTier !== "pro" && (
               <View style={[styles.tierCard, styles.recommendedTier]}>
                 <View style={styles.recommendedBadge}>
-                  <Text style={styles.recommendedText}>Recommended</Text>
+                  <Text style={styles.recommendedText}>
+                    {t("screens:subscriptionSettings.recommended")}
+                  </Text>
                 </View>
                 <View style={styles.tierHeader}>
-                  <Text style={styles.tierName}>Pro</Text>
+                  <Text style={styles.tierName}>
+                    {t("screens:subscriptionSettings.pro")}
+                  </Text>
                   <View style={styles.tierPrice}>
                     <Text style={styles.priceAmount}>
                       {
@@ -450,7 +475,9 @@ export default function SubscriptionSettingsScreen() {
                       color={theme.colors.success}
                     />
                     <Text style={styles.featureText}>
-                      Up to {SUBSCRIPTION_TIERS.pro.maxMembers} members
+                      {t("screens:subscriptionSettings.upToNMembers", {
+                        maxMembers: SUBSCRIPTION_TIERS.pro.maxMembers,
+                      })}
                     </Text>
                   </View>
                   <View style={styles.featureRow}>
@@ -459,11 +486,13 @@ export default function SubscriptionSettingsScreen() {
                       size={18}
                       color={theme.colors.success}
                     />
-                    <Text style={styles.featureText}>Priority support</Text>
+                    <Text style={styles.featureText}>
+                      {t("screens:subscriptionSettings.prioritySupport")}
+                    </Text>
                   </View>
                 </View>
                 <Button
-                  label="Upgrade to Pro"
+                  label={t("screens:subscriptionSettings.upgradeToPro")}
                   onPress={() => handleUpgrade("pro")}
                   theme="primary"
                   disabled={processingAction}
@@ -479,7 +508,9 @@ export default function SubscriptionSettingsScreen() {
                   size={32}
                   color={theme.colors.secondary}
                 />
-                <Text style={styles.enterpriseName}>Enterprise</Text>
+                <Text style={styles.enterpriseName}>
+                  {t("screens:subscriptionSettings.enterprise")}
+                </Text>
               </View>
               <Text style={styles.enterpriseDescription}>
                 {SUBSCRIPTION_TIERS.enterprise.description}
@@ -514,7 +545,7 @@ export default function SubscriptionSettingsScreen() {
                 style={styles.contactSalesButton}
                 onPress={() => {
                   // Open email
-                  const email = "sales@sportnizer.com";
+                  const email = "sales@clubnizer.com";
                   const subject = `Enterprise inquiry for ${club?.name || "our club"}`;
                   const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
                   if (typeof window !== "undefined") {
@@ -522,7 +553,9 @@ export default function SubscriptionSettingsScreen() {
                   }
                 }}
               >
-                <Text style={styles.contactSalesText}>Contact Sales</Text>
+                <Text style={styles.contactSalesText}>
+                  {t("screens:subscriptionSettings.contactSales")}
+                </Text>
                 <Ionicons
                   name="mail-outline"
                   size={18}
@@ -539,20 +572,24 @@ export default function SubscriptionSettingsScreen() {
         visible={showUpgradeModal}
         title={`${
           currentTier === "pro" && selectedTier === "basic"
-            ? "Downgrade"
+            ? t("screens:subscriptionSettings.downgradeToBasic")
             : isPaidTier
-              ? "Upgrade"
-              : "Upgrade"
-        } to ${selectedTier === "basic" ? "Basic" : "Pro"}`}
+              ? t("screens:subscriptionSettings.upgradeConfirm")
+              : t("screens:subscriptionSettings.upgradeConfirm")
+        }`}
         message={
           isPaidTier
             ? currentTier === "pro" && selectedTier === "basic"
-              ? "Your subscription will be downgraded immediately. You'll receive a prorated credit for the price difference."
-              : "Your subscription will be upgraded immediately. You'll be charged the prorated difference."
-            : "You will be redirected to complete your subscription."
+              ? t("screens:subscriptionSettings.downgradeConfirm")
+              : t("screens:subscriptionSettings.upgradeConfirm")
+            : t("screens:subscriptionSettings.upgradeConfirm")
         }
-        confirmText={isPaidTier ? "Confirm Change" : "Continue to Payment"}
-        cancelText="Cancel"
+        confirmText={
+          isPaidTier
+            ? t("screens:subscriptionSettings.confirmChange")
+            : t("screens:subscriptionSettings.continueToPayment")
+        }
+        cancelText={t("common:cancel")}
         onConfirm={confirmUpgrade}
         onCancel={() => setShowUpgradeModal(false)}
         confirmButtonTheme="primary"

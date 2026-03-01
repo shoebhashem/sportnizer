@@ -8,17 +8,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { doc, getDoc, getFirestore, updateDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import ConfirmationModal from "@/components/ConfirmationModal";
 
 interface Member {
   id: string;
@@ -41,6 +43,7 @@ interface Guardian {
 export default function MemberProfileScreen() {
   const { groupId, memberId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
+  const { t } = useTranslation(["screens", "common"]);
   const [member, setMember] = useState<Member | null>(null);
   const [guardians, setGuardians] = useState<Guardian[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +51,21 @@ export default function MemberProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [currentPhotoURL, setCurrentPhotoURL] = useState("");
+
+  // Alert modal state (cross-platform replacement for Alert.alert)
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ visible: false, title: "", message: "" });
+
+  const showAlert = (title: string, message: string, onConfirm?: () => void) =>
+    setAlertModal({ visible: true, title, message, onConfirm });
+  const hideAlert = () => {
+    alertModal.onConfirm?.();
+    setAlertModal({ visible: false, title: "", message: "" });
+  };
 
   // Editable fields
   const [editedName, setEditedName] = useState("");
@@ -128,8 +146,8 @@ export default function MemberProfileScreen() {
 
   const handleImageUploadSuccess = (newImageUrl: string) => {
     setCurrentPhotoURL(newImageUrl);
-    Alert.alert(
-      "Success",
+    showAlert(
+      t("common:success"),
       "Profile picture uploaded! It may take a moment to appear everywhere.",
     );
   };
@@ -139,7 +157,9 @@ export default function MemberProfileScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading member profile...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:memberProfile.loadingMemberProfile")}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -149,7 +169,9 @@ export default function MemberProfileScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Member not found</Text>
+          <Text style={styles.errorText}>
+            {t("screens:memberProfile.memberNotFound")}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -170,7 +192,9 @@ export default function MemberProfileScreen() {
               color={theme.colors.secondary}
             />
           </TouchableOpacity>
-          <Text style={styles.title}>Member Profile</Text>
+          <Text style={styles.title}>
+            {t("screens:memberProfile.memberProfile")}
+          </Text>
           <TouchableOpacity
             style={styles.editButton}
             onPress={() => (editing ? handleCancel() : setEditing(true))}
@@ -185,7 +209,9 @@ export default function MemberProfileScreen() {
 
         {/* Member Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Member Information</Text>
+          <Text style={styles.sectionTitle}>
+            {t("screens:memberProfile.memberInformation")}
+          </Text>
 
           {/* Profile Picture */}
           <View style={styles.avatarSection}>
@@ -209,13 +235,15 @@ export default function MemberProfileScreen() {
 
           <View style={styles.infoCard}>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Name</Text>
+              <Text style={styles.infoLabel}>
+                {t("screens:memberProfile.name")}
+              </Text>
               {editing ? (
                 <Input
                   label=""
                   value={editedName}
                   onChangeText={setEditedName}
-                  placeholder="Member name"
+                  placeholder={t("screens:memberProfile.memberNamePlaceholder")}
                 />
               ) : (
                 <Text style={styles.infoValue}>{member.name}</Text>
@@ -223,13 +251,15 @@ export default function MemberProfileScreen() {
             </View>
 
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Birth Date</Text>
+              <Text style={styles.infoLabel}>
+                {t("screens:memberProfile.birthDate")}
+              </Text>
               {editing ? (
                 <Input
                   label=""
                   value={editedBirthDate}
                   onChangeText={setEditedBirthDate}
-                  placeholder="YYYY-MM-DD"
+                  placeholder={t("screens:memberProfile.birthDatePlaceholder")}
                 />
               ) : (
                 <Text style={styles.infoValue}>{member.birthDate}</Text>
@@ -237,14 +267,19 @@ export default function MemberProfileScreen() {
             </View>
 
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Role</Text>
+              <Text style={styles.infoLabel}>
+                {t("screens:memberProfile.role")}
+              </Text>
               <Text style={styles.infoValue}>{member.role}</Text>
             </View>
 
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Joined</Text>
+              <Text style={styles.infoLabel}>
+                {t("screens:memberProfile.joined")}
+              </Text>
               <Text style={styles.infoValue}>
-                {member.joinedAt?.toDate?.()?.toLocaleDateString() || "Unknown"}
+                {member.joinedAt?.toDate?.()?.toLocaleDateString() ||
+                  t("common:unknown")}
               </Text>
             </View>
           </View>
@@ -252,7 +287,9 @@ export default function MemberProfileScreen() {
 
         {/* Guardian Contacts - Only for children */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Guardian Contacts</Text>
+          <Text style={styles.sectionTitle}>
+            {t("screens:memberProfile.guardianContacts")}
+          </Text>
 
           {guardians.length > 0 ? (
             guardians.map((guardian, index) => (
@@ -302,11 +339,10 @@ export default function MemberProfileScreen() {
                 color={theme.colors.textSecondary}
               />
               <Text style={styles.noGuardiansText}>
-                No guardian contacts available
+                {t("screens:memberProfile.noGuardianContacts")}
               </Text>
               <Text style={styles.noGuardiansSubtext}>
-                Guardian information will appear here once they confirm
-                participation
+                {t("screens:memberProfile.guardianInfoPlaceholder")}
               </Text>
             </View>
           )}
@@ -316,7 +352,7 @@ export default function MemberProfileScreen() {
         {editing && (
           <View style={styles.saveButtonContainer}>
             <Button
-              label={saving ? "Saving..." : "Save Changes"}
+              label={saving ? t("common:saving") : t("common:save")}
               onPress={handleSave}
               theme="primary"
               disabled={saving || !editedName.trim()}
@@ -324,6 +360,16 @@ export default function MemberProfileScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Alert Modal */}
+      <ConfirmationModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        confirmText={t("common:ok")}
+        onConfirm={hideAlert}
+        onCancel={hideAlert}
+      />
 
       {/* Profile Picture Upload Modal */}
       <ProfilePictureUpload

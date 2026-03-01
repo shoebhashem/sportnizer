@@ -7,6 +7,7 @@ import { useUser } from "@/contexts/UserContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     KeyboardAvoidingView,
     Platform,
@@ -23,6 +24,7 @@ import {
 } from "../services/auth/authService";
 
 export default function LoginScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { invite } = useLocalSearchParams<{ invite?: string }>();
   const { refreshUserProfile, firebaseUser } = useUser();
 
@@ -239,19 +241,19 @@ export default function LoginScreen() {
 
     // Validate email
     if (!email.trim()) {
-      setEmailError("Email is required");
+      setEmailError(t("common:validation.requiredField"));
       isValid = false;
     } else if (!validateEmail(email)) {
-      setEmailError("Please enter a valid email address");
+      setEmailError(t("common:validation.invalidEmail"));
       isValid = false;
     }
 
     // Validate password
     if (!password.trim()) {
-      setPasswordError("Password is required");
+      setPasswordError(t("common:validation.requiredField"));
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
+      setPasswordError(t("screens:signup.passwordRequirements"));
       isValid = false;
     }
 
@@ -314,28 +316,27 @@ export default function LoginScreen() {
         }
       } else {
         // Show error
-        let errorMessage = "An error occurred. Please try again.";
+        let errorMessage = t("screens:login.errors.generic");
 
         switch (result.error?.code) {
           case "auth/user-not-found":
-            errorMessage = "No account found with this email address.";
+            errorMessage = t("screens:login.errors.userNotFound");
             break;
           case "auth/wrong-password":
-            errorMessage = "Incorrect password. Please try again.";
+            errorMessage = t("screens:login.errors.wrongPassword");
             break;
           case "auth/invalid-email":
-            errorMessage = "Invalid email address.";
+            errorMessage = t("common:validation.invalidEmail");
             break;
           case "auth/email-not-verified":
-            errorMessage =
-              "Please verify your email address before signing in.\n\nCheck your email inbox and click the verification link to activate your account. If you don't see the email, check your spam folder.";
+            errorMessage = t("screens:login.emailNotVerifiedMessage");
             setShowResendButton(true);
             break;
           case "auth/too-many-requests":
-            errorMessage = "Too many failed attempts. Please try again later.";
+            errorMessage = t("screens:login.errors.tooManyRequests");
             break;
           case "auth/network-request-failed":
-            errorMessage = "Network error. Please check your connection.";
+            errorMessage = t("screens:login.errors.networkRequestFailed");
             break;
           default:
             errorMessage = result.error?.message || errorMessage;
@@ -346,7 +347,7 @@ export default function LoginScreen() {
       }
     } catch (error) {
       console.error("Login error:", error);
-      setErrorMessage("An unexpected error occurred. Please try again.");
+      setErrorMessage(t("screens:login.errors.generic"));
       setErrorModalVisible(true);
     } finally {
       setLoading(false);
@@ -534,29 +535,29 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Welcome to</Text>
-            <Text style={styles.appName}>Sportnizer</Text>
+            <Text style={styles.title}>{t("screens:login.welcomeBack")}</Text>
+            <Text style={styles.appName}>Clubnizer</Text>
             <Text style={styles.subtitle}>
-              Sign in to manage your sports groups
+              {t("screens:login.signInToContinue")}
             </Text>
           </View>
 
           <View style={styles.form}>
             <Input
-              label="Email Address"
+              label={t("common:email")}
               value={email}
               onChangeText={setEmail}
-              placeholder="Enter your email"
+              placeholder={t("screens:login.emailPlaceholder")}
               keyboardType="email-address"
               autoCapitalize="none"
               error={emailError}
             />
 
             <Input
-              label="Password"
+              label={t("common:password")}
               value={password}
               onChangeText={setPassword}
-              placeholder="Enter your password"
+              placeholder={t("screens:login.passwordPlaceholder")}
               secureTextEntry
               autoCapitalize="none"
               error={passwordError}
@@ -564,7 +565,7 @@ export default function LoginScreen() {
 
             <View style={styles.buttonContainer}>
               <Button
-                label="Sign In"
+                label={t("common:signIn")}
                 onPress={handleSignIn}
                 theme="primary"
                 loading={loading}
@@ -573,7 +574,7 @@ export default function LoginScreen() {
 
               {showResendButton && (
                 <Button
-                  label="Resend Verification Email"
+                  label={t("screens:login.resendVerification")}
                   onPress={handleResendVerification}
                   theme="secondary"
                   loading={resendLoading}
@@ -582,7 +583,7 @@ export default function LoginScreen() {
               )}
 
               <Button
-                label="Create New Account"
+                label={t("common:signUp")}
                 onPress={handleCreateAccount}
                 theme="secondary"
                 disabled={loading}
@@ -594,9 +595,9 @@ export default function LoginScreen() {
 
       <ConfirmationModal
         visible={errorModalVisible}
-        title="Sign In Error"
+        title={t("screens:login.signInFailed")}
         message={errorMessage}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         cancelText=""
         onConfirm={handleCloseErrorModal}
         onCancel={handleCloseErrorModal}
@@ -605,9 +606,9 @@ export default function LoginScreen() {
 
       <ConfirmationModal
         visible={resendSuccessModalVisible}
-        title="Verification Email Sent!"
-        message={`📧 A new verification link has been sent to your email inbox.\n\nPlease check your email and click the verification link to activate your account.\n\nDon't forget to check your spam folder if you don't see the email.`}
-        confirmText="OK"
+        title={t("common:success")}
+        message={t("screens:login.verificationResent")}
+        confirmText={t("common:ok")}
         cancelText=""
         onConfirm={handleCloseResendSuccessModal}
         onCancel={handleCloseResendSuccessModal}

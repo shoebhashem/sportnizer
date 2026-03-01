@@ -11,7 +11,7 @@ export const config = {
 
   // Email settings
   email: {
-    from: "noreply@sportnizer.com",
+    from: "noreply@clubnizer.com",
     host: "smtp.strato.com",
     port: 587,
     secure: false,

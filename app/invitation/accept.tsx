@@ -26,6 +26,7 @@ import { functions } from '@/services/core/firebase';
 import { router, useLocalSearchParams } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -44,6 +45,7 @@ interface RespondToEmailInviteResponse {
 }
 
 export default function InvitationAcceptScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { token } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [response, setResponse] = useState<RespondToEmailInviteResponse | null>(null);
@@ -53,18 +55,19 @@ export default function InvitationAcceptScreen() {
     console.log('📱 InvitationAcceptScreen mounted, token:', token);
     
     if (!token) {
-      setError('Invalid invitation link. No token found.');
+      setError(t("screens:invitationAccept.invalidLinkNoToken"));
       setLoading(false);
       return;
     }
     
     if (Array.isArray(token)) {
-      setError('Invalid invitation link. Multiple tokens found.');
+      setError(t("screens:invitationAccept.invalidLinkMultipleTokens"));
       setLoading(false);
       return;
     }
 
     processInvitation(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const processInvitation = async (invitationToken: string) => {
@@ -118,7 +121,7 @@ export default function InvitationAcceptScreen() {
 
     } catch (error) {
       console.error('❌ Error processing invitation:', error);
-      setError('Failed to process invitation. Please try again or contact support.');
+      setError(t("screens:invitationAccept.failedToProcess"));
     } finally {
       setLoading(false);
     }
@@ -138,7 +141,7 @@ export default function InvitationAcceptScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Processing your invitation...</Text>
+          <Text style={styles.loadingText}>{t("screens:invitationAccept.processingInvitation")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -149,17 +152,17 @@ export default function InvitationAcceptScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <Text style={styles.errorIcon}>❌</Text>
-          <Text style={styles.errorTitle}>Invitation Error</Text>
+          <Text style={styles.errorTitle}>{t("screens:invitationAccept.invitationError")}</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           
           <View style={styles.buttonContainer}>
             <Button 
-              label="Go to Home" 
+              label={t("common:goToHome")} 
               onPress={handleRetryHome}
               theme="primary"
             />
             <Button 
-              label="Contact Support" 
+              label={t("common:contactSupport")} 
               onPress={handleContactSupport}
               theme="secondary"
             />
@@ -177,28 +180,28 @@ export default function InvitationAcceptScreen() {
         <SafeAreaView style={styles.container}>
           <View style={styles.centerContent}>
             <Text style={styles.successIcon}>🎉</Text>
-            <Text style={styles.successTitle}>Invitation Accepted!</Text>
+            <Text style={styles.successTitle}>{t("screens:invitationAccept.invitationAccepted")}</Text>
             <Text style={styles.successMessage}>
               {response.message}
             </Text>
             
             {invitationDetails && (
               <View style={styles.invitationDetails}>
-                <Text style={styles.detailsTitle}>Invitation Details:</Text>
-                <Text style={styles.detailsText}>Group: {invitationDetails.groupName}</Text>
-                <Text style={styles.detailsText}>Club: {invitationDetails.clubName}</Text>
-                <Text style={styles.detailsText}>Invited by: {invitationDetails.inviterName}</Text>
+                <Text style={styles.detailsTitle}>{t("screens:invitationAccept.invitationDetails")}</Text>
+                <Text style={styles.detailsText}>{t("screens:invitationAccept.group", { name: invitationDetails.groupName })}</Text>
+                <Text style={styles.detailsText}>{t("screens:invitationAccept.club", { name: invitationDetails.clubName })}</Text>
+                <Text style={styles.detailsText}>{t("screens:invitationAccept.invitedByDetail", { name: invitationDetails.inviterName })}</Text>
               </View>
             )}
 
             {!response.requiresSignup ? (
               <Text style={styles.redirectMessage}>
-                You will be redirected to the dashboard shortly...
+                {t("screens:invitationAccept.redirectingToDashboard")}
               </Text>
             ) : (
               <View style={styles.buttonContainer}>
                 <Button 
-                  label="Continue to Sign Up" 
+                  label={t("screens:invitationAccept.continueToSignUp")} 
                   onPress={() => router.replace(`/signup?invite=${token}`)}
                   theme="primary"
                 />
@@ -214,11 +217,11 @@ export default function InvitationAcceptScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <Text style={styles.warningIcon}>⚠️</Text>
-          <Text style={styles.warningTitle}>Invitation Status</Text>
+          <Text style={styles.warningTitle}>{t("screens:invitationAccept.invitationStatus")}</Text>
           <Text style={styles.warningMessage}>{response.message}</Text>
           
           <Button 
-            label="Go to Home" 
+            label={t("common:goToHome")} 
             onPress={handleRetryHome}
             theme="primary"
           />

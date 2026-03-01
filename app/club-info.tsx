@@ -27,6 +27,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useTranslation } from "react-i18next";
 import Button from "../components/Button";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { theme } from "../constants/theme";
@@ -38,6 +39,7 @@ import { ClubData } from "../services/types/club";
 
 export default function ClubInfoScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation(["screens", "common"]);
   const navigation = useNavigation();
   const { clubId, mode } = useLocalSearchParams<{
     clubId: string;
@@ -112,7 +114,7 @@ export default function ClubInfoScreen() {
       }
     } catch (error) {
       console.error("Error fetching club:", error);
-      showAlert("Error", "Failed to load club information");
+      showAlert(t("common:error"), t("screens:clubInfo.failedToLoadClubInfo"));
     } finally {
       setLoading(false);
     }
@@ -141,7 +143,10 @@ export default function ClubInfoScreen() {
   const handleSave = useCallback(async () => {
     console.log("📝 handleSave called");
     if (!name.trim()) {
-      showAlert("Validation", "Club name cannot be empty.");
+      showAlert(
+        t("common:validation.validationError"),
+        t("screens:clubInfo.clubNameEmpty"),
+      );
       return;
     }
 
@@ -186,8 +191,8 @@ export default function ClubInfoScreen() {
           setCurrentLogoUrl(logoResult.logoUrl);
         } else {
           showAlert(
-            "Warning",
-            "Logo upload failed, but other changes will be saved.",
+            t("common:warning"),
+            t("screens:clubInfo.logoUploadWarning"),
           );
         }
       }
@@ -209,7 +214,7 @@ export default function ClubInfoScreen() {
 
         // Refresh club data
         await fetchClub();
-        showAlert("Success", "Club information updated successfully!");
+        showAlert(t("common:success"), t("screens:clubInfo.clubInfoUpdated"));
       } else {
         console.log("📝 No changes detected");
       }
@@ -218,7 +223,10 @@ export default function ClubInfoScreen() {
       setIsEditing(false);
     } catch (error: any) {
       console.error("Error saving club info:", error);
-      showAlert("Error", error.message || "Failed to update club information.");
+      showAlert(
+        t("common:error"),
+        error.message || t("screens:clubInfo.failedToUpdateClubInfo"),
+      );
     } finally {
       setSaving(false);
       setUploadingLogo(false);
@@ -301,8 +309,8 @@ export default function ClubInfoScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       showAlert(
-        "Permission Required",
-        "Sorry, we need camera roll permissions to upload logos.",
+        t("common:permissionRequired"),
+        t("common:cameraRollPermission"),
       );
       return false;
     }
@@ -332,10 +340,7 @@ export default function ClubInfoScreen() {
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      showAlert(
-        "Permission Required",
-        "Sorry, we need camera permissions to take photos.",
-      );
+      showAlert(t("common:permissionRequired"), t("common:cameraPermission"));
       return;
     }
 
@@ -363,7 +368,9 @@ export default function ClubInfoScreen() {
   if (!club) {
     return (
       <View style={[styles.loadingContainer, { paddingBottom: insets.bottom }]}>
-        <Text style={styles.errorText}>Club not found</Text>
+        <Text style={styles.errorText}>
+          {t("screens:clubInfo.clubNotFound")}
+        </Text>
       </View>
     );
   }
@@ -414,7 +421,9 @@ export default function ClubInfoScreen() {
               )}
             </TouchableOpacity>
             {isEditing && (
-              <Text style={styles.tapToChangeText}>Tap to change logo</Text>
+              <Text style={styles.tapToChangeText}>
+                {t("screens:clubInfo.tapToChangeLogo")}
+              </Text>
             )}
           </View>
 
@@ -430,13 +439,15 @@ export default function ClubInfoScreen() {
                 />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Club Name</Text>
+                <Text style={styles.fieldLabel}>
+                  {t("screens:clubInfo.clubName")}
+                </Text>
                 {isEditing ? (
                   <TextInput
                     style={styles.fieldInput}
                     value={name}
                     onChangeText={setName}
-                    placeholder="Enter club name"
+                    placeholder={t("screens:clubInfo.clubNamePlaceholder")}
                     placeholderTextColor={theme.colors.textSecondary}
                   />
                 ) : (
@@ -455,13 +466,15 @@ export default function ClubInfoScreen() {
                 />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Location</Text>
+                <Text style={styles.fieldLabel}>
+                  {t("screens:clubInfo.location")}
+                </Text>
                 {isEditing ? (
                   <TextInput
                     style={styles.fieldInput}
                     value={location}
                     onChangeText={setLocation}
-                    placeholder="e.g., Springfield, IL"
+                    placeholder={t("screens:clubInfo.locationPlaceholder")}
                     placeholderTextColor={theme.colors.textSecondary}
                   />
                 ) : (
@@ -471,7 +484,7 @@ export default function ClubInfoScreen() {
                       !club.location && styles.fieldEmpty,
                     ]}
                   >
-                    {club.location || "Not set"}
+                    {club.location || t("common:notSet")}
                   </Text>
                 )}
               </View>
@@ -487,13 +500,15 @@ export default function ClubInfoScreen() {
                 />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Address</Text>
+                <Text style={styles.fieldLabel}>
+                  {t("screens:clubInfo.address")}
+                </Text>
                 {isEditing ? (
                   <TextInput
                     style={styles.fieldInput}
                     value={address}
                     onChangeText={setAddress}
-                    placeholder="Enter full address"
+                    placeholder={t("screens:clubInfo.addressPlaceholder")}
                     placeholderTextColor={theme.colors.textSecondary}
                   />
                 ) : (
@@ -503,7 +518,7 @@ export default function ClubInfoScreen() {
                       !club.address && styles.fieldEmpty,
                     ]}
                   >
-                    {club.address || "Not set"}
+                    {club.address || t("common:notSet")}
                   </Text>
                 )}
               </View>
@@ -519,13 +534,15 @@ export default function ClubInfoScreen() {
                 />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Phone</Text>
+                <Text style={styles.fieldLabel}>
+                  {t("screens:clubInfo.phone")}
+                </Text>
                 {isEditing ? (
                   <TextInput
                     style={styles.fieldInput}
                     value={phoneNumber}
                     onChangeText={setPhoneNumber}
-                    placeholder="Enter phone number"
+                    placeholder={t("screens:clubInfo.phonePlaceholder")}
                     placeholderTextColor={theme.colors.textSecondary}
                     keyboardType="phone-pad"
                   />
@@ -536,7 +553,7 @@ export default function ClubInfoScreen() {
                       !club.phoneNumber && styles.fieldEmpty,
                     ]}
                   >
-                    {club.phoneNumber || "Not set"}
+                    {club.phoneNumber || t("common:notSet")}
                   </Text>
                 )}
               </View>
@@ -552,13 +569,15 @@ export default function ClubInfoScreen() {
                 />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Description</Text>
+                <Text style={styles.fieldLabel}>
+                  {t("screens:clubInfo.description")}
+                </Text>
                 {isEditing ? (
                   <TextInput
                     style={[styles.fieldInput, styles.textArea]}
                     value={description}
                     onChangeText={setDescription}
-                    placeholder="Tell us about your club..."
+                    placeholder={t("screens:clubInfo.descriptionPlaceholder")}
                     placeholderTextColor={theme.colors.textSecondary}
                     multiline
                     numberOfLines={4}
@@ -571,7 +590,7 @@ export default function ClubInfoScreen() {
                       !club.description && styles.fieldEmpty,
                     ]}
                   >
-                    {club.description || "Not set"}
+                    {club.description || t("common:notSet")}
                   </Text>
                 )}
               </View>
@@ -589,7 +608,9 @@ export default function ClubInfoScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Change Club Logo</Text>
+            <Text style={styles.modalTitle}>
+              {t("screens:clubInfo.changeClubLogo")}
+            </Text>
 
             {selectedLogoUri && (
               <Image
@@ -600,19 +621,19 @@ export default function ClubInfoScreen() {
 
             <View style={styles.modalButtons}>
               <Button
-                label="📷 Take Photo"
+                label={t("screens:clubInfo.takePhoto")}
                 theme="secondary"
                 onPress={takeLogoPhoto}
               />
               <View style={{ height: 12 }} />
               <Button
-                label="🖼️ Choose from Library"
+                label={t("screens:clubInfo.chooseFromLibrary")}
                 theme="secondary"
                 onPress={pickLogoFromLibrary}
               />
               <View style={{ height: 12 }} />
               <Button
-                label="Cancel"
+                label={t("common:cancel")}
                 theme="secondary"
                 onPress={() => setShowLogoPicker(false)}
               />
@@ -635,7 +656,9 @@ export default function ClubInfoScreen() {
       {uploadingLogo && (
         <View style={styles.uploadingOverlay}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.uploadingText}>Uploading logo...</Text>
+          <Text style={styles.uploadingText}>
+            {t("screens:clubInfo.uploadingLogo")}
+          </Text>
         </View>
       )}
     </View>

@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     ScrollView,
@@ -37,6 +38,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function NewsDetailsScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
@@ -207,7 +209,7 @@ export default function NewsDetailsScreen() {
       router.back();
     } catch (error) {
       console.error("Error deleting news:", error);
-      setErrorModal({ visible: true, message: "Failed to delete news" });
+      setErrorModal({ visible: true, message: t("screens:newsDetails.failedToDeleteNews") });
     }
   };
 
@@ -252,7 +254,7 @@ export default function NewsDetailsScreen() {
       >
         <StatusBar style="light" />
         <ActivityIndicator size="large" color={theme.colors.secondary} />
-        <Text style={styles.loadingText}>Loading news...</Text>
+        <Text style={styles.loadingText}>{t("screens:newsDetails.loadingNews")}</Text>
       </View>
     );
   }
@@ -273,12 +275,12 @@ export default function NewsDetailsScreen() {
           size={64}
           color={theme.colors.textSecondary}
         />
-        <Text style={styles.notFoundText}>News not found</Text>
+        <Text style={styles.notFoundText}>{t("screens:newsDetails.newsNotFound")}</Text>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>Go Back</Text>
+          <Text style={styles.backButtonText}>{t("common:goBack")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -303,7 +305,7 @@ export default function NewsDetailsScreen() {
         </TouchableOpacity>
 
         <Text style={styles.headerTitle} numberOfLines={1}>
-          News
+          {t("screens:newsDetails.headerTitle")}
         </Text>
 
         <View style={styles.headerActions}>
@@ -396,7 +398,7 @@ export default function NewsDetailsScreen() {
           <View style={styles.emailBadge}>
             <Ionicons name="mail" size={14} color={theme.colors.secondary} />
             <Text style={styles.emailBadgeText}>
-              Sent via email to {news.emailDelivery.sentCount || 0} recipients
+              {t("screens:newsDetails.sentViaEmail", { count: news.emailDelivery.sentCount || 0 })}
             </Text>
           </View>
         )}
@@ -415,7 +417,7 @@ export default function NewsDetailsScreen() {
               color={theme.colors.textSecondary}
             />
             <Text style={styles.statText}>
-              {news.recipientUserIds?.length || 0} recipients
+              {t("screens:newsDetails.recipientCount", { count: news.recipientUserIds?.length || 0 })}
             </Text>
           </View>
 
@@ -426,7 +428,7 @@ export default function NewsDetailsScreen() {
                 size={18}
                 color={theme.colors.textSecondary}
               />
-              <Text style={styles.statText}>{news.readCount} read</Text>
+              <Text style={styles.statText}>{t("screens:newsDetails.readCount", { count: news.readCount })}</Text>
             </View>
           )}
         </View>
@@ -435,10 +437,10 @@ export default function NewsDetailsScreen() {
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
         visible={showDeleteConfirm}
-        title="Delete News"
-        message="Are you sure you want to delete this news? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={t("screens:newsDetails.deleteNews")}
+        message={t("screens:newsDetails.deleteNewsConfirm")}
+        confirmText={t("common:delete")}
+        cancelText={t("common:cancel")}
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
       />
@@ -446,9 +448,9 @@ export default function NewsDetailsScreen() {
       {/* Error Modal */}
       <ConfirmationModal
         visible={errorModal.visible}
-        title="Error"
+        title={t("common:error")}
         message={errorModal.message}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         onConfirm={() => setErrorModal({ visible: false, message: "" })}
         onCancel={() => setErrorModal({ visible: false, message: "" })}
       />

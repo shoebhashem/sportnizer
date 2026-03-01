@@ -1,4 +1,4 @@
-// Sportnizer App Theme
+// Clubnizer App Theme
 export const theme = {
   colors: {
     primary: "#25292e", // Dark background

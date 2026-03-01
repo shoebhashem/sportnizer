@@ -4,6 +4,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
@@ -21,6 +22,7 @@ interface LegalSettingsSectionProps {
 export default function LegalSettingsSection({
   showAcceptanceStatus = true,
 }: LegalSettingsSectionProps) {
+  const { t } = useTranslation(["components", "common"]);
   const { userProfile } = useUser();
 
   const acceptedTermsVersion = userProfile?.legalAcceptance?.termsVersion;
@@ -57,7 +59,7 @@ export default function LegalSettingsSection({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Legal</Text>
+      <Text style={styles.sectionTitle}>{t("components:legalSettingsSection.legal")}</Text>
 
       {/* Terms of Service */}
       <TouchableOpacity
@@ -72,9 +74,9 @@ export default function LegalSettingsSection({
             color={theme.colors.secondary}
           />
           <View style={styles.legalItemText}>
-            <Text style={styles.legalItemTitle}>Terms of Service</Text>
+            <Text style={styles.legalItemTitle}>{t("components:legalSettingsSection.termsOfService")}</Text>
             <Text style={styles.legalItemSubtitle}>
-              Version {CURRENT_TERMS_VERSION}
+              {t("components:legalSettingsSection.version", { version: CURRENT_TERMS_VERSION })}
             </Text>
           </View>
         </View>
@@ -94,7 +96,7 @@ export default function LegalSettingsSection({
                     : styles.statusTextOutdated,
                 ]}
               >
-                {termsUpToDate ? "Accepted" : "Update Required"}
+                {termsUpToDate ? t("components:legalSettingsSection.accepted") : t("components:legalSettingsSection.updateRequired")}
               </Text>
             </View>
           )}
@@ -119,9 +121,9 @@ export default function LegalSettingsSection({
             color={theme.colors.secondary}
           />
           <View style={styles.legalItemText}>
-            <Text style={styles.legalItemTitle}>Privacy Policy</Text>
+            <Text style={styles.legalItemTitle}>{t("components:legalSettingsSection.privacyPolicy")}</Text>
             <Text style={styles.legalItemSubtitle}>
-              Version {CURRENT_PRIVACY_VERSION}
+              {t("components:legalSettingsSection.version", { version: CURRENT_PRIVACY_VERSION })}
             </Text>
           </View>
         </View>
@@ -141,7 +143,7 @@ export default function LegalSettingsSection({
                     : styles.statusTextOutdated,
                 ]}
               >
-                {privacyUpToDate ? "Accepted" : "Update Required"}
+                {privacyUpToDate ? t("components:legalSettingsSection.accepted") : t("components:legalSettingsSection.updateRequired")}
               </Text>
             </View>
           )}
@@ -162,7 +164,7 @@ export default function LegalSettingsSection({
             color={theme.colors.success}
           />
           <Text style={styles.acceptanceText}>
-            Last accepted on {formatDate(acceptedAt)}
+            {t("components:legalSettingsSection.lastAcceptedOn", { date: formatDate(acceptedAt) })}
           </Text>
         </View>
       )}

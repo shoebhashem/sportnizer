@@ -12,12 +12,8 @@ import {
     useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
-} from "react";
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
@@ -31,6 +27,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Import new services
+import { useDataCache } from "@/contexts/DataCacheContext";
 import { fetchGroupMembers } from "@/services/fetchGroupMembers";
 import { groupService } from "@/services/group";
 import { permissionService } from "@/services/permissions";
@@ -38,6 +35,8 @@ import { SubGroup } from "@/services/subgroup";
 import { GroupData, GroupMemberData } from "@/services/types/group";
 
 export default function ManageGroupScreen() {
+  const cache = useDataCache();
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const { groupId, clubId, clubName, tab } = useLocalSearchParams();
   const { user } = useAuth();
@@ -79,8 +78,8 @@ export default function ManageGroupScreen() {
     try {
       // Fetch group data and members (subgroups are now in group.subGroups array)
       const [groupResult, membersResult] = await Promise.all([
-        groupService.getGroup(clubId, groupId),
-        fetchGroupMembers(clubId, groupId),
+        groupService.getGroup(clubId, groupId, cache),
+        fetchGroupMembers(clubId, groupId, cache),
       ]);
 
       // Process group data
@@ -138,9 +137,7 @@ export default function ManageGroupScreen() {
     }
   }, [groupId, clubId, user]);
 
-  useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+  // Removed useEffect double-fetch. Only useFocusEffect remains.
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -261,7 +258,9 @@ export default function ManageGroupScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading group data...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:manageGroup.loadingGroup")}
+          </Text>
         </View>
       </View>
     );
@@ -272,9 +271,11 @@ export default function ManageGroupScreen() {
       <View style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Group not found</Text>
+          <Text style={styles.errorText}>
+            {t("screens:manageGroup.groupNotFound")}
+          </Text>
           <Button
-            label="Go Back"
+            label={t("common:goBack")}
             onPress={() => router.back()}
             theme="secondary"
           />
@@ -301,7 +302,7 @@ export default function ManageGroupScreen() {
                 activeTab === "members" && styles.activeTabText,
               ]}
             >
-              Members ({members.length})
+              {t("screens:manageGroup.members")} ({members.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -314,7 +315,8 @@ export default function ManageGroupScreen() {
                 activeTab === "subgroups" && styles.activeTabText,
               ]}
             >
-              Subgroups ({group?.subGroups?.length || 0})
+              {t("screens:manageGroup.subgroups")} (
+              {group?.subGroups?.length || 0})
             </Text>
           </TouchableOpacity>
         </View>

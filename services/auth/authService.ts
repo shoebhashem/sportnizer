@@ -1,10 +1,10 @@
 import { auth, db, functions } from "@/services/core/firebase";
 import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  User,
+    createUserWithEmailAndPassword,
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    signOut,
+    User,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -123,7 +123,7 @@ export const signUpUser = async (
           requiresEmailVerification: false,
           message:
             responseData.message ||
-            "🎉 Account created successfully!\n\nYour account has been activated and you can start using Sportnizer right away!",
+            "🎉 Account created successfully!\n\nYour account has been activated and you can start using Clubnizer right away!",
         };
       } else {
         // For regular users, sign out until email is verified

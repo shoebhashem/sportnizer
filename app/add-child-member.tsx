@@ -32,6 +32,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     KeyboardAvoidingView,
     Platform,
@@ -45,13 +46,14 @@ export default function AddChildMemberScreen() {
   const { groupId, groupName, clubId, clubName } = useLocalSearchParams();
   const { user } = useAuth();
   const navigation = useNavigation();
+  const { t } = useTranslation(["screens", "common"]);
 
   // Set dynamic native header title
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: "Add Youth Player",
+      title: t("screens:addChildMember.addYouthPlayer"),
     });
-  }, [navigation]);
+  }, [navigation, t]);
 
   // Form state
   const [guardianEmail, setGuardianEmail] = useState("");
@@ -157,7 +159,7 @@ export default function AddChildMemberScreen() {
       }
     } catch (error) {
       console.error("❌ Error in handleGuardianEmailBlur:", error);
-      setStatusMessage("Error checking guardian email");
+      setStatusMessage(t("screens:addAdultMember.errorCheckingEmail"));
       // Silent fail - user can still add new youth
     } finally {
       setCheckingGuardian(false);
@@ -188,23 +190,32 @@ export default function AddChildMemberScreen() {
 
   const validateForm = (): boolean => {
     if (!guardianEmail.trim()) {
-      showModal("Validation Error", "Please enter guardian email address");
+      showModal(
+        t("common:error"),
+        t("screens:addChildMember.validationErrors.emailRequired"),
+      );
       return false;
     }
 
     if (!validateEmail(guardianEmail.trim())) {
-      showModal("Validation Error", "Please enter a valid email address");
+      showModal(
+        t("common:error"),
+        t("screens:addChildMember.validationErrors.invalidEmail"),
+      );
       return false;
     }
 
     if (!childName.trim()) {
-      showModal("Validation Error", "Please enter child's name");
+      showModal(
+        t("common:error"),
+        t("screens:addChildMember.validationErrors.nameRequired"),
+      );
       return false;
     }
 
     if (childName.trim().length < 2) {
       showModal(
-        "Validation Error",
+        t("common:error"),
         "Child's name must be at least 2 characters",
       );
       return false;
@@ -216,7 +227,10 @@ export default function AddChildMemberScreen() {
     }
 
     if (!dateOfBirth.trim()) {
-      showModal("Validation Error", "Please enter child's date of birth");
+      showModal(
+        t("common:error"),
+        t("screens:addChildMember.validationErrors.dobRequired"),
+      );
       return false;
     }
 
@@ -224,8 +238,8 @@ export default function AddChildMemberScreen() {
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(dateOfBirth)) {
       showModal(
-        "Validation Error",
-        "Date must be in format YYYY-MM-DD (e.g., 2015-06-15)",
+        t("common:error"),
+        t("screens:addChildMember.validationErrors.invalidDob"),
       );
       return false;
     }
@@ -237,24 +251,27 @@ export default function AddChildMemberScreen() {
     minDate.setFullYear(today.getFullYear() - 25); // Max 25 years old
 
     if (isNaN(birthDate.getTime())) {
-      showModal("Validation Error", "Please enter a valid date");
+      showModal(
+        t("common:error"),
+        t("screens:addChildMember.validationErrors.invalidDob"),
+      );
       return false;
     }
 
     if (birthDate > today) {
-      showModal("Validation Error", "Date of birth cannot be in the future");
+      showModal(t("common:error"), "Date of birth cannot be in the future");
       return false;
     }
 
     if (birthDate < minDate) {
-      showModal("Validation Error", "Child must be under 25 years old");
+      showModal(t("common:error"), "Child must be under 25 years old");
       return false;
     }
 
     if (!relationship.trim()) {
       showModal(
-        "Validation Error",
-        "Please specify your relationship to the child",
+        t("common:error"),
+        t("screens:addChildMember.validationErrors.relationshipRequired"),
       );
       return false;
     }
@@ -266,7 +283,7 @@ export default function AddChildMemberScreen() {
     if (!validateForm()) return;
 
     if (!user) {
-      showModal("Error", "You must be logged in to send invitations");
+      showModal(t("common:error"), t("screens:addChildMember.mustBeLoggedIn"));
       return;
     }
 
@@ -304,7 +321,7 @@ export default function AddChildMemberScreen() {
 
           // Don't proceed with invitation - let user select youth first
           showModal(
-            "Youth Players Found",
+            t("screens:addChildMember.youthPlayersFound"),
             `This guardian has existing youth players. Please select one or choose to add a new youth player.`,
           );
           return;
@@ -314,7 +331,7 @@ export default function AddChildMemberScreen() {
         if (!result.canInvite) {
           setCheckingGuardian(false);
           showModal(
-            "Cannot Send Invitation",
+            t("screens:addChildMember.cannotSendInvitation"),
             result.statusMessage ||
               "This youth player cannot be added to the group at this time.",
           );
@@ -325,7 +342,7 @@ export default function AddChildMemberScreen() {
       } catch (error) {
         console.error("❌ Error validating guardian email:", error);
         setCheckingGuardian(false);
-        setStatusMessage("Error checking guardian email");
+        setStatusMessage(t("screens:addAdultMember.errorCheckingEmail"));
         // Continue with invitation despite validation error
       }
     }
@@ -391,24 +408,36 @@ export default function AddChildMemberScreen() {
             ? `✅ Guardian Notified!\n\nAn in-app notification has been sent to ${guardianEmail.trim()}.\n\nThey will be able to add ${childName.trim()} to ${groupName} from their notifications.`
             : `✅ Invitation Sent!\n\nAn email invitation has been sent to ${guardianEmail.trim()}.\n\nThey will receive instructions to add ${childName.trim()} to ${groupName}.`;
 
-          showModal("Success", successMessage, "Send Another", "Done", () => {
-            // "Send Another" button - Reset form and hide modal
-            hideModal();
-            setGuardianEmail("");
-            setChildName("");
-            setDateOfBirth("");
-            setRelationship("Parent");
-          });
+          showModal(
+            t("common:success"),
+            successMessage,
+            t("screens:addChildMember.sendAnother"),
+            t("common:done"),
+            () => {
+              // "Send Another" button - Reset form and hide modal
+              hideModal();
+              setGuardianEmail("");
+              setChildName("");
+              setDateOfBirth("");
+              setRelationship("Parent");
+            },
+          );
         } else {
-          showModal("Error", inviteResult.error || "Failed to send invitation");
+          showModal(
+            t("common:error"),
+            inviteResult.error || "Failed to send invitation",
+          );
         }
       } else {
-        showModal("Error", result.error || "Failed to send invitation");
+        showModal(
+          t("common:error"),
+          result.error || "Failed to send invitation",
+        );
       }
     } catch (error: any) {
       console.error("❌ Error sending youth member invitation:", error);
       showModal(
-        "Error",
+        t("common:error"),
         error.message || "An unexpected error occurred. Please try again.",
       );
     } finally {
@@ -418,10 +447,10 @@ export default function AddChildMemberScreen() {
 
   const handleCancel = () => {
     showModal(
-      "Cancel Invitation",
-      "Are you sure you want to cancel? Any entered information will be lost.",
-      "Yes, Cancel",
-      "No, Continue",
+      t("screens:addChildMember.cancelInvitation"),
+      t("screens:addChildMember.cancelInvitationConfirm"),
+      t("screens:addChildMember.yesCancelButton"),
+      t("screens:addChildMember.noContinueButton"),
       () => router.back(),
     );
   };
@@ -447,10 +476,12 @@ export default function AddChildMemberScreen() {
 
           {/* Form */}
           <View style={styles.form}>
-            <Text style={styles.sectionTitle}>Guardian Information</Text>
+            <Text style={styles.sectionTitle}>
+              {t("screens:addChildMember.guardianInformation")}
+            </Text>
 
             <Input
-              label="Guardian Email *"
+              label={t("screens:addChildMember.guardianEmail")}
               value={guardianEmail}
               onChangeText={(text) => {
                 setGuardianEmail(text);
@@ -461,7 +492,7 @@ export default function AddChildMemberScreen() {
                 }
               }}
               onBlur={handleGuardianEmailBlur}
-              placeholder="guardian@email.com"
+              placeholder={t("screens:addChildMember.guardianEmailPlaceholder")}
               keyboardType="email-address"
               autoCapitalize="none"
             />
@@ -469,7 +500,7 @@ export default function AddChildMemberScreen() {
             {checkingGuardian && (
               <View style={styles.checkingContainer}>
                 <Text style={styles.checkingText}>
-                  Checking for existing youth...
+                  {t("screens:addChildMember.checkingForExistingYouth")}
                 </Text>
               </View>
             )}
@@ -498,12 +529,13 @@ export default function AddChildMemberScreen() {
                       color={theme.colors.secondary}
                     />
                     <Text style={styles.existingYouthTitle}>
-                      Existing Youth Players
+                      {t("screens:addChildMember.existingYouthPlayers")}
                     </Text>
                   </View>
                   <Text style={styles.existingYouthSubtitle}>
-                    This guardian has youth players. Select one to add to{" "}
-                    {groupName}:
+                    {t("screens:addChildMember.existingYouthPlayersMessage", {
+                      groupName,
+                    })}
                   </Text>
 
                   {/* Selectable youth */}
@@ -522,12 +554,14 @@ export default function AddChildMemberScreen() {
                           {youth.youthName}
                         </Text>
                         <Text style={styles.youthOptionClubs}>
-                          Currently in:{" "}
-                          {youth.currentClubs.join(", ") || "None"}
+                          {t("screens:addChildMember.currentlyIn", {
+                            clubs:
+                              youth.currentClubs.join(", ") || t("common:none"),
+                          })}
                         </Text>
                       </View>
                       <Button
-                        label="Select"
+                        label={t("common:select")}
                         onPress={() => selectExistingYouth(youth)}
                         theme="primary"
                       />
@@ -555,8 +589,10 @@ export default function AddChildMemberScreen() {
                           {youth.youthName}
                         </Text>
                         <Text style={styles.youthOptionClubs}>
-                          Currently in:{" "}
-                          {youth.currentClubs.join(", ") || "None"}
+                          {t("screens:addChildMember.currentlyIn", {
+                            clubs:
+                              youth.currentClubs.join(", ") || t("common:none"),
+                          })}
                         </Text>
                       </View>
                       <View style={styles.disabledBadge}>
@@ -568,7 +604,7 @@ export default function AddChildMemberScreen() {
                   ))}
 
                   <Button
-                    label="Add New Youth Instead"
+                    label={t("screens:addChildMember.addNewYouthInstead")}
                     onPress={handleAddNewYouth}
                     theme="secondary"
                   />
@@ -585,11 +621,13 @@ export default function AddChildMemberScreen() {
                     color={theme.colors.success}
                   />
                   <Text style={styles.selectedYouthText}>
-                    Selected: {selectedExistingYouth.youthName}
+                    {t("screens:addChildMember.selectedYouth", {
+                      name: selectedExistingYouth.youthName,
+                    })}
                   </Text>
                 </View>
                 <Button
-                  label="Choose Different Youth"
+                  label={t("screens:addChildMember.chooseDifferentYouth")}
                   onPress={() => setShowExistingYouthSelector(true)}
                   theme="secondary"
                 />
@@ -600,42 +638,52 @@ export default function AddChildMemberScreen() {
             {!selectedExistingYouth && (
               <>
                 <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>
-                  Child Information
+                  {t("screens:addChildMember.childInformation")}
                 </Text>
 
                 <Input
-                  label="Child's Name *"
+                  label={t("screens:addChildMember.childName")}
                   value={childName}
                   onChangeText={setChildName}
-                  placeholder="Enter child's full name"
+                  placeholder={t("screens:addChildMember.childNamePlaceholder")}
                   autoCapitalize="words"
                 />
 
                 <Input
-                  label="Date of Birth *"
+                  label={t("screens:addChildMember.dateOfBirth")}
                   value={dateOfBirth}
                   onChangeText={setDateOfBirth}
-                  placeholder="YYYY-MM-DD (e.g., 2015-06-15)"
+                  placeholder={t(
+                    "screens:addChildMember.dateOfBirthPlaceholder",
+                  )}
                   autoCapitalize="none"
                 />
 
                 <Input
-                  label="Relationship to Guardian *"
+                  label={t("screens:addChildMember.relationshipToGuardian")}
                   value={relationship}
                   onChangeText={setRelationship}
-                  placeholder="Parent, Guardian, etc."
+                  placeholder={t(
+                    "screens:addChildMember.relationshipPlaceholder",
+                  )}
                   autoCapitalize="words"
                 />
               </>
             )}
 
-            <Text style={styles.helperText}>* All fields are required</Text>
+            <Text style={styles.helperText}>
+              {t("screens:addChildMember.allFieldsRequired")}
+            </Text>
           </View>
 
           {/* Buttons */}
           <View style={styles.buttonContainer}>
             <Button
-              label={loading ? "Sending Invitation..." : "Send Invitation"}
+              label={
+                loading
+                  ? t("screens:addChildMember.sendingInvitation")
+                  : t("screens:addChildMember.sendInvitation")
+              }
               onPress={handleSendInvitation}
               theme="primary"
               disabled={loading}
@@ -643,7 +691,7 @@ export default function AddChildMemberScreen() {
             />
 
             <Button
-              label="Cancel"
+              label={t("common:cancel")}
               onPress={handleCancel}
               theme="secondary"
               disabled={loading}
@@ -661,7 +709,7 @@ export default function AddChildMemberScreen() {
         cancelText={modalCancelText}
         onConfirm={modalOnConfirm}
         onCancel={
-          modalCancelText === "Done"
+          modalCancelText === t("common:done")
             ? () => {
                 hideModal();
                 router.back();

@@ -1,0 +1,215 @@
+{
+  "confirmationModal": {
+    "confirm": "Confirm"
+  },
+
+  "deletionConfirmationModal": {
+    "gracePeriodNote": "{{gracePeriodDays}}-day grace period - You can undo this!",
+    "deletionMessage": "Are you sure you want to delete \"{{entityName}}\"? This will affect {{affectedCount}} members.",
+    "deleting": "Deleting..."
+  },
+
+  "invitationModal": {
+    "roleUpdate": "Role Update",
+    "clubAdminInvitation": "Club Admin Invitation",
+    "childMemberInvitation": "Child Member Invitation",
+    "groupInvitation": "Group Invitation",
+    "youthInvitationMessage": "{{inviterName}} wants to add {{youthName}} to {{groupName}} in {{clubName}}.",
+    "wouldYouLikeToAddYouth": "Would you like to add {{youthName}} to this group?",
+    "roleUpdateMessage": "{{inviterName}} wants to update your role to {{roleName}} in {{groupName}} ({{clubName}}).",
+    "wouldYouLikeToAcceptRoleUpdate": "Would you like to accept this role update?",
+    "clubAdminMessage": "{{inviterName}} wants you to become a club administrator for {{clubName}}.",
+    "wouldYouLikeToAcceptRole": "Would you like to accept this role?",
+    "regularInvitationMessage": "{{inviterName}} has invited you to join {{groupName}} in {{clubName}} as a {{roleName}}.",
+    "wouldYouLikeToJoin": "Would you like to join this group?",
+    "reject": "Reject",
+    "acceptRole": "Accept Role",
+    "acceptAndJoin": "Accept & Join"
+  },
+
+  "roleFilterModal": {
+    "filterByRole": "Filter by Role",
+    "apply": "Apply",
+    "selectAll": "Select All",
+    "clearAll": "Clear All",
+    "selectWhichRoles": "Select which roles should receive this event invitation",
+    "noRolesSelected": "No roles selected - entire group will be invited",
+    "rolesSelected_one": "{{count}} role selected",
+    "rolesSelected_other": "{{count}} roles selected",
+    "roles": {
+      "players": "Players",
+      "playersDesc": "Regular team players",
+      "youthPlayers": "Youth Players",
+      "youthPlayersDesc": "Underage players (guardians notified)",
+      "coaches": "Coaches",
+      "coachesDesc": "Team coaches and assistants",
+      "admins": "Admins",
+      "adminsDesc": "Group administrators",
+      "clubAdmins": "Club Admins",
+      "clubAdminsDesc": "Club administrators",
+      "guardians": "Guardians",
+      "guardiansDesc": "Parents/guardians of youth members"
+    }
+  },
+
+  "memberContactModal": {
+    "contactDetails": "Contact Details",
+    "loadingDetails": "Loading details...",
+    "notAvailable": "Not available",
+    "youthPlayer": "Youth Player",
+    "email": "Email",
+    "phone": "Phone",
+    "dateOfBirth": "Date of Birth",
+    "guardianContacts": "Guardian Contacts",
+    "noGuardianInfo": "No guardian information available"
+  },
+
+  "eventCard": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "you": "You",
+    "forRecipient": "For: {{name}}",
+    "gatherTime": "Gather: {{time}}",
+    "startTime": "Start: {{time}}",
+    "ofTotalInvited": "of {{total}} invited",
+    "deadlineApproaching": "Deadline approaching"
+  },
+
+  "newsCard": {
+    "you": "You",
+    "new": "New",
+    "issuedBy": "Issued by {{name}}",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+
+  "paymentCard": {
+    "dueToday": "Due Today",
+    "dueTomorrow": "Due Tomorrow",
+    "dueDate": "Due {{date}}",
+    "daysOverdue": "{{count}} days overdue",
+    "oneDayRemaining": "1 day remaining",
+    "daysRemaining": "{{count}} days remaining",
+    "for": "For:",
+    "amount": "Amount:",
+    "payNowOverdue": "Pay Now (Overdue)",
+    "payNow": "Pay Now",
+    "paid": "Paid",
+    "noDueDate": "No due date"
+  },
+
+  "paymentStatusBadge": {
+    "paid": "Paid",
+    "notPaid": "Not Paid",
+    "overdue": "Overdue",
+    "paidBy": "by {{paidBy}}"
+  },
+
+  "notificationBell": {
+    "notifications": "Notifications",
+    "markAllRead": "Mark all read",
+    "noNotifications": "No notifications",
+    "paymentRequired": "Payment Required",
+    "paymentMessage": "{{amount}} payment required for {{group}}",
+    "payNow": "Pay Now",
+    "processing": "Processing...",
+    "later": "Later",
+    "paymentError": "Payment Error"
+  },
+
+  "dropdownInput": {
+    "selectAnOption": "Select an option"
+  },
+
+  "genderPicker": {
+    "male": "Male",
+    "female": "Female",
+    "other": "Other",
+    "preferNotToSay": "Prefer not to say",
+    "selectGender": "Select gender",
+    "selectLabel": "Select {{label}}"
+  },
+
+  "floatingActionButton": {
+    "newEvent": "New Event",
+    "news": "News",
+    "event": "Event"
+  },
+
+  "profilePictureUpload": {
+    "uploadMemberPhoto": "Upload Member Photo",
+    "uploadProfilePicture": "Upload Profile Picture",
+    "newImageSelected": "New Image Selected",
+    "chooseFromGallery": "Choose from Gallery",
+    "takePhoto": "Take Photo",
+    "uploading": "Uploading...",
+    "uploadImage": "Upload Image",
+    "permissionRequired": "Permission Required",
+    "cameraPermissionMessage": "We need camera permissions to take a photo.",
+    "galleryPermissionMessage": "We need photo library permissions to select a photo.",
+    "missingUserInfo": "Missing user information for upload",
+    "uploadFailed": "Upload Failed",
+    "failedToUploadProfilePicture": "Failed to upload profile picture",
+    "unexpectedError": "An unexpected error occurred"
+  },
+
+  "legalAcceptanceScreen": {
+    "updatedTermsTitle": "Updated Terms & Privacy Policy",
+    "termsTitle": "Terms of Service & Privacy Policy",
+    "updatedSubtitle": "We've updated our legal documents. Please review and accept to continue.",
+    "newSubtitle": "Please review and accept our terms to create your account.",
+    "whatsChanged": "What's Changed",
+    "keyPoints": "Key Points",
+    "keyPointTitles": {
+      "dataProtection": "Data Protection",
+      "clubResponsibilities": "Club Responsibilities",
+      "dataProcessing": "How We Process Data",
+      "dataRetention": "Data Retention",
+      "yourRights": "Your Rights"
+    },
+    "keyPointDescriptions": {
+      "dataProtection": "We protect your personal data in accordance with GDPR and applicable privacy laws.",
+      "clubResponsibilities": "Club administrators are responsible for managing their club's data and member information.",
+      "dataProcessing": "We process your data to provide club management services, including member management, event scheduling, and payment processing.",
+      "dataRetention": "Your data is retained while your account is active and for a reasonable period after for legal compliance.",
+      "yourRights": "You have the right to access, correct, delete, and export your personal data at any time."
+    },
+    "fullDocuments": "Full Documents",
+    "readTermsOfService": "Read Terms of Service",
+    "readPrivacyPolicy": "Read Privacy Policy",
+    "versionInfo": "Terms: {{termsVersion}} | Privacy: {{privacyVersion}}",
+    "effectiveDate": "Effective: {{date}}",
+    "agreementCheckbox": "I have read and agree to the Terms of Service and Privacy Policy",
+    "signOut": "Sign Out",
+    "agreeAndContinue": "I Agree & Continue",
+    "pleaseWait": "Please wait..."
+  },
+
+  "legalSettingsSection": {
+    "legal": "Legal",
+    "termsOfService": "Terms of Service",
+    "privacyPolicy": "Privacy Policy",
+    "version": "Version {{version}}",
+    "accepted": "Accepted",
+    "updateRequired": "Update Required",
+    "lastAcceptedOn": "Last accepted on {{date}}"
+  },
+
+  "subscriptionWarningBanner": {
+    "memberLimitReached": "Member Limit Reached",
+    "approachingMemberLimit": "Approaching Member Limit",
+    "limitReachedMessage": "You've reached the {{max}} member limit on the {{tier}} plan.",
+    "approachingLimitMessage": "Only {{remaining}} member slot(s) remaining on the {{tier}} plan.",
+    "upgrade": "Upgrade"
+  },
+
+  "countdownTimer": {
+    "expired": "Expired",
+    "gracePeriodExpired": "Grace period expired",
+    "compactFormat": "{{days}}d {{hours}}h",
+    "fullFormat": "{{days}} days, {{hours}} hours, {{minutes}} minutes",
+    "remaining": "remaining"
+  }
+}

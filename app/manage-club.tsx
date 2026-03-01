@@ -7,6 +7,7 @@ import MemberContactModal from "@/components/MemberContactModal";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDataCache } from "@/contexts/DataCacheContext";
 import { clubService } from "@/services/club";
 import { functions } from "@/services/core/firebase";
 import { ClubGroupData, fetchClubGroups } from "@/services/fetchClubGroups";
@@ -21,12 +22,8 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { httpsCallable } from "firebase/functions";
-import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
-} from "react";
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
@@ -59,6 +56,8 @@ interface ClubData {
 }
 
 export default function ManageClubScreen() {
+  const cache = useDataCache();
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const { clubId } = useLocalSearchParams();
   const { user } = useAuth();
@@ -90,9 +89,9 @@ export default function ManageClubScreen() {
     try {
       // Fetch club data, members, and groups (include deleted groups for admins)
       const [clubResult, membersResult, groupsResult] = await Promise.all([
-        clubService.getClub(clubId),
-        fetchClubMembers(clubId),
-        fetchClubGroups(clubId, true), // Include deleted groups
+        clubService.getClub(clubId, cache),
+        fetchClubMembers(clubId, cache),
+        fetchClubGroups(clubId, true, cache), // Include deleted groups
       ]);
 
       // Process club data
@@ -242,9 +241,7 @@ export default function ManageClubScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+  // Removed useEffect double-fetch. Only useFocusEffect remains.
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -367,7 +364,9 @@ export default function ManageClubScreen() {
                     color={theme.colors.textSecondary}
                   />{" "}
                   {item.membersCount}{" "}
-                  {item.membersCount === 1 ? "member" : "members"}
+                  {item.membersCount === 1
+                    ? t("common:member")
+                    : t("common:members")}
                 </Text>
               </View>
             </View>
@@ -396,10 +395,12 @@ export default function ManageClubScreen() {
           <View style={styles.groupDeletionBanner}>
             <View style={styles.deletionHeader}>
               <Ionicons name="warning" size={20} color={theme.colors.error} />
-              <Text style={styles.deletionTitle}>Scheduled for Deletion</Text>
+              <Text style={styles.deletionTitle}>
+                {t("screens:manageClub.scheduledForDeletion")}
+              </Text>
             </View>
             <Text style={styles.deletionMessage}>
-              Will be permanently deleted in:
+              {t("screens:manageClub.permanentlyDeletedIn")}
             </Text>
             <CountdownTimer
               deletionScheduledAt={item.deletionScheduledAt?.toMillis?.()}
@@ -410,7 +411,9 @@ export default function ManageClubScreen() {
                 <View style={styles.undoButton}>
                   <Button
                     label={
-                      isReactivatingGroup ? "Reactivating..." : "Undo Deletion"
+                      isReactivatingGroup
+                        ? t("common:reactivating")
+                        : t("screens:groupSettings.undoDeletion")
                     }
                     onPress={() => handleUndoGroupDeletion(item)}
                     theme="secondary"
@@ -442,7 +445,9 @@ export default function ManageClubScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading club members...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:manageClub.loadingClub")}
+          </Text>
         </View>
       </View>
     );
@@ -453,9 +458,11 @@ export default function ManageClubScreen() {
       <View style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Club not found</Text>
+          <Text style={styles.errorText}>
+            {t("screens:manageClub.clubNotFound")}
+          </Text>
           <Button
-            label="Go Back"
+            label={t("common:goBack")}
             onPress={() => router.back()}
             theme="secondary"
           />
@@ -483,7 +490,7 @@ export default function ManageClubScreen() {
                 activeTab === "members" && styles.activeTabText,
               ]}
             >
-              Members ({members.length})
+              {t("screens:manageClub.members")} ({members.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -496,7 +503,7 @@ export default function ManageClubScreen() {
                 activeTab === "groups" && styles.activeTabText,
               ]}
             >
-              Groups ({groups.length})
+              {t("screens:manageClub.groups")} ({groups.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -514,7 +521,9 @@ export default function ManageClubScreen() {
             />
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No members in this club yet</Text>
+              <Text style={styles.emptyText}>
+                {t("screens:manageClub.noMembers")}
+              </Text>
             </View>
           )
         ) : // Groups List
@@ -528,7 +537,9 @@ export default function ManageClubScreen() {
           />
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No groups in this club yet</Text>
+            <Text style={styles.emptyText}>
+              {t("screens:manageClub.noGroups")}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -536,7 +547,7 @@ export default function ManageClubScreen() {
       {/* Delete Group Confirmation Modal */}
       <DeletionConfirmationModal
         visible={showDeleteGroupModal}
-        title="Delete Group"
+        title={t("screens:manageClub.deleteGroup")}
         entityName={selectedGroup?.name || "this group"}
         entityType="group"
         gracePeriodDays={30}
@@ -552,10 +563,16 @@ export default function ManageClubScreen() {
       {/* Undo Group Deletion Modal */}
       <ConfirmationModal
         visible={showUndoGroupModal}
-        title="Undo Deletion"
-        message={`Are you sure you want to reactivate "${selectedGroup?.name}"? This will cancel the scheduled deletion and restore the group.`}
-        confirmText={isReactivatingGroup ? "Reactivating..." : "Reactivate"}
-        cancelText="Cancel"
+        title={t("screens:groupSettings.undoDeletion")}
+        message={t("screens:groupSettings.undoDeletionConfirm", {
+          name: selectedGroup?.name,
+        })}
+        confirmText={
+          isReactivatingGroup
+            ? t("common:reactivating")
+            : t("screens:groupSettings.reactivate")
+        }
+        cancelText={t("common:cancel")}
         onConfirm={confirmUndoGroupDeletion}
         onCancel={() => {
           setShowUndoGroupModal(false);

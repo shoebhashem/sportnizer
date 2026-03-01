@@ -3,6 +3,7 @@
 
 import { theme } from "@/constants/theme";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
 export type PaymentStatus = "paid" | "pending" | "overdue" | "no_fee";
@@ -18,6 +19,8 @@ export default function PaymentStatusBadge({
   paidBy,
   compact = false,
 }: PaymentStatusBadgeProps) {
+  const { t } = useTranslation(["components", "common"]);
+
   // Don't show anything if there's no active fee
   if (status === "no_fee") {
     return null;
@@ -27,21 +30,21 @@ export default function PaymentStatusBadge({
     switch (status) {
       case "paid":
         return {
-          label: "Paid",
+          label: t("components:paymentStatusBadge.paid"),
           backgroundColor: "#DCFCE7",
           textColor: "#166534",
           borderColor: "#86EFAC",
         };
       case "pending":
         return {
-          label: "Not Paid",
+          label: t("components:paymentStatusBadge.notPaid"),
           backgroundColor: "#FEF9C3",
           textColor: "#854D0E",
           borderColor: "#FDE047",
         };
       case "overdue":
         return {
-          label: "Overdue",
+          label: t("components:paymentStatusBadge.overdue"),
           backgroundColor: "#FEE2E2",
           textColor: "#991B1B",
           borderColor: "#FCA5A5",
@@ -83,7 +86,7 @@ export default function PaymentStatusBadge({
       {/* Show who paid (for guardian payments) */}
       {status === "paid" && paidBy && !compact && (
         <Text style={styles.paidBy} numberOfLines={1}>
-          by {paidBy}
+          {t("components:paymentStatusBadge.paidBy", { paidBy })}
         </Text>
       )}
     </View>

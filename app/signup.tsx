@@ -8,15 +8,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { httpsCallable } from "firebase/functions";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    KeyboardAvoidingView,
-    Linking,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signUpUser } from "../services/auth/authService";
@@ -24,6 +25,7 @@ import { legalService } from "../services/legal/legalService";
 import { addRegularMemberToGroupService } from "../services/orchestration/addRegularMemberToGroup";
 
 export default function SignupScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { invite, verified, action } = useLocalSearchParams<{
     invite?: string;
     verified?: string;
@@ -66,6 +68,7 @@ export default function SignupScreen() {
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
+  const [invitationProcessed, setInvitationProcessed] = useState(false);
 
   // Legal acceptance state
   const [hasAcceptedLegal, setHasAcceptedLegal] = useState(false);
@@ -144,12 +147,12 @@ export default function SignupScreen() {
   useEffect(() => {
     if (verified === "success") {
       setModalMessage(
-        "✅ Email verified successfully!\n\nYour account is now activated. You can now sign in to your Sportnizer account.",
+        "✅ Email verified successfully!\n\nYour account is now activated. You can now sign in to your Clubnizer account.",
       );
       setSuccessModalVisible(true);
     } else if (verified === "already") {
       setModalMessage(
-        "✅ Email already verified!\n\nYour account is already activated. You can sign in to your Sportnizer account.",
+        "✅ Email already verified!\n\nYour account is already activated. You can sign in to your Clubnizer account.",
       );
       setSuccessModalVisible(true);
     }
@@ -171,19 +174,19 @@ export default function SignupScreen() {
 
     // Validate full name
     if (!fullName.trim()) {
-      setFullNameError("Full name is required");
+      setFullNameError(t("screens:signup.nameRequired"));
       isValid = false;
     } else if (fullName.trim().length < 2) {
-      setFullNameError("Full name must be at least 2 characters");
+      setFullNameError(t("screens:signup.nameRequired"));
       isValid = false;
     }
 
     // Validate email
     if (!email.trim()) {
-      setEmailError("Email is required");
+      setEmailError(t("common:validation.requiredField"));
       isValid = false;
     } else if (!validateEmail(email)) {
-      setEmailError("Please enter a valid email address");
+      setEmailError(t("common:validation.invalidEmail"));
       isValid = false;
     } else if (
       invite &&
@@ -197,19 +200,19 @@ export default function SignupScreen() {
 
     // Validate password
     if (!password.trim()) {
-      setPasswordError("Password is required");
+      setPasswordError(t("common:validation.requiredField"));
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
+      setPasswordError(t("screens:signup.passwordRequirements"));
       isValid = false;
     }
 
     // Validate confirm password
     if (!confirmPassword.trim()) {
-      setConfirmPasswordError("Please confirm your password");
+      setConfirmPasswordError(t("common:validation.requiredField"));
       isValid = false;
     } else if (password !== confirmPassword) {
-      setConfirmPasswordError("Passwords do not match");
+      setConfirmPasswordError(t("screens:signup.passwordsDoNotMatch"));
       isValid = false;
     }
 
@@ -321,10 +324,12 @@ export default function SignupScreen() {
               console.log("✅ Youth invitation processed successfully!");
 
               setModalMessage(
-                `🎉 Welcome to Sportnizer!\n\n` +
-                  `${youthData.childName} has been added to ${invitationInfo.groupName}.\n\n` +
-                  `You can now manage their membership!`,
+                t("screens:signup.success.welcomeYouthAdded", {
+                  childName: youthData.childName,
+                  groupName: invitationInfo.groupName,
+                }),
               );
+              setInvitationProcessed(true);
               setSuccessModalVisible(true);
             } else {
               // REGULAR INVITATION: Standard flow
@@ -359,25 +364,31 @@ export default function SignupScreen() {
               });
               const validation = validationResult.data as any;
               const groupName =
-                validation?.invitationData?.groupName || "the group";
+                validation?.invitationData?.groupName || t("common:theGroup");
 
               setModalMessage(
-                `🎉 Welcome to Sportnizer!\n\n` +
-                  `You've been added to ${groupName}.\n\n` +
-                  `You can now access all features immediately!`,
+                t("screens:signup.success.welcomeJoinedGroup", {
+                  groupName: groupName,
+                }),
               );
+              setInvitationProcessed(true);
               setSuccessModalVisible(true);
             }
           } catch (invitationError) {
             console.error("❌ Error processing invitation:", invitationError);
             // User account was created successfully, but membership failed
             const errorContext = youthData
-              ? `adding ${youthData.childName} to the group`
-              : "adding you to the group";
+              ? t(
+                  "screens:signup.success.invitationProcessingErrorAddingChild",
+                  { childName: youthData.childName },
+                )
+              : t("screens:signup.success.invitationProcessingErrorAddingYou");
             setModalMessage(
-              `Account created successfully!\n\n` +
-                `However, there was an issue ${errorContext}. ` +
-                `Please contact ${invitationInfo?.inviterName || "the group admin"} for assistance.`,
+              t("screens:signup.success.invitationProcessingError", {
+                errorContext: errorContext,
+                inviterName:
+                  invitationInfo?.inviterName || t("common:theGroupAdmin"),
+              }),
             );
             setSuccessModalVisible(true);
           }
@@ -386,42 +397,41 @@ export default function SignupScreen() {
         }
 
         // Regular signup flow
-        let successMessage = result.message || "Account created successfully!";
+        let successMessage = result.requiresEmailVerification
+          ? t("screens:signup.success.accountCreatedVerifyEmail")
+          : t("screens:signup.success.accountCreatedActivated");
 
         // If this is club creation flow, update the message
         if (action === "createClub" && result.requiresEmailVerification) {
-          successMessage =
-            result.message +
-            `\n\nAfter verifying your email and logging in, you'll be able to create your club.`;
+          successMessage += t("screens:signup.success.afterVerifyCreateClub");
         }
 
         // If there is an invitation token and regular email verification is required, inform user
         if (invite && result.requiresEmailVerification) {
           // Update message to mention invitation will be processed after verification
-          successMessage =
-            result.message +
-            `\n\nAfter verifying your email, your invitation to ${invitationInfo?.groupName || "the group"} will be automatically processed.`;
+          successMessage += t("screens:signup.success.afterVerifyInvitation", {
+            groupName: invitationInfo?.groupName || t("common:theGroup"),
+          });
         }
 
         setModalMessage(successMessage);
         setSuccessModalVisible(true);
       } else {
         // Show error
-        let errorMessage = "An error occurred. Please try again.";
+        let errorMessage = t("screens:signup.errors.generic");
 
         switch (result.error?.code) {
           case "auth/email-already-in-use":
-            errorMessage = "An account with this email already exists.";
+            errorMessage = t("screens:signup.errors.emailAlreadyInUse");
             break;
           case "auth/invalid-email":
-            errorMessage = "Invalid email address.";
+            errorMessage = t("screens:signup.errors.invalidEmail");
             break;
           case "auth/weak-password":
-            errorMessage =
-              "Password is too weak. Please choose a stronger password.";
+            errorMessage = t("screens:signup.errors.weakPassword");
             break;
           case "auth/network-request-failed":
-            errorMessage = "Network error. Please check your connection.";
+            errorMessage = t("screens:login.errors.networkRequestFailed");
             break;
           default:
             errorMessage = result.error?.message || errorMessage;
@@ -432,7 +442,7 @@ export default function SignupScreen() {
       }
     } catch (error) {
       console.error("Signup error:", error);
-      setModalMessage("An unexpected error occurred. Please try again.");
+      setModalMessage(t("screens:signup.errors.generic"));
       setErrorModalVisible(true);
     } finally {
       setLoading(false);
@@ -450,7 +460,7 @@ export default function SignupScreen() {
     if (
       verified === "success" ||
       verified === "already" ||
-      (invite && modalMessage.includes("🎉 Welcome to Sportnizer"))
+      (invite && invitationProcessed)
     ) {
       router.replace("/login");
     } else if (action === "createClub") {
@@ -479,8 +489,10 @@ export default function SignupScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Join</Text>
-            <Text style={styles.appName}>Sportnizer</Text>
+            <Text style={styles.title}>
+              {t("screens:signup.createAccount")}
+            </Text>
+            <Text style={styles.appName}>Clubnizer</Text>
             {invitationInfo ? (
               <>
                 <Text style={styles.subtitle}>
@@ -497,26 +509,26 @@ export default function SignupScreen() {
               </>
             ) : (
               <Text style={styles.subtitle}>
-                Create your account to get started
+                {t("screens:signup.joinClubnizerToday")}
               </Text>
             )}
           </View>
 
           <View style={styles.form}>
             <Input
-              label="Full Name"
+              label={t("common:fullName")}
               value={fullName}
               onChangeText={setFullName}
-              placeholder="Enter your full name"
+              placeholder={t("screens:signup.fullNamePlaceholder")}
               autoCapitalize="words"
               error={fullNameError}
             />
 
             <Input
-              label="Email Address"
+              label={t("common:email")}
               value={email}
               onChangeText={setEmail}
-              placeholder="Enter your email"
+              placeholder={t("screens:signup.emailPlaceholder")}
               keyboardType="email-address"
               autoCapitalize="none"
               error={emailError}
@@ -529,20 +541,20 @@ export default function SignupScreen() {
             />
 
             <Input
-              label="Password"
+              label={t("common:password")}
               value={password}
               onChangeText={setPassword}
-              placeholder="Create a password"
+              placeholder={t("screens:signup.passwordPlaceholder")}
               secureTextEntry
               autoCapitalize="none"
               error={passwordError}
             />
 
             <Input
-              label="Confirm Password"
+              label={t("common:confirmPassword")}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              placeholder="Confirm your password"
+              placeholder={t("screens:signup.confirmPasswordPlaceholder")}
               secureTextEntry
               autoCapitalize="none"
               error={confirmPasswordError}
@@ -593,7 +605,7 @@ export default function SignupScreen() {
 
             <View style={styles.buttonContainer}>
               <Button
-                label="Create Account"
+                label={t("screens:signup.createAccount")}
                 onPress={handleSignUp}
                 theme="primary"
                 loading={loading}
@@ -601,7 +613,7 @@ export default function SignupScreen() {
               />
 
               <Button
-                label="Back to Sign In"
+                label={t("screens:signup.signInLink")}
                 onPress={handleBackToLogin}
                 theme="secondary"
                 disabled={loading}
@@ -613,9 +625,9 @@ export default function SignupScreen() {
 
       <ConfirmationModal
         visible={successModalVisible}
-        title="Account Created!"
+        title={t("common:success")}
         message={modalMessage}
-        confirmText="Continue"
+        confirmText={t("common:continue")}
         cancelText=""
         onConfirm={handleSuccessModalConfirm}
         onCancel={handleSuccessModalConfirm}
@@ -624,9 +636,9 @@ export default function SignupScreen() {
 
       <ConfirmationModal
         visible={errorModalVisible}
-        title="Sign Up Error"
+        title={t("screens:signup.signUpFailed")}
         message={modalMessage}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         cancelText=""
         onConfirm={handleErrorModalClose}
         onCancel={handleErrorModalClose}

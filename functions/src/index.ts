@@ -105,6 +105,7 @@ export { uploadProfilePictureForMember } from "./profile/uploadProfilePictureFor
 
 // Scheduled Functions
 export { cleanupDeletedEntities } from "./scheduled/cleanupDeletedEntities";
+export { cleanupOldEvents } from "./scheduled/cleanupOldEvents";
 
 // Admin/Development Functions
 export { devForceCleanup } from "./admin/devForceCleanup";
@@ -117,7 +118,7 @@ export { createStripeOnboardingLink } from "./stripe/createStripeOnboardingLink"
 export { resetPaymentSetup } from "./stripe/resetPaymentSetup";
 export { stripeWebhookHandler } from "./stripe/stripeWebhookHandler";
 
-// Platform Subscription Functions (Club subscriptions to Sportnizer)
+// Platform Subscription Functions (Club subscriptions to Clubnizer)
 export { createCustomerPortalSession } from "./subscriptions/createCustomerPortalSession";
 export { createSubscriptionCheckout } from "./subscriptions/createSubscriptionCheckout";
 export { getSubscriptionStatus } from "./subscriptions/getSubscriptionStatus";

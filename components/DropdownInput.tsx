@@ -1,6 +1,7 @@
 import { theme } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 type DropdownOption = {
@@ -22,9 +23,11 @@ export default function DropdownInput({
   value, 
   onValueChange, 
   options, 
-  placeholder = 'Select an option',
+  placeholder,
   error 
 }: Props) {
+  const { t } = useTranslation(["components", "common"]);
+  const resolvedPlaceholder = placeholder || t("components:dropdownInput.selectAnOption");
   const [isOpen, setIsOpen] = useState(false);
 
   // Helper functions to handle both string[] and DropdownOption[]
@@ -41,11 +44,11 @@ export default function DropdownInput({
   };
 
   const getDisplayValue = (): string => {
-    if (!value) return placeholder;
+    if (!value) return resolvedPlaceholder;
     
     // Find the option that matches the current value
     const matchingOption = options.find(option => getOptionId(option) === value);
-    return matchingOption ? getOptionName(matchingOption) : placeholder;
+    return matchingOption ? getOptionName(matchingOption) : resolvedPlaceholder;
   };
 
   const handleSelect = (selectedValue: string) => {

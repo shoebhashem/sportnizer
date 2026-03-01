@@ -188,7 +188,7 @@ export interface FeeEstimate {
   memberPays: number;
   /** Estimated Stripe fee (charged to club) */
   stripeFeeEstimate: number;
-  /** Platform fee (2% to Sportnizer) */
+  /** Platform fee (2% to Clubnizer) */
   platformFee: number;
   /** Estimated amount club receives after all fees */
   clubReceivesEstimate: number;

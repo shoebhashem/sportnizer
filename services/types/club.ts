@@ -49,7 +49,7 @@ export interface ClubData {
   maxGroups?: number; // Maximum groups allowed in this club (default: 99)
   maxMembers?: number; // Maximum members allowed in this club (based on subscription tier)
 
-  // Club subscription to Sportnizer platform
+  // Club subscription to Clubnizer platform
   subscription?: ClubSubscription;
 
   // Stripe Connect payment setup (for receiving payments from members)

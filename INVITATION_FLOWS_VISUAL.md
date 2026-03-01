@@ -65,7 +65,7 @@
 │ Template: guardianInvitationTemplate                                         │
 │ To: guardian@email.com                                                       │
 │ Subject: "Your child Tommy Smith has been invited to Under 16 Boys"         │
-│ Link: https://sportnizer.app/signup?invite={token}                           │
+│ Link: https://clubnizer.app/signup?invite={token}                           │
 │                                                                              │
 │ ❌ NO IN-APP NOTIFICATION (guardian doesn't exist yet)                       │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -377,12 +377,13 @@
 ## 🔀 KEY DIFFERENCE POINTS
 
 ### Difference Point #1: Frontend Service Call
+
 ```typescript
 // YOUTH (add-child-member.tsx)
 const sendInvitationFn = httpsCallable(functions, 'sendGroupInvitation');
 const result = await sendInvitationFn({...});  // ⬅️ DIRECT BACKEND CALL
 
-// REGULAR (add-regular-member.tsx)  
+// REGULAR (add-regular-member.tsx)
 const result = await addRegularMemberToGroupService.inviteUsersToGroup({...});  // ⬅️ SERVICE WRAPPER
 ```
 
@@ -391,6 +392,7 @@ const result = await addRegularMemberToGroupService.inviteUsersToGroup({...});  
 ---
 
 ### Difference Point #2: Invitation Data Structure
+
 ```typescript
 // YOUTH
 {
@@ -416,6 +418,7 @@ const result = await addRegularMemberToGroupService.inviteUsersToGroup({...});  
 ---
 
 ### Difference Point #3: Document Creation After Signup
+
 ```typescript
 // YOUTH: Extra step
 await createYouthMemberDocument({...});  // ⬅️ Creates separate youth document
@@ -430,22 +433,23 @@ await createYouthMemberDocument({...});  // ⬅️ Creates separate youth docume
 ---
 
 ### Difference Point #4: UserId in processInvitationAfterUserResponse
+
 ```typescript
 // YOUTH
 processInvitationAfterUserResponse(
   token,
-  youthUid,        // ⬅️ YOUTH'S UID (not guardian's!)
-  'accept',
-  guardianInfo     // ⬅️ EXTRA PARAM
-)
+  youthUid, // ⬅️ YOUTH'S UID (not guardian's!)
+  "accept",
+  guardianInfo, // ⬅️ EXTRA PARAM
+);
 
 // REGULAR
 processInvitationAfterUserResponse(
   token,
-  userUid,         // ⬅️ USER'S OWN UID
-  'accept'
+  userUid, // ⬅️ USER'S OWN UID
+  "accept",
   // No extra param
-)
+);
 ```
 
 **Impact**: Same function handles both with optional parameter - good design!
@@ -453,6 +457,7 @@ processInvitationAfterUserResponse(
 ---
 
 ### Difference Point #5: Member Data Construction
+
 ```typescript
 // YOUTH
 {
@@ -480,6 +485,7 @@ processInvitationAfterUserResponse(
 ---
 
 ### Difference Point #6: Additional Atomic Function Calls
+
 ```typescript
 // YOUTH: Extra calls
 addMemberToClub(guardianData);           // ⬅️ Add guardian to club
@@ -497,16 +503,16 @@ updateUserClubInfo(userUid);
 
 ## 🎯 COMMONALITY SCORECARD
 
-| Aspect | Common % | Notes |
-|--------|----------|-------|
-| Backend Function | 100% | Both use sendGroupInvitation |
-| User Check Logic | 100% | Identical query |
-| Invitation Document | 90% | Same structure, conditional fields |
-| Email Sending | 50% | Different templates |
-| Auth Account Creation | 100% | Identical process |
-| processInvitationAfterUserResponse | 90% | Same function, optional param |
-| Atomic Functions | 80% | Same calls, youth has extras |
-| markInvitationUsed | 100% | Identical call |
+| Aspect                             | Common % | Notes                              |
+| ---------------------------------- | -------- | ---------------------------------- |
+| Backend Function                   | 100%     | Both use sendGroupInvitation       |
+| User Check Logic                   | 100%     | Identical query                    |
+| Invitation Document                | 90%      | Same structure, conditional fields |
+| Email Sending                      | 50%      | Different templates                |
+| Auth Account Creation              | 100%     | Identical process                  |
+| processInvitationAfterUserResponse | 90%      | Same function, optional param      |
+| Atomic Functions                   | 80%      | Same calls, youth has extras       |
+| markInvitationUsed                 | 100%     | Identical call                     |
 
 **Overall Commonality: 85%** 🎉
 
@@ -515,17 +521,19 @@ updateUserClubInfo(userUid);
 ## 📝 OPTIMIZATION OPPORTUNITIES
 
 ### High Priority (Quick Wins)
+
 1. ✅ **Standardize service layer** - Youth should use `inviteUsersToGroup`
 2. ✅ **Add explicit filter** - `invitationType !== 'youth_member'` in fetchGroupInvites
 3. ✅ **Extract validation** - Shared email validation utility
 
 ### Medium Priority (Refactoring)
+
 4. ⚠️ **Shared form component** - Base component with mode prop
 5. ⚠️ **Type safety** - Discriminated unions for invitation types
 6. ⚠️ **Documentation** - Flow diagrams in code comments
 
 ### Low Priority (Nice to Have)
+
 7. 💡 **Consistent naming** - Consider renaming services
 8. 💡 **Error handling** - Centralized error messages
 9. 💡 **Testing** - Shared test utilities
-

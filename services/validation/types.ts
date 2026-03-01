@@ -18,7 +18,7 @@ export interface ValidationRequest {
 
 export interface ValidationResponse {
   success: boolean; // Service call succeeded
-  userExists: boolean; // Email has Sportnizer account
+  userExists: boolean; // Email has Clubnizer account
   canInvite: boolean; // ✅ Clear yes/no answer
 
   // Adult roles (player, coach, admin)

@@ -7,6 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
@@ -29,6 +30,7 @@ interface Member {
 
 export default function ManageSubgroupMembersScreen() {
   const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();
+  const { t } = useTranslation(["screens", "common"]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -129,7 +131,10 @@ export default function ManageSubgroupMembersScreen() {
       setMembers(processedMembers);
     } catch (error) {
       console.error("Error fetching members:", error);
-      showError("Error", "Failed to load members");
+      showError(
+        t("common:error"),
+        t("screens:manageSubgroupMembers.failedToLoadMembers"),
+      );
     } finally {
       setLoading(false);
     }
@@ -198,7 +203,10 @@ export default function ManageSubgroupMembersScreen() {
           }
         } catch (error) {
           console.error("Error adding member to subgroup:", error);
-          showError("Error", `Failed to add ${member.name} to subgroup`);
+          showError(
+            t("common:error"),
+            `Failed to add ${member.name} to subgroup`,
+          );
         }
       }
 
@@ -223,13 +231,16 @@ export default function ManageSubgroupMembersScreen() {
           if (!result.success) {
             console.error("Failed to remove member:", result.error);
             showError(
-              "Error",
+              t("common:error"),
               `Failed to remove ${member.name}: ${result.error}`,
             );
           }
         } catch (error) {
           console.error("Error removing member from subgroup:", error);
-          showError("Error", `Failed to remove ${member.name} from subgroup`);
+          showError(
+            t("common:error"),
+            `Failed to remove ${member.name} from subgroup`,
+          );
         }
       }
 
@@ -237,7 +248,10 @@ export default function ManageSubgroupMembersScreen() {
       router.back();
     } catch (error) {
       console.error("Error saving subgroup members:", error);
-      showError("Error", "Failed to save subgroup members");
+      showError(
+        t("common:error"),
+        t("screens:manageSubgroupMembers.failedToSaveMembers"),
+      );
     } finally {
       setSaving(false);
     }
@@ -270,7 +284,7 @@ export default function ManageSubgroupMembersScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading members...</Text>
+          <Text style={styles.loadingText}>{t("common:loading")}</Text>
         </View>
       </View>
     );
@@ -285,13 +299,14 @@ export default function ManageSubgroupMembersScreen() {
       >
         {/* Subtitle showing subgroup name */}
         <Text style={styles.subtitle}>
-          Select members for{" "}
-          {typeof subgroupName === "string" ? subgroupName : "Subgroup"}
+          {t("screens:manageSubgroupMembers.selectMembersFor", {
+            name: typeof subgroupName === "string" ? subgroupName : "Subgroup",
+          })}
         </Text>
 
         <View style={styles.content}>
           <Text style={styles.instructionText}>
-            Tap to select/deselect members for this subgroup:
+            {t("screens:manageSubgroupMembers.tapToSelectDeselect")}
           </Text>
 
           {members.length > 0 ? (
@@ -305,14 +320,14 @@ export default function ManageSubgroupMembersScreen() {
           ) : (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>
-                No members found in this group
+                {t("screens:manageSubgroupMembers.noMembersInGroup")}
               </Text>
             </View>
           )}
 
           <View style={styles.buttonContainer}>
             <Button
-              label="Save Changes"
+              label={t("screens:manageSubgroupMembers.saveChanges")}
               onPress={handleSave}
               theme="primary"
               loading={saving}
@@ -320,7 +335,7 @@ export default function ManageSubgroupMembersScreen() {
             />
 
             <Button
-              label="Cancel"
+              label={t("common:cancel")}
               onPress={handleCancel}
               theme="secondary"
               disabled={saving}
@@ -333,7 +348,7 @@ export default function ManageSubgroupMembersScreen() {
         visible={errorModal.visible}
         title={errorModal.title}
         message={errorModal.message}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         onConfirm={() =>
           setErrorModal({ visible: false, title: "", message: "" })
         }

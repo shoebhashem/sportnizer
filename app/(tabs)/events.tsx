@@ -12,9 +12,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -22,6 +22,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+import ConfirmationModal from "@/components/ConfirmationModal";
 
 type EventFilter = "all" | "training" | "match" | "other";
 type TimeFilter = "upcoming" | "past";
@@ -35,6 +37,7 @@ interface ExpandedEventData extends EventData {
 }
 
 export default function EventsTab() {
+  const { t } = useTranslation(["screens", "common"]);
   const router = useRouter();
   const { user } = useAuth();
   const { userProfile } = useUser();
@@ -50,6 +53,21 @@ export default function EventsTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [eventTypeFilter, setEventTypeFilter] = useState<EventFilter>("all");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("upcoming");
+
+  // Alert modal state (cross-platform replacement for Alert.alert)
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ visible: false, title: "", message: "" });
+
+  const showAlert = (title: string, message: string, onConfirm?: () => void) =>
+    setAlertModal({ visible: true, title, message, onConfirm });
+  const hideAlert = () => {
+    alertModal.onConfirm?.();
+    setAlertModal({ visible: false, title: "", message: "" });
+  };
 
   // Helper function to convert Timestamp to Date
   const convertTimestampToDate = (timestamp: any): Date | string => {
@@ -241,7 +259,7 @@ export default function EventsTab() {
 
     if (!event.id || !event.clubId) {
       console.error("Missing event data:", event);
-      Alert.alert("Error", "Cannot open event: missing information");
+      showAlert(t("common:error"), t("screens:events.cannotOpenEvent"));
       return;
     }
 
@@ -288,7 +306,7 @@ export default function EventsTab() {
               timeFilter === "upcoming" && styles.activeTimeFilterText,
             ]}
           >
-            Upcoming
+            {t("screens:events.upcoming")}
           </Text>
         </TouchableOpacity>
 
@@ -305,7 +323,7 @@ export default function EventsTab() {
               timeFilter === "past" && styles.activeTimeFilterText,
             ]}
           >
-            Past
+            {t("screens:events.past")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -328,7 +346,7 @@ export default function EventsTab() {
                   eventTypeFilter === filter && styles.filterTabTextActive,
                 ]}
               >
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                {t(`screens:events.filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`)}
               </Text>
             </TouchableOpacity>
           ),
@@ -339,7 +357,7 @@ export default function EventsTab() {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading events...</Text>
+          <Text style={styles.loadingText}>{t("screens:events.loadingEvents")}</Text>
         </View>
       ) : (
         <ScrollView
@@ -357,13 +375,15 @@ export default function EventsTab() {
                 color={theme.colors.textSecondary}
               />
               <Text style={styles.emptyText}>
-                No {timeFilter} events
-                {eventTypeFilter !== "all" && ` for ${eventTypeFilter}`}
+                {timeFilter === "upcoming"
+                  ? t("screens:events.noUpcomingEvents")
+                  : t("screens:events.noPastEvents")}
+                {eventTypeFilter !== "all" && ` (${t(`screens:events.filter${eventTypeFilter.charAt(0).toUpperCase() + eventTypeFilter.slice(1)}`)})`}
               </Text>
               <Text style={styles.emptySubtext}>
                 {timeFilter === "upcoming"
-                  ? "Check back later or try a different filter"
-                  : "No past events found in the last 6 months"}
+                  ? t("screens:events.checkBackLater")
+                  : t("screens:events.noPastEventsMessage")}
               </Text>
             </View>
           ) : (
@@ -386,6 +406,16 @@ export default function EventsTab() {
           )}
         </ScrollView>
       )}
+
+      {/* Alert Modal */}
+      <ConfirmationModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        confirmText={t("common:ok")}
+        onConfirm={hideAlert}
+        onCancel={hideAlert}
+      />
     </View>
   );
 }

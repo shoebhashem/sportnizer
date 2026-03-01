@@ -1,6 +1,7 @@
 // /services/fetchClubGroups.ts - Fetch all groups for a club
 // Direct Firestore read operation (read-only, no security concerns)
 
+import type { DataCacheType } from "@/contexts/DataCacheContext";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "./core/firebase";
 
@@ -32,22 +33,33 @@ export interface ClubGroupsResponse {
 export const fetchClubGroups = async (
   clubId: string,
   includeDeleted: boolean = false,
+  cache?: DataCacheType,
 ): Promise<ClubGroupsResponse> => {
+  const cacheKey = `clubGroups_${clubId}_${includeDeleted}`;
+  if (cache) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(
+        `🟢 [CACHE HIT] clubGroups for club ${clubId} (includeDeleted: ${includeDeleted})`,
+      );
+      return cached;
+    } else {
+      console.log(
+        `🟡 [CACHE MISS] clubGroups for club ${clubId} (includeDeleted: ${includeDeleted})`,
+      );
+    }
+  }
   try {
     console.log(
       `📂 Fetching groups for club ${clubId} (includeDeleted: ${includeDeleted})...`,
     );
-
     // Query all groups in the club subcollection
     const groupsRef = collection(db, "clubs", clubId, "groups");
-
     // Only filter out inactive groups if includeDeleted is false
     const q = includeDeleted
       ? query(groupsRef)
       : query(groupsRef, where("isActive", "!=", false));
-
     const querySnapshot = await getDocs(q);
-
     const groups: ClubGroupData[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
@@ -63,9 +75,13 @@ export const fetchClubGroups = async (
         deletionScheduledAt: data.deletionScheduledAt,
       });
     });
-
+    console.log(
+      `🔵 [FIRESTORE READ] Fetched ${groups.length} groups for club ${clubId}`,
+    );
+    const result = { success: true, groups };
+    if (cache) cache.set(cacheKey, result);
     console.log(`✅ Fetched ${groups.length} groups for club ${clubId}`);
-    return { success: true, groups };
+    return result;
   } catch (error: any) {
     console.error("❌ Error fetching club groups:", error);
     return {

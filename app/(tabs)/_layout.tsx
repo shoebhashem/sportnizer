@@ -11,6 +11,7 @@ import { VersionCheckResult } from "@/services/types/legal";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, Tabs } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Platform, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -33,6 +34,7 @@ function HeaderRight() {
 
 export default function TabLayout() {
   const { user } = useAuth();
+  const { t } = useTranslation("navigation");
   const { userProfile, isLoading, hasLoadedFreshData, refreshUserProfile } =
     useUserProfile();
 
@@ -209,7 +211,7 @@ export default function TabLayout() {
           <Tabs.Screen
             name="index"
             options={{
-              title: "Home",
+              title: t("tabs.home"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "home-sharp" : "home-outline"}
@@ -222,7 +224,7 @@ export default function TabLayout() {
           <Tabs.Screen
             name="news"
             options={{
-              title: "News",
+              title: t("tabs.news"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "newspaper" : "newspaper-outline"}
@@ -235,7 +237,7 @@ export default function TabLayout() {
           <Tabs.Screen
             name="events"
             options={{
-              title: "Events",
+              title: t("tabs.events"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "calendar" : "calendar-outline"}
@@ -248,7 +250,7 @@ export default function TabLayout() {
           <Tabs.Screen
             name="groups"
             options={{
-              title: "Groups",
+              title: t("tabs.groups"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "people" : "people-outline"}
@@ -261,7 +263,7 @@ export default function TabLayout() {
           <Tabs.Screen
             name="about"
             options={{
-              title: "About",
+              title: t("tabs.about"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={

@@ -9,21 +9,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useState,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -81,6 +82,7 @@ const COUNTRIES = [
 ];
 
 export default function StripeOnboardingScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { clubId, clubName } = useLocalSearchParams();
@@ -106,9 +108,9 @@ export default function StripeOnboardingScreen() {
   // Set header title
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: "Payment Setup",
+      title: t("screens:stripeOnboarding.paymentSetup"),
     });
-  }, [navigation]);
+  }, [navigation, t]);
 
   // Check existing Stripe status
   const checkStatus = useCallback(async () => {
@@ -198,9 +200,7 @@ export default function StripeOnboardingScreen() {
       await checkStatus();
 
       if (stripeStatus?.onboardingComplete) {
-        setSuccessMessage(
-          "Payment setup is complete! You can now create fees.",
-        );
+        setSuccessMessage(t("screens:stripeOnboarding.paymentSetupComplete"));
         setShowSuccessModal(true);
       }
     } catch (err: any) {
@@ -228,9 +228,7 @@ export default function StripeOnboardingScreen() {
         setHasStripeAccount(false);
         setStripeStatus(null);
         setSelectedCountry("");
-        setSuccessMessage(
-          "Payment setup has been reset. You can now set up payments with a different country.",
-        );
+        setSuccessMessage(t("screens:stripeOnboarding.paymentSetupReset"));
         setShowSuccessModal(true);
       } else {
         setError(result.error || "Failed to reset payment setup");
@@ -248,7 +246,9 @@ export default function StripeOnboardingScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Checking payment status...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:stripeOnboarding.checkingPaymentStatus")}
+          </Text>
         </View>
       </View>
     );
@@ -266,18 +266,22 @@ export default function StripeOnboardingScreen() {
           <View style={styles.iconContainer}>
             <Ionicons name="card" size={48} color={theme.colors.secondary} />
           </View>
-          <Text style={styles.title}>Enable Payments</Text>
+          <Text style={styles.title}>
+            {t("screens:stripeOnboarding.enablePayments")}
+          </Text>
           <Text style={styles.subtitle}>
             {clubName
-              ? `Set up payments for ${clubName}`
-              : "Set up payments for your club"}
+              ? t("screens:stripeOnboarding.setupPaymentsForClub", { clubName })
+              : t("screens:stripeOnboarding.setupPaymentsGeneric")}
           </Text>
         </View>
 
         {/* Status Section */}
         {hasStripeAccount && stripeStatus && (
           <View style={styles.statusSection}>
-            <Text style={styles.sectionTitle}>Account Status</Text>
+            <Text style={styles.sectionTitle}>
+              {t("screens:stripeOnboarding.accountStatus")}
+            </Text>
 
             <View style={styles.statusItem}>
               <Ionicons
@@ -291,8 +295,8 @@ export default function StripeOnboardingScreen() {
               />
               <Text style={styles.statusText}>
                 {stripeStatus.chargesEnabled
-                  ? "Can receive payments"
-                  : "Payments not yet enabled"}
+                  ? t("screens:stripeOnboarding.canReceivePayments")
+                  : t("screens:stripeOnboarding.paymentsNotEnabled")}
               </Text>
             </View>
 
@@ -308,8 +312,8 @@ export default function StripeOnboardingScreen() {
               />
               <Text style={styles.statusText}>
                 {stripeStatus.payoutsEnabled
-                  ? "Can receive payouts"
-                  : "Payouts not yet enabled"}
+                  ? t("screens:stripeOnboarding.canReceivePayouts")
+                  : t("screens:stripeOnboarding.payoutsNotEnabled")}
               </Text>
             </View>
 
@@ -320,9 +324,11 @@ export default function StripeOnboardingScreen() {
                   size={32}
                   color={theme.colors.success}
                 />
-                <Text style={styles.completeText}>Setup Complete!</Text>
+                <Text style={styles.completeText}>
+                  {t("screens:stripeOnboarding.setupComplete")}
+                </Text>
                 <Text style={styles.completeSubtext}>
-                  You can now create fees
+                  {t("screens:stripeOnboarding.youCanNowCreateFees")}
                 </Text>
               </View>
             ) : (
@@ -332,9 +338,11 @@ export default function StripeOnboardingScreen() {
                   size={32}
                   color={theme.colors.warning}
                 />
-                <Text style={styles.incompleteText}>Setup Incomplete</Text>
+                <Text style={styles.incompleteText}>
+                  {t("screens:stripeOnboarding.setupIncomplete")}
+                </Text>
                 <Text style={styles.incompleteSubtext}>
-                  Please complete the Stripe onboarding process
+                  {t("screens:stripeOnboarding.pleaseCompleteOnboarding")}
                 </Text>
               </View>
             )}
@@ -344,9 +352,11 @@ export default function StripeOnboardingScreen() {
         {/* Country Selection (only if no account yet) */}
         {!hasStripeAccount && (
           <View style={styles.countrySection}>
-            <Text style={styles.sectionTitle}>Select Your Country</Text>
+            <Text style={styles.sectionTitle}>
+              {t("screens:stripeOnboarding.selectYourCountry")}
+            </Text>
             <Text style={styles.sectionSubtitle}>
-              This determines your currency and Stripe fees
+              {t("screens:stripeOnboarding.selectYourCountryHint")}
             </Text>
 
             <Pressable
@@ -356,7 +366,7 @@ export default function StripeOnboardingScreen() {
               <View style={styles.countryDropdownContent}>
                 <Text style={styles.countryDropdownText}>
                   {COUNTRIES.find((c) => c.code === selectedCountry)?.name ||
-                    "Select Country"}
+                    t("screens:stripeOnboarding.selectCountry")}
                 </Text>
                 <Text style={styles.countryDropdownCurrency}>
                   {COUNTRIES.find((c) => c.code === selectedCountry)?.currency}
@@ -373,18 +383,20 @@ export default function StripeOnboardingScreen() {
 
         {/* Info Section */}
         <View style={styles.infoSection}>
-          <Text style={styles.sectionTitle}>How It Works</Text>
+          <Text style={styles.sectionTitle}>
+            {t("screens:stripeOnboarding.howItWorks")}
+          </Text>
 
           <View style={styles.infoItem}>
             <View style={styles.infoNumber}>
               <Text style={styles.infoNumberText}>1</Text>
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>Create Account</Text>
+              <Text style={styles.infoTitle}>
+                {t("screens:stripeOnboarding.step1Title")}
+              </Text>
               <Text style={styles.infoText}>
-                {
-                  "We'll create a Stripe Express account connected to Sportnizer"
-                }
+                {t("screens:stripeOnboarding.step1Desc")}
               </Text>
             </View>
           </View>
@@ -394,11 +406,11 @@ export default function StripeOnboardingScreen() {
               <Text style={styles.infoNumberText}>2</Text>
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>Verify Identity</Text>
+              <Text style={styles.infoTitle}>
+                {t("screens:stripeOnboarding.step2Title")}
+              </Text>
               <Text style={styles.infoText}>
-                {
-                  "Stripe will verify your organization's identity (required by law)"
-                }
+                {t("screens:stripeOnboarding.step2Desc")}
               </Text>
             </View>
           </View>
@@ -408,9 +420,11 @@ export default function StripeOnboardingScreen() {
               <Text style={styles.infoNumberText}>3</Text>
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>Add Bank Account</Text>
+              <Text style={styles.infoTitle}>
+                {t("screens:stripeOnboarding.step3Title")}
+              </Text>
               <Text style={styles.infoText}>
-                Connect the bank account where payments will be deposited
+                {t("screens:stripeOnboarding.step3Desc")}
               </Text>
             </View>
           </View>
@@ -422,8 +436,7 @@ export default function StripeOnboardingScreen() {
               color={theme.colors.secondary}
             />
             <Text style={styles.feeInfoText}>
-              Sportnizer takes a 2% platform fee. Stripe fees (~1.5% in Europe -
-              ~2.9% in the US) are charged to your club.
+              {t("screens:stripeOnboarding.platformFeeNote")}
             </Text>
           </View>
         </View>
@@ -444,7 +457,11 @@ export default function StripeOnboardingScreen() {
         <View style={styles.buttonContainer}>
           {!hasStripeAccount ? (
             <Button
-              label={loading ? "Creating Account..." : "Create Stripe Account"}
+              label={
+                loading
+                  ? t("screens:stripeOnboarding.creatingAccount")
+                  : t("screens:stripeOnboarding.createStripeAccount")
+              }
               onPress={handleCreateAccount}
               theme="primary"
               disabled={loading}
@@ -466,14 +483,22 @@ export default function StripeOnboardingScreen() {
           ) : (
             <>
               <Button
-                label={loading ? "Loading..." : "Continue Setup with Stripe"}
+                label={
+                  loading
+                    ? t("common:loading")
+                    : t("screens:stripeOnboarding.continueSetupWithStripe")
+                }
                 onPress={handleStartOnboarding}
                 theme="primary"
                 disabled={loading}
               />
               <View style={styles.buttonSpacer} />
               <Button
-                label={loading ? "Checking..." : "I've Completed Onboarding"}
+                label={
+                  loading
+                    ? t("screens:stripeOnboarding.checkingStatus")
+                    : t("screens:stripeOnboarding.iCompletedOnboarding")
+                }
                 onPress={handleRefreshStatus}
                 theme="secondary"
                 disabled={loading}
@@ -496,11 +521,13 @@ export default function StripeOnboardingScreen() {
                   color={theme.colors.error}
                 />
                 <Text style={styles.resetButtonText}>
-                  {resetting ? "Resetting..." : "Reset Payment Setup"}
+                  {resetting
+                    ? t("screens:stripeOnboarding.resetting")
+                    : t("screens:stripeOnboarding.resetPaymentSetup")}
                 </Text>
               </TouchableOpacity>
               <Text style={styles.resetHint}>
-                Use this to change your country or start over
+                {t("screens:stripeOnboarding.resetHint")}
               </Text>
             </>
           )}
@@ -521,10 +548,14 @@ export default function StripeOnboardingScreen() {
       {/* Reset Confirmation Modal */}
       <ConfirmationModal
         visible={showResetModal}
-        title="Reset Payment Setup?"
-        message="This will disconnect your Stripe account from this club. You'll need to complete the setup again with your new country selection. Any pending payments may be affected."
-        confirmText={resetting ? "Resetting..." : "Reset Setup"}
-        cancelText="Cancel"
+        title={t("screens:stripeOnboarding.resetConfirmTitle")}
+        message={t("screens:stripeOnboarding.resetConfirmMessage")}
+        confirmText={
+          resetting
+            ? t("screens:stripeOnboarding.resetting")
+            : t("screens:stripeOnboarding.resetSetup")
+        }
+        cancelText={t("common:cancel")}
         onConfirm={handleResetPaymentSetup}
         onCancel={() => setShowResetModal(false)}
         confirmButtonTheme="primary"
@@ -540,7 +571,9 @@ export default function StripeOnboardingScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country</Text>
+              <Text style={styles.modalTitle}>
+                {t("screens:stripeOnboarding.selectCountry")}
+              </Text>
               <Pressable
                 onPress={() => {
                   setShowCountryModal(false);
@@ -560,7 +593,7 @@ export default function StripeOnboardingScreen() {
               />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search countries..."
+                placeholder={t("screens:stripeOnboarding.searchCountries")}
                 placeholderTextColor={theme.colors.textSecondary}
                 value={countrySearch}
                 onChangeText={setCountrySearch}

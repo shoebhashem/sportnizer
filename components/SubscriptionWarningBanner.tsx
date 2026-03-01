@@ -2,6 +2,7 @@ import { theme } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface SubscriptionWarningBannerProps {
@@ -23,6 +24,8 @@ export default function SubscriptionWarningBanner({
   tier,
   isAtLimit = false,
 }: SubscriptionWarningBannerProps) {
+  const { t } = useTranslation(["components", "common"]);
+
   // Don't show for unlimited plans
   if (maxMembers === -1) return null;
 
@@ -64,16 +67,16 @@ export default function SubscriptionWarningBanner({
             isAtLimit ? styles.errorText : styles.warningText,
           ]}
         >
-          {isAtLimit ? "Member Limit Reached" : "Approaching Member Limit"}
+          {isAtLimit ? t("components:subscriptionWarningBanner.memberLimitReached") : t("components:subscriptionWarningBanner.approachingMemberLimit")}
         </Text>
         <Text style={styles.description}>
           {isAtLimit
-            ? `You've reached the ${maxMembers} member limit on the ${tier} plan.`
-            : `Only ${remainingMembers} member slot${remainingMembers !== 1 ? "s" : ""} remaining on the ${tier} plan.`}
+            ? t("components:subscriptionWarningBanner.limitReachedMessage", { max: maxMembers, tier })
+            : t("components:subscriptionWarningBanner.approachingLimitMessage", { remaining: remainingMembers, tier })}
         </Text>
       </View>
       <View style={styles.upgradeContainer}>
-        <Text style={styles.upgradeText}>Upgrade</Text>
+        <Text style={styles.upgradeText}>{t("components:subscriptionWarningBanner.upgrade")}</Text>
         <Ionicons
           name="chevron-forward"
           size={18}

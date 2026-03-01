@@ -8,9 +8,9 @@
 
 ## 1. Introduction
 
-This Privacy Policy explains how Sportnizer ("we," "us," or "our") collects, uses, shares, and protects personal data when you use our platform for sports club management ("Service").
+This Privacy Policy explains how Clubnizer ("we," "us," or "our") collects, uses, shares, and protects personal data when you use our platform for sports club management ("Service").
 
-We are committed to protecting your privacy and handling your data responsibly. This policy applies to all users of Sportnizer, including Club administrators, members, and guardians.
+We are committed to protecting your privacy and handling your data responsibly. This policy applies to all users of Clubnizer, including Club administrators, members, and guardians.
 
 ---
 
@@ -18,15 +18,15 @@ We are committed to protecting your privacy and handling your data responsibly. 
 
 Understanding who is responsible for your data depends on the context:
 
-### 2.1 Club Data (Sportnizer as Data Processor)
+### 2.1 Club Data (Clubnizer as Data Processor)
 
 **For data processed within Clubs**, the Club acts as the **Data Controller**. This means the Club (through its administrators) determines why and how member data is processed within their organization.
 
-Sportnizer acts as a **Data Processor**, processing Club data only on behalf of and under the instructions of the Club. We do not independently determine the purposes of processing Club member data.
+Clubnizer acts as a **Data Processor**, processing Club data only on behalf of and under the instructions of the Club. We do not independently determine the purposes of processing Club member data.
 
-### 2.2 Account Data (Sportnizer as Data Controller)
+### 2.2 Account Data (Clubnizer as Data Controller)
 
-**For data related to your Sportnizer account** (such as your login credentials and account settings), Sportnizer acts as the **Data Controller** and processes such data to provide and maintain the Service.
+**For data related to your Clubnizer account** (such as your login credentials and account settings), Clubnizer acts as the **Data Controller** and processes such data to provide and maintain the Service.
 
 ---
 
@@ -64,7 +64,7 @@ For Youth Members (users under 16), we collect:
 - Date of birth
 - Guardian contact information
 
-**Note:** Clubs are responsible for obtaining guardian consent before adding Youth Members. Sportnizer does not independently verify that such consent has been obtained.
+**Note:** Clubs are responsible for obtaining guardian consent before adding Youth Members. Clubnizer does not independently verify that such consent has been obtained.
 
 ### 3.5 Event and Attendance Data
 
@@ -161,7 +161,7 @@ Youth Members (users under 16 years of age) must be associated with a Guardian i
 - Ensuring Guardians are informed about data processing
 - Maintaining accurate Guardian contact information
 
-**Sportnizer does not independently verify that guardian consent has been obtained.** We rely on Clubs to fulfill this responsibility.
+**Clubnizer does not independently verify that guardian consent has been obtained.** We rely on Clubs to fulfill this responsibility.
 
 ### 6.3 Guardian Rights
 
@@ -288,7 +288,7 @@ Object to processing based on legitimate interests in certain circumstances.
 
 **For Club data:** Contact your Club administrator, who as Data Controller can assist with requests relating to Club membership data.
 
-**For account data:** Contact us directly at **[privacy@sportnizer.com]**. We aim to respond to requests within 30 days.
+**For account data:** Contact us directly at **[privacy@clubnizer.com]**. We aim to respond to requests within 30 days.
 
 ---
 
@@ -338,8 +338,8 @@ We encourage you to review this policy periodically.
 
 For questions about this Privacy Policy or our data practices:
 
-- **Privacy Inquiries:** [privacy@sportnizer.com]
-- **General Support:** [support@sportnizer.com]
+- **Privacy Inquiries:** [privacy@clubnizer.com]
+- **General Support:** [support@clubnizer.com]
 
 We aim to respond to all inquiries within 30 days.
 
@@ -357,4 +357,4 @@ California residents may have additional rights under the California Consumer Pr
 
 ---
 
-_By using Sportnizer, you acknowledge that you have read and understood this Privacy Policy._
+_By using Clubnizer, you acknowledge that you have read and understood this Privacy Policy._

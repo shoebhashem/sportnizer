@@ -4,32 +4,36 @@ import MemberContactModal from "@/components/MemberContactModal";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDataCache } from "@/contexts/DataCacheContext";
 import { fetchGroupMembers } from "@/services/fetchGroupMembers";
 import { groupService } from "@/services/group";
 import { subgroupService } from "@/services/subgroup";
 import { GroupData, GroupMemberData } from "@/services/types/group";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-  useNavigation,
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ManageSubgroupScreen() {
+  const cache = useDataCache();
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const { groupId, subgroupId, clubId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
@@ -94,8 +98,8 @@ export default function ManageSubgroupScreen() {
       // Fetch group and subgroup members
       const [groupResult, membersResult, subgroupMembersResult] =
         await Promise.all([
-          groupService.getGroup(clubId, groupId),
-          fetchGroupMembers(clubId, groupId),
+          groupService.getGroup(clubId, groupId, cache),
+          fetchGroupMembers(clubId, groupId, cache),
           subgroupService.getSubgroupMembers(clubId, groupId, subgroupId),
         ]);
 
@@ -131,9 +135,7 @@ export default function ManageSubgroupScreen() {
     }
   }, [groupId, clubId, subgroupId, user]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Removed useEffect double-fetch. Only useFocusEffect remains.
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -195,7 +197,9 @@ export default function ManageSubgroupScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading subgroup data...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:manageSubgroup.loadingSubgroup")}
+          </Text>
         </View>
       </View>
     );
@@ -206,9 +210,11 @@ export default function ManageSubgroupScreen() {
       <View style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Subgroup not found</Text>
+          <Text style={styles.errorText}>
+            {t("screens:manageSubgroup.subgroupNotFound")}
+          </Text>
           <Button
-            label="Go Back"
+            label={t("common:goBack")}
             onPress={() => router.back()}
             theme="secondary"
           />
@@ -226,7 +232,7 @@ export default function ManageSubgroupScreen() {
       >
         {/* Members Section */}
         <Text style={styles.sectionTitle}>
-          Members ({subgroupMembers.length})
+          {t("screens:manageSubgroup.members")} ({subgroupMembers.length})
         </Text>
 
         {subgroupMembers.length > 0 ? (
@@ -240,11 +246,11 @@ export default function ManageSubgroupScreen() {
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
-              No members in this subgroup yet
+              {t("screens:manageSubgroup.noMembersInSubgroup")}
             </Text>
             {canManage && (
               <Text style={styles.emptySubtext}>
-                Use &quot;Manage Members&quot; to add members to this subgroup
+                {t("screens:manageSubgroup.manageMembersHint")}
               </Text>
             )}
           </View>

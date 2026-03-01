@@ -10,32 +10,34 @@ import { paymentService } from "@/services/paymentService";
 import { ClubData } from "@/services/types/club";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-  useNavigation,
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useState,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ClubSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation(["screens", "common"]);
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
   const navigation = useNavigation();
@@ -118,9 +120,9 @@ export default function ClubSettingsScreen() {
     setShowDeleteModal(false);
     // Show info modal about email process
     setSuccessMessage(
-      'To delete this club, please send an email to support@sportnizer.com with the subject "Delete Club: ' +
-        club?.name +
-        '" and we will process your request.',
+      t("screens:clubSettings.deleteClubEmailInstructions", {
+        name: club?.name,
+      }),
     );
     setShowSuccessModal(true);
   };
@@ -140,9 +142,12 @@ export default function ClubSettingsScreen() {
 
       if (result.success) {
         setSuccessMessage(
-          `Club reactivated successfully! ` +
+          t("screens:clubSettings.clubReactivated") +
             (result.groupsReactivated
-              ? `${result.groupsReactivated} groups were also reactivated.`
+              ? " " +
+                t("screens:clubSettings.clubReactivatedWithGroups", {
+                  count: result.groupsReactivated,
+                })
               : ""),
         );
         setShowSuccessModal(true);
@@ -151,14 +156,13 @@ export default function ClubSettingsScreen() {
         await fetchClubData();
       } else {
         setErrorMessage(
-          result.error ||
-            "Failed to reactivate club. The grace period may have expired.",
+          result.error || t("screens:clubSettings.failedToReactivateClub"),
         );
         setShowErrorModal(true);
       }
     } catch (error) {
       console.error("Error reactivating club:", error);
-      setErrorMessage("Failed to reactivate club. Please try again.");
+      setErrorMessage(t("screens:clubSettings.failedToReactivateClubRetry"));
       setShowErrorModal(true);
     } finally {
       setIsReactivating(false);
@@ -221,7 +225,9 @@ export default function ClubSettingsScreen() {
         setShowAddGroupModal(false);
         setGroupName("");
         setSportType("");
-        setSuccessMessage(`Group "${groupName.trim()}" created successfully!`);
+        setSuccessMessage(
+          t("screens:clubSettings.groupCreated", { name: groupName.trim() }),
+        );
         setShowSuccessModal(true);
 
         // Navigate to the new group's manage screen
@@ -230,7 +236,9 @@ export default function ClubSettingsScreen() {
         );
       } else {
         console.log("Group creation failed:", result.error);
-        setErrorMessage(result.error || "Failed to create group");
+        setErrorMessage(
+          result.error || t("screens:clubSettings.failedToCreateGroup"),
+        );
         setShowErrorModal(true);
       }
     } catch (error) {
@@ -256,7 +264,9 @@ export default function ClubSettingsScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading club settings...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:clubSettings.loadingClubSettings")}
+          </Text>
         </View>
       </View>
     );
@@ -267,9 +277,11 @@ export default function ClubSettingsScreen() {
       <View style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Club not found</Text>
+          <Text style={styles.errorText}>
+            {t("screens:clubSettings.clubNotFound")}
+          </Text>
           <Button
-            label="Go Back"
+            label={t("common:goBack")}
             onPress={() => router.back()}
             theme="secondary"
           />
@@ -298,10 +310,12 @@ export default function ClubSettingsScreen() {
           <View style={styles.deletionBanner}>
             <View style={styles.deletionHeader}>
               <Ionicons name="warning" size={24} color={theme.colors.error} />
-              <Text style={styles.deletionTitle}>Scheduled for Deletion</Text>
+              <Text style={styles.deletionTitle}>
+                {t("screens:clubSettings.scheduledForDeletion")}
+              </Text>
             </View>
             <Text style={styles.deletionMessage}>
-              This club will be permanently deleted in:
+              {t("screens:clubSettings.clubWillBeDeleted")}
             </Text>
             <CountdownTimer
               deletionScheduledAt={club.deletionScheduledAt?.toMillis?.()}
@@ -310,7 +324,11 @@ export default function ClubSettingsScreen() {
             {isClubAdmin && (
               <View style={styles.undoButtonContainer}>
                 <Button
-                  label={isReactivating ? "Reactivating..." : "Undo Deletion"}
+                  label={
+                    isReactivating
+                      ? t("common:reactivating")
+                      : t("screens:clubSettings.undoDeletion")
+                  }
                   onPress={handleUndoDeletion}
                   theme="secondary"
                   disabled={isReactivating}
@@ -336,9 +354,11 @@ export default function ClubSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Add Group</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:clubSettings.addGroup")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  Create a new group in this club
+                  {t("screens:clubSettings.addGroupDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -372,9 +392,11 @@ export default function ClubSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Add Club Admin</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:clubSettings.addClubAdmin")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  Invite a club administrator
+                  {t("screens:clubSettings.addClubAdminDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -406,9 +428,11 @@ export default function ClubSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Subscription</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:clubSettings.subscription")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  Manage your club subscription plan
+                  {t("screens:clubSettings.subscriptionDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -441,16 +465,20 @@ export default function ClubSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Payment Settings</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:clubSettings.paymentSettings")}
+                </Text>
                 <Text style={styles.optionDescription}>
                   {isStripeEnabled
-                    ? "Manage payment account"
-                    : "Set up to collect membership fees"}
+                    ? t("screens:clubSettings.paymentSettingsDescActive")
+                    : t("screens:clubSettings.paymentSettingsDescInactive")}
                 </Text>
               </View>
               {isStripeEnabled ? (
                 <View style={styles.statusBadge}>
-                  <Text style={styles.statusBadgeText}>Active</Text>
+                  <Text style={styles.statusBadgeText}>
+                    {t("common:active")}
+                  </Text>
                 </View>
               ) : (
                 <Ionicons
@@ -484,9 +512,11 @@ export default function ClubSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Create Fee</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:clubSettings.createFee")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  Request payments from members
+                  {t("screens:clubSettings.createFeeDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -513,9 +543,11 @@ export default function ClubSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Delete Group</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:clubSettings.deleteGroup")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  Select a group to schedule for deletion
+                  {t("screens:clubSettings.deleteGroupDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -541,10 +573,10 @@ export default function ClubSettingsScreen() {
               </View>
               <View style={styles.optionContent}>
                 <Text style={[styles.optionTitle, styles.dangerText]}>
-                  Delete Club
+                  {t("screens:clubSettings.deleteClub")}
                 </Text>
                 <Text style={styles.optionDescription}>
-                  Request club deletion via email
+                  {t("screens:clubSettings.deleteClubDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -585,10 +617,12 @@ export default function ClubSettingsScreen() {
       {/* Delete Club Info Modal */}
       <ConfirmationModal
         visible={showDeleteModal}
-        title="Delete Club"
-        message={`To delete "${club?.name}", you need to send an email request. This ensures security and allows for proper verification. Would you like to see the instructions?`}
-        confirmText="Show Instructions"
-        cancelText="Cancel"
+        title={t("screens:clubSettings.deleteClub")}
+        message={t("screens:clubSettings.deleteClubConfirm", {
+          clubName: club?.name,
+        })}
+        confirmText={t("screens:clubSettings.showInstructions")}
+        cancelText={t("common:cancel")}
         onConfirm={confirmDeleteClub}
         onCancel={() => setShowDeleteModal(false)}
         confirmButtonTheme="primary"
@@ -597,10 +631,16 @@ export default function ClubSettingsScreen() {
       {/* Undo Deletion Confirmation Modal */}
       <ConfirmationModal
         visible={showUndoModal}
-        title="Undo Deletion"
-        message={`Are you sure you want to reactivate "${club?.name}"? This will restore the club and all its groups.`}
-        confirmText={isReactivating ? "Reactivating..." : "Reactivate"}
-        cancelText="Cancel"
+        title={t("screens:clubSettings.undoDeletion")}
+        message={t("screens:clubSettings.undoDeletionConfirm", {
+          name: club?.name,
+        })}
+        confirmText={
+          isReactivating
+            ? t("common:reactivating")
+            : t("screens:groupSettings.reactivate")
+        }
+        cancelText={t("common:cancel")}
         onConfirm={confirmUndoDeletion}
         onCancel={() => setShowUndoModal(false)}
         confirmButtonTheme="primary"
@@ -609,9 +649,9 @@ export default function ClubSettingsScreen() {
       {/* Success Modal */}
       <ConfirmationModal
         visible={showSuccessModal}
-        title="Success"
+        title={t("common:success")}
         message={successMessage}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         onConfirm={() => setShowSuccessModal(false)}
         onCancel={() => setShowSuccessModal(false)}
         confirmButtonTheme="primary"
@@ -620,9 +660,9 @@ export default function ClubSettingsScreen() {
       {/* Error Modal */}
       <ConfirmationModal
         visible={showErrorModal}
-        title="Error"
+        title={t("common:error")}
         message={errorMessage}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         onConfirm={() => setShowErrorModal(false)}
         onCancel={() => setShowErrorModal(false)}
         confirmButtonTheme="primary"
@@ -641,31 +681,39 @@ export default function ClubSettingsScreen() {
         >
           <View style={styles.modalContainer}>
             <Pressable onPress={() => {}} style={styles.modal}>
-              <Text style={styles.modalTitle}>Add New Group</Text>
+              <Text style={styles.modalTitle}>
+                {t("screens:clubSettings.addGroupModal.title")}
+              </Text>
               <Text style={styles.modalDescription}>
-                Create a new group in {club?.name}
+                {t("screens:clubSettings.addGroupModal.subtitle", {
+                  clubName: club?.name,
+                })}
               </Text>
 
               <Input
-                label="Group Name"
+                label={t("screens:clubSettings.addGroupModal.groupName")}
                 value={groupName}
                 onChangeText={setGroupName}
-                placeholder="Enter group name"
+                placeholder={t(
+                  "screens:clubSettings.addGroupModal.groupNamePlaceholder",
+                )}
                 autoCapitalize="words"
               />
 
               <Input
-                label="Sport Type"
+                label={t("screens:clubSettings.addGroupModal.sportType")}
                 value={sportType}
                 onChangeText={setSportType}
-                placeholder="e.g., Football, Basketball, Swimming"
+                placeholder={t(
+                  "screens:clubSettings.addGroupModal.sportTypePlaceholder",
+                )}
                 autoCapitalize="words"
               />
 
               <View style={styles.modalButtons}>
                 <View style={styles.modalButton}>
                   <Button
-                    label="Cancel"
+                    label={t("common:cancel")}
                     onPress={() => setShowAddGroupModal(false)}
                     theme="secondary"
                     disabled={creatingGroup}
@@ -673,7 +721,9 @@ export default function ClubSettingsScreen() {
                 </View>
                 <View style={styles.modalButton}>
                   <Button
-                    label={creatingGroup ? "Creating..." : "Create"}
+                    label={
+                      creatingGroup ? t("common:creating") : t("common:create")
+                    }
                     onPress={handleConfirmAddGroup}
                     theme="primary"
                     disabled={creatingGroup || !groupName.trim()}

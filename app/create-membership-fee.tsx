@@ -14,21 +14,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useState,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -44,6 +45,7 @@ interface RoleCount {
 }
 
 export default function CreateMembershipFeeScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { clubId, groupId: preselectedGroupId } = useLocalSearchParams();
@@ -75,9 +77,9 @@ export default function CreateMembershipFeeScreen() {
   // Set header title
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: "Create Fee",
+      title: t("screens:createMembershipFee.createFee"),
     });
-  }, [navigation]);
+  }, [navigation, t]);
 
   // Load members when groups are selected - aggregates across all selected groups
   const loadGroupsMembers = useCallback(
@@ -307,19 +309,25 @@ export default function CreateMembershipFeeScreen() {
       >
         {/* Fee Details */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Fee Details</Text>
+          <Text style={styles.sectionTitle}>
+            {t("screens:createMembershipFee.feeDetails")}
+          </Text>
 
           <Input
-            label="Title *"
-            placeholder="e.g., Spring 2026 Membership"
+            label={t("screens:createMembershipFee.titleRequired")}
+            placeholder={t("screens:createMembershipFee.titlePlaceholder")}
             value={title}
             onChangeText={setTitle}
           />
 
-          <Text style={styles.inputLabel}>Description (Optional)</Text>
+          <Text style={styles.inputLabel}>
+            {t("screens:createMembershipFee.descriptionOptional")}
+          </Text>
           <TextInput
             style={styles.textArea}
-            placeholder="Add details about this fee..."
+            placeholder={t(
+              "screens:createMembershipFee.descriptionPlaceholder",
+            )}
             placeholderTextColor={theme.colors.textSecondary}
             value={description}
             onChangeText={setDescription}
@@ -329,12 +337,14 @@ export default function CreateMembershipFeeScreen() {
           />
 
           <Text style={styles.inputLabel}>
-            Amount ({clubCurrency.toUpperCase()}) *
+            {t("screens:createMembershipFee.amountRequired", {
+              currency: clubCurrency.toUpperCase(),
+            })}
           </Text>
           <View style={styles.amountInputContainer}>
             <TextInput
               style={styles.amountInput}
-              placeholder="0.00"
+              placeholder={t("screens:createMembershipFee.amountPlaceholder")}
               placeholderTextColor={theme.colors.textSecondary}
               value={amount}
               onChangeText={(text) => {
@@ -356,12 +366,17 @@ export default function CreateMembershipFeeScreen() {
           </View>
           {amountInSmallestUnit > 0 && amountInSmallestUnit < 300 && (
             <Text style={styles.errorHint}>
-              Minimum amount is 3.00 {clubCurrency.toUpperCase()}
+              {t("screens:createMembershipFee.minimumAmountError", {
+                min: "3.00",
+                currency: clubCurrency.toUpperCase(),
+              })}
             </Text>
           )}
 
           {/* Due Date (Optional) */}
-          <Text style={styles.inputLabel}>Due Date (Optional)</Text>
+          <Text style={styles.inputLabel}>
+            {t("screens:createMembershipFee.dueDateOptional")}
+          </Text>
           <TouchableOpacity
             style={styles.dueDateButton}
             onPress={() => setShowDueDatePicker(true)}
@@ -384,7 +399,7 @@ export default function CreateMembershipFeeScreen() {
                     month: "short",
                     day: "numeric",
                   })
-                : "Select due date (optional)"}
+                : t("screens:createMembershipFee.selectDueDatePlaceholder")}
             </Text>
             {dueDate && (
               <TouchableOpacity
@@ -409,19 +424,23 @@ export default function CreateMembershipFeeScreen() {
               setShowDueDatePicker(false);
             }}
             onCancel={() => setShowDueDatePicker(false)}
-            title="Select Due Date"
+            title={t("screens:createMembershipFee.selectDueDate")}
           />
         </View>
 
         {/* Group Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Groups *</Text>
+          <Text style={styles.sectionTitle}>
+            {t("screens:createMembershipFee.selectGroupsRequired")}
+          </Text>
           <Text style={styles.sectionSubtitle}>
-            Select one or more groups to create the fee for
+            {t("screens:createMembershipFee.selectGroupsHint")}
           </Text>
 
           {groups.length === 0 ? (
-            <Text style={styles.emptyText}>No groups found in this club</Text>
+            <Text style={styles.emptyText}>
+              {t("screens:createMembershipFee.noGroupsInClub")}
+            </Text>
           ) : (
             <View style={styles.groupList}>
               {groups.map((group) => {
@@ -459,8 +478,9 @@ export default function CreateMembershipFeeScreen() {
           )}
           {selectedGroupIds.length > 0 && (
             <Text style={styles.groupSelectionHint}>
-              {selectedGroupIds.length}{" "}
-              {selectedGroupIds.length === 1 ? "group" : "groups"} selected
+              {t("screens:createMembershipFee.groupsSelected", {
+                count: selectedGroupIds.length,
+              })}
             </Text>
           )}
         </View>
@@ -468,9 +488,11 @@ export default function CreateMembershipFeeScreen() {
         {/* Role Selection */}
         {selectedGroupIds.length > 0 && roleCounts.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Who Should Pay? *</Text>
+            <Text style={styles.sectionTitle}>
+              {t("screens:createMembershipFee.whoShouldPay")}
+            </Text>
             <Text style={styles.sectionSubtitle}>
-              Select the roles that should receive this payment request
+              {t("screens:createMembershipFee.whoShouldPayHint")}
             </Text>
 
             <View style={styles.roleList}>
@@ -506,7 +528,9 @@ export default function CreateMembershipFeeScreen() {
                       rc.selected && styles.roleCountSelected,
                     ]}
                   >
-                    ({rc.count} {rc.count === 1 ? "member" : "members"})
+                    {t("screens:createMembershipFee.membersCount", {
+                      count: rc.count,
+                    })}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -517,11 +541,15 @@ export default function CreateMembershipFeeScreen() {
         {/* Fee Breakdown Preview */}
         {amountInSmallestUnit > 0 && selectedRoles.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Fee Breakdown (Estimated)</Text>
+            <Text style={styles.sectionTitle}>
+              {t("screens:createMembershipFee.feeBreakdown")}
+            </Text>
 
             <View style={styles.breakdownCard}>
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Members pay:</Text>
+                <Text style={styles.breakdownLabel}>
+                  {t("screens:createMembershipFee.membersPay")}
+                </Text>
                 <Text style={styles.breakdownValue}>
                   {formatCurrency(amountInSmallestUnit)}
                 </Text>
@@ -529,12 +557,12 @@ export default function CreateMembershipFeeScreen() {
 
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>
-                  Stripe fee (~
-                  {(
-                    (feeEstimate.stripeFeeEstimate / amountInSmallestUnit) *
-                    100
-                  ).toFixed(1)}
-                  %):
+                  {t("screens:createMembershipFee.stripeFee", {
+                    percent: (
+                      (feeEstimate.stripeFeeEstimate / amountInSmallestUnit) *
+                      100
+                    ).toFixed(1),
+                  })}
                 </Text>
                 <Text style={styles.breakdownValueMuted}>
                   -{formatCurrency(feeEstimate.stripeFeeEstimate)}
@@ -542,7 +570,9 @@ export default function CreateMembershipFeeScreen() {
               </View>
 
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Sportnizer fee (2%):</Text>
+                <Text style={styles.breakdownLabel}>
+                  {t("screens:createMembershipFee.clubnizerFee")}
+                </Text>
                 <Text style={styles.breakdownValueMuted}>
                   -{formatCurrency(feeEstimate.platformFee)}
                 </Text>
@@ -551,7 +581,9 @@ export default function CreateMembershipFeeScreen() {
               <View style={styles.breakdownDivider} />
 
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabelBold}>Club receives:</Text>
+                <Text style={styles.breakdownLabelBold}>
+                  {t("screens:createMembershipFee.clubReceives")}
+                </Text>
                 <Text style={styles.breakdownValueBold}>
                   ≈{formatCurrency(feeEstimate.clubReceivesEstimate)}
                 </Text>
@@ -560,7 +592,9 @@ export default function CreateMembershipFeeScreen() {
               <View style={styles.breakdownDivider} />
 
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Total expected:</Text>
+                <Text style={styles.breakdownLabel}>
+                  {t("screens:createMembershipFee.totalExpected")}
+                </Text>
                 <Text style={styles.breakdownValue}>
                   {totalMembers} × {formatCurrency(amountInSmallestUnit)} ={" "}
                   {formatCurrency(totalExpected)}
@@ -575,7 +609,7 @@ export default function CreateMembershipFeeScreen() {
                 color={theme.colors.secondary}
               />
               <Text style={styles.infoText}>
-                Stripe fees are estimates and may vary based on card type
+                {t("screens:createMembershipFee.stripeFeesDisclaimer")}
               </Text>
             </View>
           </View>
@@ -584,7 +618,11 @@ export default function CreateMembershipFeeScreen() {
         {/* Submit Button */}
         <View style={styles.buttonContainer}>
           <Button
-            label={submitting ? "Creating..." : "Create Fee"}
+            label={
+              submitting
+                ? t("screens:createMembershipFee.creatingFee")
+                : t("screens:createMembershipFee.createFee")
+            }
             onPress={handleSubmit}
             theme="primary"
             disabled={!isValid || submitting}
@@ -595,7 +633,7 @@ export default function CreateMembershipFeeScreen() {
       {/* Success Modal */}
       <ConfirmationModal
         visible={showSuccessModal}
-        title="Success!"
+        title={t("screens:createMembershipFee.feeCreated")}
         message={successMessage}
         confirmText="OK"
         onConfirm={handleSuccessClose}

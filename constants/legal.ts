@@ -12,8 +12,8 @@ export const CURRENT_PRIVACY_VERSION = "PRIVACY_2026.1";
 
 // Legal document URLs (public, no authentication required)
 export const LEGAL_URLS = {
-  termsOfService: "https://sportnizer.com/legal/terms",
-  privacyPolicy: "https://sportnizer.com/legal/privacy",
+  termsOfService: "https://clubnizer.com/legal/terms",
+  privacyPolicy: "https://clubnizer.com/legal/privacy",
   // Fallback URLs during development (can be updated)
   termsOfServiceFallback: "/legal/terms",
   privacyPolicyFallback: "/legal/privacy",

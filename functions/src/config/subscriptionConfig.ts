@@ -1,11 +1,11 @@
 /**
  * Subscription Configuration
  *
- * This file contains all configuration for the Sportnizer subscription system.
- * Clubs subscribe to Sportnizer to access premium features and higher member limits.
+ * This file contains all configuration for the Clubnizer subscription system.
+ * Clubs subscribe to Clubnizer to access premium features and higher member limits.
  *
  * IMPORTANT: This is separate from Stripe Connect (clubs receiving payments from members).
- * This handles: Clubs → Sportnizer payments (platform subscription)
+ * This handles: Clubs → Clubnizer payments (platform subscription)
  *
  * @see ARCHITECTURE.md - "Usage Limits & Subscription System" section
  */

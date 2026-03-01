@@ -7,7 +7,8 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { doc, getDoc } from "firebase/firestore";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Modal,
@@ -44,6 +45,7 @@ import { GroupData } from "../services/types/group";
 
 export default function GroupSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation(["screens", "common"]);
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -178,16 +180,14 @@ export default function GroupSettingsScreen() {
       }
     } catch (error) {
       console.error("Error fetching group data:", error);
-      setErrorMessage("Failed to load group data");
+      setErrorMessage(t("screens:groupSettings.failedToLoadGroupData"));
       setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
   }, [groupId, clubId, user?.uid]);
 
-  useEffect(() => {
-    fetchGroupDataFromServices();
-  }, [fetchGroupDataFromServices]);
+  // Removed useEffect double-fetch. Only useFocusEffect remains.
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -214,9 +214,12 @@ export default function GroupSettingsScreen() {
 
       if (result.success) {
         setSuccessMessage(
-          `Group reactivated successfully! ` +
+          t("screens:groupSettings.groupReactivated") +
             (result.subgroupsReactivated
-              ? `${result.subgroupsReactivated} subgroups were also reactivated.`
+              ? " " +
+                t("screens:groupSettings.groupReactivatedWithSubgroups", {
+                  count: result.subgroupsReactivated,
+                })
               : ""),
         );
         setShowSuccessModal(true);
@@ -225,14 +228,13 @@ export default function GroupSettingsScreen() {
         await fetchGroupDataFromServices();
       } else {
         setErrorMessage(
-          result.error ||
-            "Failed to reactivate group. The grace period may have expired.",
+          result.error || t("screens:groupSettings.failedToReactivateGroup"),
         );
         setShowErrorModal(true);
       }
     } catch (error) {
       console.error("Error reactivating group:", error);
-      setErrorMessage("Failed to reactivate group. Please try again.");
+      setErrorMessage(t("screens:groupSettings.failedToReactivateGroupRetry"));
       setShowErrorModal(true);
     } finally {
       setIsReactivating(false);
@@ -372,9 +374,7 @@ export default function GroupSettingsScreen() {
 
     if (!groupId || !user?.uid || !clubId) {
       console.log("❌ Missing required data");
-      setErrorMessage(
-        "Missing group ID, club ID, or user information. Please try again.",
-      );
+      setErrorMessage(t("screens:groupSettings.missingGroupInfo"));
       setShowErrorModal(true);
       return;
     }
@@ -401,7 +401,9 @@ export default function GroupSettingsScreen() {
 
         // Show success message
         setSuccessMessage(
-          `Subgroup "${subgroupName.trim()}" created successfully!`,
+          t("screens:groupSettings.subgroupCreated", {
+            name: subgroupName.trim(),
+          }),
         );
         setShowSuccessModal(true);
 
@@ -411,14 +413,20 @@ export default function GroupSettingsScreen() {
         );
       } else {
         console.log("❌ Service returned error:", result.error);
-        setErrorMessage(result.error || "Failed to create subgroup");
+        setErrorMessage(
+          result.error || t("screens:groupSettings.failedToCreateSubgroup"),
+        );
         setShowErrorModal(true);
       }
     } catch (error) {
       console.error("💥 Error creating subgroup:", error);
       const errorMsg =
         error instanceof Error ? error.message : "Unknown error occurred";
-      setErrorMessage(`Failed to create subgroup: ${errorMsg}`);
+      setErrorMessage(
+        t("screens:groupSettings.failedToCreateSubgroupWithMsg", {
+          message: errorMsg,
+        }),
+      );
       setShowErrorModal(true);
     } finally {
       console.log("🏁 Finished - setting creatingSubgroup to false");
@@ -452,19 +460,23 @@ export default function GroupSettingsScreen() {
 
       if (result.success) {
         setSuccessMessage(
-          `Subgroup "${selectedSubgroup.name}" deleted successfully!`,
+          t("screens:groupSettings.subgroupDeleted", {
+            name: selectedSubgroup.name,
+          }),
         );
         setShowSuccessModal(true);
 
         // Refresh group data to update subgroups list
         await fetchGroupDataFromServices();
       } else {
-        setErrorMessage(result.error || "Failed to delete subgroup");
+        setErrorMessage(
+          result.error || t("screens:groupSettings.failedToDeleteSubgroup"),
+        );
         setShowErrorModal(true);
       }
     } catch (error) {
       console.error("Error deleting subgroup:", error);
-      setErrorMessage("Failed to delete subgroup. Please try again.");
+      setErrorMessage(t("screens:groupSettings.failedToDeleteSubgroup"));
       setShowErrorModal(true);
     } finally {
       setIsDeletingSubgroup(false);
@@ -492,7 +504,9 @@ export default function GroupSettingsScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading group settings...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:groupSettings.loadingGroupSettings")}
+          </Text>
         </View>
       </View>
     );
@@ -503,9 +517,11 @@ export default function GroupSettingsScreen() {
       <View style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Group not found</Text>
+          <Text style={styles.errorText}>
+            {t("screens:groupSettings.groupNotFound")}
+          </Text>
           <Button
-            label="Go Back"
+            label={t("common:goBack")}
             onPress={() => router.back()}
             theme="secondary"
           />
@@ -524,7 +540,9 @@ export default function GroupSettingsScreen() {
         {/* Group Info */}
         <View style={styles.groupInfoContainer}>
           <Text style={styles.groupName}>{group.name}</Text>
-          <Text style={styles.yourRole}>Your Role: {userRole}</Text>
+          <Text style={styles.yourRole}>
+            {t("screens:groupSettings.yourRole", { role: userRole })}
+          </Text>
         </View>
 
         {/* Deletion Status Banner */}
@@ -532,10 +550,12 @@ export default function GroupSettingsScreen() {
           <View style={styles.deletionBanner}>
             <View style={styles.deletionHeader}>
               <Ionicons name="warning" size={24} color={theme.colors.error} />
-              <Text style={styles.deletionTitle}>Scheduled for Deletion</Text>
+              <Text style={styles.deletionTitle}>
+                {t("screens:groupSettings.scheduledForDeletion")}
+              </Text>
             </View>
             <Text style={styles.deletionMessage}>
-              This group will be permanently deleted in:
+              {t("screens:groupSettings.groupWillBeDeleted")}
             </Text>
             <CountdownTimer
               deletionScheduledAt={group.deletionScheduledAt?.toMillis?.()}
@@ -544,7 +564,11 @@ export default function GroupSettingsScreen() {
             {canManageMembers && (
               <View style={styles.undoButtonContainer}>
                 <Button
-                  label={isReactivating ? "Reactivating..." : "Undo Deletion"}
+                  label={
+                    isReactivating
+                      ? t("common:reactivating")
+                      : t("screens:groupSettings.undoDeletion")
+                  }
                   onPress={handleUndoDeletion}
                   theme="secondary"
                   disabled={isReactivating}
@@ -580,11 +604,13 @@ export default function GroupSettingsScreen() {
                   />
                 </View>
                 <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>Add Members</Text>
+                  <Text style={styles.optionTitle}>
+                    {t("screens:groupSettings.addMembers")}
+                  </Text>
                   <Text style={styles.optionDescription}>
                     {isClubAdmin
-                      ? "Add players, coaches, and admins"
-                      : "Add players to the group"}
+                      ? t("screens:groupSettings.addMembersDesc")
+                      : t("screens:groupSettings.addMembersDescAdmin")}
                   </Text>
                 </View>
                 <Ionicons
@@ -600,7 +626,9 @@ export default function GroupSettingsScreen() {
                     style={styles.subOptionItem}
                     onPress={handleAddPlayer}
                   >
-                    <Text style={styles.subOptionTitle}>Add Player</Text>
+                    <Text style={styles.subOptionTitle}>
+                      {t("screens:groupSettings.addPlayer")}
+                    </Text>
                     <Ionicons
                       name="chevron-forward"
                       size={18}
@@ -615,7 +643,9 @@ export default function GroupSettingsScreen() {
                     ]}
                     onPress={handleAddYouthPlayer}
                   >
-                    <Text style={styles.subOptionTitle}>Add Youth Player</Text>
+                    <Text style={styles.subOptionTitle}>
+                      {t("screens:groupSettings.addYouthPlayer")}
+                    </Text>
                     <Ionicons
                       name="chevron-forward"
                       size={18}
@@ -629,7 +659,9 @@ export default function GroupSettingsScreen() {
                         style={styles.subOptionItem}
                         onPress={handleAddCoach}
                       >
-                        <Text style={styles.subOptionTitle}>Add Coach</Text>
+                        <Text style={styles.subOptionTitle}>
+                          {t("screens:groupSettings.addCoach")}
+                        </Text>
                         <Ionicons
                           name="chevron-forward"
                           size={18}
@@ -641,7 +673,9 @@ export default function GroupSettingsScreen() {
                         style={[styles.subOptionItem, styles.subOptionItemLast]}
                         onPress={handleAddAdmin}
                       >
-                        <Text style={styles.subOptionTitle}>Add Admin</Text>
+                        <Text style={styles.subOptionTitle}>
+                          {t("screens:groupSettings.addAdmin")}
+                        </Text>
                         <Ionicons
                           name="chevron-forward"
                           size={18}
@@ -672,12 +706,12 @@ export default function GroupSettingsScreen() {
                 </View>
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, styles.dangerText]}>
-                    Remove Members
+                    {t("screens:groupSettings.removeMembers")}
                   </Text>
                   <Text style={styles.optionDescription}>
                     {isClubAdmin
-                      ? "Remove players, coaches, and admins"
-                      : "Remove players from the group"}
+                      ? t("screens:groupSettings.removeMembersDesc")
+                      : t("screens:groupSettings.removeMembersDescAdmin")}
                   </Text>
                 </View>
                 <Ionicons
@@ -694,7 +728,7 @@ export default function GroupSettingsScreen() {
                     onPress={handleRemovePlayer}
                   >
                     <Text style={[styles.subOptionTitle, styles.dangerText]}>
-                      Remove Player
+                      {t("screens:groupSettings.removePlayer")}
                     </Text>
                     <Ionicons
                       name="chevron-forward"
@@ -711,7 +745,7 @@ export default function GroupSettingsScreen() {
                     onPress={handleRemoveYouthPlayer}
                   >
                     <Text style={[styles.subOptionTitle, styles.dangerText]}>
-                      Remove Youth Player
+                      {t("screens:groupSettings.removeYouthPlayer")}
                     </Text>
                     <Ionicons
                       name="chevron-forward"
@@ -729,7 +763,7 @@ export default function GroupSettingsScreen() {
                         <Text
                           style={[styles.subOptionTitle, styles.dangerText]}
                         >
-                          Remove Coach
+                          {t("screens:groupSettings.removeCoach")}
                         </Text>
                         <Ionicons
                           name="chevron-forward"
@@ -745,7 +779,7 @@ export default function GroupSettingsScreen() {
                         <Text
                           style={[styles.subOptionTitle, styles.dangerText]}
                         >
-                          Remove Admin
+                          {t("screens:groupSettings.removeAdmin")}
                         </Text>
                         <Ionicons
                           name="chevron-forward"
@@ -774,9 +808,11 @@ export default function GroupSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>View Statistics</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:groupSettings.viewStatistics")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  View attendance rates and member statistics
+                  {t("screens:groupSettings.viewStatisticsDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -801,9 +837,11 @@ export default function GroupSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Create Subgroup</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:groupSettings.createSubgroup")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  Create a new subgroup within this group
+                  {t("screens:groupSettings.createSubgroupDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -837,9 +875,11 @@ export default function GroupSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Track Payments</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:groupSettings.trackPayments")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  View payment status for membership fees
+                  {t("screens:groupSettings.trackPaymentsDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -854,7 +894,9 @@ export default function GroupSettingsScreen() {
           {canManageGroup && group?.subGroups && group.subGroups.length > 0 && (
             <View style={styles.subgroupsSection}>
               <Text style={styles.sectionHeader}>
-                Subgroups ({group.subGroups.length})
+                {t("screens:groupSettings.subgroups", {
+                  count: group.subGroups.length,
+                })}
               </Text>
               {group.subGroups.map((subgroup: any) => (
                 <View key={subgroup.id} style={styles.subgroupItem}>
@@ -870,7 +912,9 @@ export default function GroupSettingsScreen() {
                       <Text style={styles.subgroupName}>{subgroup.name}</Text>
                       <Text style={styles.subgroupMemberCount}>
                         {subgroup.memberCount || 0}{" "}
-                        {subgroup.memberCount === 1 ? "member" : "members"}
+                        {subgroup.memberCount === 1
+                          ? t("common:member")
+                          : t("common:members")}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -907,9 +951,11 @@ export default function GroupSettingsScreen() {
                   />
                 </View>
                 <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>Invite Guardians</Text>
+                  <Text style={styles.optionTitle}>
+                    {t("screens:groupSettings.inviteGuardians")}
+                  </Text>
                   <Text style={styles.optionDescription}>
-                    Send guardian invitation links for unconfirmed children
+                    {t("screens:groupSettings.inviteGuardiansDesc")}
                   </Text>
                 </View>
                 <Ionicons
@@ -925,10 +971,16 @@ export default function GroupSettingsScreen() {
       {/* Undo Deletion Confirmation Modal */}
       <ConfirmationModal
         visible={showUndoModal}
-        title="Undo Deletion"
-        message={`Are you sure you want to reactivate "${group?.name || "this group"}"? This will restore the group and all its subgroups.`}
-        confirmText={isReactivating ? "Reactivating..." : "Reactivate"}
-        cancelText="Cancel"
+        title={t("screens:groupSettings.undoDeletion")}
+        message={t("screens:groupSettings.undoDeletionConfirm", {
+          name: group?.name || "this group",
+        })}
+        confirmText={
+          isReactivating
+            ? t("common:reactivating")
+            : t("screens:groupSettings.reactivate")
+        }
+        cancelText={t("common:cancel")}
         onConfirm={confirmUndoDeletion}
         onCancel={() => setShowUndoModal(false)}
         confirmButtonTheme="primary"
@@ -937,9 +989,9 @@ export default function GroupSettingsScreen() {
       {/* Success Modal */}
       <ConfirmationModal
         visible={showSuccessModal}
-        title="Success"
+        title={t("common:success")}
         message={successMessage}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         onConfirm={() => {
           setShowSuccessModal(false);
           router.replace("/groups");
@@ -954,9 +1006,9 @@ export default function GroupSettingsScreen() {
       {/* Error Modal */}
       <ConfirmationModal
         visible={showErrorModal}
-        title="Error"
+        title={t("common:error")}
         message={errorMessage}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         onConfirm={() => setShowErrorModal(false)}
         onCancel={() => setShowErrorModal(false)}
         confirmButtonTheme="secondary"
@@ -975,27 +1027,37 @@ export default function GroupSettingsScreen() {
         >
           <View style={styles.modalContainer}>
             <Pressable onPress={() => {}} style={styles.modal}>
-              <Text style={styles.modalTitle}>Create Subgroup</Text>
+              <Text style={styles.modalTitle}>
+                {t("screens:groupSettings.createSubgroupModal.title")}
+              </Text>
 
               <Input
-                label="Subgroup Name"
+                label={t(
+                  "screens:groupSettings.createSubgroupModal.subgroupName",
+                )}
                 value={subgroupName}
                 onChangeText={setSubgroupName}
-                placeholder="Enter subgroup name"
+                placeholder={t(
+                  "screens:groupSettings.createSubgroupModal.subgroupNamePlaceholder",
+                )}
                 autoCapitalize="words"
               />
 
               <View style={styles.modalButtons}>
                 <View style={styles.modalButton}>
                   <Button
-                    label="Cancel"
+                    label={t("common:cancel")}
                     onPress={() => setShowCreateSubgroupModal(false)}
                     theme="secondary"
                   />
                 </View>
                 <View style={styles.modalButton}>
                   <Button
-                    label={creatingSubgroup ? "Creating..." : "Create"}
+                    label={
+                      creatingSubgroup
+                        ? t("common:creating")
+                        : t("screens:groupSettings.createSubgroupModal.create")
+                    }
                     onPress={handleConfirmCreateSubgroup}
                     theme="primary"
                     disabled={creatingSubgroup || !subgroupName.trim()}
@@ -1010,10 +1072,14 @@ export default function GroupSettingsScreen() {
       {/* Delete Subgroup Confirmation Modal */}
       <ConfirmationModal
         visible={showDeleteSubgroupModal}
-        title="Delete Subgroup"
-        message={`Are you sure you want to delete "${selectedSubgroup?.name}"? This will permanently remove the subgroup and all its member associations.`}
-        confirmText={isDeletingSubgroup ? "Deleting..." : "Delete"}
-        cancelText="Cancel"
+        title={t("screens:groupSettings.deleteSubgroup")}
+        message={t("screens:groupSettings.deleteSubgroupConfirm", {
+          name: selectedSubgroup?.name,
+        })}
+        confirmText={
+          isDeletingSubgroup ? t("common:deleting") : t("common:delete")
+        }
+        cancelText={t("common:cancel")}
         onConfirm={handleDeleteSubgroup}
         onCancel={() => {
           setShowDeleteSubgroupModal(false);

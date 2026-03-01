@@ -1,4 +1,4 @@
-# 🏗️ Sportnizer Architecture Documentation
+# 🏗️ Clubnizer Architecture Documentation
 
 ## Table of Contents
 
@@ -33,13 +33,13 @@
 
 ## Overview
 
-Sportnizer is a React Native Expo application with Firebase backend for managing sports groups, events, and member invitations. The architecture follows a 3-layer pattern:
+Clubnizer is a React Native Expo application with Firebase backend for managing sports groups, events, and member invitations. The architecture follows a 3-layer pattern:
 
 1. **UI Layer**: React Native screens and components
 2. **Service Layer**: Client-side services for auth, data management
 3. **Backend Layer**: Firebase Cloud Functions (atomic functions pattern)
 
-**Sportnizer is an Expo Universal App** targeting **Web, Android, and iOS** platforms simultaneously. All architectural decisions and implementations must consider cross-platform compatibility.
+**Clubnizer is an Expo Universal App** targeting **Web, Android, and iOS** platforms simultaneously. All architectural decisions and implementations must consider cross-platform compatibility.
 
 ## Core Architecture Principles
 
@@ -158,7 +158,7 @@ When a new user first opens the application, they encounter a structured onboard
 
 ```
 app/welcome.tsx
-├── Logo: Sportnizer logo image
+├── Logo: Clubnizer logo image
 ├── Tagline: "Organize teams. Schedule events. Stay connected."
 ├── Main CTA: "Create Your Club" button
 │   ├── If not authenticated → /signup?action=createClub
@@ -515,7 +515,7 @@ const canCreateClub = !userProfile?.clubAccess?.some(
 
 ### 🎯 **Dual-Storage Invitation & Notification System**
 
-Sportnizer implements a sophisticated dual-storage architecture that separates **source of truth** (invitations collection) from **UI notifications** (user notifications subcollection). This enables consistent invitation processing while providing real-time notification updates for existing users.
+Clubnizer implements a sophisticated dual-storage architecture that separates **source of truth** (invitations collection) from **UI notifications** (user notifications subcollection). This enables consistent invitation processing while providing real-time notification updates for existing users.
 
 **Core Principle**: The `invitations` collection serves as the **single source of truth** for all invitation data and processing, while the `users/{userId}/notifications` subcollection provides a **lightweight UI layer** for real-time notification delivery to existing users.
 
@@ -1493,7 +1493,7 @@ REJECTION: 'pending' → 'rejected'
 
 ### Overview
 
-Sportnizer implements a **club-level subscription system** where clubs subscribe to different tiers based on their member count needs. The system enforces member limits at the **CLUB level** (not group level), allowing clubs unlimited groups but restricting total members based on their subscription tier.
+Clubnizer implements a **club-level subscription system** where clubs subscribe to different tiers based on their member count needs. The system enforces member limits at the **CLUB level** (not group level), allowing clubs unlimited groups but restricting total members based on their subscription tier.
 
 **Design Philosophy**:
 - **Club-level member limits**: Total members across all groups count against the club's subscription limit
@@ -1544,7 +1544,7 @@ interface ClubData {
   // Member limit based on subscription tier
   maxMembers?: number;           // Maximum members in club (50/500/2000/unlimited)
 
-  // Subscription to Sportnizer platform
+  // Subscription to Clubnizer platform
   subscription?: {
     tier: 'free' | 'basic' | 'pro' | 'enterprise';
     status: 'active' | 'past_due' | 'cancelled' | 'trialing';
@@ -1640,7 +1640,7 @@ functions/src/
 ```mermaid
 sequenceDiagram
     participant Admin as Club Admin
-    participant App as Sportnizer App
+    participant App as Clubnizer App
     participant Backend as Firebase Functions
     participant Stripe as Stripe Billing
     participant DB as Firestore
@@ -1761,7 +1761,7 @@ if (activeClubsAsAdmin >= maxClubsAsAdmin) {
   throw new HttpsError(
     "resource-exhausted",
     `Cannot create club. You have reached your limit of ${maxClubsAsAdmin} active club(s). ` +
-      `Please contact support@sportnizer.com to upgrade.`,
+      `Please contact support@clubnizer.com to upgrade.`,
   );
 }
 
@@ -1782,7 +1782,7 @@ if (activeClubsAsAdmin >= maxClubsAsAdmin) {
   throw new HttpsError(
     "resource-exhausted",
     `Cannot reactivate club. Maximum of ${maxClubsAsAdmin} active clubs reached. ` +
-      `Please delete an active club first or contact support@sportnizer.com.`,
+      `Please delete an active club first or contact support@clubnizer.com.`,
   );
 }
 ```
@@ -1803,7 +1803,7 @@ if (activeGroupCount >= maxGroups) {
   throw new HttpsError(
     "resource-exhausted",
     `Cannot create group. This club has reached its limit of ${maxGroups} active groups. ` +
-      `Please contact support@sportnizer.com to upgrade.`,
+      `Please contact support@clubnizer.com to upgrade.`,
   );
 }
 
@@ -1832,7 +1832,7 @@ if (existingGroup && existingGroup.isActive === false) {
     throw new HttpsError(
       "resource-exhausted",
       `Cannot reactivate group. This club has reached its limit of ${maxGroups} active groups. ` +
-        `Please delete an active group first or contact support@sportnizer.com.`,
+        `Please delete an active group first or contact support@clubnizer.com.`,
     );
   }
 
@@ -1891,7 +1891,7 @@ if (memberCount >= maxMembers) {
   throw new HttpsError(
     "resource-exhausted",
     `Cannot add member. This group has reached its limit of ${maxMembers} members. ` +
-      `Please contact support@sportnizer.com to upgrade.`,
+      `Please contact support@clubnizer.com to upgrade.`,
   );
 }
 
@@ -1977,7 +1977,7 @@ export function checkResourceLimit(
       allowed: false,
       message:
         `Cannot create ${resourceName}. You have reached your limit of ${maxLimit}. ` +
-        `Please contact support@sportnizer.com to upgrade.`,
+        `Please contact support@clubnizer.com to upgrade.`,
     };
   }
 
@@ -2025,7 +2025,7 @@ try {
 
 - Clear explanation of the limit
 - Current limit value
-- Upgrade path (contact support@sportnizer.com)
+- Upgrade path (contact support@clubnizer.com)
 - No technical jargon
 
 ### Migration Strategy
@@ -2257,7 +2257,7 @@ const { userProfile, refreshUserProfile, clearUserData, isFromCache } =
 **Context Integration**:
 
 - AuthContext provides Firebase user authentication state
-- UserContext provides Sportnizer app user profile data
+- UserContext provides Clubnizer app user profile data
 - Both contexts work independently but complement each other
 - Authentication state changes trigger user profile refresh
 
@@ -3297,7 +3297,7 @@ interface ValidationRequest {
 
 interface ValidationResponse {
   success: boolean; // Service call succeeded
-  userExists: boolean; // Email has Sportnizer account
+  userExists: boolean; // Email has Clubnizer account
   canInvite: boolean; // ✅ Clear yes/no answer
 
   // Adult roles (player, coach, admin)
@@ -4336,7 +4336,7 @@ Potential improvements to consider:
 
 ### Overview
 
-The Sportnizer role system uses a **role accumulation pattern** where roles are accumulated (not replaced) when members take on multiple responsibilities within a club. This architecture supports complex scenarios like members being both players and coaches, or guardians with multiple youth players across different groups.
+The Clubnizer role system uses a **role accumulation pattern** where roles are accumulated (not replaced) when members take on multiple responsibilities within a club. This architecture supports complex scenarios like members being both players and coaches, or guardians with multiple youth players across different groups.
 
 **Architecture Version:** 4.0  
 **Last Updated:** January 2026  
@@ -5732,7 +5732,7 @@ member.scheduledForDeletion = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
 ### Deletion Patterns: Groups vs Subgroups
 
-**Sportnizer uses different deletion strategies for groups and subgroups:**
+**Clubnizer uses different deletion strategies for groups and subgroups:**
 
 #### Group Deletion: Soft Delete with Grace Period
 
@@ -7263,7 +7263,7 @@ This is a PERMANENT action that will:
 • Delete all subgroups and data
 • Schedule permanent deletion in 30 days
 
-To proceed, you must contact support@sportnizer.com
+To proceed, you must contact support@clubnizer.com
 
 We will verify:
 ✓ Your identity as club admin
@@ -7273,7 +7273,7 @@ We will verify:
 [Cancel] [Contact Support]
 ```
 
-#### 2. User Sends Email to support@sportnizer.com
+#### 2. User Sends Email to support@clubnizer.com
 
 **Email Template (Auto-generated by app):**
 
@@ -7340,7 +7340,7 @@ const verificationToken = jwt.sign(
   SECRET_KEY,
 );
 
-const verificationLink = `https://app.sportnizer.com/verify-club-deletion?token=${verificationToken}`;
+const verificationLink = `https://app.clubnizer.com/verify-club-deletion?token=${verificationToken}`;
 ```
 
 #### 2. Email Sent to Admin
@@ -7512,7 +7512,7 @@ await sendBulkEmail({
     • Permanent deletion: February 24, 2026
     • You can rejoin if club is reactivated within 30 days
     
-    Contact: support@sportnizer.com
+    Contact: support@clubnizer.com
   `,
 });
 
@@ -7524,7 +7524,7 @@ await sendBulkEmail({
     Club deletion confirmed and scheduled.
     
     • Deletion scheduled for: February 24, 2026
-    • To UNDO: Contact support@sportnizer.com within 30 days
+    • To UNDO: Contact support@clubnizer.com within 30 days
     • After 30 days: Permanent and irreversible
   `,
 });
@@ -7534,7 +7534,7 @@ await sendBulkEmail({
 
 ### Phase 6: Reactivation (Within 30 Days - Optional)
 
-If admin emails support@sportnizer.com to undo deletion:
+If admin emails support@clubnizer.com to undo deletion:
 
 #### 1. Support Verification
 
@@ -8355,7 +8355,7 @@ export const cleanupDeletedEntities = onSchedule(
 ```typescript
 export const devForceCleanup = onCall(async (request) => {
   // Only available in development project
-  if (process.env.GCLOUD_PROJECT !== "sportnizer-dev") {
+  if (process.env.GCLOUD_PROJECT !== "clubnizer-dev") {
     throw new HttpsError("unavailable", "Only available in development");
   }
 
@@ -8548,7 +8548,7 @@ const handleDeleteClub = () => {
       • ${memberCount} members will lose access
       • All data deleted permanently after 30 days
       
-      Email: support@sportnizer.com
+      Email: support@clubnizer.com
       Subject: Club Deletion Request - ${club.name}
       Include: Your club admin email and club name
       
@@ -8573,7 +8573,7 @@ Date: ${new Date().toISOString()}
       `;
 
       Linking.openURL(
-        `mailto:support@sportnizer.com?subject=Club Deletion Request - ${club.name}&body=${encodeURIComponent(emailBody)}`,
+        `mailto:support@clubnizer.com?subject=Club Deletion Request - ${club.name}&body=${encodeURIComponent(emailBody)}`,
       );
     },
   });
@@ -8731,7 +8731,7 @@ const testDeletion = async () => {
 
 ### Phase 4: Support Email System (Week 4)
 
-- [ ] Set up `support@sportnizer.com` email
+- [ ] Set up `support@clubnizer.com` email
 - [ ] Create email verification system
 - [ ] Create JWT token generation/verification
 - [ ] Create support admin interface (optional)
@@ -9112,7 +9112,7 @@ interface YearlyAttendanceStatistics {
 
 ### Attendance Recording & Statistics System
 
-Sportnizer provides a comprehensive attendance tracking and statistics system for group events. This system allows coaches and admins to record who attended events and automatically generates yearly participation statistics.
+Clubnizer provides a comprehensive attendance tracking and statistics system for group events. This system allows coaches and admins to record who attended events and automatically generates yearly participation statistics.
 
 #### **Attendance Recording Workflow**
 
@@ -9343,7 +9343,7 @@ const stats = await getGroupStatistics(clubId, groupId, year);
 
 ### Role-Based Event Listener System
 
-Sportnizer implements a sophisticated role-based event fetching strategy that optimizes Firestore read costs by 67-73% while maintaining excellent user experience. The system differentiates between privileged users (who need real-time updates) and regular users (who can use cached data).
+Clubnizer implements a sophisticated role-based event fetching strategy that optimizes Firestore read costs by 67-73% while maintaining excellent user experience. The system differentiates between privileged users (who need real-time updates) and regular users (who can use cached data).
 
 #### Architecture Overview
 
@@ -9798,7 +9798,7 @@ await clearEventCache(); // Clears all event storage keys
 ### Event Creation Flow
 
 **3-Level Event Creation System:**
-Sportnizer supports event creation at three hierarchical levels:
+Clubnizer supports event creation at three hierarchical levels:
 
 1. **Club Level**: Events visible to all club members
 2. **Group/Team Level**: Events visible to specific group members
@@ -12087,7 +12087,7 @@ interface ClubAccess {
 
 ### Role Hierarchy (6 Roles)
 
-Sportnizer uses a **6-tier role system** with clear scope boundaries:
+Clubnizer uses a **6-tier role system** with clear scope boundaries:
 
 #### **1. `club-admin` (Club Scope)**
 
@@ -12264,7 +12264,7 @@ if (!hasPermission) {
 
 ### Security Rules Overview
 
-The Sportnizer app implements a **comprehensive permission-based security model** through `firestore.rules` that enforces the principle of least privilege. Security rules act as the **final gatekeeper** for all database operations, providing multiple layers of protection.
+The Clubnizer app implements a **comprehensive permission-based security model** through `firestore.rules` that enforces the principle of least privilege. Security rules act as the **final gatekeeper** for all database operations, providing multiple layers of protection.
 
 ### Permission Architecture
 
@@ -13114,7 +13114,7 @@ Invitation functions depend on proper SMTP configuration in Firebase Functions:
 
 ```properties
 # In functions/.env
-SMTP_USER=noreply@sportnizer.com
+SMTP_USER=noreply@clubnizer.com
 SMTP_PASSWORD=[password]
 BASE_URL=https://your-app-domain.com
 ```
@@ -13816,7 +13816,7 @@ The system handles 4 distinct scenarios when adding youth members:
 
 #### **Scenario 1: Non-existing Child + Non-existing Guardian (Email Flow)**
 
-**Use Case**: Admin adds new child whose guardian has no Sportnizer account
+**Use Case**: Admin adds new child whose guardian has no Clubnizer account
 
 **Flow Diagram**:
 
@@ -14075,7 +14075,7 @@ export const createYouthMemberDocument = onCall(async (request) => {
 
   // 1. Create Firestore document (NO Firebase Auth account!)
   const DEFAULT_CHILD_PHOTO =
-    "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fchild_profile_icon.png?alt=media";
+    "https://firebasestorage.googleapis.com/v0/b/clubnizer.firebasestorage.app/o/defaults%2Fchild_profile_icon.png?alt=media";
 
   const youthDocRef = db.collection("users").doc(); // Auto-generate document ID
 
@@ -14638,13 +14638,13 @@ _This child/youth member system extends the existing architecture with minimal n
 
 ### Overview
 
-Sportnizer implements a **Stripe Connect Platform model** to enable clubs to receive membership fee payments from their members. The platform takes a 2% commission on each transaction, while Stripe processing fees are charged to the club (merchant).
+Clubnizer implements a **Stripe Connect Platform model** to enable clubs to receive membership fee payments from their members. The platform takes a 2% commission on each transaction, while Stripe processing fees are charged to the club (merchant).
 
 **Key Design Decisions**:
 
 - **Stripe Connect Express**: Clubs onboard via Stripe-hosted forms (Stripe handles KYC/compliance)
 - **Destination Charges with `on_behalf_of`**: Club is the settlement merchant, pays Stripe fees
-- **Platform Fee**: 2% `application_fee_amount` on each transaction goes to Sportnizer
+- **Platform Fee**: 2% `application_fee_amount` on each transaction goes to Clubnizer
 - **Role-Based Fee Targeting**: Fees target specific roles (e.g., `player`, `player-underage`)
 - **Guardian Payment Support**: For underage players, guardians receive and pay the fee
 
@@ -14673,10 +14673,10 @@ Sportnizer implements a **Stripe Connect Platform model** to enable clubs to rec
 │  │  Stripe processes payment                                            │   │
 │  │       ↓                                                               │   │
 │  │  Stripe fee (~18 SEK) charged to Club's Stripe account               │   │
-│  │  Platform fee (30 SEK) sent to Sportnizer                            │   │
+│  │  Platform fee (30 SEK) sent to Clubnizer                            │   │
 │  │       ↓                                                               │   │
 │  │  Club receives: 1000 - 18 - 30 = 952 SEK                             │   │
-│  │  Sportnizer receives: 30 SEK                                         │   │
+│  │  Clubnizer receives: 30 SEK                                         │   │
 │  │                                                                       │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                              │
@@ -14844,7 +14844,7 @@ functions/src/
 ```mermaid
 sequenceDiagram
     participant Admin as Club Admin
-    participant App as Sportnizer App
+    participant App as Clubnizer App
     participant Backend as Firebase Functions
     participant Stripe as Stripe Connect
     participant DB as Firestore
@@ -14866,7 +14866,7 @@ sequenceDiagram
 
     Note over Stripe: Admin fills KYC info, bank details, etc.
 
-    Stripe-->>App: Redirect back to Sportnizer (return_url)
+    Stripe-->>App: Redirect back to Clubnizer (return_url)
     App->>Backend: checkStripeAccountStatus(clubId)
     Backend->>Stripe: stripe.accounts.retrieve('acct_xxx')
     Stripe-->>Backend: { charges_enabled: true, payouts_enabled: true }
@@ -14933,7 +14933,7 @@ When creating a fee, club admin selects which roles should pay:
 │  │                                                 │
 │  │ Members pay:           1 500.00 SEK             │
 │  │ Stripe fee (~1.5%):      ~22.50 SEK             │
-│  │ Sportnizer fee (2%):     -30.00 SEK             │
+│  │ Clubnizer fee (2%):     -30.00 SEK             │
 │  │ ─────────────────────────────────────           │
 │  │ Your club receives:   ≈1 447.50 SEK             │
 │  │                                                 │
@@ -15023,7 +15023,7 @@ async function createMembershipFee(data) {
 ```mermaid
 sequenceDiagram
     participant User as Member/Guardian
-    participant App as Sportnizer App
+    participant App as Clubnizer App
     participant Backend as Firebase Functions
     participant Stripe as Stripe
     participant DB as Firestore
@@ -15445,7 +15445,7 @@ firestore.rules                  - Add payment collection rules
 
 ---
 
-_This payment system integrates with Stripe Connect using the Platform model with destination charges. Clubs receive payments directly into their Stripe accounts, with Sportnizer collecting a 2% platform fee. The architecture supports international clubs with automatic currency detection and provides guardian payment flows for underage members._
+_This payment system integrates with Stripe Connect using the Platform model with destination charges. Clubs receive payments directly into their Stripe accounts, with Clubnizer collecting a 2% platform fee. The architecture supports international clubs with automatic currency detection and provides guardian payment flows for underage members._
 
 ---
 
@@ -15453,7 +15453,7 @@ _This payment system integrates with Stripe Connect using the Platform model wit
 
 ### Overview
 
-Sportnizer implements a version-controlled legal acceptance system that tracks user consent to Terms of Service and Privacy Policy. The system supports:
+Clubnizer implements a version-controlled legal acceptance system that tracks user consent to Terms of Service and Privacy Policy. The system supports:
 
 - **Initial acceptance** during signup
 - **Re-acceptance** when legal documents are updated
@@ -15467,9 +15467,9 @@ Sportnizer implements a version-controlled legal acceptance system that tracks u
 | Role                | Entity     | Responsibilities                                                                                                                                 |
 | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Data Controller** | Each Club  | Determines purposes/means of processing member data, obtains guardian consent for youth members, responds to data subject requests for club data |
-| **Data Processor**  | Sportnizer | Processes club data on behalf of clubs, provides platform infrastructure, implements security measures                                           |
+| **Data Processor**  | Clubnizer | Processes club data on behalf of clubs, provides platform infrastructure, implements security measures                                           |
 
-Sportnizer acts as **Data Controller** only for account-level data (login credentials, account settings). For all club membership data, the Club is the Data Controller and Sportnizer is the Data Processor.
+Clubnizer acts as **Data Controller** only for account-level data (login credentials, account settings). For all club membership data, the Club is the Data Controller and Clubnizer is the Data Processor.
 
 ### Legal Document Versioning
 
@@ -15491,8 +15491,8 @@ export const CURRENT_TERMS_VERSION = "TERMS_2026.1";
 export const CURRENT_PRIVACY_VERSION = "PRIVACY_2026.1";
 
 export const LEGAL_URLS = {
-  termsOfService: "https://sportnizer.com/legal/terms",
-  privacyPolicy: "https://sportnizer.com/legal/privacy",
+  termsOfService: "https://clubnizer.com/legal/terms",
+  privacyPolicy: "https://clubnizer.com/legal/privacy",
 };
 ```
 
@@ -15706,7 +15706,7 @@ docs/
 2. Acceptance of Terms
 3. Account Registration (includes **Authority-to-Bind Clause**)
 4. Club Responsibilities as Data Controller
-5. Sportnizer Role as Data Processor
+5. Clubnizer Role as Data Processor
 6. Embedded Data Processing Agreement (DPA)
 7. Youth Members and Guardian Consent
 8. Member Data Processing
@@ -15720,7 +15720,7 @@ docs/
 
 #### Authority-to-Bind Clause (Section 3.3)
 
-> "By creating or administering a Club on Sportnizer, you represent and warrant that you have the legal authority to bind the Club entity (if applicable) to these Terms. If you are acting on behalf of an organization, you represent that you have the authority to enter into these Terms on behalf of that organization."
+> "By creating or administering a Club on Clubnizer, you represent and warrant that you have the legal authority to bind the Club entity (if applicable) to these Terms. If you are acting on behalf of an organization, you represent that you have the authority to enter into these Terms on behalf of that organization."
 
 #### Privacy Policy Key Sections
 
@@ -15883,4 +15883,4 @@ docs/
 
 ---
 
-_This architecture documentation serves as the single source of truth for Sportnizer app development. All code should align with these principles and patterns._
+_This architecture documentation serves as the single source of truth for Clubnizer app development. All code should align with these principles and patterns._

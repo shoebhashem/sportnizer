@@ -13,6 +13,7 @@ import {
     updateProfile,
 } from "firebase/auth";
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     ScrollView,
@@ -49,6 +50,7 @@ interface GroupInvitationDetails {
 }
 
 export default function JoinScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { token } = useLocalSearchParams();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -96,7 +98,7 @@ export default function JoinScreen() {
 
   const fetchInvitationDetails = useCallback(async () => {
     if (!token) {
-      setError("Invalid invitation link");
+      setError(t("screens:join.invalidInvitationLink"));
       setLoading(false);
       return;
     }
@@ -116,7 +118,7 @@ export default function JoinScreen() {
       const data = await response.json();
 
       if (!data.success) {
-        setError(data.error || "Failed to load invitation details");
+        setError(data.error || t("screens:join.failedToLoadInvitation"));
       } else if (data.invitation) {
         setInvitationDetails(data.invitation);
 
@@ -133,7 +135,7 @@ export default function JoinScreen() {
     } catch (error: any) {
       console.error("Error fetching invitation details:", error);
       setError(
-        "Failed to load invitation details. Please check your internet connection and try again.",
+        t("screens:join.failedToLoadInvitation"),
       );
     } finally {
       setLoading(false);
@@ -166,9 +168,9 @@ export default function JoinScreen() {
 
       if (result.success) {
         showModal(
-          "Welcome!",
-          `You have successfully joined ${invitationDetails.groupName}!`,
-          "Go to Groups",
+          t("screens:join.welcomeSuccess"),
+          t("screens:join.joinedSuccessfully", { groupName: invitationDetails.groupName }),
+          t("screens:join.goToGroups"),
           "",
           () => {
             hideModal();
@@ -177,15 +179,15 @@ export default function JoinScreen() {
         );
       } else {
         showModal(
-          "Error",
-          result.error || "Failed to join group. Please try again.",
+          t("common:error"),
+          result.error || t("screens:join.errors.failedToJoin"),
         );
       }
     } catch (error: any) {
       console.error("Error joining group:", error);
       showModal(
-        "Error",
-        "Failed to join group. Please check your internet connection and try again.",
+        t("common:error"),
+        t("screens:join.errors.failedToJoin"),
       );
     } finally {
       setProcessing(false);
@@ -194,7 +196,7 @@ export default function JoinScreen() {
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
-      showModal("Missing Information", "Please enter both email and password.");
+      showModal(t("common:validation.missingInformation"), t("screens:join.errors.emailAndPasswordRequired"));
       return;
     }
 
@@ -205,23 +207,22 @@ export default function JoinScreen() {
       // User will be signed in, and useAuth will update automatically
       // Then we can proceed to join the group
     } catch (error: any) {
-      let errorMessage = "Sign in failed. Please try again.";
+      let errorMessage = t("screens:join.errors.generic");
 
       switch (error.code) {
         case "auth/user-not-found":
         case "auth/wrong-password":
-          errorMessage =
-            "Invalid email or password. Please check your credentials.";
+          errorMessage = t("screens:join.errors.invalidCredential");
           break;
         case "auth/invalid-email":
-          errorMessage = "Please enter a valid email address.";
+          errorMessage = t("common:validation.invalidEmail");
           break;
         case "auth/too-many-requests":
-          errorMessage = "Too many failed attempts. Please try again later.";
+          errorMessage = t("screens:join.errors.tooManyAttempts");
           break;
       }
 
-      showModal("Sign In Failed", errorMessage);
+      showModal(t("screens:join.signInFailed"), errorMessage);
     } finally {
       setProcessing(false);
     }
@@ -229,22 +230,22 @@ export default function JoinScreen() {
 
   const handleSignUp = async () => {
     if (!fullName.trim() || !email.trim() || !password.trim()) {
-      showModal("Missing Information", "Please fill in all required fields.");
+      showModal(t("common:validation.missingInformation"), t("screens:join.errors.allFieldsRequired"));
       return;
     }
 
     if (password !== confirmPassword) {
       showModal(
-        "Password Mismatch",
-        "Passwords do not match. Please try again.",
+        t("common:validation.passwordMismatch"),
+        t("screens:join.errors.passwordsDontMatch"),
       );
       return;
     }
 
     if (password.length < 6) {
       showModal(
-        "Password Too Short",
-        "Password must be at least 6 characters long.",
+        t("common:validation.passwordTooShort"),
+        t("screens:join.errors.passwordMinLength"),
       );
       return;
     }
@@ -266,23 +267,21 @@ export default function JoinScreen() {
       // User is now signed up and signed in automatically
       // The useAuth hook will update and we can proceed to join the group
     } catch (error: any) {
-      let errorMessage = "Sign up failed. Please try again.";
+      let errorMessage = t("screens:join.errors.generic");
 
       switch (error.code) {
         case "auth/email-already-in-use":
-          errorMessage =
-            "An account with this email already exists. Please sign in instead.";
+          errorMessage = t("screens:join.errors.emailAlreadyInUse");
           break;
         case "auth/invalid-email":
-          errorMessage = "Please enter a valid email address.";
+          errorMessage = t("common:validation.invalidEmail");
           break;
         case "auth/weak-password":
-          errorMessage =
-            "Password is too weak. Please choose a stronger password.";
+          errorMessage = t("screens:join.errors.weakPassword");
           break;
       }
 
-      showModal("Sign Up Failed", errorMessage);
+      showModal(t("screens:join.signUpFailed"), errorMessage);
     } finally {
       setProcessing(false);
     }
@@ -290,17 +289,17 @@ export default function JoinScreen() {
 
   const handleSwitchUser = () => {
     showModal(
-      "Switch Account",
-      "You are currently signed in as a different user. Would you like to sign out and use a different account?",
-      "Sign Out",
-      "Cancel",
+      t("screens:join.switchAccount"),
+      t("screens:join.switchAccountMessage"),
+      t("common:signOut"),
+      t("common:cancel"),
       async () => {
         try {
           await auth.signOut();
           hideModal();
         } catch (error) {
           console.error("Error signing out:", error);
-          showModal("Error", "Failed to sign out. Please try again.");
+          showModal(t("common:error"), t("screens:join.errors.signOutFailed"));
         }
       },
     );
@@ -318,8 +317,7 @@ export default function JoinScreen() {
   };
 
   const formatMemberCount = (count: number): string => {
-    if (count === 1) return "1 member";
-    return `${count} members`;
+    return t("screens:join.memberCount", { count });
   };
 
   // Auto-join if user is already signed in and email matches (for email invitations)
@@ -341,7 +339,7 @@ export default function JoinScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading invitation details...</Text>
+          <Text style={styles.loadingText}>{t("screens:join.loadingInvitation")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -352,10 +350,10 @@ export default function JoinScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={64} color={theme.colors.error} />
-          <Text style={styles.errorTitle}>Invitation Error</Text>
+          <Text style={styles.errorTitle}>{t("screens:join.invitationError")}</Text>
           <Text style={styles.errorText}>{error}</Text>
           <Button
-            label="Try Again"
+            label={t("common:retry")}
             onPress={fetchInvitationDetails}
             theme="primary"
           />
@@ -373,9 +371,9 @@ export default function JoinScreen() {
             size={64}
             color={theme.colors.textSecondary}
           />
-          <Text style={styles.errorTitle}>No Invitation Found</Text>
+          <Text style={styles.errorTitle}>{t("screens:join.noInvitationFound")}</Text>
           <Text style={styles.errorText}>
-            The invitation link appears to be invalid or expired.
+            {t("screens:join.invalidOrExpired")}
           </Text>
         </View>
       </SafeAreaView>
@@ -422,7 +420,7 @@ export default function JoinScreen() {
               color={theme.colors.textSecondary}
             />
             <Text style={styles.inviterText}>
-              Invited by {invitationDetails.inviterName}
+              {t("screens:join.invitedBy", { inviterName: invitationDetails.inviterName })}
             </Text>
           </View>
 
@@ -430,8 +428,8 @@ export default function JoinScreen() {
           <View style={styles.invitationBadge}>
             <Text style={styles.badgeText}>
               {invitationDetails.invitationType === "email"
-                ? "Email Invitation"
-                : "Shareable Link"}
+                ? t("screens:join.emailInvitation")
+                : t("screens:join.shareableLink")}
             </Text>
           </View>
 
@@ -445,7 +443,7 @@ export default function JoinScreen() {
                   color={theme.colors.textSecondary}
                 />
                 <Text style={styles.expirationText}>
-                  Expires: {formatExpirationDate(invitationDetails.expiresAt)}
+                  {t("screens:join.expires", { date: formatExpirationDate(invitationDetails.expiresAt) })}
                 </Text>
               </View>
             )}
@@ -455,12 +453,12 @@ export default function JoinScreen() {
         {!user ? (
           <View style={styles.authSection}>
             <Text style={styles.authTitle}>
-              Join {invitationDetails.groupName}
+              {t("screens:join.joinGroup", { groupName: invitationDetails.groupName })}
             </Text>
             <Text style={styles.authSubtitle}>
               {invitationDetails.invitationType === "email"
-                ? "Sign in or create an account to join this group"
-                : "Sign in or create an account to accept this invitation"}
+                ? t("screens:join.signInOrCreateAccount")
+                : t("screens:join.signInToAcceptInvitation")}
             </Text>
 
             {/* Toggle between Sign In and Sign Up */}
@@ -478,7 +476,7 @@ export default function JoinScreen() {
                     isExistingUser && styles.activeToggleText,
                   ]}
                 >
-                  Sign In
+                  {t("common:signIn")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -494,7 +492,7 @@ export default function JoinScreen() {
                     !isExistingUser && styles.activeToggleText,
                   ]}
                 >
-                  Sign Up
+                  {t("common:signUp")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -518,7 +516,7 @@ export default function JoinScreen() {
                   secureTextEntry
                 />
                 <Button
-                  label={processing ? "Signing In..." : "Sign In & Join Group"}
+                  label={processing ? t("common:signingIn") : t("screens:join.signInAndJoinGroup")}
                   onPress={handleSignIn}
                   theme="primary"
                   disabled={processing}
@@ -557,7 +555,7 @@ export default function JoinScreen() {
                 />
                 <Button
                   label={
-                    processing ? "Creating Account..." : "Sign Up & Join Group"
+                    processing ? t("screens:join.creatingAccount") : t("screens:join.signUpAndJoinGroup")
                   }
                   onPress={handleSignUp}
                   theme="primary"
@@ -574,13 +572,12 @@ export default function JoinScreen() {
               /* Email mismatch - show switch user option */
               <View style={styles.emailMismatchCard}>
                 <Ionicons name="warning" size={24} color={theme.colors.error} />
-                <Text style={styles.mismatchTitle}>Email Mismatch</Text>
+                <Text style={styles.mismatchTitle}>{t("screens:join.emailMismatch")}</Text>
                 <Text style={styles.mismatchText}>
-                  This invitation was sent to {invitationDetails.email}, but
-                  you&apos;re signed in as {user.email}.
+                  {t("screens:join.emailMismatchMessage", { email: invitationDetails.email, userEmail: user.email })}
                 </Text>
                 <Button
-                  label="Switch Account"
+                  label={t("screens:join.switchAccount")}
                   onPress={handleSwitchUser}
                   theme="secondary"
                 />
@@ -593,15 +590,15 @@ export default function JoinScreen() {
                   size={48}
                   color={theme.colors.secondary}
                 />
-                <Text style={styles.readyTitle}>Ready to Join!</Text>
+                <Text style={styles.readyTitle}>{t("screens:join.readyToJoin")}</Text>
                 <Text style={styles.readyText}>
-                  You&apos;re signed in as {user.email}
+                  {t("screens:join.signedInAs", { email: user.email })}
                 </Text>
                 <Button
                   label={
                     processing
-                      ? "Joining Group..."
-                      : `Join ${invitationDetails.groupName}`
+                      ? t("screens:join.joiningGroup")
+                      : t("screens:join.joinGroupButton", { groupName: invitationDetails.groupName })
                   }
                   onPress={handleJoinGroup}
                   theme="primary"
@@ -611,7 +608,7 @@ export default function JoinScreen() {
                   style={styles.switchButton}
                   onPress={handleSwitchUser}
                 >
-                  <Text style={styles.switchText}>Use a different account</Text>
+                  <Text style={styles.switchText}>{t("screens:join.useDifferentAccount")}</Text>
                 </TouchableOpacity>
               </View>
             )}

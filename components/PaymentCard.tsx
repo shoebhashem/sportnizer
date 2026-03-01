@@ -5,6 +5,7 @@ import { theme } from "@/constants/theme";
 import { paymentService, type PendingPayment } from "@/services/paymentService";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     StyleSheet,
@@ -22,6 +23,7 @@ export default function PaymentCard({
   payment,
   onPaymentComplete,
 }: PaymentCardProps) {
+  const { t } = useTranslation(["components", "common"]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localPaidStatus, setLocalPaidStatus] = useState(false);
@@ -34,23 +36,25 @@ export default function PaymentCard({
 
   // Format due date
   const formatDueDate = (date: Date | null): string => {
-    if (!date) return "No due date";
+    if (!date) return t("components:paymentCard.noDueDate");
 
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return "Due Today";
+      return t("components:paymentCard.dueToday");
     } else if (date.toDateString() === tomorrow.toDateString()) {
-      return "Due Tomorrow";
+      return t("components:paymentCard.dueTomorrow");
     } else {
-      return `Due ${date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year:
-          date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
-      })}`;
+      return t("components:paymentCard.dueDate", {
+        date: date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year:
+            date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
+        }),
+      });
     }
   };
 
@@ -58,11 +62,11 @@ export default function PaymentCard({
   const getDaysRemainingText = (): string => {
     if (payment.daysRemaining === null) return "";
     if (payment.isOverdue) {
-      return `${Math.abs(payment.daysRemaining)} days overdue`;
+      return t("components:paymentCard.daysOverdue", { count: Math.abs(payment.daysRemaining) });
     }
-    if (payment.daysRemaining === 0) return "Due today";
-    if (payment.daysRemaining === 1) return "1 day remaining";
-    return `${payment.daysRemaining} days remaining`;
+    if (payment.daysRemaining === 0) return t("components:paymentCard.dueToday");
+    if (payment.daysRemaining === 1) return t("components:paymentCard.oneDayRemaining");
+    return t("components:paymentCard.daysRemaining", { count: payment.daysRemaining });
   };
 
   // Check if payment is paid (from backend status or detected locally)
@@ -174,13 +178,13 @@ export default function PaymentCard({
 
       {/* Beneficiary (if paying for child) */}
       <View style={styles.beneficiaryRow}>
-        <Text style={styles.beneficiaryLabel}>For:</Text>
+        <Text style={styles.beneficiaryLabel}>{t("components:paymentCard.for")}</Text>
         <Text style={styles.beneficiaryName}>{payment.beneficiaryName}</Text>
       </View>
 
       {/* Amount */}
       <View style={styles.amountRow}>
-        <Text style={styles.amountLabel}>Amount:</Text>
+        <Text style={styles.amountLabel}>{t("components:paymentCard.amount")}</Text>
         <Text style={styles.amount}>{formattedAmount}</Text>
       </View>
 
@@ -215,7 +219,7 @@ export default function PaymentCard({
       {isPaid ? (
         <View style={styles.paidBadge}>
           <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
-          <Text style={styles.paidText}>Paid</Text>
+          <Text style={styles.paidText}>{t("components:paymentCard.paid")}</Text>
         </View>
       ) : (
         <TouchableOpacity
@@ -233,7 +237,7 @@ export default function PaymentCard({
             <>
               <Ionicons name="card" size={18} color="white" />
               <Text style={styles.payButtonText}>
-                {payment.isOverdue ? "Pay Now (Overdue)" : "Pay Now"}
+                {payment.isOverdue ? t("components:paymentCard.payNowOverdue") : t("components:paymentCard.payNow")}
               </Text>
             </>
           )}

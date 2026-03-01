@@ -1,7 +1,7 @@
 // constants/config.ts
 
 /**
- * Environment-specific configuration for the Sportnizer app
+ * Environment-specific configuration for the Clubnizer app
  * Handles URLs, deep linking, and Firebase functions across development and production
  */
 
@@ -19,15 +19,15 @@ export const appConfig: Record<Environment, AppConfig> = {
   development: {
     webUrl: "http://localhost:8081",
     appUrl: "http://localhost:8081",
-    deepLinkScheme: "sportnizer-dev",
+    deepLinkScheme: "clubnizer-dev",
     universalLinkDomain: "localhost:8081",
     functionsUrl: "https://europe-north1-sportnizer-dev.cloudfunctions.net",
   },
   production: {
-    webUrl: "https://app.sportnizer.com",
-    appUrl: "https://app.sportnizer.com",
-    deepLinkScheme: "sportnizer",
-    universalLinkDomain: "app.sportnizer.com",
+    webUrl: "https://app.clubnizer.com",
+    appUrl: "https://app.clubnizer.com",
+    deepLinkScheme: "clubnizer",
+    universalLinkDomain: "app.clubnizer.com",
     functionsUrl: "https://europe-north1-sportnizer.cloudfunctions.net",
   },
 };

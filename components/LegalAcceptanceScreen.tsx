@@ -12,6 +12,7 @@ import { useUser } from "@/contexts/UserContext";
 import { legalService } from "@/services/legal/legalService";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Linking,
@@ -44,36 +45,11 @@ interface LegalAcceptanceScreenProps {
 
 // Key points summary (not full legal text)
 const KEY_POINTS = [
-  {
-    icon: "shield-checkmark-outline" as const,
-    title: "Data Protection",
-    description:
-      "Your data is protected with appropriate security measures. Clubs manage their member data as Data Controllers.",
-  },
-  {
-    icon: "people-outline" as const,
-    title: "Club Responsibilities",
-    description:
-      "Club administrators determine how member data is used within their clubs and are responsible for obtaining necessary consents.",
-  },
-  {
-    icon: "server-outline" as const,
-    title: "How We Process Data",
-    description:
-      "Sportnizer acts as a Data Processor, handling data only as instructed by clubs to provide the service.",
-  },
-  {
-    icon: "trash-outline" as const,
-    title: "Data Retention",
-    description:
-      "Inactive accounts have a 30-day grace period before deletion. You can request your data anytime via support.",
-  },
-  {
-    icon: "document-text-outline" as const,
-    title: "Your Rights",
-    description:
-      "You have rights to access, correct, delete, and export your data. Contact your club or our support for assistance.",
-  },
+  { icon: "shield-checkmark-outline" as const, key: "dataProtection" },
+  { icon: "people-outline" as const, key: "clubResponsibilities" },
+  { icon: "server-outline" as const, key: "dataProcessing" },
+  { icon: "trash-outline" as const, key: "dataRetention" },
+  { icon: "document-text-outline" as const, key: "yourRights" },
 ];
 
 export default function LegalAcceptanceScreen({
@@ -88,6 +64,7 @@ export default function LegalAcceptanceScreen({
   const [hasAgreed, setHasAgreed] = useState(false);
   const [effectiveDate, setEffectiveDate] = useState<string>("");
   const { refreshUserProfile } = useUser();
+  const { t } = useTranslation(["components", "common"]);
 
   useEffect(() => {
     // Fetch effective date
@@ -161,13 +138,13 @@ export default function LegalAcceptanceScreen({
           />
           <Text style={styles.title}>
             {isReAcceptance
-              ? "Updated Terms & Privacy Policy"
-              : "Terms of Service & Privacy Policy"}
+              ? t("components:legalAcceptanceScreen.updatedTermsTitle")
+              : t("components:legalAcceptanceScreen.termsTitle")}
           </Text>
           <Text style={styles.subtitle}>
             {isReAcceptance
-              ? "We've updated our legal documents. Please review and accept to continue."
-              : "Please review and accept our terms to create your account."}
+              ? t("components:legalAcceptanceScreen.updatedSubtitle")
+              : t("components:legalAcceptanceScreen.newSubtitle")}
           </Text>
         </View>
 
@@ -180,7 +157,9 @@ export default function LegalAcceptanceScreen({
                 size={20}
                 color={theme.colors.accent}
               />
-              <Text style={styles.changesTitle}>What's Changed</Text>
+              <Text style={styles.changesTitle}>
+                {t("components:legalAcceptanceScreen.whatsChanged")}
+              </Text>
             </View>
             <Text style={styles.changesText}>{materialChangesSummary}</Text>
           </View>
@@ -188,7 +167,9 @@ export default function LegalAcceptanceScreen({
 
         {/* Key Points Summary */}
         <View style={styles.keyPointsContainer}>
-          <Text style={styles.sectionTitle}>Key Points</Text>
+          <Text style={styles.sectionTitle}>
+            {t("components:legalAcceptanceScreen.keyPoints")}
+          </Text>
           {KEY_POINTS.map((point, index) => (
             <View key={index} style={styles.keyPoint}>
               <View style={styles.keyPointIcon}>
@@ -199,9 +180,15 @@ export default function LegalAcceptanceScreen({
                 />
               </View>
               <View style={styles.keyPointContent}>
-                <Text style={styles.keyPointTitle}>{point.title}</Text>
+                <Text style={styles.keyPointTitle}>
+                  {t(
+                    `components:legalAcceptanceScreen.keyPointTitles.${point.key}`,
+                  )}
+                </Text>
                 <Text style={styles.keyPointDescription}>
-                  {point.description}
+                  {t(
+                    `components:legalAcceptanceScreen.keyPointDescriptions.${point.key}`,
+                  )}
                 </Text>
               </View>
             </View>
@@ -210,14 +197,18 @@ export default function LegalAcceptanceScreen({
 
         {/* Document Links */}
         <View style={styles.linksContainer}>
-          <Text style={styles.sectionTitle}>Full Documents</Text>
+          <Text style={styles.sectionTitle}>
+            {t("components:legalAcceptanceScreen.fullDocuments")}
+          </Text>
           <Pressable style={styles.linkButton} onPress={openTermsOfService}>
             <Ionicons
               name="document-outline"
               size={20}
               color={theme.colors.accent}
             />
-            <Text style={styles.linkText}>Read Terms of Service</Text>
+            <Text style={styles.linkText}>
+              {t("components:legalAcceptanceScreen.readTermsOfService")}
+            </Text>
             <Ionicons
               name="open-outline"
               size={16}
@@ -230,7 +221,9 @@ export default function LegalAcceptanceScreen({
               size={20}
               color={theme.colors.accent}
             />
-            <Text style={styles.linkText}>Read Privacy Policy</Text>
+            <Text style={styles.linkText}>
+              {t("components:legalAcceptanceScreen.readPrivacyPolicy")}
+            </Text>
             <Ionicons
               name="open-outline"
               size={16}
@@ -242,10 +235,17 @@ export default function LegalAcceptanceScreen({
         {/* Version and Date */}
         <View style={styles.versionContainer}>
           <Text style={styles.versionText}>
-            Terms: {termsVersion} | Privacy: {privacyVersion}
+            {t("components:legalAcceptanceScreen.versionInfo", {
+              termsVersion,
+              privacyVersion,
+            })}
           </Text>
           {effectiveDate && (
-            <Text style={styles.versionText}>Effective: {effectiveDate}</Text>
+            <Text style={styles.versionText}>
+              {t("components:legalAcceptanceScreen.effectiveDate", {
+                date: effectiveDate,
+              })}
+            </Text>
           )}
         </View>
 
@@ -264,14 +264,7 @@ export default function LegalAcceptanceScreen({
             )}
           </View>
           <Text style={styles.checkboxLabel}>
-            I have read and agree to the{" "}
-            <Text style={styles.linkInline} onPress={openTermsOfService}>
-              Terms of Service
-            </Text>{" "}
-            and{" "}
-            <Text style={styles.linkInline} onPress={openPrivacyPolicy}>
-              Privacy Policy
-            </Text>
+            {t("components:legalAcceptanceScreen.agreementCheckbox")}
           </Text>
         </Pressable>
       </ScrollView>
@@ -280,12 +273,20 @@ export default function LegalAcceptanceScreen({
       <View style={styles.footer}>
         {onCancel && isReAcceptance && (
           <View style={styles.buttonWrapper}>
-            <Button label="Sign Out" onPress={onCancel} theme="secondary" />
+            <Button
+              label={t("components:legalAcceptanceScreen.signOut")}
+              onPress={onCancel}
+              theme="secondary"
+            />
           </View>
         )}
         <View style={[styles.buttonWrapper, !onCancel && styles.buttonFull]}>
           <Button
-            label={isLoading ? "Please wait..." : "I Agree & Continue"}
+            label={
+              isLoading
+                ? t("components:legalAcceptanceScreen.pleaseWait")
+                : t("components:legalAcceptanceScreen.agreeAndContinue")
+            }
             onPress={handleAccept}
             theme="primary"
             disabled={!hasAgreed || isLoading}

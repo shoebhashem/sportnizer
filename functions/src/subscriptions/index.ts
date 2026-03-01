@@ -2,7 +2,7 @@
  * Subscription Functions Index
  *
  * Exports all subscription-related Cloud Functions for managing
- * club subscriptions to the Sportnizer platform.
+ * club subscriptions to the Clubnizer platform.
  */
 
 export { createCustomerPortalSession } from "./createCustomerPortalSession";

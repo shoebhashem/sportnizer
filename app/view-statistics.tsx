@@ -13,6 +13,7 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
@@ -39,6 +40,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 const AVAILABLE_YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
 
 export default function ViewStatisticsScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const navigation = useNavigation();
@@ -59,7 +61,7 @@ export default function ViewStatisticsScreen() {
   // Set dynamic native header title
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: groupName ? `${groupName} Statistics` : "Statistics",
+      title: groupName ? t("screens:viewStatistics.groupStatistics", { groupName }) : t("screens:viewStatistics.statistics"),
     });
   }, [groupName, navigation]);
 
@@ -148,7 +150,7 @@ export default function ViewStatisticsScreen() {
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{item.userName}</Text>
           <Text style={styles.memberEvents}>
-            {item.eventsAttended}/{item.eventsInvited} events
+            {t("screens:viewStatistics.attendedOfInvited", { attended: item.eventsAttended, invited: item.eventsInvited })}
           </Text>
         </View>
       </View>
@@ -175,23 +177,23 @@ export default function ViewStatisticsScreen() {
           size={80}
           color={theme.colors.textSecondary}
         />
-        <Text style={styles.emptyTitle}>No Statistics Yet</Text>
+        <Text style={styles.emptyTitle}>{t("screens:viewStatistics.noStatisticsYet")}</Text>
         <Text style={styles.emptyMessage}>
-          To view attendance statistics, you need to:
+          {t("screens:viewStatistics.noStatisticsInstructions")}
         </Text>
         <View style={styles.emptySteps}>
           <Text style={styles.emptyStep}>
-            1. Create events and invite members
+            {t("screens:viewStatistics.step1")}
           </Text>
           <Text style={styles.emptyStep}>
-            2. Record attendance after events are completed
+            {t("screens:viewStatistics.step2")}
           </Text>
           <Text style={styles.emptyStep}>
-            3. Statistics will automatically appear here
+            {t("screens:viewStatistics.step3")}
           </Text>
         </View>
         <Text style={styles.emptyFooter}>
-          Start by recording attendance for your first completed event!
+          {t("screens:viewStatistics.startRecording")}
         </Text>
       </View>
     );
@@ -203,7 +205,7 @@ export default function ViewStatisticsScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading statistics...</Text>
+          <Text style={styles.loadingText}>{t("screens:viewStatistics.loadingStatistics")}</Text>
         </View>
       </View>
     );
@@ -277,7 +279,7 @@ export default function ViewStatisticsScreen() {
                       selectedFilter === filter && styles.filterTabTextActive,
                     ]}
                   >
-                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                    {t(`screens:viewStatistics.filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`)}
                   </Text>
                 </TouchableOpacity>
               ),
@@ -288,7 +290,7 @@ export default function ViewStatisticsScreen() {
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Group Average</Text>
+                <Text style={styles.summaryLabel}>{t("screens:viewStatistics.groupAverage")}</Text>
                 <Text
                   style={[
                     styles.summaryValue,
@@ -300,7 +302,7 @@ export default function ViewStatisticsScreen() {
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Total Events</Text>
+                <Text style={styles.summaryLabel}>{t("screens:viewStatistics.totalEvents")}</Text>
                 <Text style={styles.summaryValue}>
                   {selectedFilter === "all"
                     ? statistics.groupAggregates.totalEvents
@@ -311,7 +313,7 @@ export default function ViewStatisticsScreen() {
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Members</Text>
+                <Text style={styles.summaryLabel}>{t("screens:viewStatistics.members")}</Text>
                 <Text style={styles.summaryValue}>{memberList.length}</Text>
               </View>
             </View>
@@ -320,7 +322,7 @@ export default function ViewStatisticsScreen() {
           {/* Member List */}
           <View style={styles.memberListContainer}>
             <Text style={styles.memberListTitle}>
-              Member Statistics ({memberList.length})
+              {t("screens:viewStatistics.memberStatistics", { count: memberList.length })}
             </Text>
             <FlatList
               data={memberList}
@@ -329,7 +331,7 @@ export default function ViewStatisticsScreen() {
               contentContainerStyle={styles.memberListContent}
               ListEmptyComponent={
                 <Text style={styles.noMembersText}>
-                  No member data available for this filter
+                  {t("screens:viewStatistics.noMemberData")}
                 </Text>
               }
             />

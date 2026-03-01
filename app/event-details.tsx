@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
@@ -35,6 +36,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 type ResponseTab = "accepted" | "declined" | "pending";
 
 export default function EventDetailsScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
@@ -173,8 +175,8 @@ export default function EventDetailsScreen() {
       if (!eventData) {
         setConfirmModal({
           visible: true,
-          title: "Error",
-          message: "Event not found",
+          title: t("common:error"),
+          message: t("screens:eventDetails.eventNotFound"),
           onConfirm: () => {
             setConfirmModal({ ...confirmModal, visible: false });
             router.back();
@@ -188,8 +190,8 @@ export default function EventDetailsScreen() {
       console.error("Error loading event details:", error);
       setConfirmModal({
         visible: true,
-        title: "Error",
-        message: "Failed to load event details",
+        title: t("common:error"),
+        message: t("screens:eventDetails.failedToLoad"),
         onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
       });
     } finally {
@@ -228,8 +230,11 @@ export default function EventDetailsScreen() {
 
         setConfirmModal({
           visible: true,
-          title: "Success",
-          message: `You have ${response === "accepted" ? "accepted" : "declined"} this event`,
+          title: t("common:success"),
+          message:
+            response === "accepted"
+              ? t("screens:eventDetails.responseAccepted")
+              : t("screens:eventDetails.responseDeclined"),
           onConfirm: () => {
             setConfirmModal({ ...confirmModal, visible: false });
             router.back();
@@ -238,8 +243,8 @@ export default function EventDetailsScreen() {
       } else {
         setConfirmModal({
           visible: true,
-          title: "Error",
-          message: "Failed to update response",
+          title: t("common:error"),
+          message: t("screens:eventDetails.failedToUpdate"),
           onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
         });
       }
@@ -247,8 +252,8 @@ export default function EventDetailsScreen() {
       console.error("Error updating response:", error);
       setConfirmModal({
         visible: true,
-        title: "Error",
-        message: error.message || "Failed to update response",
+        title: t("common:error"),
+        message: error.message || t("screens:eventDetails.failedToUpdate"),
         onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
       });
     } finally {
@@ -327,8 +332,8 @@ export default function EventDetailsScreen() {
       } else {
         setConfirmModal({
           visible: true,
-          title: "Error",
-          message: "Failed to update response",
+          title: t("common:error"),
+          message: t("screens:eventDetails.failedToUpdate"),
           onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
         });
       }
@@ -336,8 +341,8 @@ export default function EventDetailsScreen() {
       console.error("Error updating invitee response:", error);
       setConfirmModal({
         visible: true,
-        title: "Error",
-        message: error.message || "Failed to update response",
+        title: t("common:error"),
+        message: error.message || t("screens:eventDetails.failedToUpdate"),
         onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
       });
     } finally {
@@ -545,8 +550,11 @@ export default function EventDetailsScreen() {
 
     setConfirmModal({
       visible: true,
-      title: "Complete Event?",
-      message: `You are about to mark this event as completed with ${attendedCount} of ${totalInvitees} attendees.\n\n⚠️ Warning: After completing, attendance cannot be modified.`,
+      title: t("screens:eventDetails.completeEventConfirm"),
+      message: t("screens:eventDetails.completeEventMessage", {
+        attended: attendedCount,
+        total: totalInvitees,
+      }),
       onConfirm: handleConfirmComplete,
     });
   };
@@ -583,8 +591,8 @@ export default function EventDetailsScreen() {
 
       setConfirmModal({
         visible: true,
-        title: "Success",
-        message: "Attendance recorded and event completed successfully!",
+        title: t("common:success"),
+        message: t("screens:eventDetails.attendanceRecordedSuccess"),
         onConfirm: () => {
           setConfirmModal({ ...confirmModal, visible: false });
         },
@@ -593,8 +601,8 @@ export default function EventDetailsScreen() {
       console.error("Error recording attendance:", error);
       setConfirmModal({
         visible: true,
-        title: "Error",
-        message: error.message || "Failed to record attendance",
+        title: t("common:error"),
+        message: error.message || t("screens:eventDetails.failedToUpdate"),
         onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
       });
     } finally {
@@ -611,7 +619,9 @@ export default function EventDetailsScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading event details...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:eventDetails.loadingEvent")}
+          </Text>
         </View>
       </View>
     );
@@ -626,12 +636,14 @@ export default function EventDetailsScreen() {
             size={64}
             color={theme.colors.error}
           />
-          <Text style={styles.errorText}>Event not found</Text>
+          <Text style={styles.errorText}>
+            {t("screens:eventDetails.eventNotFound")}
+          </Text>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backButtonText}>Go Back</Text>
+            <Text style={styles.backButtonText}>{t("common:goBack")}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -687,7 +699,7 @@ export default function EventDetailsScreen() {
                 {event.description}
               </Text>
               <Text style={[styles.eventDescription, { marginTop: 2 }]}>
-                ...Read more
+                {t("screens:eventDetails.readMore")}
               </Text>
             </TouchableOpacity>
           )}
@@ -726,7 +738,9 @@ export default function EventDetailsScreen() {
                           { color: theme.colors.accent },
                         ]}
                       >
-                        Gathering: {format(date, "HH:mm")}
+                        {t("screens:eventDetails.gather", {
+                          time: format(date, "HH:mm"),
+                        })}
                       </Text>
                     </View>
                   );
@@ -745,7 +759,9 @@ export default function EventDetailsScreen() {
               color={theme.colors.secondary}
             />
             <Text style={styles.infoText}>
-              Start: {format(event.startDate, "HH:mm")}
+              {t("screens:eventDetails.start", {
+                time: format(event.startDate, "HH:mm"),
+              })}
               {event.endDate &&
                 (() => {
                   try {
@@ -785,7 +801,10 @@ export default function EventDetailsScreen() {
               <Text style={styles.infoText}>
                 Response deadline: {format(event.deadline, "MMM d, h:mm a")}
                 {isDeadlinePassed && (
-                  <Text style={styles.deadlineWarning}> (Passed)</Text>
+                  <Text style={styles.deadlineWarning}>
+                    {" "}
+                    ({t("screens:eventDetails.deadlinePassed")})
+                  </Text>
                 )}
               </Text>
             </View>
@@ -813,10 +832,15 @@ export default function EventDetailsScreen() {
                   },
                 ]}
               >
-                Capacity: {event.responseSummary?.accepted || 0}/
-                {event.capacity.max}
-                {(event.responseSummary?.accepted || 0) >= event.capacity.max &&
-                  " • Event Full!"}
+                {(event.responseSummary?.accepted || 0) >= event.capacity.max
+                  ? t("screens:eventDetails.capacityFull", {
+                      accepted: event.responseSummary?.accepted || 0,
+                      max: event.capacity.max,
+                    })
+                  : t("screens:eventDetails.capacity", {
+                      accepted: event.responseSummary?.accepted || 0,
+                      max: event.capacity.max,
+                    })}
               </Text>
             </View>
           )}
@@ -829,8 +853,10 @@ export default function EventDetailsScreen() {
                 color={theme.colors.secondary}
               />
               <Text style={styles.infoText}>
-                Capacity: {event.responseSummary?.accepted || 0}/
-                {event.maxCapacity}
+                {t("screens:eventDetails.capacity", {
+                  accepted: event.responseSummary?.accepted || 0,
+                  max: event.maxCapacity,
+                })}
               </Text>
             </View>
           )}
@@ -854,8 +880,10 @@ export default function EventDetailsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               {isCurrentUserInvitee
-                ? "Your Response"
-                : `${inviteeName}'s Response`}
+                ? t("screens:eventDetails.yourResponse")
+                : t("screens:eventDetails.inviteeResponse", {
+                    name: inviteeName,
+                  })}
             </Text>
 
             {/* Capacity Display */}
@@ -875,9 +903,15 @@ export default function EventDetailsScreen() {
                     },
                   ]}
                 >
-                  Capacity: {event.responseSummary?.accepted || 0}/
-                  {event.capacity.max}
-                  {isEventFull() && " - Event Full!"}
+                  {isEventFull()
+                    ? t("screens:eventDetails.capacityFull", {
+                        accepted: event.responseSummary?.accepted || 0,
+                        max: event.capacity.max,
+                      })
+                    : t("screens:eventDetails.capacity", {
+                        accepted: event.responseSummary?.accepted || 0,
+                        max: event.capacity.max,
+                      })}
                 </Text>
               </View>
             )}
@@ -903,11 +937,15 @@ export default function EventDetailsScreen() {
                     },
                   ]}
                 >
-                  Limited capacity: {event.capacity.max} spots •{" "}
-                  {event.responseSummary?.accepted || 0} accepted • First-come,
-                  first-served
-                  {(event.responseSummary?.accepted || 0) >=
-                    event.capacity.max && " • Event Full!"}
+                  {(event.responseSummary?.accepted || 0) >= event.capacity.max
+                    ? t("screens:eventDetails.limitedCapacityFull", {
+                        max: event.capacity.max,
+                        accepted: event.responseSummary?.accepted || 0,
+                      })
+                    : t("screens:eventDetails.limitedCapacity", {
+                        max: event.capacity.max,
+                        accepted: event.responseSummary?.accepted || 0,
+                      })}
                 </Text>
               </View>
             )}
@@ -1009,7 +1047,9 @@ export default function EventDetailsScreen() {
                   size={20}
                   color={theme.colors.white}
                 />
-                <Text style={styles.responseButtonText}>Accept</Text>
+                <Text style={styles.responseButtonText}>
+                  {t("screens:eventDetails.accept")}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1033,15 +1073,17 @@ export default function EventDetailsScreen() {
                   size={20}
                   color={theme.colors.white}
                 />
-                <Text style={styles.responseButtonText}>Decline</Text>
+                <Text style={styles.responseButtonText}>
+                  {t("screens:eventDetails.decline")}
+                </Text>
               </TouchableOpacity>
             </View>
 
             {isDeadlinePassed && (
               <Text style={styles.deadlinePassedText}>
                 {canRespondAfterDeadline()
-                  ? "Deadline passed (You have special access as admin/coach)"
-                  : "Response deadline has passed"}
+                  ? t("screens:eventDetails.deadlinePassedSpecialAccess")
+                  : t("screens:eventDetails.deadlinePassed")}
               </Text>
             )}
           </View>
@@ -1062,7 +1104,7 @@ export default function EventDetailsScreen() {
                   color={theme.colors.white}
                 />
                 <Text style={styles.recordAttendanceButtonText}>
-                  Record Attendance
+                  {t("screens:eventDetails.recordAttendance")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1076,7 +1118,9 @@ export default function EventDetailsScreen() {
               onPress={handleCancelRecording}
               disabled={submittingAttendance}
             >
-              <Text style={styles.cancelRecordingButtonText}>Cancel</Text>
+              <Text style={styles.cancelRecordingButtonText}>
+                {t("screens:eventDetails.cancelRecording")}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -1115,7 +1159,7 @@ export default function EventDetailsScreen() {
                   color={theme.colors.white}
                 />
                 <Text style={styles.completedBadgeText}>
-                  Attendance Completed
+                  {t("screens:eventDetails.attendanceCompleted")}
                 </Text>
               </View>
 
@@ -1137,7 +1181,9 @@ export default function EventDetailsScreen() {
                     size={20}
                     color={theme.colors.textSecondary}
                   />
-                  <Text style={styles.attendanceStatLabel}>Total Invitees</Text>
+                  <Text style={styles.attendanceStatLabel}>
+                    {t("screens:eventDetails.totalInvitees")}
+                  </Text>
                   <Text style={styles.attendanceStatValue}>
                     {event.responses?.length || 0}
                   </Text>
@@ -1145,7 +1191,9 @@ export default function EventDetailsScreen() {
                 <View style={styles.attendanceStatDivider} />
                 <View style={styles.attendanceStatItem}>
                   <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-                  <Text style={styles.attendanceStatLabel}>Attended</Text>
+                  <Text style={styles.attendanceStatLabel}>
+                    {t("screens:eventDetails.attendedCount")}
+                  </Text>
                   <Text
                     style={[styles.attendanceStatValue, { color: "#4CAF50" }]}
                   >
@@ -1155,7 +1203,9 @@ export default function EventDetailsScreen() {
                 <View style={styles.attendanceStatDivider} />
                 <View style={styles.attendanceStatItem}>
                   <Ionicons name="close-circle" size={20} color="#F44336" />
-                  <Text style={styles.attendanceStatLabel}>Absent</Text>
+                  <Text style={styles.attendanceStatLabel}>
+                    {t("screens:eventDetails.absentCount")}
+                  </Text>
                   <Text
                     style={[styles.attendanceStatValue, { color: "#F44336" }]}
                   >

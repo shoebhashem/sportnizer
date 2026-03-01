@@ -5,6 +5,7 @@
 import { FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRouter } from "expo-router";
 import React, { useLayoutEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Image,
@@ -25,6 +26,11 @@ import ProfilePictureUpload from "../components/ProfilePictureUpload";
 import { getDefaultProfilePicture } from "../constants/profilePictures";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
+import {
+    SUPPORTED_LANGUAGES,
+    SupportedLanguage,
+    useLanguage,
+} from "../contexts/LanguageContext";
 import { useUser } from "../contexts/UserContext";
 import { signOutUser, updateUserProfile } from "../services/auth/authService";
 
@@ -34,6 +40,8 @@ export default function ProfileScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { userProfile, refreshUserProfile } = useUser();
+  const { language, setLanguage } = useLanguage();
+  const { t } = useTranslation(["screens", "common"]);
 
   // View / Edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -498,6 +506,45 @@ export default function ProfileScreen() {
           {/* ---- Legal Settings ---- */}
           <LegalSettingsSection showAcceptanceStatus={true} />
 
+          {/* ---- Language Selector ---- */}
+          <View style={styles.languageSection}>
+            <Text style={styles.sectionTitle}>
+              {t("screens:profile.language")}
+            </Text>
+            <Text style={styles.languageDescription}>
+              {t("screens:profile.languageDescription")}
+            </Text>
+            <View style={styles.languageOptions}>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.languageOption,
+                    language === lang.code && styles.languageOptionActive,
+                  ]}
+                  onPress={() => setLanguage(lang.code as SupportedLanguage)}
+                >
+                  <Text style={styles.languageFlag}>{lang.flag}</Text>
+                  <Text
+                    style={[
+                      styles.languageLabel,
+                      language === lang.code && styles.languageLabelActive,
+                    ]}
+                  >
+                    {lang.label}
+                  </Text>
+                  {language === lang.code && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={theme.colors.accent}
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           {/* ---- Sign Out ---- */}
           <View style={styles.signOutSection}>
             <TouchableOpacity
@@ -718,6 +765,49 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     textTransform: "capitalize",
+  },
+  // ---- Language Selector ----
+  languageSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.inputBorder,
+  },
+  languageDescription: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  languageOptions: {
+    gap: 8,
+  },
+  languageOption: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: theme.colors.inputBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  languageOptionActive: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.accent + "10",
+  },
+  languageFlag: {
+    fontSize: 22,
+    marginRight: 12,
+  },
+  languageLabel: {
+    flex: 1,
+    fontSize: 15,
+    color: theme.colors.text,
+    fontWeight: "500" as const,
+  },
+  languageLabelActive: {
+    color: theme.colors.accent,
+    fontWeight: "600" as const,
   },
   // ---- Sign Out ----
   signOutSection: {

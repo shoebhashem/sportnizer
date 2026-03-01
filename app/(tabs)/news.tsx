@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
@@ -33,6 +34,7 @@ interface ExpandedNewsData extends News {
 }
 
 export default function NewsTab() {
+  const { t } = useTranslation(["screens", "common"]);
   const router = useRouter();
   const { user } = useAuth();
   const { userProfile } = useUser();
@@ -155,7 +157,7 @@ export default function NewsTab() {
             color={theme.colors.secondary}
           />
           <Text style={styles.paymentsSectionTitle}>
-            Pending Payments ({pendingPayments.length})
+            {t("screens:news.pendingPayments", { count: pendingPayments.length })}
           </Text>
         </View>
         {pendingPayments.map((payment) => (
@@ -213,12 +215,12 @@ export default function NewsTab() {
         color={theme.colors.textSecondary}
       />
       <Text style={styles.emptyTitle}>
-        {readFilter === "unread" ? "All caught up!" : "No news yet"}
+        {readFilter === "unread" ? t("screens:news.allCaughtUp") : t("screens:news.noNews")}
       </Text>
       <Text style={styles.emptySubtitle}>
         {readFilter === "unread"
-          ? "You've read all the news"
-          : "News from your clubs will appear here"}
+          ? t("screens:news.readAllNews")
+          : t("screens:news.newsFromClubs")}
       </Text>
     </View>
   );
@@ -243,7 +245,7 @@ export default function NewsTab() {
                 readFilter === "all" && styles.filterTextActive,
               ]}
             >
-              All
+              {t("screens:news.allNews")}
             </Text>
           </TouchableOpacity>
 
@@ -260,7 +262,7 @@ export default function NewsTab() {
                 readFilter === "unread" && styles.filterTextActive,
               ]}
             >
-              Unread
+              {t("screens:news.unread")}
             </Text>
             {unreadCount > 0 && (
               <View style={styles.badge}>
@@ -275,7 +277,7 @@ export default function NewsTab() {
       {newsLoading && expandedNews.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading news...</Text>
+          <Text style={styles.loadingText}>{t("screens:news.loadingNews")}</Text>
         </View>
       ) : (
         <FlatList

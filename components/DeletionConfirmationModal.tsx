@@ -2,6 +2,7 @@ import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface DeletionConfirmationModalProps {
@@ -31,6 +32,8 @@ export default function DeletionConfirmationModal({
   onCancel,
   isDeleting = false,
 }: DeletionConfirmationModalProps) {
+  const { t } = useTranslation(["components", "common"]);
+
   const defaultMessage = message || 
     `This will schedule "${entityName}" for deletion in ${gracePeriodDays} days. ` +
     `You can undo this action during the grace period.` +
@@ -66,7 +69,7 @@ export default function DeletionConfirmationModal({
                 color={theme.colors.secondary} 
               />
               <Text style={styles.infoText}>
-                {gracePeriodDays}-day grace period - You can undo this!
+                {t("components:deletionConfirmationModal.gracePeriodNote", { gracePeriodDays })}
               </Text>
             </View>
 
@@ -82,7 +85,7 @@ export default function DeletionConfirmationModal({
               </View>
               <View style={styles.button}>
                 <Button
-                  label={isDeleting ? "Deleting..." : "Delete"}
+                  label={isDeleting ? t("components:deletionConfirmationModal.deleting") : "Delete"}
                   onPress={onConfirm}
                   theme="primary"
                   disabled={isDeleting}

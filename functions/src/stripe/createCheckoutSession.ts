@@ -9,7 +9,7 @@ import { config } from "../utils/config";
  *
  * This creates a payment session that:
  * 1. Charges the member the full fee amount
- * 2. Sends the platform fee (2%) to Sportnizer
+ * 2. Sends the platform fee (2%) to Clubnizer
  * 3. Sends the rest to the club's connected account
  * 4. Club pays the Stripe processing fees (via on_behalf_of)
  *
@@ -214,7 +214,7 @@ export const createCheckoutSession = onCall(
             quantity: 1,
           },
         ],
-        // Platform fee goes to Sportnizer
+        // Platform fee goes to Clubnizer
         payment_intent_data: {
           application_fee_amount: platformFee,
           // on_behalf_of makes the club the settlement merchant

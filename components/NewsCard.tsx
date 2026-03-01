@@ -5,6 +5,7 @@ import { theme } from "@/constants/theme";
 import { News, hasUserReadNews } from "@/services/news";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface NewsCardProps {
@@ -22,6 +23,8 @@ export default function NewsCard({
   inviteeName,
   isCurrentUser = true,
 }: NewsCardProps) {
+  const { t } = useTranslation(["components", "common"]);
+
   // Check if user has read this news
   const isRead = hasUserReadNews(news, currentUserId);
 
@@ -47,10 +50,10 @@ export default function NewsCard({
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t("components:newsCard.justNow");
+    if (diffMins < 60) return t("components:newsCard.minutesAgo", { count: diffMins });
+    if (diffHours < 24) return t("components:newsCard.hoursAgo", { count: diffHours });
+    if (diffDays < 7) return t("components:newsCard.daysAgo", { count: diffDays });
 
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -107,7 +110,7 @@ export default function NewsCard({
             ]}
           >
             <Text style={styles.inviteeText}>
-              {isCurrentUser ? "You" : inviteeName}
+              {isCurrentUser ? t("components:newsCard.you") : inviteeName}
             </Text>
           </View>
         )}
@@ -117,7 +120,7 @@ export default function NewsCard({
       {!isRead && (
         <View style={styles.unreadIndicator}>
           <View style={styles.unreadDot} />
-          <Text style={styles.unreadText}>New</Text>
+          <Text style={styles.unreadText}>{t("components:newsCard.new")}</Text>
         </View>
       )}
 
@@ -146,7 +149,7 @@ export default function NewsCard({
             size={14}
             color={theme.colors.textSecondary}
           />
-          <Text style={styles.footerText}>Issued by {news.createdByName}</Text>
+          <Text style={styles.footerText}>{t("components:newsCard.issuedBy", { name: news.createdByName })}</Text>
         </View>
 
         <View style={styles.footerRight}>

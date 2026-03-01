@@ -3,16 +3,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -26,10 +26,10 @@ import { getCurrentUser } from "../../services/auth/authService";
 import { clubService } from "../../services/club";
 import { fetchDependentProfiles } from "../../services/fetchDependentProfiles";
 import {
-  acceptGroupInvite,
-  fetchGroupInvites,
-  GroupInviteInfo,
-  rejectGroupInvite,
+    acceptGroupInvite,
+    fetchGroupInvites,
+    GroupInviteInfo,
+    rejectGroupInvite,
 } from "../../services/fetchGroupInvites";
 import { paymentService, PendingPayment } from "../../services/paymentService";
 import { NewsFlowItem } from "../../services/types";
@@ -53,6 +53,7 @@ interface ModalState {
 
 export default function Index() {
   const router = useRouter();
+  const { t } = useTranslation(["screens", "common"]);
   const { user } = useAuth();
   const { userProfile } = useUser();
   const {
@@ -85,6 +86,21 @@ export default function Index() {
 
   // Pending payments state
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
+
+  // Alert modal state (cross-platform replacement for Alert.alert)
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ visible: false, title: "", message: "" });
+
+  const showAlert = (title: string, message: string, onConfirm?: () => void) =>
+    setAlertModal({ visible: true, title, message, onConfirm });
+  const hideAlert = () => {
+    alertModal.onConfirm?.();
+    setAlertModal({ visible: false, title: "", message: "" });
+  };
 
   // Club logos state
   const [clubLogos, setClubLogos] = useState<Record<string, string | null>>({});
@@ -223,14 +239,11 @@ export default function Index() {
         const dependentIds = dependentProfiles.map((d) => d.uid);
         const allUserIds = [user.uid, ...dependentIds];
 
-        // Filter to current week events only
-        const now = new Date();
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 7); // Next Sunday
+        // Filter to next 7 days from today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const sevenDaysFromNow = new Date(today);
+        sevenDaysFromNow.setDate(today.getDate() + 7);
 
         const weekEventsFromContext = contextEvents.filter((event) => {
           // Handle both Firestore Timestamp and cached serialized timestamp
@@ -245,7 +258,7 @@ export default function Index() {
             // String or number
             eventDate = new Date(event.startDate);
           }
-          return eventDate >= startOfWeek && eventDate < endOfWeek;
+          return eventDate >= today && eventDate < sevenDaysFromNow;
         });
 
         // Expand events for each relevant invitee
@@ -355,7 +368,7 @@ export default function Index() {
 
     if (!event.id || !event.clubId) {
       console.error("Missing event data:", event);
-      Alert.alert("Error", "Cannot open event: missing information");
+      showAlert(t("common:error"), "Cannot open event: missing information");
       return;
     }
 
@@ -725,7 +738,9 @@ export default function Index() {
                 />
               </View>
               <View style={styles.clubInfo}>
-                <Text style={styles.clubName}>Create Club</Text>
+                <Text style={styles.clubName}>
+                  {t("screens:home.createClub")}
+                </Text>
                 <Text style={styles.clubSubtext}>
                   Start managing your sports organization
                 </Text>
@@ -832,7 +847,7 @@ export default function Index() {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.secondary} />
-            <Text style={styles.loadingText}>Loading...</Text>
+            <Text style={styles.loadingText}>{t("common:loading")}</Text>
           </View>
         ) : (
           <>
@@ -847,7 +862,8 @@ export default function Index() {
                       color={theme.colors.secondary}
                     />
                     <Text style={styles.sectionTitle}>
-                      Upcoming Payments ({urgentPayments.length})
+                      {t("screens:home.pendingPayments")} (
+                      {urgentPayments.length})
                     </Text>
                   </View>
                 </View>
@@ -864,10 +880,14 @@ export default function Index() {
             {/* Next 7 Days Events Section */}
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Next 7 Days</Text>
+                <Text style={styles.sectionTitle}>
+                  {t("screens:home.upcomingEvents")}
+                </Text>
                 {weekEvents.length > 0 && (
                   <TouchableOpacity onPress={handleViewAllEvents}>
-                    <Text style={styles.viewAllText}>View All</Text>
+                    <Text style={styles.viewAllText}>
+                      {t("screens:home.viewAll")}
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -880,7 +900,7 @@ export default function Index() {
                     color={theme.colors.textSecondary}
                   />
                   <Text style={styles.emptyText}>
-                    No events in the next 7 days
+                    {t("screens:home.noUpcomingEvents")}
                   </Text>
                   <Text style={styles.emptySubtext}>
                     Check the Events tab for upcoming events
@@ -929,11 +949,21 @@ export default function Index() {
         visible={modal.visible}
         title={modal.title}
         message={modal.message}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         cancelText=""
         onConfirm={handleModalClose}
         onCancel={handleModalClose}
         confirmButtonTheme="primary"
+      />
+
+      {/* Alert Modal */}
+      <ConfirmationModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        confirmText={t("common:ok")}
+        onConfirm={hideAlert}
+        onCancel={hideAlert}
       />
 
       {/* Group Invitation Modal */}

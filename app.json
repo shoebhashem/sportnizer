@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "sportnizer",
-    "slug": "sportnizer",
+    "name": "clubnizer",
+    "slug": "clubnizer",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/sportnizer_logo.png",
-    "scheme": "sportnizer",
+    "icon": "./assets/images/clubnizer_logo.png",
+    "scheme": "clubnizer",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -46,10 +46,11 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Sportnizer to access your photos to upload profile pictures.",
-          "cameraPermission": "Allow Sportnizer to access your camera to take profile pictures."
+          "photosPermission": "Allow Clubnizer to access your photos to upload profile pictures.",
+          "cameraPermission": "Allow Clubnizer to access your camera to take profile pictures."
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

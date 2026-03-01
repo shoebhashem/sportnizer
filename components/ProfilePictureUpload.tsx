@@ -1,6 +1,7 @@
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Image,
   Modal,
@@ -44,6 +45,7 @@ export default function ProfilePictureUpload({
   groupId,
   isForMember = false,
 }: ProfilePictureUploadProps) {
+  const { t } = useTranslation(["components", "common"]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -63,8 +65,8 @@ export default function ProfilePictureUpload({
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       showAlert(
-        "Permission Required",
-        "Sorry, we need camera roll permissions to upload profile pictures.",
+        t("components:profilePictureUpload.permissionRequired"),
+        t("components:profilePictureUpload.galleryPermissionMessage"),
       );
       return false;
     }
@@ -94,8 +96,8 @@ export default function ProfilePictureUpload({
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       showAlert(
-        "Permission Required",
-        "Sorry, we need camera permissions to take photos.",
+        t("components:profilePictureUpload.permissionRequired"),
+        t("components:profilePictureUpload.cameraPermissionMessage"),
       );
       return;
     }
@@ -130,7 +132,7 @@ export default function ProfilePictureUpload({
         // Self-upload
         result = await uploadOwnProfilePicture(userId, selectedImage);
       } else {
-        showAlert("Error", "Missing user information for upload");
+        showAlert(t("components:profilePictureUpload.uploadFailed"), t("components:profilePictureUpload.missingUserInfo"));
         return;
       }
 
@@ -140,13 +142,13 @@ export default function ProfilePictureUpload({
         onClose();
       } else {
         showAlert(
-          "Upload Failed",
-          result.error || "Failed to upload profile picture",
+          t("components:profilePictureUpload.uploadFailed"),
+          result.error || t("components:profilePictureUpload.failedToUploadProfilePicture"),
         );
       }
     } catch (error) {
       console.error("Upload error:", error);
-      showAlert("Upload Failed", "An unexpected error occurred");
+      showAlert(t("components:profilePictureUpload.uploadFailed"), t("components:profilePictureUpload.unexpectedError"));
     } finally {
       setUploading(false);
     }
@@ -168,7 +170,7 @@ export default function ProfilePictureUpload({
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>
-              {isForMember ? "Upload Member Photo" : "Upload Profile Picture"}
+              {isForMember ? t("components:profilePictureUpload.uploadMemberPhoto") : t("components:profilePictureUpload.uploadProfilePicture")}
             </Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <FontAwesome
@@ -193,7 +195,7 @@ export default function ProfilePictureUpload({
             />
             {selectedImage && (
               <View style={styles.selectedImageOverlay}>
-                <Text style={styles.selectedImageText}>New Image Selected</Text>
+                <Text style={styles.selectedImageText}>{t("components:profilePictureUpload.newImageSelected")}</Text>
               </View>
             )}
           </View>
@@ -201,7 +203,7 @@ export default function ProfilePictureUpload({
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
             <Button
-              label="Choose from Gallery"
+              label={t("components:profilePictureUpload.chooseFromGallery")}
               onPress={pickImage}
               icon="photo"
               theme="secondary"
@@ -209,7 +211,7 @@ export default function ProfilePictureUpload({
 
             {Platform.OS !== "web" && (
               <Button
-                label="Take Photo"
+                label={t("components:profilePictureUpload.takePhoto")}
                 onPress={takePhoto}
                 icon="camera"
                 theme="secondary"
@@ -218,7 +220,7 @@ export default function ProfilePictureUpload({
 
             {selectedImage && (
               <Button
-                label={uploading ? "Uploading..." : "Upload Image"}
+                label={uploading ? t("components:profilePictureUpload.uploading") : t("components:profilePictureUpload.uploadImage")}
                 onPress={uploadImage}
                 disabled={uploading}
                 theme="primary"

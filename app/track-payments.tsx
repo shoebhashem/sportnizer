@@ -20,6 +20,7 @@ import React, {
     useLayoutEffect,
     useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
@@ -60,6 +61,7 @@ interface MemberPaymentInfo {
 }
 
 export default function TrackPaymentsScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { clubId, groupId, groupName } = useLocalSearchParams();
@@ -79,9 +81,11 @@ export default function TrackPaymentsScreen() {
   // Set header title
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: groupName ? `${groupName} Payments` : "Track Payments",
+      title: groupName
+        ? t("screens:trackPayments.groupPayments", { groupName })
+        : t("screens:trackPayments.trackPayments"),
     });
-  }, [navigation, groupName]);
+  }, [navigation, groupName, t]);
 
   // Fetch fees for the group
   const fetchFees = useCallback(async () => {
@@ -106,10 +110,10 @@ export default function TrackPaymentsScreen() {
       }
     } catch (error) {
       console.error("Error fetching fees:", error);
-      setErrorMessage("Failed to load membership fees");
+      setErrorMessage(t("screens:trackPayments.failedToLoadMembershipFees"));
       setShowErrorModal(true);
     }
-  }, [clubId, groupId]);
+  }, [clubId, groupId, t]);
 
   // Fetch members with payment status
   const fetchMembersWithPaymentStatus = useCallback(async () => {
@@ -240,7 +244,7 @@ export default function TrackPaymentsScreen() {
 
   // Format date
   const formatDate = (date: Date | null) => {
-    if (!date) return "No due date";
+    if (!date) return t("screens:trackPayments.noDueDate");
     return date.toLocaleDateString("sv-SE", {
       year: "numeric",
       month: "short",
@@ -294,8 +298,11 @@ export default function TrackPaymentsScreen() {
           />
         </View>
         <Text style={styles.feeProgressText}>
-          {fee.totalPaid || 0}/{fee.totalExpected || 0} paid (
-          {Math.round(fee.percentPaid || 0)}%)
+          {t("screens:trackPayments.paidProgress", {
+            paid: fee.totalPaid || 0,
+            total: fee.totalExpected || 0,
+            percent: Math.round(fee.percentPaid || 0),
+          })}
         </Text>
       </TouchableOpacity>
     );
@@ -314,7 +321,8 @@ export default function TrackPaymentsScreen() {
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{item.name}</Text>
           <Text style={styles.memberRole}>
-            {item.roles.join(", ")} {item.needsGuardian && "(Child/Youth)"}
+            {item.roles.join(", ")}{" "}
+            {item.needsGuardian && t("screens:trackPayments.childYouthLabel")}
           </Text>
         </View>
         <PaymentStatusBadge
@@ -354,7 +362,10 @@ export default function TrackPaymentsScreen() {
                   activeFilter === filter && styles.filterTabTextActive,
                 ]}
               >
-                {filter.charAt(0).toUpperCase() + filter.slice(1)} ({count})
+                {t(
+                  `screens:trackPayments.filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`,
+                  { count },
+                )}
               </Text>
             </TouchableOpacity>
           );
@@ -370,7 +381,9 @@ export default function TrackPaymentsScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading payment data...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:trackPayments.loadingPaymentData")}
+          </Text>
         </View>
       </View>
     );
@@ -387,12 +400,14 @@ export default function TrackPaymentsScreen() {
             size={64}
             color={theme.colors.textSecondary}
           />
-          <Text style={styles.emptyTitle}>No Membership Fees</Text>
+          <Text style={styles.emptyTitle}>
+            {t("screens:trackPayments.noMembershipFees")}
+          </Text>
           <Text style={styles.emptySubtitle}>
-            No membership fees have been created for this group yet.
+            {t("screens:trackPayments.noMembershipFeesMessage")}
           </Text>
           <Button
-            label="Create Fee"
+            label={t("screens:trackPayments.createFee")}
             onPress={() =>
               router.push({
                 pathname: "/create-membership-fee",
@@ -424,7 +439,9 @@ export default function TrackPaymentsScreen() {
         {/* Fee Selection (if multiple fees) */}
         {fees.length > 1 && (
           <View style={styles.feesSection}>
-            <Text style={styles.sectionTitle}>Membership Fees</Text>
+            <Text style={styles.sectionTitle}>
+              {t("screens:trackPayments.membershipFees")}
+            </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -464,7 +481,9 @@ export default function TrackPaymentsScreen() {
               {formatAmount(selectedFee.amount, selectedFee.currency)}
             </Text>
             <Text style={styles.selectedFeeDueDate}>
-              Due: {formatDate(selectedFee.dueDate)}
+              {t("screens:trackPayments.dueDate", {
+                date: formatDate(selectedFee.dueDate),
+              })}
             </Text>
           </View>
         )}
@@ -491,13 +510,15 @@ export default function TrackPaymentsScreen() {
         {/* Members List */}
         <View style={styles.membersSection}>
           <Text style={styles.sectionTitle}>
-            Members ({filteredMembers.length})
+            {t("screens:trackPayments.membersCount", {
+              count: filteredMembers.length,
+            })}
           </Text>
 
           {filteredMembers.length === 0 ? (
             <View style={styles.noMembersContainer}>
               <Text style={styles.noMembersText}>
-                No members match the selected filter.
+                {t("screens:trackPayments.noMembersMatchFilter")}
               </Text>
             </View>
           ) : (

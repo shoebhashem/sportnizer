@@ -4,6 +4,7 @@ import { useUser } from "@/contexts/UserContext";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   RefreshControl,
   ScrollView,
@@ -14,6 +15,7 @@ import {
 } from "react-native";
 
 export default function GroupsScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { userProfile, isLoading, refreshUserProfile } = useUser();
 
   // Extract clubs and groups from userProfile
@@ -160,7 +162,7 @@ export default function GroupsScreen() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading clubs and groups...</Text>
+        <Text style={styles.loadingText}>{t("screens:groups.loadingGroups")}</Text>
       </View>
     );
   }
@@ -181,7 +183,7 @@ export default function GroupsScreen() {
       >
         {userGroups.length === 0 ? (
           <Text style={styles.noGroupsText}>
-            You haven&apos;t joined any groups yet. Join a club and get started!
+            {t("screens:groups.noGroupsMessage")}
           </Text>
         ) : (
           userGroups.map((group) => (

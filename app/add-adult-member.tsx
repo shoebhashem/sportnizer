@@ -39,12 +39,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 /**
@@ -67,7 +68,7 @@ const roleConfigs: Record<RoleType, RoleConfig> = {
     title: "Add Player",
     subtitle: "Invite adults to join",
     infoText:
-      "Enter email addresses to invite users. Existing Sportnizer users will receive in-app notifications, while new users will get email invitations with Accept/Reject buttons.",
+      "Enter email addresses to invite users. Existing Clubnizer users will receive in-app notifications, while new users will get email invitations with Accept/Reject buttons.",
     roleLabel: "player",
     pluralLabel: "players",
     icon: "person-add-outline",
@@ -112,13 +113,27 @@ export default function AddAdultMemberScreen() {
   // Get role configuration
   const memberRole = (role as RoleType) || "player";
   const config = roleConfigs[memberRole];
+  const { t } = useTranslation(["screens", "common"]);
+
+  const infoTextKeys: Record<RoleType, string> = {
+    player: "playerInfoText",
+    coach: "coachInfoText",
+    admin: "adminInfoText",
+    "club-admin": "clubAdminInfoText",
+  };
 
   // Set dynamic native header title
   useLayoutEffect(() => {
+    const titleKeys: Record<RoleType, string> = {
+      player: "addPlayer",
+      coach: "addCoach",
+      admin: "addAdmin",
+      "club-admin": "addClubAdmin",
+    };
     navigation.setOptions({
-      title: config.title,
+      title: t(`screens:addAdultMember.${titleKeys[memberRole]}`),
     });
-  }, [config.title, navigation]);
+  }, [memberRole, navigation, t]);
 
   /**
    * DEBUG LOGGING
@@ -231,7 +246,7 @@ export default function AddAdultMemberScreen() {
         ...prev,
         [index]: {
           checking: false,
-          message: "Error checking email",
+          message: t("screens:addAdultMember.errorCheckingEmail"),
           canInvite: true,
         },
       }));
@@ -338,7 +353,7 @@ export default function AddAdultMemberScreen() {
               ...prev,
               [index]: {
                 checking: false,
-                message: "Error checking email",
+                message: t("screens:addAdultMember.errorCheckingEmail"),
                 canInvite: true,
               },
             }));
@@ -361,7 +376,7 @@ export default function AddAdultMemberScreen() {
         .map(({ email }) => email)
         .join(", ");
       showModal(
-        "Cannot Send Invitations",
+        t("screens:addAdultMember.cannotSendInvitations"),
         `The following email(s) cannot be invited because they already have the ${config.roleLabel} role in this group:\n\n${blockedAddresses}\n\nPlease remove them before continuing.`,
       );
       return false;
@@ -386,8 +401,8 @@ export default function AddAdultMemberScreen() {
 
     if (invalidEmails.length > 0) {
       showModal(
-        "Invalid Emails",
-        `Please check these email addresses:\n${invalidEmails.join("\n")}`,
+        t("screens:addAdultMember.invalidEmails"),
+        `${t("screens:addAdultMember.pleaseCheckEmails")}\n${invalidEmails.join("\n")}`,
       );
       return [];
     }
@@ -409,8 +424,8 @@ export default function AddAdultMemberScreen() {
     const validEmails = validateEmails();
     if (validEmails.length === 0) {
       showModal(
-        "No Valid Emails",
-        "Please enter at least one valid email address.",
+        t("screens:addAdultMember.noValidEmails"),
+        t("screens:addAdultMember.noValidEmailsMessage"),
       );
       return;
     }
@@ -418,8 +433,8 @@ export default function AddAdultMemberScreen() {
     // Step 3: Check if user is authenticated
     if (!user) {
       showModal(
-        "Error",
-        "Unable to send invitations. Please make sure you are properly logged in.",
+        t("common:error"),
+        t("screens:addAdultMember.unableToSendInvitations"),
       );
       return;
     }
@@ -456,14 +471,20 @@ export default function AddAdultMemberScreen() {
         if (failureCount === 0) {
           const successMessage =
             successCount === 1
-              ? `✅ Success!\n\nInvitation sent successfully to ${validEmails[0]}.`
-              : `✅ Success!\n\nAll ${successCount} invitations sent successfully.`;
+              ? `✅ ${t("common:success")}!\n\n${t("screens:addAdultMember.invitationSentTo", { email: validEmails[0] })}`
+              : `✅ ${t("common:success")}!\n\n${t("screens:addAdultMember.allInvitationsSent", { count: successCount })}`;
 
-          showModal("Success", successMessage, "Send More", "Done", () => {
-            hideModal();
-            setEmailAddresses([""]);
-            setEmailValidation({});
-          });
+          showModal(
+            t("common:success"),
+            successMessage,
+            t("screens:addAdultMember.sendMore"),
+            t("common:done"),
+            () => {
+              hideModal();
+              setEmailAddresses([""]);
+              setEmailValidation({});
+            },
+          );
         } else {
           const partialMessage = `✅ Partial Success\n\n${successCount} invitation(s) sent successfully.\n${failureCount} invitation(s) failed.`;
           const failedEmails = result.results
@@ -472,9 +493,9 @@ export default function AddAdultMemberScreen() {
             .join("\n");
 
           showModal(
-            "Partial Success",
+            t("screens:addAdultMember.partialSuccess"),
             `${partialMessage}\n\nFailed:\n${failedEmails}`,
-            "OK",
+            t("common:ok"),
             "",
             () => {
               hideModal();
@@ -495,7 +516,10 @@ export default function AddAdultMemberScreen() {
         }
       } else {
         console.error("❌ Failed to add members:", result.error);
-        showModal("Error", result.error || "Failed to add members to group");
+        showModal(
+          t("common:error"),
+          result.error || "Failed to add members to group",
+        );
       }
     } catch (error: any) {
       console.error("❌ Error adding members to group:", error);
@@ -522,7 +546,7 @@ export default function AddAdultMemberScreen() {
         }
       }
 
-      showModal("Error", errorMessage);
+      showModal(t("common:error"), errorMessage);
     } finally {
       setSendingInvitations(false);
     }
@@ -540,26 +564,28 @@ export default function AddAdultMemberScreen() {
       >
         {/* SUBTITLE */}
         <Text style={styles.subtitle}>
-          {config.subtitle} {groupName || "this group"}. Existing members will
-          have their role updated, new users will receive {config.roleLabel}{" "}
-          invitations.
+          {t(`screens:addAdultMember.${infoTextKeys[memberRole]}`)}
         </Text>
 
         {/* MAIN CONTENT SECTION */}
         <View>
           {/* EMAIL INPUT SECTION */}
           <View style={styles.emailSection}>
-            <Text style={styles.sectionTitle}>Email Addresses</Text>
+            <Text style={styles.sectionTitle}>
+              {t("screens:addAdultMember.emailAddresses")}
+            </Text>
 
             {emailAddresses.map((email, index) => (
               <View key={index} style={styles.emailInputRow}>
                 <View style={styles.emailInputContainer}>
                   <Input
-                    label={`Email ${index + 1}`}
+                    label={t("screens:addAdultMember.emailIndex", {
+                      index: index + 1,
+                    })}
                     value={email}
                     onChangeText={(text) => updateEmail(index, text)}
                     onBlur={() => handleEmailBlur(index, email)}
-                    placeholder="member@email.com"
+                    placeholder={t("screens:addAdultMember.emailPlaceholder")}
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
@@ -574,7 +600,9 @@ export default function AddAdultMemberScreen() {
                             size={16}
                             color={theme.colors.textSecondary}
                           />
-                          <Text style={styles.validationText}>Checking...</Text>
+                          <Text style={styles.validationText}>
+                            {t("screens:addAdultMember.checking")}
+                          </Text>
                         </View>
                       )}
                       {!emailValidation[index].checking &&
@@ -642,7 +670,9 @@ export default function AddAdultMemberScreen() {
                   size={20}
                   color={theme.colors.secondary}
                 />
-                <Text style={styles.addEmailText}>Add another email</Text>
+                <Text style={styles.addEmailText}>
+                  {t("screens:addAdultMember.addAnotherEmail")}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -650,7 +680,9 @@ export default function AddAdultMemberScreen() {
           {/* SUBMIT BUTTON */}
           <Button
             label={
-              sendingInvitations ? "Sending Invitations..." : "Send Invitations"
+              sendingInvitations
+                ? t("screens:addAdultMember.sendingInvitations")
+                : t("screens:addAdultMember.sendInvitations")
             }
             onPress={handleSendInvitations}
             theme="primary"
@@ -668,7 +700,7 @@ export default function AddAdultMemberScreen() {
         cancelText={modalCancelText}
         onConfirm={modalOnConfirm}
         onCancel={
-          modalCancelText === "Done"
+          modalCancelText === t("common:done")
             ? () => {
                 hideModal();
                 router.back();

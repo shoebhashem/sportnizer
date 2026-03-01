@@ -14,6 +14,7 @@ import {
 } from "@/services/member";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Image,
@@ -47,6 +48,7 @@ export default function MemberContactModal({
   initialPhotoURL,
   isYouth = false,
 }: MemberContactModalProps) {
+  const { t } = useTranslation(["components", "common"]);
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState<MemberContactDetails | null>(null);
   const [guardians, setGuardians] = useState<GuardianContactDetails[]>([]);
@@ -82,17 +84,17 @@ export default function MemberContactModal({
   };
 
   const formatDateOfBirth = (dateStr: string | null): string => {
-    if (!dateStr) return "Not available";
+    if (!dateStr) return t("components:memberContactModal.notAvailable");
     try {
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return "Not available";
+      if (isNaN(date.getTime())) return t("components:memberContactModal.notAvailable");
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
         day: "numeric",
       });
     } catch {
-      return "Not available";
+      return t("components:memberContactModal.notAvailable");
     }
   };
 
@@ -115,7 +117,7 @@ export default function MemberContactModal({
       <View style={styles.fieldContent}>
         <Text style={styles.fieldLabel}>{label}</Text>
         <Text style={[styles.fieldValue, !value && styles.fieldEmpty]}>
-          {value || "Not available"}
+          {value || t("components:memberContactModal.notAvailable")}
         </Text>
       </View>
     </View>
@@ -159,7 +161,7 @@ export default function MemberContactModal({
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Contact Details</Text>
+            <Text style={styles.headerTitle}>{t("components:memberContactModal.contactDetails")}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={theme.colors.white} />
             </TouchableOpacity>
@@ -176,7 +178,7 @@ export default function MemberContactModal({
                   size="large"
                   color={theme.colors.secondary}
                 />
-                <Text style={styles.loadingText}>Loading details...</Text>
+                <Text style={styles.loadingText}>{t("components:memberContactModal.loadingDetails")}</Text>
               </View>
             ) : error ? (
               <View style={styles.errorContainer}>
@@ -215,7 +217,7 @@ export default function MemberContactModal({
                   </Text>
                   {member.isYouth && (
                     <View style={styles.youthBadge}>
-                      <Text style={styles.youthBadgeText}>Youth Player</Text>
+                      <Text style={styles.youthBadgeText}>{t("components:memberContactModal.youthPlayer")}</Text>
                     </View>
                   )}
                 </View>
@@ -230,7 +232,7 @@ export default function MemberContactModal({
                         size={14}
                         color={theme.colors.secondary}
                       />,
-                      "Email",
+                      t("components:memberContactModal.email"),
                       member.email,
                     )}
 
@@ -242,7 +244,7 @@ export default function MemberContactModal({
                         size={16}
                         color={theme.colors.secondary}
                       />,
-                      "Phone",
+                      t("components:memberContactModal.phone"),
                       member.phoneNumber,
                     )}
 
@@ -253,7 +255,7 @@ export default function MemberContactModal({
                       size={14}
                       color={theme.colors.secondary}
                     />,
-                    "Date of Birth",
+                    t("components:memberContactModal.dateOfBirth"),
                     formatDateOfBirth(member.dateOfBirth),
                   )}
                 </View>
@@ -261,7 +263,7 @@ export default function MemberContactModal({
                 {/* Guardian Section - Only for youth */}
                 {member.isYouth && guardians.length > 0 && (
                   <View style={styles.guardiansSection}>
-                    <Text style={styles.sectionTitle}>Guardian Contacts</Text>
+                    <Text style={styles.sectionTitle}>{t("components:memberContactModal.guardianContacts")}</Text>
                     {guardians.map((guardian) => renderGuardianCard(guardian))}
                   </View>
                 )}
@@ -275,7 +277,7 @@ export default function MemberContactModal({
                       color={theme.colors.textSecondary}
                     />
                     <Text style={styles.noGuardiansText}>
-                      No guardian information available
+                      {t("components:memberContactModal.noGuardianInfo")}
                     </Text>
                   </View>
                 )}

@@ -11,6 +11,7 @@ import { paymentService } from "@/services/paymentService";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
@@ -50,6 +51,7 @@ export default function NotificationBell({
   iconColor = theme.colors.white,
 }: NotificationBellProps) {
   const router = useRouter();
+  const { t } = useTranslation(["components", "common"]);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
@@ -377,14 +379,14 @@ export default function NotificationBell({
           >
             {/* Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Notifications</Text>
+              <Text style={styles.modalTitle}>{t("components:notificationBell.notifications")}</Text>
               <View style={styles.headerActions}>
                 {unreadCount > 0 && (
                   <TouchableOpacity
                     onPress={handleMarkAllAsRead}
                     style={styles.markAllButton}
                   >
-                    <Text style={styles.markAllText}>Mark all read</Text>
+                    <Text style={styles.markAllText}>{t("components:notificationBell.markAllRead")}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -412,7 +414,7 @@ export default function NotificationBell({
                   size={48}
                   color={theme.colors.textSecondary}
                 />
-                <Text style={styles.emptyText}>No notifications</Text>
+                <Text style={styles.emptyText}>{t("components:notificationBell.noNotifications")}</Text>
               </View>
             ) : (
               <FlatList
@@ -430,7 +432,7 @@ export default function NotificationBell({
       {/* Payment Confirmation Modal */}
       <ConfirmationModal
         visible={paymentModalVisible}
-        title="Payment Required"
+        title={t("components:notificationBell.paymentRequired")}
         message={
           selectedPaymentNotification
             ? `${selectedPaymentNotification.message}\n\nAmount: ${formatPaymentAmount(
@@ -439,8 +441,8 @@ export default function NotificationBell({
               )}${selectedPaymentNotification.groupName ? `\nGroup: ${selectedPaymentNotification.groupName}` : ""}`
             : ""
         }
-        confirmText={paymentLoading ? "Processing..." : "Pay Now"}
-        cancelText="Later"
+        confirmText={paymentLoading ? t("components:notificationBell.processing") : t("components:notificationBell.payNow")}
+        cancelText={t("components:notificationBell.later")}
         onConfirm={handlePayNow}
         onCancel={handlePayLater}
         confirmDisabled={paymentLoading}
@@ -449,7 +451,7 @@ export default function NotificationBell({
       {/* Payment Error Modal */}
       <ConfirmationModal
         visible={!!paymentError}
-        title="Payment Error"
+        title={t("components:notificationBell.paymentError")}
         message={paymentError || ""}
         confirmText="OK"
         onConfirm={() => setPaymentError(null)}

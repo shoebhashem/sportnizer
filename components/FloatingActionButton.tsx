@@ -1,6 +1,7 @@
 import { theme } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   StyleSheet,
   Text,
@@ -35,17 +36,20 @@ interface MultiFABProps {
  */
 export default function FloatingActionButton({
   onPress,
-  text = "New Event",
+  text,
   style,
   icon = "add",
   color = theme.colors.secondary,
 }: FloatingActionButtonProps) {
+  const { t } = useTranslation(["components", "common"]);
+  const resolvedText = text || t("components:floatingActionButton.newEvent");
+
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[styles.fab, { borderColor: color }, style]}
     >
-      <Text style={[styles.fabText, { color }]}>{text}</Text>
+      <Text style={[styles.fabText, { color }]}>{resolvedText}</Text>
       <Ionicons name={icon} size={20} color={color} />
     </TouchableOpacity>
   );
@@ -92,6 +96,8 @@ export function NewsEventFAB({
   onEventPress: () => void;
   style?: ViewStyle;
 }) {
+  const { t } = useTranslation(["components", "common"]);
+
   return (
     <View style={[styles.dualFabContainer, style]}>
       {/* News FAB (Blue) - Top */}
@@ -99,7 +105,7 @@ export function NewsEventFAB({
         onPress={onNewsPress}
         style={[styles.fab, styles.newsFab]}
       >
-        <Text style={[styles.fabText, styles.newsText]}>News</Text>
+        <Text style={[styles.fabText, styles.newsText]}>{t("components:floatingActionButton.news")}</Text>
         <Ionicons
           name="newspaper-outline"
           size={22}
@@ -112,7 +118,7 @@ export function NewsEventFAB({
         onPress={onEventPress}
         style={[styles.fab, styles.eventFab]}
       >
-        <Text style={[styles.fabText, styles.eventText]}>Event</Text>
+        <Text style={[styles.fabText, styles.eventText]}>{t("components:floatingActionButton.event")}</Text>
         <Ionicons
           name="calendar-outline"
           size={22}

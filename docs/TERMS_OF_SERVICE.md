@@ -8,21 +8,21 @@
 
 ## 1. Introduction & Acceptance
 
-Welcome to Sportnizer ("Service," "Platform," "we," "us," or "our"). These Terms of Service ("Terms") govern your access to and use of Sportnizer, a platform for managing sports clubs, groups, events, and member communications.
+Welcome to Clubnizer ("Service," "Platform," "we," "us," or "our"). These Terms of Service ("Terms") govern your access to and use of Clubnizer, a platform for managing sports clubs, groups, events, and member communications.
 
-By creating an account, accessing, or using Sportnizer, you agree to be bound by these Terms and our Privacy Policy. If you do not agree to these Terms, you may not use the Service.
+By creating an account, accessing, or using Clubnizer, you agree to be bound by these Terms and our Privacy Policy. If you do not agree to these Terms, you may not use the Service.
 
 ---
 
 ## 2. Definitions
 
-- **"Club"**: An organization created on Sportnizer to manage sports teams, groups, and members.
+- **"Club"**: An organization created on Clubnizer to manage sports teams, groups, and members.
 - **"Club Administrator"**: A user with administrative privileges over a Club, including the ability to add/remove members, manage groups, and configure Club settings.
 - **"Member"**: A user who belongs to one or more Clubs on the Platform.
 - **"Youth Member"**: A member under the age of 16 who requires guardian association.
 - **"Guardian"**: An adult user responsible for a Youth Member's participation on the Platform.
 - **"Data Controller"**: The entity that determines the purposes and means of processing personal data (Clubs, in the context of Club member data).
-- **"Data Processor"**: The entity that processes personal data on behalf of a Data Controller (Sportnizer, in the context of Club member data).
+- **"Data Processor"**: The entity that processes personal data on behalf of a Data Controller (Clubnizer, in the context of Club member data).
 - **"Personal Data"**: Any information relating to an identified or identifiable individual.
 
 ---
@@ -47,7 +47,7 @@ You are responsible for:
 
 ### 3.3 Authority to Bind
 
-**If you create or administer a Club on Sportnizer, you represent and warrant that you have the authority to bind the Club (and, if applicable, the legal entity it represents) to these Terms, including the Data Processing provisions contained herein.** If you do not have such authority, you must not create or administer a Club on the Platform.
+**If you create or administer a Club on Clubnizer, you represent and warrant that you have the authority to bind the Club (and, if applicable, the legal entity it represents) to these Terms, including the Data Processing provisions contained herein.** If you do not have such authority, you must not create or administer a Club on the Platform.
 
 ---
 
@@ -70,34 +70,34 @@ Clubs and their designated administrators act as **Data Controllers** for person
 - The guardian has provided appropriate consent for the Youth Member's participation
 - The guardian's contact information is accurate and current
 
-**Sportnizer does not independently verify that guardian consent has been obtained.** Clubs and their administrators bear sole responsibility for ensuring appropriate consent is in place before adding Youth Members.
+**Clubnizer does not independently verify that guardian consent has been obtained.** Clubs and their administrators bear sole responsibility for ensuring appropriate consent is in place before adding Youth Members.
 
 ### 4.3 Lawful Basis
 
-Club administrators must ensure they have a valid lawful basis (such as consent, legitimate interests, or contractual necessity) for processing member data within their Club. Sportnizer does not determine or verify the lawful basis for Club data processing activities.
+Club administrators must ensure they have a valid lawful basis (such as consent, legitimate interests, or contractual necessity) for processing member data within their Club. Clubnizer does not determine or verify the lawful basis for Club data processing activities.
 
 ---
 
-## 5. Sportnizer as Data Processor
+## 5. Clubnizer as Data Processor
 
 ### 5.1 Processor Role
 
-Sportnizer acts solely as a **Data Processor** on behalf of Clubs for data processed within Clubs. In this capacity, Sportnizer:
+Clubnizer acts solely as a **Data Processor** on behalf of Clubs for data processed within Clubs. In this capacity, Clubnizer:
 
 - Processes personal data only on documented instructions from Clubs
 - **Does not independently determine the purposes or means of processing Club member data**
 - Does not use Club member data for its own purposes beyond providing and improving the Service
 - Implements appropriate technical and organizational measures to protect personal data
 
-### 5.2 Sportnizer's Own Processing
+### 5.2 Clubnizer's Own Processing
 
-For data directly related to your Sportnizer account (such as your email address and login credentials), Sportnizer acts as a Data Controller and processes such data to provide and maintain the Service.
+For data directly related to your Clubnizer account (such as your email address and login credentials), Clubnizer acts as a Data Controller and processes such data to provide and maintain the Service.
 
 ---
 
 ## 6. Data Processing Agreement
 
-This section constitutes the Data Processing Agreement ("DPA") between Sportnizer (Processor) and Clubs (Controllers) as required under applicable data protection laws.
+This section constitutes the Data Processing Agreement ("DPA") between Clubnizer (Processor) and Clubs (Controllers) as required under applicable data protection laws.
 
 ### 6.1 Scope of Processing
 
@@ -122,7 +122,7 @@ This section constitutes the Data Processing Agreement ("DPA") between Sportnize
 
 ### 6.2 Processor Obligations
 
-Sportnizer shall:
+Clubnizer shall:
 
 a) Process personal data only on documented instructions from the Controller, unless required by law
 
@@ -142,7 +142,7 @@ h) Make available to the Controller information necessary to demonstrate complia
 
 ### 6.3 Sub-Processors
 
-Sportnizer engages the following sub-processors:
+Clubnizer engages the following sub-processors:
 
 | Sub-Processor           | Purpose                                  | Location   |
 | ----------------------- | ---------------------------------------- | ---------- |
@@ -154,7 +154,7 @@ We may update this list from time to time. Material changes to sub-processors wi
 
 ### 6.4 Security Measures
 
-Sportnizer implements appropriate technical and organizational measures to protect personal data, taking into account the state of the art, costs of implementation, and the nature of processing. These measures are designed to ensure a level of security appropriate to the risk, including:
+Clubnizer implements appropriate technical and organizational measures to protect personal data, taking into account the state of the art, costs of implementation, and the nature of processing. These measures are designed to ensure a level of security appropriate to the risk, including:
 
 - Encryption of data in transit and at rest
 - Access controls and authentication mechanisms
@@ -165,7 +165,7 @@ We do not guarantee absolute security, as no method of transmission over the Int
 
 ### 6.5 Data Breach Notification
 
-In the event of a personal data breach affecting Club data, Sportnizer will notify the affected Club **without undue delay and in accordance with applicable law**. Notification will include, to the extent known:
+In the event of a personal data breach affecting Club data, Clubnizer will notify the affected Club **without undue delay and in accordance with applicable law**. Notification will include, to the extent known:
 
 - The nature of the breach
 - Categories and approximate number of data subjects affected
@@ -175,7 +175,7 @@ In the event of a personal data breach affecting Club data, Sportnizer will noti
 
 ### 6.6 Assistance with Data Subject Rights
 
-Sportnizer will assist Controllers in responding to data subject requests (access, rectification, erasure, restriction, portability, objection) by:
+Clubnizer will assist Controllers in responding to data subject requests (access, rectification, erasure, restriction, portability, objection) by:
 
 - Providing technical means for Controllers to access and export member data
 - Implementing data subject requests as instructed by Controllers
@@ -183,19 +183,19 @@ Sportnizer will assist Controllers in responding to data subject requests (acces
 
 ### 6.7 Audit Rights
 
-Upon reasonable written request and subject to confidentiality obligations, Sportnizer will make available to the Club information necessary to demonstrate compliance with processor obligations. Audits shall be:
+Upon reasonable written request and subject to confidentiality obligations, Clubnizer will make available to the Club information necessary to demonstrate compliance with processor obligations. Audits shall be:
 
 - Limited to **once per calendar year** unless a data breach or regulatory inquiry necessitates additional review
 - Conducted with **reasonable advance notice** (minimum 30 days)
 - Limited in **scope** to matters directly relevant to the Club's data
-- Subject to **confidentiality** requirements protecting Sportnizer's proprietary information and other customers' data
-- Conducted at the **Club's expense** unless the audit reveals material non-compliance by Sportnizer
+- Subject to **confidentiality** requirements protecting Clubnizer's proprietary information and other customers' data
+- Conducted at the **Club's expense** unless the audit reveals material non-compliance by Clubnizer
 
 ### 6.8 Data Return and Deletion
 
 Upon termination of the Service relationship or upon Controller request:
 
-- Sportnizer will delete or return personal data within 30 days
+- Clubnizer will delete or return personal data within 30 days
 - Certain data may be retained where required by law or for legitimate business purposes (such as fraud prevention)
 - Confirmation of deletion will be provided upon request
 
@@ -230,13 +230,13 @@ We reserve the right to remove content that violates these standards.
 
 ## 8. Intellectual Property
 
-### 8.1 Sportnizer Ownership
+### 8.1 Clubnizer Ownership
 
-The Service, including its design, features, and content (excluding user content), is owned by Sportnizer and protected by intellectual property laws. You may not copy, modify, distribute, or reverse engineer any part of the Service without our written permission.
+The Service, including its design, features, and content (excluding user content), is owned by Clubnizer and protected by intellectual property laws. You may not copy, modify, distribute, or reverse engineer any part of the Service without our written permission.
 
 ### 8.2 User Content
 
-You retain ownership of content you create on the Platform. By posting content, you grant Sportnizer a non-exclusive, worldwide, royalty-free license to use, display, and distribute such content solely for the purpose of providing the Service.
+You retain ownership of content you create on the Platform. By posting content, you grant Clubnizer a non-exclusive, worldwide, royalty-free license to use, display, and distribute such content solely for the purpose of providing the Service.
 
 ### 8.3 Feedback
 
@@ -256,9 +256,9 @@ We may modify, suspend, or discontinue the Service (or any part thereof) at any 
 
 **To the maximum extent permitted by applicable law:**
 
-- Sportnizer shall not be liable for any indirect, incidental, special, consequential, or punitive damages
-- Sportnizer shall not be liable for any loss of profits, revenue, data, or business opportunities
-- Sportnizer's total aggregate liability shall not exceed the fees paid by you in the twelve (12) months preceding the claim
+- Clubnizer shall not be liable for any indirect, incidental, special, consequential, or punitive damages
+- Clubnizer shall not be liable for any loss of profits, revenue, data, or business opportunities
+- Clubnizer's total aggregate liability shall not exceed the fees paid by you in the twelve (12) months preceding the claim
 - These limitations apply regardless of the theory of liability (contract, tort, negligence, or otherwise)
 
 **Some jurisdictions do not allow limitation of liability for certain damages. In such jurisdictions, our liability is limited to the greatest extent permitted by applicable law.**
@@ -273,14 +273,14 @@ Nothing in these Terms excludes or limits liability for:
 
 ## 11. Indemnification
 
-You agree to indemnify, defend, and hold harmless Sportnizer and its officers, directors, employees, and agents from and against any claims, damages, losses, costs, and expenses (including reasonable legal fees) arising from:
+You agree to indemnify, defend, and hold harmless Clubnizer and its officers, directors, employees, and agents from and against any claims, damages, losses, costs, and expenses (including reasonable legal fees) arising from:
 
 - Your use of the Service
 - Your violation of these Terms
 - Your violation of any third-party rights
 - Content you post on the Platform
 
-Club administrators additionally agree to indemnify Sportnizer for any claims arising from their failure to:
+Club administrators additionally agree to indemnify Clubnizer for any claims arising from their failure to:
 
 - Obtain proper guardian consent for Youth Members
 - Establish lawful basis for processing member data
@@ -294,7 +294,7 @@ Club administrators additionally agree to indemnify Sportnizer for any claims ar
 
 You may delete your account at any time through the Platform settings. Account deletion is subject to a 30-day grace period during which you may reactivate your account.
 
-### 12.2 Termination by Sportnizer
+### 12.2 Termination by Clubnizer
 
 We may suspend or terminate your account if:
 
@@ -327,7 +327,7 @@ Your continued use of the Service after changes take effect constitutes acceptan
 
 ## 14. Entire Agreement
 
-These Terms, together with the Privacy Policy, constitute the entire agreement between you and Sportnizer regarding the Service and supersede all prior agreements, understandings, and communications, whether written or oral.
+These Terms, together with the Privacy Policy, constitute the entire agreement between you and Clubnizer regarding the Service and supersede all prior agreements, understandings, and communications, whether written or oral.
 
 ---
 
@@ -339,9 +339,9 @@ If any provision of these Terms is held to be invalid, illegal, or unenforceable
 
 ## 16. Assignment
 
-You may not assign or transfer these Terms or any rights hereunder without Sportnizer's prior written consent. Any attempted assignment in violation of this section shall be void.
+You may not assign or transfer these Terms or any rights hereunder without Clubnizer's prior written consent. Any attempted assignment in violation of this section shall be void.
 
-Sportnizer may assign these Terms without restriction, including in connection with a merger, acquisition, or sale of assets.
+Clubnizer may assign these Terms without restriction, including in connection with a merger, acquisition, or sale of assets.
 
 ---
 
@@ -357,9 +357,9 @@ Any disputes arising from or relating to these Terms or the Service shall be sub
 
 For questions about these Terms, please contact us at:
 
-- **General Support**: [support@sportnizer.com]
-- **Legal Inquiries**: [legal@sportnizer.com]
+- **General Support**: [support@clubnizer.com]
+- **Legal Inquiries**: [legal@clubnizer.com]
 
 ---
 
-_By using Sportnizer, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service._
+_By using Clubnizer, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service._

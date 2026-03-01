@@ -32,7 +32,7 @@ const emailHeader = (subtitle?: string) => `
   ">
     <img 
       src="${LOGO_URL}"
-      alt="Sportnizer Logo"
+      alt="Clubnizer Logo"
       width="60"
       style="display:block; margin: 0 auto 12px auto;"
     />
@@ -44,7 +44,7 @@ const emailHeader = (subtitle?: string) => `
       font-weight: 600;
       letter-spacing: 0.5px;
     ">
-      Sportnizer
+      Clubnizer
     </h1>
 
     ${

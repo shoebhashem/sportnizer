@@ -7,6 +7,7 @@ import { functions } from "@/services/core/firebase";
 import { router } from "expo-router";
 import { httpsCallable } from "firebase/functions";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     ScrollView,
@@ -19,6 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CreateClubForm() {
+  const { t } = useTranslation(["screens", "common"]);
   const { user } = useAuth();
   const { userProfile, refreshUserProfile } = useUser();
 
@@ -45,8 +47,8 @@ export default function CreateClubForm() {
     if (!clubName.trim()) {
       setModal({
         visible: true,
-        title: "Missing Information",
-        message: "Please enter a club name",
+        title: t("common:validation.missingInformation"),
+        message: t("screens:createClubForm.errors.clubNameRequired"),
         type: "error",
       });
       return;
@@ -55,8 +57,8 @@ export default function CreateClubForm() {
     if (!user) {
       setModal({
         visible: true,
-        title: "Authentication Required",
-        message: "Please sign in to create a club",
+        title: t("common:permissionRequired"),
+        message: t("common:signingIn"),
         type: "error",
       });
       return;
@@ -164,8 +166,8 @@ export default function CreateClubForm() {
       // Success!
       setModal({
         visible: true,
-        title: "Club Created! 🎉",
-        message: `${clubName} has been successfully created. You can now create groups and invite members.`,
+        title: t("screens:createClubForm.clubCreated"),
+        message: t("screens:createClubForm.clubCreatedMessage", { clubName }),
         type: "success",
       });
 
@@ -180,17 +182,18 @@ export default function CreateClubForm() {
       if (error.code === "functions/resource-exhausted") {
         setModal({
           visible: true,
-          title: "Club Limit Reached",
+          title: t("screens:createClubForm.errors.clubLimitReached"),
           message:
             error.message ||
-            "You have reached your club creation limit. Please contact support@sportnizer.com to upgrade your plan.",
+            t("screens:createClubForm.errors.clubLimitReachedMessage"),
           type: "error",
         });
       } else {
         setModal({
           visible: true,
-          title: "Error",
-          message: error.message || "Failed to create club. Please try again.",
+          title: t("common:error"),
+          message:
+            error.message || t("screens:createClubForm.errors.createFailed"),
           type: "error",
         });
       }
@@ -203,9 +206,11 @@ export default function CreateClubForm() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Create Your Club</Text>
+          <Text style={styles.title}>
+            {t("screens:createClubForm.createYourClub")}
+          </Text>
           <Text style={styles.subtitle}>
-            Set up your sports organization and start managing teams
+            {t("screens:createClubForm.subtitle")}
           </Text>
         </View>
 
@@ -213,11 +218,12 @@ export default function CreateClubForm() {
           {/* Club Name */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>
-              Club Name <Text style={styles.required}>*</Text>
+              {t("screens:createClubForm.clubName")}{" "}
+              <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g., Springfield Soccer Club"
+              placeholder={t("screens:createClubForm.clubNamePlaceholder")}
               placeholderTextColor={theme.colors.textSecondary}
               value={clubName}
               onChangeText={setClubName}
@@ -228,10 +234,14 @@ export default function CreateClubForm() {
 
           {/* Description */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Description (Optional)</Text>
+            <Text style={styles.label}>
+              {t("screens:createClubForm.clubDescription")}
+            </Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Tell us about your club..."
+              placeholder={t(
+                "screens:createClubForm.clubDescriptionPlaceholder",
+              )}
               placeholderTextColor={theme.colors.textSecondary}
               value={description}
               onChangeText={setDescription}
@@ -244,10 +254,10 @@ export default function CreateClubForm() {
 
           {/* Location */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Location (Optional)</Text>
+            <Text style={styles.label}>{t("common:location")}</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g., Springfield, IL"
+              placeholder={t("screens:clubInfo.locationPlaceholder")}
               placeholderTextColor={theme.colors.textSecondary}
               value={location}
               onChangeText={setLocation}
@@ -262,7 +272,7 @@ export default function CreateClubForm() {
               <ActivityIndicator size="large" color={theme.colors.secondary} />
             ) : (
               <Button
-                label="Create Club"
+                label={t("screens:createClubForm.createClub")}
                 theme="primary"
                 onPress={handleCreateClub}
               />
@@ -275,9 +285,11 @@ export default function CreateClubForm() {
             onPress={() => router.replace("/(tabs)")}
             disabled={loading}
           >
-            <Text style={styles.skipText}>Skip for now</Text>
+            <Text style={styles.skipText}>
+              {t("screens:createClubForm.skipForNow")}
+            </Text>
             <Text style={styles.skipSubtext}>
-              You can create or join a club later
+              {t("screens:createClubForm.skipSubtext")}
             </Text>
           </TouchableOpacity>
         </View>

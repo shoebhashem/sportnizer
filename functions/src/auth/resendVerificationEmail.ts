@@ -72,7 +72,7 @@ export const resendVerificationEmail = onCall(
       const mailOptions = {
         from: config.email.from,
         to: email,
-        subject: "Verify Your Sportnizer Account - Resent",
+        subject: "Verify Your Clubnizer Account - Resent",
         html: emailVerificationTemplate(
           userData.name || "User",
           verificationLink,

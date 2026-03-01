@@ -1,35 +1,37 @@
-import Button from '@/components/Button';
-import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUser } from '@/contexts/UserContext';
-import { router } from 'expo-router';
-import React, { useEffect } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Button from "@/components/Button";
+import { theme } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@/contexts/UserContext";
+import { router } from "expo-router";
+import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function WelcomeScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { user } = useAuth();
   const { userProfile } = useUser();
 
   // Redirect authenticated users with clubs to home
   useEffect(() => {
     if (user && userProfile?.clubAccess && userProfile.clubAccess.length > 0) {
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     }
   }, [user, userProfile]);
 
   const handleCreateClub = () => {
     if (user) {
       // User is authenticated but has no clubs - go directly to create club form
-      router.replace('/create-club-form');
+      router.replace("/create-club-form");
     } else {
       // User needs to sign up first
-      router.replace('/signup?action=createClub' as any);
+      router.replace("/signup?action=createClub" as any);
     }
   };
 
   const handleSignIn = () => {
-    router.replace('/login');
+    router.replace("/login");
   };
 
   return (
@@ -37,52 +39,63 @@ export default function WelcomeScreen() {
       <View style={styles.content}>
         {/* Logo/Icon Section */}
         <View style={styles.logoContainer}>
-          <Image 
-            source={require('@/assets/images/sportnizer_logo.png')} 
+          <Image
+            source={require("@/assets/images/clubnizer_logo.png")}
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.logoText}>Sportnizer</Text>
+          <Text style={styles.logoText}>Clubnizer</Text>
         </View>
 
         {/* Tagline */}
         <View style={styles.taglineContainer}>
-          <Text style={styles.tagline}>Organize teams.</Text>
-          <Text style={styles.tagline}>Schedule events.</Text>
-          <Text style={styles.tagline}>Stay connected.</Text>
+          <Text style={styles.tagline}>{t("screens:welcome.tagline")}</Text>
         </View>
 
         {/* Main Action Button */}
         <View style={styles.actionContainer}>
           <Button
-            label="🏢 Create Your Club"
+            label={t("screens:welcome.getStarted")}
             theme="primary"
             onPress={handleCreateClub}
           />
           <Text style={styles.actionSubtext}>
-            {user 
+            {user
               ? "Set up your organization and start managing teams"
-              : "Get started in minutes - no experience needed"
-            }
+              : "Get started in minutes - no experience needed"}
           </Text>
         </View>
 
         {/* Sign In Option */}
         {!user && (
           <View style={styles.signInContainer}>
-            <Text style={styles.signInText}>Already have an account?</Text>
+            <Text style={styles.signInText}>
+              {t("screens:welcome.alreadyHaveAccount")}
+            </Text>
             <TouchableOpacity onPress={handleSignIn}>
-              <Text style={styles.signInLink}>Sign In →</Text>
+              <Text style={styles.signInLink}>{t("common:signIn")} →</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Features List (optional) */}
         <View style={styles.featuresContainer}>
-          <FeatureItem icon="✓" text="Create clubs and groups" />
-          <FeatureItem icon="✓" text="Schedule events and practices" />
-          <FeatureItem icon="✓" text="Communicate with teams" />
-          <FeatureItem icon="✓" text="Track attendance and responses" />
+          <FeatureItem
+            icon="✓"
+            text={t("screens:welcome.features.teamManagementDesc")}
+          />
+          <FeatureItem
+            icon="✓"
+            text={t("screens:welcome.features.eventSchedulingDesc")}
+          />
+          <FeatureItem
+            icon="✓"
+            text={t("screens:welcome.features.communicationDesc")}
+          />
+          <FeatureItem
+            icon="✓"
+            text={t("screens:welcome.features.paymentsDesc")}
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -104,18 +117,18 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: theme.layout.containerPadding,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: theme.spacing.xl,
   },
   logo: {
     width: 120,
     height: 120,
     marginBottom: theme.spacing.md,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   logoText: {
     fontSize: theme.typography.fontSize.xxlarge,
@@ -123,7 +136,7 @@ const styles = StyleSheet.create({
     color: theme.colors.secondary,
   },
   taglineContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: theme.spacing.xxl,
   },
   tagline: {
@@ -132,19 +145,19 @@ const styles = StyleSheet.create({
     marginVertical: theme.spacing.xs,
   },
   actionContainer: {
-    width: '100%',
+    width: "100%",
     marginBottom: theme.spacing.xl,
   },
   actionSubtext: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
   },
   signInContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: theme.spacing.xxl,
   },
   signInText: {
@@ -158,12 +171,12 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.semibold,
   },
   featuresContainer: {
-    width: '100%',
+    width: "100%",
     marginTop: theme.spacing.xl,
   },
   featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: theme.spacing.sm,
   },
   featureIcon: {

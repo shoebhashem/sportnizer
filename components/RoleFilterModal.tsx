@@ -14,6 +14,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
     Modal,
     SafeAreaView,
@@ -100,6 +101,7 @@ export default function RoleFilterModal({
   level = "group",
 }: RoleFilterModalProps) {
   const theme = defaultTheme.colors;
+  const { t } = useTranslation(["components", "common"]);
   const [tempSelectedRoles, setTempSelectedRoles] =
     React.useState<ClubRole[]>(selectedRoles);
 
@@ -142,6 +144,32 @@ export default function RoleFilterModal({
     setTempSelectedRoles(ROLES.map((r) => r.value));
   };
 
+  // Translate role label
+  const getRoleLabel = (value: ClubRole): string => {
+    const map: Record<ClubRole, string> = {
+      "player": t("components:roleFilterModal.roles.players"),
+      "player-underage": t("components:roleFilterModal.roles.youthPlayers"),
+      "coach": t("components:roleFilterModal.roles.coaches"),
+      "admin": t("components:roleFilterModal.roles.admins"),
+      "club-admin": t("components:roleFilterModal.roles.clubAdmins"),
+      "guardian": t("components:roleFilterModal.roles.guardians"),
+    };
+    return map[value] || value;
+  };
+
+  // Translate role description
+  const getRoleDescription = (value: ClubRole): string => {
+    const map: Record<ClubRole, string> = {
+      "player": t("components:roleFilterModal.roles.playersDesc"),
+      "player-underage": t("components:roleFilterModal.roles.youthPlayersDesc"),
+      "coach": t("components:roleFilterModal.roles.coachesDesc"),
+      "admin": t("components:roleFilterModal.roles.adminsDesc"),
+      "club-admin": t("components:roleFilterModal.roles.clubAdminsDesc"),
+      "guardian": t("components:roleFilterModal.roles.guardiansDesc"),
+    };
+    return map[value] || "";
+  };
+
   return (
     <Modal
       visible={visible}
@@ -158,11 +186,11 @@ export default function RoleFilterModal({
             <Ionicons name="close" size={24} color={theme.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.text }]}>
-            Filter by Role
+            {t("components:roleFilterModal.filterByRole")}
           </Text>
           <TouchableOpacity onPress={handleApply} style={styles.headerButton}>
             <Text style={[styles.applyText, { color: theme.secondary }]}>
-              Apply
+              {t("components:roleFilterModal.apply")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -179,7 +207,7 @@ export default function RoleFilterModal({
             style={styles.quickActionButton}
           >
             <Text style={[styles.quickActionText, { color: theme.secondary }]}>
-              Select All
+              {t("components:roleFilterModal.selectAll")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -187,7 +215,7 @@ export default function RoleFilterModal({
             style={styles.quickActionButton}
           >
             <Text style={[styles.quickActionText, { color: theme.secondary }]}>
-              Clear All
+              {t("components:roleFilterModal.clearAll")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -198,7 +226,7 @@ export default function RoleFilterModal({
           contentContainerStyle={styles.contentContainer}
         >
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            Select which roles should receive this event invitation
+            {t("components:roleFilterModal.selectWhichRoles")}
           </Text>
 
           {ROLES.map((role) => {
@@ -237,7 +265,7 @@ export default function RoleFilterModal({
                   </View>
                   <View style={styles.roleTextContainer}>
                     <Text style={[styles.roleLabel, { color: theme.text }]}>
-                      {role.label}
+                      {getRoleLabel(role.value)}
                     </Text>
                     <Text
                       style={[
@@ -245,7 +273,7 @@ export default function RoleFilterModal({
                         { color: theme.textSecondary },
                       ]}
                     >
-                      {role.description}
+                      {getRoleDescription(role.value)}
                     </Text>
                   </View>
                 </View>
@@ -287,8 +315,8 @@ export default function RoleFilterModal({
             />
             <Text style={[styles.summaryText, { color: theme.textSecondary }]}>
               {tempSelectedRoles.length === 0
-                ? "No roles selected - entire group will be invited"
-                : `${tempSelectedRoles.length} role${tempSelectedRoles.length > 1 ? "s" : ""} selected`}
+                ? t("components:roleFilterModal.noRolesSelected")
+                : t("components:roleFilterModal.rolesSelected", { count: tempSelectedRoles.length })}
             </Text>
           </View>
         </ScrollView>

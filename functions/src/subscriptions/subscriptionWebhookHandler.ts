@@ -1,7 +1,7 @@
 /**
  * Subscription Webhook Handler
  *
- * Handles Stripe webhook events for platform subscriptions (Clubs → Sportnizer).
+ * Handles Stripe webhook events for platform subscriptions (Clubs → Clubnizer).
  * This is separate from the existing stripeWebhookHandler which handles member payments.
  *
  * Events handled:

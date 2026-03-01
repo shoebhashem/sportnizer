@@ -1,5 +1,6 @@
 import { theme } from '@/constants/theme';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface GenderPickerProps {
@@ -22,7 +23,18 @@ const GenderPicker: React.FC<GenderPickerProps> = ({
   onChange,
   error
 }) => {
+  const { t } = useTranslation(["components", "common"]);
   const [showOptions, setShowOptions] = useState(false);
+
+  const getGenderLabel = (val: string): string => {
+    const labelMap: Record<string, string> = {
+      'male': t("components:genderPicker.male"),
+      'female': t("components:genderPicker.female"),
+      'other': t("components:genderPicker.other"),
+      'prefer-not-to-say': t("components:genderPicker.preferNotToSay"),
+    };
+    return labelMap[val] || val;
+  };
 
   const handleSelect = (selectedGender: 'male' | 'female' | 'other' | 'prefer-not-to-say') => {
     onChange(selectedGender);
@@ -30,8 +42,8 @@ const GenderPicker: React.FC<GenderPickerProps> = ({
   };
 
   const getDisplayText = () => {
-    const option = genderOptions.find(opt => opt.value === value);
-    return option ? option.label : 'Select gender';
+    if (!value) return t("components:genderPicker.selectGender");
+    return getGenderLabel(value);
   };
 
   return (
@@ -51,7 +63,7 @@ const GenderPicker: React.FC<GenderPickerProps> = ({
       <Modal visible={showOptions} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select {label}</Text>
+            <Text style={styles.modalTitle}>{t("components:genderPicker.selectLabel", { label })}</Text>
             <ScrollView style={styles.optionsContainer}>
               {genderOptions.map((option) => (
                 <TouchableOpacity
@@ -66,7 +78,7 @@ const GenderPicker: React.FC<GenderPickerProps> = ({
                     styles.optionText,
                     value === option.value && styles.selectedOptionText
                   ]}>
-                    {option.label}
+                    {getGenderLabel(option.value)}
                   </Text>
                 </TouchableOpacity>
               ))}

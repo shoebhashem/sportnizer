@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { httpsCallable } from "firebase/functions";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     KeyboardAvoidingView,
     Platform,
@@ -18,6 +19,7 @@ import { functions } from "../services/core/firebase";
 import { memberService } from "../services/member";
 
 export default function AddMembersScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { groupId, groupName, inviterName, ageGroup } = useLocalSearchParams<{
     groupId: string;
     groupName: string;
@@ -56,10 +58,10 @@ export default function AddMembersScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
-            Missing required information to send invitations
+            {t("screens:addMembers.missingRequiredInfo")}
           </Text>
           <Button
-            label="Go Back"
+            label={t("common:goBack")}
             onPress={() => router.back()}
             theme="secondary"
           />
@@ -76,13 +78,13 @@ export default function AddMembersScreen() {
   // Handle adding child for ageGroup 1
   const handleAddChild = async () => {
     if (!childName.trim()) {
-      setModalMessage("Please enter the child's name.");
+      setModalMessage(t("screens:addMembers.pleaseEnterChildName"));
       setErrorModalVisible(true);
       return;
     }
 
     if (!groupId) {
-      setModalMessage("Group ID is missing. Please try again.");
+      setModalMessage(t("screens:addMembers.groupIdMissing"));
       setErrorModalVisible(true);
       return;
     }
@@ -137,7 +139,7 @@ export default function AddMembersScreen() {
     }
 
     if (!groupId) {
-      setModalMessage("Group ID is missing. Please try again.");
+      setModalMessage(t("screens:addMembers.groupIdMissing"));
       setErrorModalVisible(true);
       return;
     }
@@ -197,12 +199,11 @@ export default function AddMembersScreen() {
       if (error.code === "functions/invalid-argument") {
         errorMessage = `Invalid data: ${error.message}`;
       } else if (error.code === "functions/unauthenticated") {
-        errorMessage = "You must be logged in to send invitations.";
+        errorMessage = t("screens:addMembers.errors.unauthenticated");
       } else if (error.code === "functions/already-exists") {
-        errorMessage = "This user is already a member of the team.";
+        errorMessage = t("screens:addMembers.errors.alreadyExists");
       } else if (error.code === "functions/already-invited") {
-        errorMessage =
-          "An invitation has already been sent to this email address.";
+        errorMessage = t("screens:addMembers.errors.alreadyInvited");
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -249,7 +250,9 @@ export default function AddMembersScreen() {
         >
           <View style={styles.header}>
             <Text style={styles.title}>
-              {parsedAgeGroup === 1 ? "Add Child" : "Invite Team Member"}
+              {parsedAgeGroup === 1
+                ? t("screens:addMembers.addChild")
+                : t("screens:addMembers.inviteTeamMember")}
             </Text>
             <Text style={styles.subtitle}>
               {parsedAgeGroup === 1
@@ -263,10 +266,12 @@ export default function AddMembersScreen() {
               // ageGroup 1: Child addition form
               <>
                 <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Child&apos;s Name *</Text>
+                  <Text style={styles.inputLabel}>
+                    {t("screens:addMembers.childName")}
+                  </Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter child's name"
+                    placeholder={t("screens:addMembers.childNamePlaceholder")}
                     value={childName}
                     onChangeText={setChildName}
                     autoCapitalize="words"
@@ -276,10 +281,12 @@ export default function AddMembersScreen() {
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Birth Date (Optional)</Text>
+                  <Text style={styles.inputLabel}>
+                    {t("screens:addMembers.birthDateOptional")}
+                  </Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="YYYY-MM-DD"
+                    placeholder={t("screens:addMembers.birthDatePlaceholder")}
                     value={childBirthDate}
                     onChangeText={setChildBirthDate}
                     autoCapitalize="none"
@@ -290,7 +297,7 @@ export default function AddMembersScreen() {
 
                 <View style={styles.buttonContainer}>
                   <Button
-                    label="Add Child"
+                    label={t("screens:addMembers.addChildButton")}
                     onPress={handleAddChild}
                     theme="primary"
                     loading={loading}
@@ -298,7 +305,7 @@ export default function AddMembersScreen() {
                   />
 
                   <Button
-                    label="Cancel"
+                    label={t("common:cancel")}
                     onPress={handleCancel}
                     theme="secondary"
                     disabled={loading}
@@ -309,10 +316,12 @@ export default function AddMembersScreen() {
               // ageGroup 2: Email invitation form
               <>
                 <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Email Address</Text>
+                  <Text style={styles.inputLabel}>
+                    {t("screens:addMembers.emailAddress")}
+                  </Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter team member's email"
+                    placeholder={t("screens:addMembers.emailPlaceholder")}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -324,7 +333,7 @@ export default function AddMembersScreen() {
 
                 <View style={styles.buttonContainer}>
                   <Button
-                    label="Send Invitation"
+                    label={t("screens:addMembers.sendInvitation")}
                     onPress={handleSendInvitation}
                     theme="primary"
                     loading={loading}
@@ -332,7 +341,7 @@ export default function AddMembersScreen() {
                   />
 
                   <Button
-                    label="Cancel"
+                    label={t("common:cancel")}
                     onPress={handleCancel}
                     theme="secondary"
                     disabled={loading}
@@ -347,10 +356,18 @@ export default function AddMembersScreen() {
       {/* Success Modal - Web Compatible */}
       <ConfirmationModal
         visible={successModalVisible}
-        title={parsedAgeGroup === 1 ? "Child Added! 👶" : "Invitation Sent! 📧"}
+        title={
+          parsedAgeGroup === 1
+            ? t("screens:addMembers.childAddedSuccess")
+            : t("screens:addMembers.invitationSentSuccess")
+        }
         message={modalMessage}
-        confirmText={parsedAgeGroup === 1 ? "Add Another" : "Send Another"}
-        cancelText="Done"
+        confirmText={
+          parsedAgeGroup === 1
+            ? t("screens:addMembers.addAnother")
+            : t("screens:addMembers.sendAnother")
+        }
+        cancelText={t("common:done")}
         onConfirm={() => handleSuccessModalConfirm("another")}
         onCancel={() => handleSuccessModalConfirm("done")}
         confirmButtonTheme="primary"
@@ -359,9 +376,9 @@ export default function AddMembersScreen() {
       {/* Error Modal - Web Compatible */}
       <ConfirmationModal
         visible={errorModalVisible}
-        title="Error"
+        title={t("common:error")}
         message={modalMessage}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         cancelText=""
         onConfirm={handleErrorModalClose}
         onCancel={handleErrorModalClose}

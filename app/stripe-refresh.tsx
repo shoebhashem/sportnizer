@@ -7,10 +7,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function StripeRefreshScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { clubId, clubName } = useLocalSearchParams();
 
   const handleRetry = () => {
@@ -42,10 +44,11 @@ export default function StripeRefreshScreen() {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Session Expired</Text>
+        <Text style={styles.title}>
+          {t("screens:stripeRefresh.sessionExpired")}
+        </Text>
         <Text style={styles.subtitle}>
-          Your Stripe onboarding session has timed out or needs to be refreshed.
-          Don&apos;t worry - your progress has been saved!
+          {t("screens:stripeRefresh.sessionTimedOut")}
         </Text>
 
         {/* Info Box */}
@@ -56,20 +59,23 @@ export default function StripeRefreshScreen() {
             color={theme.colors.secondary}
           />
           <Text style={styles.infoText}>
-            For your security, Stripe onboarding links expire after a short
-            time. Simply click below to continue where you left off.
+            {t("screens:stripeRefresh.securityNote")}
           </Text>
         </View>
 
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           <Button
-            label="Continue Setup"
+            label={t("screens:stripeRefresh.continueSetup")}
             onPress={handleRetry}
             theme="primary"
           />
           <View style={styles.buttonSpacer} />
-          <Button label="Go to Home" onPress={handleGoHome} theme="secondary" />
+          <Button
+            label={t("screens:stripeRefresh.goToHome")}
+            onPress={handleGoHome}
+            theme="secondary"
+          />
         </View>
       </View>
     </SafeAreaView>

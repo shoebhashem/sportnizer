@@ -5,6 +5,7 @@ import { theme } from "@/constants/theme";
 import type { EventData } from "@/services/types/event";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface EventCardProps {
@@ -28,6 +29,8 @@ export default function EventCard({
   isCurrentUser,
   isYouthMember,
 }: EventCardProps) {
+  const { t } = useTranslation(["components", "common"]);
+
   // Format date and time
   const formatDate = (dateInput: string | Date) => {
     const date =
@@ -37,9 +40,9 @@ export default function EventCard({
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return "Today";
+      return t("components:eventCard.today");
     } else if (date.toDateString() === tomorrow.toDateString()) {
-      return "Tomorrow";
+      return t("components:eventCard.tomorrow");
     } else {
       return date.toLocaleDateString("en-US", {
         weekday: "short",
@@ -142,7 +145,7 @@ export default function EventCard({
           ]}
         >
           <Text style={styles.inviteeText}>
-            {isCurrentUser ? "You" : inviteeName}
+            {isCurrentUser ? t("components:eventCard.you") : inviteeName}
           </Text>
         </View>
       </View>
@@ -155,7 +158,7 @@ export default function EventCard({
             size={16}
             color={theme.colors.secondary}
           />
-          <Text style={styles.recipientText}>For: {recipientName}</Text>
+          <Text style={styles.recipientText}>{t("components:eventCard.forRecipient", { name: recipientName })}</Text>
         </View>
       )}
 
@@ -193,7 +196,7 @@ export default function EventCard({
               color={theme.colors.accent}
             />
             <Text style={[styles.infoText, { color: theme.colors.accent }]}>
-              Gather: {formatTime(event.gatheringTime)}
+              {t("components:eventCard.gatherTime", { time: formatTime(event.gatheringTime) })}
             </Text>
           </View>
         ) : (
@@ -225,7 +228,7 @@ export default function EventCard({
                 color={theme.colors.secondary}
               />
               <Text style={styles.infoText}>
-                Start: {formatTime(event.startTime)}
+                {t("components:eventCard.startTime", { time: formatTime(event.startTime) })}
                 {event.endTime &&
                   formatTime(event.endTime) &&
                   ` - ${formatTime(event.endTime)}`}
@@ -291,7 +294,7 @@ export default function EventCard({
           </View>
 
           <Text style={styles.summaryTotal}>
-            of {event.responseSummary.totalInvited} invited
+            {t("components:eventCard.ofTotalInvited", { total: event.responseSummary.totalInvited })}
           </Text>
         </View>
       )}
@@ -300,7 +303,7 @@ export default function EventCard({
       {isDeadlineApproaching() && responseStatus === "pending" && (
         <View style={styles.deadlineWarning}>
           <Ionicons name="warning-outline" size={14} color="#FF9800" />
-          <Text style={styles.deadlineText}>Deadline approaching</Text>
+          <Text style={styles.deadlineText}>{t("components:eventCard.deadlineApproaching")}</Text>
         </View>
       )}
     </TouchableOpacity>

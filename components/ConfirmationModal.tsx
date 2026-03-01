@@ -1,6 +1,7 @@
 import Button from '@/components/Button';
 import { theme } from '@/constants/theme';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface ConfirmationModalProps {
@@ -18,12 +19,14 @@ export default function ConfirmationModal({
   visible,
   title,
   message,
-  confirmText = 'Confirm',
+  confirmText,
   cancelText,
   onConfirm,
   onCancel,
   confirmButtonTheme = 'primary'
 }: ConfirmationModalProps) {
+  const { t } = useTranslation(["components", "common"]);
+
   return (
     <Modal
       visible={visible}
@@ -49,7 +52,7 @@ export default function ConfirmationModal({
               )}
               <View style={[styles.button, !cancelText && styles.singleButton]}>
                 <Button
-                  label={confirmText}
+                  label={confirmText || t("components:confirmationModal.confirm")}
                   onPress={onConfirm}
                   theme={confirmButtonTheme}
                 />

@@ -16,12 +16,8 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { doc, getDoc } from "firebase/firestore";
-import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
-} from "react";
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Modal,
@@ -36,6 +32,7 @@ import { db } from "../services/core/firebase";
 
 export default function SubgroupSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation(["screens", "common"]);
   const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -140,16 +137,14 @@ export default function SubgroupSettingsScreen() {
       setUserRole(userRole);
     } catch (error) {
       console.error("Error fetching data:", error);
-      setErrorMessage("Failed to load subgroup data");
+      setErrorMessage(t("screens:subgroupSettings.failedToLoadSubgroupData"));
       setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
   }, [groupId, clubId, subgroupId, user?.uid]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Removed useEffect double-fetch. Only useFocusEffect remains.
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -196,16 +191,18 @@ export default function SubgroupSettingsScreen() {
 
       if (result.success) {
         setShowRenameModal(false);
-        setSuccessMessage("Subgroup renamed successfully!");
+        setSuccessMessage(t("screens:subgroupSettings.subgroupRenamed"));
         setShowSuccessModal(true);
         await fetchData(); // Refresh data
       } else {
-        setErrorMessage(result.error || "Failed to rename subgroup");
+        setErrorMessage(
+          result.error || t("screens:subgroupSettings.failedToRenameSubgroup"),
+        );
         setShowErrorModal(true);
       }
     } catch (error) {
       console.error("Error renaming subgroup:", error);
-      setErrorMessage("Failed to rename subgroup. Please try again.");
+      setErrorMessage(t("screens:subgroupSettings.failedToRenameSubgroup"));
       setShowErrorModal(true);
     } finally {
       setRenaming(false);
@@ -231,7 +228,9 @@ export default function SubgroupSettingsScreen() {
 
       if (result.success) {
         setSuccessMessage(
-          `Subgroup deleted successfully! ${result.deletedMemberCount || 0} members removed.`,
+          t("screens:subgroupSettings.subgroupDeleted", {
+            count: result.deletedMemberCount || 0,
+          }),
         );
         setShowSuccessModal(true);
 
@@ -242,12 +241,16 @@ export default function SubgroupSettingsScreen() {
           );
         }, 1500);
       } else {
-        setErrorMessage(result.error || "Failed to delete subgroup");
+        setErrorMessage(
+          result.error || t("screens:subgroupSettings.failedToDeleteSubgroup"),
+        );
         setShowErrorModal(true);
       }
     } catch (error) {
       console.error("Error deleting subgroup:", error);
-      setErrorMessage("Failed to delete subgroup. Please try again.");
+      setErrorMessage(
+        t("screens:subgroupSettings.failedToDeleteSubgroupRetry"),
+      );
       setShowErrorModal(true);
     }
   };
@@ -264,7 +267,9 @@ export default function SubgroupSettingsScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading subgroup settings...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:subgroupSettings.loadingSubgroupSettings")}
+          </Text>
         </View>
       </View>
     );
@@ -275,9 +280,11 @@ export default function SubgroupSettingsScreen() {
       <View style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Subgroup not found</Text>
+          <Text style={styles.errorText}>
+            {t("screens:subgroupSettings.subgroupNotFound")}
+          </Text>
           <Button
-            label="Go Back"
+            label={t("common:goBack")}
             onPress={() => router.back()}
             theme="secondary"
           />
@@ -296,8 +303,14 @@ export default function SubgroupSettingsScreen() {
         {/* Subgroup Info */}
         <View style={styles.groupInfoContainer}>
           <Text style={styles.subgroupName}>{subgroup.name}</Text>
-          <Text style={styles.groupName}>in {group.name}</Text>
-          <Text style={styles.yourRole}>{subgroup.memberCount} members</Text>
+          <Text style={styles.groupName}>
+            {t("screens:subgroupSettings.inGroup", { groupName: group.name })}
+          </Text>
+          <Text style={styles.yourRole}>
+            {t("screens:subgroupSettings.memberCount", {
+              count: subgroup.memberCount,
+            })}
+          </Text>
         </View>
 
         {/* Settings Options */}
@@ -316,9 +329,11 @@ export default function SubgroupSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Manage Members</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:subgroupSettings.manageMembers")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  Add or remove members from this subgroup
+                  {t("screens:subgroupSettings.manageMembersDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -343,9 +358,11 @@ export default function SubgroupSettingsScreen() {
                 />
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Rename Subgroup</Text>
+                <Text style={styles.optionTitle}>
+                  {t("screens:subgroupSettings.renameSubgroup")}
+                </Text>
                 <Text style={styles.optionDescription}>
-                  Change the name of this subgroup
+                  {t("screens:subgroupSettings.renameSubgroupDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -369,17 +386,21 @@ export default function SubgroupSettingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Rename Subgroup</Text>
+            <Text style={styles.modalTitle}>
+              {t("screens:subgroupSettings.renameModal.title")}
+            </Text>
             <Input
-              label="New Name"
+              label={t("screens:subgroupSettings.renameModal.newName")}
               value={newName}
               onChangeText={setNewName}
-              placeholder="Enter new subgroup name"
+              placeholder={t(
+                "screens:subgroupSettings.renameModal.placeholder",
+              )}
             />
             <View style={styles.modalButtons}>
               <View style={{ flex: 1, marginRight: theme.spacing.sm }}>
                 <Button
-                  label="Cancel"
+                  label={t("common:cancel")}
                   onPress={() => setShowRenameModal(false)}
                   theme="secondary"
                   disabled={renaming}
@@ -387,7 +408,11 @@ export default function SubgroupSettingsScreen() {
               </View>
               <View style={{ flex: 1, marginLeft: theme.spacing.sm }}>
                 <Button
-                  label={renaming ? "Renaming..." : "Rename"}
+                  label={
+                    renaming
+                      ? t("common:renaming")
+                      : t("screens:subgroupSettings.renameModal.rename")
+                  }
                   onPress={confirmRename}
                   theme="primary"
                   disabled={renaming || !newName.trim()}
@@ -401,10 +426,12 @@ export default function SubgroupSettingsScreen() {
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
         visible={showDeleteModal}
-        title="Delete Subgroup"
-        message={`Are you sure you want to delete "${subgroup.name}"? All members will be removed from this subgroup. This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={t("screens:subgroupSettings.deleteSubgroup")}
+        message={t("screens:subgroupSettings.deleteSubgroupConfirm", {
+          name: subgroup.name,
+        })}
+        confirmText={t("common:delete")}
+        cancelText={t("common:cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setShowDeleteModal(false)}
         confirmButtonTheme="primary"
@@ -413,9 +440,9 @@ export default function SubgroupSettingsScreen() {
       {/* Success Modal */}
       <ConfirmationModal
         visible={showSuccessModal}
-        title="Success"
+        title={t("common:success")}
         message={successMessage}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         onConfirm={() => setShowSuccessModal(false)}
         onCancel={() => setShowSuccessModal(false)}
         confirmButtonTheme="secondary"
@@ -424,9 +451,9 @@ export default function SubgroupSettingsScreen() {
       {/* Error Modal */}
       <ConfirmationModal
         visible={showErrorModal}
-        title="Error"
+        title={t("common:error")}
         message={errorMessage}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         onConfirm={() => setShowErrorModal(false)}
         onCancel={() => setShowErrorModal(false)}
         confirmButtonTheme="primary"

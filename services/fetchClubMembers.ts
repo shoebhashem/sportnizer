@@ -1,9 +1,11 @@
 // /services/fetchClubMembers.ts - Read club members via Firebase Functions
 // Calls getClubMembers Firebase Function following three-layer architecture
 
-import { httpsCallable } from 'firebase/functions';
-import { functions } from './core/firebase';
-import type { ClubMemberData } from './types/club';
+import { httpsCallable } from "firebase/functions";
+import { functions } from "./core/firebase";
+import type { ClubMemberData } from "./types/club";
+// In-memory cache context
+import { DataCacheType } from "@/contexts/DataCacheContext";
 
 export interface ClubMembersResponse {
   success: boolean;
@@ -15,32 +17,47 @@ export interface ClubMembersResponse {
  * Fetch all members of a club via Firebase Function
  * Calls getClubMembers Firebase Function instead of direct Firestore access
  */
-export const fetchClubMembers = async (clubId: string): Promise<ClubMembersResponse> => {
+export const fetchClubMembers = async (
+  clubId: string,
+  cache?: DataCacheType,
+): Promise<ClubMembersResponse> => {
+  const cacheKey = `clubMembers_${clubId}`;
+  if (cache) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`🟢 [CACHE HIT] clubMembers for club ${clubId}`);
+      return { success: true, members: cached };
+    } else {
+      console.log(`🟡 [CACHE MISS] clubMembers for club ${clubId}`);
+    }
+  }
   try {
-    // Call Firebase Function instead of direct Firestore access
-    const getClubMembersFn = httpsCallable(functions, 'getClubMembers');
+    const getClubMembersFn = httpsCallable(functions, "getClubMembers");
     const result = await getClubMembersFn({ clubId });
-    
-    const response = result.data as { success: boolean; members?: any[]; memberCount?: number; error?: string };
-    
+    const response = result.data as {
+      success: boolean;
+      members?: any[];
+      memberCount?: number;
+      error?: string;
+    };
     if (!response.success) {
       console.log(`Error fetching club members: ${response.error}`);
       return { success: false, members: [], error: response.error };
     }
-
     const members: ClubMemberData[] = response.members || [];
-
-    console.log(`✅ Fetched ${members.length} members for club ${clubId}`);
+    if (cache) cache.set(cacheKey, members);
+    console.log(
+      `🔵 [FIRESTORE READ] Fetched ${members.length} members for club ${clubId}`,
+    );
     return { success: true, members };
-
   } catch (error: any) {
-    console.error('❌ Error fetching club members:', error);
-    console.error('❌ Error code:', error.code);
-    console.error('❌ Error message:', error.message);
-    return { 
-      success: false, 
-      members: [], 
-      error: error.message || 'Failed to fetch club members'
+    console.error("❌ Error fetching club members:", error);
+    console.error("❌ Error code:", error.code);
+    console.error("❌ Error message:", error.message);
+    return {
+      success: false,
+      members: [],
+      error: error.message || "Failed to fetch club members",
     };
   }
 };

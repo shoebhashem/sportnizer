@@ -1,5 +1,5 @@
 // /services/subscriptionService.ts - Club subscription service
-// Handles club subscriptions to Sportnizer platform (NOT member payments)
+// Handles club subscriptions to Clubnizer platform (NOT member payments)
 
 import { getCurrentConfig } from "@/constants/config";
 import * as WebBrowser from "expo-web-browser";

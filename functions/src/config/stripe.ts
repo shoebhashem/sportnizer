@@ -14,7 +14,7 @@
 export const STRIPE_CONFIG = {
   /**
    * Platform takes 2% of each payment
-   * This is Sportnizer's commission on every transaction
+   * This is Clubnizer's commission on every transaction
    */
   platformFeePercent: 2,
 
@@ -40,15 +40,15 @@ export const STRIPE_CONFIG = {
    * DEPRECATED: Frontend now passes these dynamically
    * These remain as fallbacks only
    */
-  successUrl: "https://app.sportnizer.com/payment-success",
-  cancelUrl: "https://app.sportnizer.com/payment-cancelled",
+  successUrl: "https://app.clubnizer.com/payment-success",
+  cancelUrl: "https://app.clubnizer.com/payment-cancelled",
 
   /**
    * Return URL for Stripe Connect onboarding
    * These are fallbacks - frontend should always pass environment-specific URLs
    */
-  onboardingReturnUrl: "https://app.sportnizer.com/stripe-return",
-  onboardingRefreshUrl: "https://app.sportnizer.com/stripe-refresh",
+  onboardingReturnUrl: "https://app.clubnizer.com/stripe-return",
+  onboardingRefreshUrl: "https://app.clubnizer.com/stripe-refresh",
 };
 
 /**

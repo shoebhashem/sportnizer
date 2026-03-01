@@ -2,8 +2,8 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    Alert,
     Platform,
     ScrollView,
     Text,
@@ -13,13 +13,30 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Button from "../components/Button";
+import ConfirmationModal from "../components/ConfirmationModal";
 import { theme } from "../constants/theme";
 import { auth, db } from "../services/core/firebase";
 
 export default function ScheduleEventScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const router = useRouter();
   const { eventData, selectedGroups, selectedMembers } = useLocalSearchParams();
   const [creating, setCreating] = useState(false);
+
+  // Alert modal state (cross-platform replacement for Alert.alert)
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ visible: false, title: "", message: "" });
+
+  const showAlert = (title: string, message: string, onConfirm?: () => void) =>
+    setAlertModal({ visible: true, title, message, onConfirm });
+  const hideAlert = () => {
+    alertModal.onConfirm?.();
+    setAlertModal({ visible: false, title: "", message: "" });
+  };
 
   const parsedEventData = eventData ? JSON.parse(eventData as string) : null;
   const parsedSelectedGroups = selectedGroups
@@ -38,7 +55,7 @@ export default function ScheduleEventScreen() {
 
   const handleCreateEvent = async () => {
     if (!auth.currentUser || !parsedEventData) {
-      Alert.alert("Error", "Unable to create event");
+      showAlert(t("common:error"), "Unable to create event");
       return;
     }
 
@@ -66,18 +83,13 @@ export default function ScheduleEventScreen() {
 
       await addDoc(collection(db, "events"), eventDoc);
 
-      Alert.alert("Success", "Event created successfully!", [
-        {
-          text: "OK",
-          onPress: () => {
-            // Navigate back to events tab
-            router.replace("/(tabs)/events" as any);
-          },
-        },
-      ]);
+      showAlert(t("common:success"), "Event created successfully!", () => {
+        // Navigate back to events tab
+        router.replace("/(tabs)/events" as any);
+      });
     } catch (error) {
       console.error("Error creating event:", error);
-      Alert.alert("Error", "Failed to create event. Please try again.");
+      showAlert(t("common:error"), "Failed to create event. Please try again.");
     } finally {
       setCreating(false);
     }
@@ -155,7 +167,7 @@ export default function ScheduleEventScreen() {
               color: theme.colors.text,
             }}
           >
-            Review & Schedule
+            {t("screens:scheduleEvent.reviewAndSchedule")}
           </Text>
           <Text
             style={{
@@ -427,7 +439,11 @@ export default function ScheduleEventScreen() {
         }}
       >
         <Button
-          label={creating ? "Creating Event..." : "Create Event"}
+          label={
+            creating
+              ? t("common:creating")
+              : t("screens:createEvent.createEvent")
+          }
           onPress={handleCreateEvent}
           disabled={creating}
           loading={creating}
@@ -453,6 +469,15 @@ export default function ScheduleEventScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+      {/* Alert Modal */}
+      <ConfirmationModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        confirmText={t("common:ok")}
+        onConfirm={hideAlert}
+        onCancel={hideAlert}
+      />
     </SafeAreaView>
   );
 }

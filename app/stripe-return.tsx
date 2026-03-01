@@ -7,10 +7,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function StripeReturnScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { clubId, clubName } = useLocalSearchParams();
   const [countdown, setCountdown] = useState(5);
 
@@ -56,10 +58,11 @@ export default function StripeReturnScreen() {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Welcome Back!</Text>
+        <Text style={styles.title}>
+          {t("screens:stripeReturn.welcomeBack")}
+        </Text>
         <Text style={styles.subtitle}>
-          You&apos;ve returned from Stripe. Let&apos;s check your account
-          status.
+          {t("screens:stripeReturn.returnedFromStripe")}
         </Text>
 
         {/* Info Box */}
@@ -70,20 +73,19 @@ export default function StripeReturnScreen() {
             color={theme.colors.secondary}
           />
           <Text style={styles.infoText}>
-            If you completed all the steps in Stripe, your account should be
-            ready. Otherwise, you can continue where you left off.
+            {t("screens:stripeReturn.completedStepsHint")}
           </Text>
         </View>
 
         {/* Countdown */}
         <Text style={styles.countdown}>
-          Redirecting in {countdown} seconds...
+          {t("screens:stripeReturn.redirectingIn", { countdown })}
         </Text>
 
         {/* Button */}
         <View style={styles.buttonContainer}>
           <Button
-            label="Continue Now"
+            label={t("screens:stripeReturn.continueNow")}
             onPress={handleContinue}
             theme="primary"
           />

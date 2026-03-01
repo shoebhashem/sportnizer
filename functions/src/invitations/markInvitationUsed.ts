@@ -41,19 +41,10 @@ export const markInvitationUsed = onCall(
 
       const db = admin.firestore();
 
-      // Update invitation document
-      await db
-        .collection("invitations")
-        .doc(invitationToken)
-        .update({
-          used: true,
-          status,
-          usedAt: admin.firestore.FieldValue.serverTimestamp(),
-          usedBy: userId,
-          version: admin.firestore.FieldValue.increment(1),
-        });
+      // Delete invitation document (no longer needed after use)
+      await db.collection("invitations").doc(invitationToken).delete();
 
-      console.log(`Successfully marked invitation as ${status}`);
+      console.log(`Successfully deleted invitation after marking as ${status}`);
 
       return {
         success: true,

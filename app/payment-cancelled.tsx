@@ -7,10 +7,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PaymentCancelledScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   // payment_id param available for verification if needed
   useLocalSearchParams<{ payment_id?: string }>();
   const [countdown, setCountdown] = useState(5);
@@ -43,10 +45,11 @@ export default function PaymentCancelledScreen() {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Payment Cancelled</Text>
+        <Text style={styles.title}>
+          {t("screens:paymentCancelled.paymentCancelled")}
+        </Text>
         <Text style={styles.subtitle}>
-          No worries! Your payment was not processed and you haven&apos;t been
-          charged.
+          {t("screens:paymentCancelled.noWorries")}
         </Text>
 
         {/* Info Box */}
@@ -57,19 +60,18 @@ export default function PaymentCancelledScreen() {
             color={theme.colors.secondary}
           />
           <Text style={styles.infoText}>
-            You can pay this fee anytime from your home screen. The payment
-            request will remain active until you complete it.
+            {t("screens:paymentCancelled.payAnytime")}
           </Text>
         </View>
 
         {/* Countdown */}
         <Text style={styles.countdown}>
-          Returning to app in {countdown} seconds...
+          {t("screens:paymentCancelled.returningIn", { countdown })}
         </Text>
 
         {/* Continue Button */}
         <Button
-          label="Return to Home"
+          label={t("common:returnToHome")}
           onPress={handleContinue}
           theme="primary"
         />

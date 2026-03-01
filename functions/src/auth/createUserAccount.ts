@@ -214,9 +214,9 @@ export const createUserAccount = onCall(
           const verificationLink = `${config.cloudFunctionUrls.verifyEmail}?token=${verificationToken}`;
 
           const mailOptions = {
-            from: process.env.EMAIL_FROM || "noreply@sportnizer.com",
+            from: process.env.EMAIL_FROM || "noreply@clubnizer.com",
             to: email.toLowerCase().trim(),
-            subject: "Verify Your Sportnizer Account",
+            subject: "Verify Your Clubnizer Account",
             html: emailVerificationTemplate(fullName.trim(), verificationLink),
           };
 

@@ -1,6 +1,7 @@
 import { theme } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
 interface CountdownTimerProps {
@@ -14,6 +15,7 @@ export default function CountdownTimer({
   onExpire,
   compact = false,
 }: CountdownTimerProps) {
+  const { t } = useTranslation(["components", "common"]);
   const [timeRemaining, setTimeRemaining] = useState<string>('');
   const [isExpired, setIsExpired] = useState(false);
 
@@ -24,7 +26,7 @@ export default function CountdownTimer({
 
       if (diff <= 0) {
         setIsExpired(true);
-        setTimeRemaining('Expired');
+        setTimeRemaining(t("components:countdownTimer.expired"));
         if (onExpire) {
           onExpire();
         }
@@ -37,9 +39,9 @@ export default function CountdownTimer({
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
       if (compact) {
-        setTimeRemaining(`${days}d ${hours}h`);
+        setTimeRemaining(t("components:countdownTimer.compactFormat", { days, hours }));
       } else {
-        setTimeRemaining(`${days} days, ${hours} hours, ${minutes} minutes`);
+        setTimeRemaining(t("components:countdownTimer.fullFormat", { days, hours, minutes }));
       }
     };
 
@@ -47,13 +49,13 @@ export default function CountdownTimer({
     const interval = setInterval(updateCountdown, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, [deletionScheduledAt, onExpire, compact]);
+  }, [deletionScheduledAt, onExpire, compact, t]);
 
   if (isExpired) {
     return (
       <View style={[styles.container, styles.expiredContainer]}>
         <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
-        <Text style={styles.expiredText}>Grace period expired</Text>
+        <Text style={styles.expiredText}>{t("components:countdownTimer.gracePeriodExpired")}</Text>
       </View>
     );
   }
@@ -62,7 +64,7 @@ export default function CountdownTimer({
     <View style={styles.container}>
       <Ionicons name="time-outline" size={compact ? 14 : 16} color={theme.colors.secondary} />
       <Text style={compact ? styles.compactText : styles.text}>
-        {timeRemaining} remaining
+        {timeRemaining} {t("components:countdownTimer.remaining")}
       </Text>
     </View>
   );

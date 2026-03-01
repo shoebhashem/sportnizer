@@ -1,0 +1,215 @@
+{
+  "confirmationModal": {
+    "confirm": "Bekräfta"
+  },
+
+  "deletionConfirmationModal": {
+    "gracePeriodNote": "{{gracePeriodDays}} dagars ångerperiod - Du kan ångra detta!",
+    "deletionMessage": "Är du säker på att du vill ta bort \"{{entityName}}\"? Detta påverkar {{affectedCount}} medlemmar.",
+    "deleting": "Tar bort..."
+  },
+
+  "invitationModal": {
+    "roleUpdate": "Rolluppdatering",
+    "clubAdminInvitation": "Klubbadmin-inbjudan",
+    "childMemberInvitation": "Barnmedlemsinbjudan",
+    "groupInvitation": "Gruppinbjudan",
+    "youthInvitationMessage": "{{inviterName}} vill lägga till {{youthName}} i {{groupName}} i {{clubName}}.",
+    "wouldYouLikeToAddYouth": "Vill du lägga till {{youthName}} i denna grupp?",
+    "roleUpdateMessage": "{{inviterName}} vill uppdatera din roll till {{roleName}} i {{groupName}} ({{clubName}}).",
+    "wouldYouLikeToAcceptRoleUpdate": "Vill du acceptera denna rolluppdatering?",
+    "clubAdminMessage": "{{inviterName}} vill att du blir klubbadministratör för {{clubName}}.",
+    "wouldYouLikeToAcceptRole": "Vill du acceptera denna roll?",
+    "regularInvitationMessage": "{{inviterName}} har bjudit in dig att gå med i {{groupName}} i {{clubName}} som {{roleName}}.",
+    "wouldYouLikeToJoin": "Vill du gå med i denna grupp?",
+    "reject": "Avböj",
+    "acceptRole": "Acceptera roll",
+    "acceptAndJoin": "Acceptera & gå med"
+  },
+
+  "roleFilterModal": {
+    "filterByRole": "Filtrera efter roll",
+    "apply": "Tillämpa",
+    "selectAll": "Markera alla",
+    "clearAll": "Avmarkera alla",
+    "selectWhichRoles": "Välj vilka roller som ska få denna händelseinbjudan",
+    "noRolesSelected": "Inga roller valda - hela gruppen bjuds in",
+    "rolesSelected_one": "{{count}} roll vald",
+    "rolesSelected_other": "{{count}} roller valda",
+    "roles": {
+      "players": "Spelare",
+      "playersDesc": "Ordinarie lagspelare",
+      "youthPlayers": "Ungdomsspelare",
+      "youthPlayersDesc": "Minderåriga spelare (vårdnadshavare meddelas)",
+      "coaches": "Tränare",
+      "coachesDesc": "Lagets tränare och assistenter",
+      "admins": "Admins",
+      "adminsDesc": "Gruppadministratörer",
+      "clubAdmins": "Klubbadmins",
+      "clubAdminsDesc": "Klubbadministratörer",
+      "guardians": "Vårdnadshavare",
+      "guardiansDesc": "Föräldrar/vårdnadshavare till ungdomsmedlemmar"
+    }
+  },
+
+  "memberContactModal": {
+    "contactDetails": "Kontaktuppgifter",
+    "loadingDetails": "Laddar uppgifter...",
+    "notAvailable": "Ej tillgänglig",
+    "youthPlayer": "Ungdomsspelare",
+    "email": "E-post",
+    "phone": "Telefon",
+    "dateOfBirth": "Födelsedatum",
+    "guardianContacts": "Vårdnadshavarkontakter",
+    "noGuardianInfo": "Ingen information om vårdnadshavare tillgänglig"
+  },
+
+  "eventCard": {
+    "today": "Idag",
+    "tomorrow": "Imorgon",
+    "you": "Du",
+    "forRecipient": "För: {{name}}",
+    "gatherTime": "Samling: {{time}}",
+    "startTime": "Start: {{time}}",
+    "ofTotalInvited": "av {{total}} inbjudna",
+    "deadlineApproaching": "Deadline närmar sig"
+  },
+
+  "newsCard": {
+    "you": "Du",
+    "new": "Ny",
+    "issuedBy": "Utfärdad av {{name}}",
+    "justNow": "Just nu",
+    "minutesAgo": "{{count}}m sedan",
+    "hoursAgo": "{{count}}t sedan",
+    "daysAgo": "{{count}}d sedan"
+  },
+
+  "paymentCard": {
+    "dueToday": "Förfaller idag",
+    "dueTomorrow": "Förfaller imorgon",
+    "dueDate": "Förfaller {{date}}",
+    "daysOverdue": "{{count}} dagar försenad",
+    "oneDayRemaining": "1 dag kvar",
+    "daysRemaining": "{{count}} dagar kvar",
+    "for": "För:",
+    "amount": "Belopp:",
+    "payNowOverdue": "Betala nu (försenad)",
+    "payNow": "Betala nu",
+    "paid": "Betald",
+    "noDueDate": "Inget förfallodatum"
+  },
+
+  "paymentStatusBadge": {
+    "paid": "Betald",
+    "notPaid": "Ej betald",
+    "overdue": "Försenad",
+    "paidBy": "av {{paidBy}}"
+  },
+
+  "notificationBell": {
+    "notifications": "Aviseringar",
+    "markAllRead": "Markera alla som lästa",
+    "noNotifications": "Inga aviseringar",
+    "paymentRequired": "Betalning krävs",
+    "paymentMessage": "{{amount}} betalning krävs för {{group}}",
+    "payNow": "Betala nu",
+    "processing": "Behandlar...",
+    "later": "Senare",
+    "paymentError": "Betalningsfel"
+  },
+
+  "dropdownInput": {
+    "selectAnOption": "Välj ett alternativ"
+  },
+
+  "genderPicker": {
+    "male": "Man",
+    "female": "Kvinna",
+    "other": "Annat",
+    "preferNotToSay": "Vill inte ange",
+    "selectGender": "Välj kön",
+    "selectLabel": "Välj {{label}}"
+  },
+
+  "floatingActionButton": {
+    "newEvent": "Ny händelse",
+    "news": "Nyhet",
+    "event": "Händelse"
+  },
+
+  "profilePictureUpload": {
+    "uploadMemberPhoto": "Ladda upp medlemsfoto",
+    "uploadProfilePicture": "Ladda upp profilbild",
+    "newImageSelected": "Ny bild vald",
+    "chooseFromGallery": "Välj från galleri",
+    "takePhoto": "Ta foto",
+    "uploading": "Laddar upp...",
+    "uploadImage": "Ladda upp bild",
+    "permissionRequired": "Behörighet krävs",
+    "cameraPermissionMessage": "Vi behöver kamerabehörighet för att ta ett foto.",
+    "galleryPermissionMessage": "Vi behöver bildbiblioteksbehörighet för att välja ett foto.",
+    "missingUserInfo": "Saknad användarinformation för uppladdning",
+    "uploadFailed": "Uppladdning misslyckades",
+    "failedToUploadProfilePicture": "Kunde inte ladda upp profilbild",
+    "unexpectedError": "Ett oväntat fel uppstod"
+  },
+
+  "legalAcceptanceScreen": {
+    "updatedTermsTitle": "Uppdaterade villkor & integritetspolicy",
+    "termsTitle": "Användarvillkor & integritetspolicy",
+    "updatedSubtitle": "Vi har uppdaterat våra juridiska dokument. Vänligen granska och acceptera för att fortsätta.",
+    "newSubtitle": "Vänligen granska och acceptera våra villkor för att skapa ditt konto.",
+    "whatsChanged": "Vad har ändrats",
+    "keyPoints": "Nyckelpunkter",
+    "keyPointTitles": {
+      "dataProtection": "Dataskydd",
+      "clubResponsibilities": "Klubbansvar",
+      "dataProcessing": "Hur vi behandlar data",
+      "dataRetention": "Datalagring",
+      "yourRights": "Dina rättigheter"
+    },
+    "keyPointDescriptions": {
+      "dataProtection": "Vi skyddar dina personuppgifter i enlighet med GDPR och tillämpliga integritetslagar.",
+      "clubResponsibilities": "Klubbadministratörer ansvarar för att hantera sin klubbs data och medlemsinformation.",
+      "dataProcessing": "Vi behandlar dina uppgifter för att tillhandahålla klubbhanteringstjänster, inklusive medlemshantering, schemaläggning av händelser och betalningshantering.",
+      "dataRetention": "Dina uppgifter sparas medan ditt konto är aktivt och under en rimlig period därefter för efterlevnad av lagkrav.",
+      "yourRights": "Du har rätt att komma åt, korrigera, radera och exportera dina personuppgifter när som helst."
+    },
+    "fullDocuments": "Fullständiga dokument",
+    "readTermsOfService": "Läs användarvillkoren",
+    "readPrivacyPolicy": "Läs integritetspolicyn",
+    "versionInfo": "Villkor: {{termsVersion}} | Integritet: {{privacyVersion}}",
+    "effectiveDate": "Gäller från: {{date}}",
+    "agreementCheckbox": "Jag har läst och godkänner användarvillkoren och integritetspolicyn",
+    "signOut": "Logga ut",
+    "agreeAndContinue": "Jag godkänner & fortsätt",
+    "pleaseWait": "Vänligen vänta..."
+  },
+
+  "legalSettingsSection": {
+    "legal": "Juridiskt",
+    "termsOfService": "Användarvillkor",
+    "privacyPolicy": "Integritetspolicy",
+    "version": "Version {{version}}",
+    "accepted": "Godkänd",
+    "updateRequired": "Uppdatering krävs",
+    "lastAcceptedOn": "Senast godkänd {{date}}"
+  },
+
+  "subscriptionWarningBanner": {
+    "memberLimitReached": "Medlemsgräns nådd",
+    "approachingMemberLimit": "Närmar sig medlemsgräns",
+    "limitReachedMessage": "Du har nått gränsen på {{max}} medlemmar i {{tier}}-planen.",
+    "approachingLimitMessage": "Bara {{remaining}} medlemsplats(er) kvar i {{tier}}-planen.",
+    "upgrade": "Uppgradera"
+  },
+
+  "countdownTimer": {
+    "expired": "Utgått",
+    "gracePeriodExpired": "Ångerperioden har gått ut",
+    "compactFormat": "{{days}}d {{hours}}t",
+    "fullFormat": "{{days}} dagar, {{hours}} timmar, {{minutes}} minuter",
+    "remaining": "kvar"
+  }
+}

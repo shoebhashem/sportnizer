@@ -13,9 +13,9 @@
  */
 
 import {
-  getMaxMembersForTier,
-  SubscriptionTier,
-  UPGRADE_WARNING_THRESHOLD,
+    getMaxMembersForTier,
+    SubscriptionTier,
+    UPGRADE_WARNING_THRESHOLD,
 } from "../config/subscriptionConfig";
 
 // Re-export subscription types for convenience
@@ -65,7 +65,7 @@ export const PRO_LIMITS: ResourceLimits = {
 
 /**
  * Enterprise Tier - For organizations with 2000+ members
- * Custom pricing, contact support@sportnizer.com
+ * Custom pricing, contact support@clubnizer.com
  */
 export const ENTERPRISE_LIMITS: ResourceLimits = {
   maxClubsAsAdmin: -1, // Unlimited clubs (negotiable)
@@ -117,8 +117,8 @@ export function checkResourceLimit(
     const actionVerb = action === "create" ? "create" : "reactivate";
     const additionalHint =
       action === "reactivate"
-        ? " Please delete an active resource first or contact support@sportnizer.com to upgrade."
-        : " Please contact support@sportnizer.com to upgrade your plan.";
+        ? " Please delete an active resource first or contact support@clubnizer.com to upgrade."
+        : " Please contact support@clubnizer.com to upgrade your plan.";
 
     return {
       allowed: false,
@@ -248,9 +248,9 @@ export function checkClubMemberLimit(
     } else if (tier === "basic") {
       upgradeMessage = `Your club has reached its limit of ${maxMembers} members. Upgrade to Pro (up to 2000 members) to continue adding members.`;
     } else if (tier === "pro") {
-      upgradeMessage = `Your club has reached its limit of ${maxMembers} members. Contact support@sportnizer.com for an Enterprise plan.`;
+      upgradeMessage = `Your club has reached its limit of ${maxMembers} members. Contact support@clubnizer.com for an Enterprise plan.`;
     } else {
-      upgradeMessage = `Your club has reached its member limit. Contact support@sportnizer.com to upgrade.`;
+      upgradeMessage = `Your club has reached its member limit. Contact support@clubnizer.com to upgrade.`;
     }
 
     return {
@@ -315,10 +315,10 @@ export function getClubSubscriptionTier(
  */
 export const LIMIT_ERROR_MESSAGES = {
   CLUB_LIMIT_REACHED: (maxClubs: number) =>
-    `You have reached your limit of ${maxClubs} active club(s). Contact support@sportnizer.com to upgrade.`,
+    `You have reached your limit of ${maxClubs} active club(s). Contact support@clubnizer.com to upgrade.`,
 
   GROUP_LIMIT_REACHED: (maxGroups: number) =>
-    `This club has reached its limit of ${maxGroups} active groups. Contact support@sportnizer.com to upgrade.`,
+    `This club has reached its limit of ${maxGroups} active groups. Contact support@clubnizer.com to upgrade.`,
 
   /**
    * Member limit reached - now at CLUB level
@@ -336,14 +336,14 @@ export const LIMIT_ERROR_MESSAGES = {
     } else if (tier === "basic") {
       return `Your club has reached its Basic tier limit of ${maxMembers} members. Upgrade to Pro to add up to 2000 members.`;
     } else if (tier === "pro") {
-      return `Your club has reached its Pro tier limit of ${maxMembers} members. Contact support@sportnizer.com for Enterprise pricing.`;
+      return `Your club has reached its Pro tier limit of ${maxMembers} members. Contact support@clubnizer.com for Enterprise pricing.`;
     }
-    return `Your club has reached its member limit. Contact support@sportnizer.com to upgrade.`;
+    return `Your club has reached its member limit. Contact support@clubnizer.com to upgrade.`;
   },
 
   REACTIVATION_BLOCKED: (resourceType: string, maxLimit: number) =>
     `Cannot reactivate ${resourceType}. Maximum of ${maxLimit} active resources reached. ` +
-    `Please delete an active ${resourceType} first or contact support@sportnizer.com.`,
+    `Please delete an active ${resourceType} first or contact support@clubnizer.com.`,
 
   SUBSCRIPTION_REQUIRED: () =>
     "This feature requires an active subscription. Please upgrade your plan.",

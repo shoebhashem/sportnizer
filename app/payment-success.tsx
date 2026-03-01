@@ -7,10 +7,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PaymentSuccessScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   // These params can be used for verification if needed
   useLocalSearchParams<{ session_id?: string; payment_id?: string }>();
 
@@ -28,9 +30,11 @@ export default function PaymentSuccessScreen() {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Payment Successful!</Text>
+        <Text style={styles.title}>
+          {t("screens:paymentSuccess.paymentSuccessful")}
+        </Text>
         <Text style={styles.subtitle}>
-          Thank you for your payment. Your receipt has been sent to your email.
+          {t("screens:paymentSuccess.thankYou")}
         </Text>
 
         {/* Info Box */}
@@ -41,15 +45,13 @@ export default function PaymentSuccessScreen() {
             color={theme.colors.secondary}
           />
           <Text style={styles.infoText}>
-            The payment has been processed and the club will receive the funds
-            shortly. You&apos;ll also see this payment marked as complete in
-            your home screen.
+            {t("screens:paymentSuccess.processingNote")}
           </Text>
         </View>
 
         {/* Continue Button */}
         <Button
-          label="Return to Home"
+          label={t("common:returnToHome")}
           onPress={handleContinue}
           theme="primary"
         />

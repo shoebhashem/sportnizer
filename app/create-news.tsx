@@ -14,6 +14,7 @@
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -62,6 +63,7 @@ interface ModalState {
 }
 
 export default function CreateNewsScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user } = useAuth();
@@ -165,8 +167,8 @@ export default function CreateNewsScreen() {
       if (!news) {
         setModal({
           visible: true,
-          title: "Error",
-          message: "News not found",
+          title: t("common:error"),
+          message: t("screens:createNews.newsNotFound"),
         });
         router.back();
         return;
@@ -180,8 +182,8 @@ export default function CreateNewsScreen() {
       console.error("Error loading news:", error);
       setModal({
         visible: true,
-        title: "Error",
-        message: "Failed to load news",
+        title: t("common:error"),
+        message: t("screens:createNews.failedToLoadNews"),
       });
     } finally {
       setIsLoadingNews(false);
@@ -262,8 +264,8 @@ export default function CreateNewsScreen() {
     if (!newsContext || !user) {
       setModal({
         visible: true,
-        title: "Error",
-        message: "Missing context or user information",
+        title: t("common:error"),
+        message: t("screens:createNews.missingContext"),
       });
       return;
     }
@@ -271,8 +273,8 @@ export default function CreateNewsScreen() {
     if (!isFormValid) {
       setModal({
         visible: true,
-        title: "Validation Error",
-        message: "Please fill in both title and description",
+        title: t("common:validation.validationError"),
+        message: t("screens:createNews.pleaseFillFields"),
       });
       return;
     }
@@ -304,26 +306,27 @@ export default function CreateNewsScreen() {
       if (response.success) {
         setModal({
           visible: true,
-          title: "Success",
-          message: `News published to ${response.totalRecipients} recipients${
-            sendEmail ? ` with ${response.emailsSent} emails sent` : ""
-          }`,
+          title: t("common:success"),
+          message: t("screens:createNews.newsPublished", {
+            count: response.totalRecipients,
+            emails: response.emailsSent,
+          }),
         });
         // Navigate back after success
         setTimeout(() => router.back(), 1500);
       } else {
         setModal({
           visible: true,
-          title: "Error",
-          message: response.error || "Failed to create news",
+          title: t("common:error"),
+          message: response.error || t("screens:createNews.failedToCreateNews"),
         });
       }
     } catch (error: any) {
       console.error("Error creating news:", error);
       setModal({
         visible: true,
-        title: "Error",
-        message: error.message || "Failed to create news",
+        title: t("common:error"),
+        message: error.message || t("screens:createNews.failedToCreateNews"),
       });
     } finally {
       setIsSubmitting(false);
@@ -335,8 +338,8 @@ export default function CreateNewsScreen() {
     if (!newsContext || !newsId) {
       setModal({
         visible: true,
-        title: "Error",
-        message: "Missing context or news ID",
+        title: t("common:error"),
+        message: t("screens:createNews.missingContextOrNewsId"),
       });
       return;
     }
@@ -344,8 +347,8 @@ export default function CreateNewsScreen() {
     if (!isFormValid) {
       setModal({
         visible: true,
-        title: "Validation Error",
-        message: "Please fill in both title and description",
+        title: t("common:validation.validationError"),
+        message: t("screens:createNews.pleaseFillFields"),
       });
       return;
     }
@@ -359,16 +362,16 @@ export default function CreateNewsScreen() {
 
       setModal({
         visible: true,
-        title: "Success",
-        message: "News updated successfully",
+        title: t("common:success"),
+        message: t("screens:createNews.newsUpdated"),
       });
       setTimeout(() => router.back(), 1500);
     } catch (error: any) {
       console.error("Error updating news:", error);
       setModal({
         visible: true,
-        title: "Error",
-        message: error.message || "Failed to update news",
+        title: t("common:error"),
+        message: error.message || t("screens:createNews.failedToUpdateNews"),
       });
     } finally {
       setIsSubmitting(false);
@@ -385,16 +388,16 @@ export default function CreateNewsScreen() {
 
       setModal({
         visible: true,
-        title: "Success",
-        message: "News deleted successfully",
+        title: t("common:success"),
+        message: t("screens:createNews.newsDeleted"),
       });
       setTimeout(() => router.back(), 1500);
     } catch (error: any) {
       console.error("Error deleting news:", error);
       setModal({
         visible: true,
-        title: "Error",
-        message: error.message || "Failed to delete news",
+        title: t("common:error"),
+        message: error.message || t("screens:createNews.failedToDeleteNews"),
       });
     } finally {
       setIsSubmitting(false);
@@ -439,7 +442,7 @@ export default function CreateNewsScreen() {
               borderRadius: 8,
             }}
           >
-            <Text style={{ color: "white", fontWeight: "600" }}>Go Back</Text>
+            <Text style={{ color: "white", fontWeight: "600" }}>{t("common:goBack")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -478,7 +481,7 @@ export default function CreateNewsScreen() {
                 color: theme.colors.text,
               }}
             >
-              {isEditMode ? "Edit News" : "Create News"}
+              {isEditMode ? t("screens:createNews.editNews") : t("screens:createNews.createNews")}
             </Text>
             <Text
               style={{
@@ -515,7 +518,7 @@ export default function CreateNewsScreen() {
         >
           <ActivityIndicator size="large" color={theme.colors.secondary} />
           <Text style={{ marginTop: 16, color: theme.colors.text }}>
-            Loading news...
+            {t("screens:createNews.loadingNews")}
           </Text>
         </View>
       ) : (
@@ -546,7 +549,7 @@ export default function CreateNewsScreen() {
                     color: theme.colors.text,
                   }}
                 >
-                  Title *
+                  {t("screens:createNews.titleRequired")}
                 </Text>
                 <Text
                   style={{
@@ -557,7 +560,7 @@ export default function CreateNewsScreen() {
                         : theme.colors.textSecondary,
                   }}
                 >
-                  {title.length}/{MAX_TITLE_LENGTH}
+                  {t("screens:createNews.titleCharCount", { length: title.length, max: MAX_TITLE_LENGTH })}
                 </Text>
               </View>
               <TextInput
@@ -565,7 +568,7 @@ export default function CreateNewsScreen() {
                 onChangeText={(text) =>
                   setTitle(text.slice(0, MAX_TITLE_LENGTH))
                 }
-                placeholder="News headline..."
+                placeholder={t("screens:createNews.titlePlaceholder")}
                 placeholderTextColor={theme.colors.textSecondary}
                 style={{
                   backgroundColor: theme.colors.inputBackground,
@@ -596,7 +599,7 @@ export default function CreateNewsScreen() {
                     color: theme.colors.text,
                   }}
                 >
-                  Content *
+                  {t("screens:createNews.contentRequired")}
                 </Text>
                 <Text
                   style={{
@@ -615,7 +618,7 @@ export default function CreateNewsScreen() {
                 onChangeText={(text) =>
                   setDescription(text.slice(0, MAX_DESCRIPTION_LENGTH))
                 }
-                placeholder="Write your news content here..."
+                placeholder={t("screens:createNews.contentPlaceholder")}
                 placeholderTextColor={theme.colors.textSecondary}
                 multiline
                 numberOfLines={8}
@@ -639,7 +642,7 @@ export default function CreateNewsScreen() {
                   marginTop: 4,
                 }}
               >
-                ~{Math.ceil(description.length / 6)} words
+                {t("screens:createNews.wordCount", { words: Math.ceil(description.length / 6) })}
               </Text>
             </View>
 
@@ -654,7 +657,7 @@ export default function CreateNewsScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Target Audience
+                  {t("screens:createNews.targetAudience")}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowRoleFilterModal(true)}
@@ -673,7 +676,7 @@ export default function CreateNewsScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: theme.colors.text, fontSize: 16 }}>
                       {selectedRoles.length === 0
-                        ? "All Members"
+                        ? t("screens:createNews.allMembers")
                         : selectedRoles.join(", ")}
                     </Text>
                     {isLoadingMembers ? (
@@ -690,7 +693,7 @@ export default function CreateNewsScreen() {
                           marginTop: 2,
                         }}
                       >
-                        {memberCount} recipient{memberCount !== 1 ? "s" : ""}
+                        {t("screens:createNews.recipientCount", { count: memberCount })}
                       </Text>
                     )}
                   </View>
@@ -735,7 +738,7 @@ export default function CreateNewsScreen() {
                           color: theme.colors.text,
                         }}
                       >
-                        Also send as email
+                        {t("screens:createNews.alsoSendAsEmail")}
                       </Text>
                     </View>
                     <Text
@@ -746,7 +749,7 @@ export default function CreateNewsScreen() {
                         marginLeft: 28,
                       }}
                     >
-                      Recipients will receive this news in their inbox
+                      {t("screens:createNews.emailHint")}
                     </Text>
                   </View>
                   <Switch
@@ -779,13 +782,13 @@ export default function CreateNewsScreen() {
               <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
                 {isSubmitting
                   ? isEditMode
-                    ? "Updating..."
-                    : "Publishing..."
+                    ? t("screens:createNews.updating")
+                    : t("screens:createNews.publishing")
                   : isEditMode
-                    ? "Update News"
+                    ? t("screens:createNews.updateNews")
                     : sendEmail
-                      ? "Publish & Send Email"
-                      : "Publish News"}
+                      ? t("screens:createNews.publishAndSendEmail")
+                      : t("screens:createNews.publishNews")}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -804,10 +807,10 @@ export default function CreateNewsScreen() {
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
         visible={showDeleteConfirm}
-        title="Delete News"
-        message="Are you sure you want to delete this news? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={t("screens:createNews.deleteNews")}
+        message={t("screens:createNews.deleteNewsConfirm")}
+        confirmText={t("common:delete")}
+        cancelText={t("common:cancel")}
         onConfirm={handleDeleteNews}
         onCancel={() => setShowDeleteConfirm(false)}
         confirmButtonTheme="primary"

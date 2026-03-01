@@ -2,7 +2,7 @@
  * Create Subscription Checkout Session
  *
  * Creates a Stripe Checkout session for club admins to subscribe to a paid tier.
- * This handles the Clubs → Sportnizer payment flow (platform subscription).
+ * This handles the Clubs → Clubnizer payment flow (platform subscription).
  *
  * IMPORTANT: This is separate from Stripe Connect (member payments to clubs).
  */

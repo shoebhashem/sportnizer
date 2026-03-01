@@ -1,17 +1,17 @@
 /**
  * REMOVE MEMBER SCREEN
  * ====================
- * 
+ *
  * Generic screen for removing any member type (player, youth, coach, admin).
  * Supports multi-select with batch removal and detailed result feedback.
- * 
+ *
  * FEATURES:
  * - Member list filtered by type (player/youth/coach/admin)
  * - Search functionality
  * - Multi-select with checkboxes
  * - Batch removal processing
  * - Detailed success/error reporting
- * 
+ *
  * FLOW:
  * 1. Fetch members filtered by type
  * 2. User selects multiple members via checkboxes
@@ -19,19 +19,20 @@
  * 4. Click Confirm → Loop through and call orchestration service for each member
  * 5. Show results modal with success/failure counts
  * 6. Navigate back (auto-close on full success)
- * 
+ *
  * SIMPLIFIED LOGIC:
  * - No guardian status pre-checks (backend handles guardian cascade)
  * - Backend automatically removes guardian roles when youth leaves
  * - Backend automatically marks inactive when roles[] becomes empty
  */
 
-import Button from '@/components/Button';
-import { theme } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import Button from "@/components/Button";
+import { theme } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
@@ -42,13 +43,16 @@ import {
     TextInput,
     TouchableOpacity,
     View,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fetchGroupMembers } from '../services/fetchGroupMembers';
-import { removeMemberFromClubService } from '../services/orchestration/removeMemberFromClub';
-import { removeMemberFromGroupService } from '../services/orchestration/removeMemberFromGroup';
+} from "react-native";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { fetchGroupMembers } from "../services/fetchGroupMembers";
+import { removeMemberFromClubService } from "../services/orchestration/removeMemberFromClub";
+import { removeMemberFromGroupService } from "../services/orchestration/removeMemberFromGroup";
 
-type RemovalLevel = 'club' | 'group';
+type RemovalLevel = "club" | "group";
 
 interface GroupMemberData {
   userId: string;
@@ -60,58 +64,84 @@ interface GroupMemberData {
 }
 
 export default function RemoveMemberScreen() {
-  const { groupId, clubId, memberType, removeType, removalLevel, groupName, clubName } = useLocalSearchParams();
+  const {
+    groupId,
+    clubId,
+    memberType,
+    removeType,
+    removalLevel,
+    groupName,
+    clubName,
+  } = useLocalSearchParams();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  
+  const { t } = useTranslation(["screens", "common"]);
+
   // Support both 'memberType' and 'removeType' parameters (backward compatibility)
   const actualMemberType = (memberType || removeType) as string;
-  
+
   const [members, setMembers] = useState<GroupMemberData[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<GroupMemberData[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<GroupMemberData[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState(false);
   const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
-  const [removalResults, setRemovalResults] = useState<{success: number; failed: number; errors: string[]}>({success: 0, failed: 0, errors: []});
+  const [removalResults, setRemovalResults] = useState<{
+    success: number;
+    failed: number;
+    errors: string[];
+  }>({ success: 0, failed: 0, errors: [] });
   const [showResultModal, setShowResultModal] = useState(false);
 
   const fetchMembers = useCallback(async () => {
-    if (!groupId || typeof groupId !== 'string' || !clubId || typeof clubId !== 'string' || !user?.uid) return;
-    
+    if (
+      !groupId ||
+      typeof groupId !== "string" ||
+      !clubId ||
+      typeof clubId !== "string" ||
+      !user?.uid
+    )
+      return;
+
     try {
       setLoading(true);
       const result = await fetchGroupMembers(clubId, groupId);
-      
+
       if (result.success && result.members) {
-        console.log('📋 All fetched members:', result.members.length);
-        console.log('📋 Member type filter:', actualMemberType);
-        console.log('📋 First member data:', JSON.stringify(result.members[0], null, 2));
-        
+        console.log("📋 All fetched members:", result.members.length);
+        console.log("📋 Member type filter:", actualMemberType);
+        console.log(
+          "📋 First member data:",
+          JSON.stringify(result.members[0], null, 2),
+        );
+
         // Filter by member type
         const filtered = result.members.filter((m: GroupMemberData) => {
-          if (actualMemberType === 'player') {
-            return m.roles.includes('player');
-          } else if (actualMemberType === 'youth') {
-            return m.roles.includes('player-underage') || m.needsGuardian;
-          } else if (actualMemberType === 'coach') {
-            return m.roles.includes('coach');
-          } else if (actualMemberType === 'admin') {
-            return m.roles.includes('admin') || m.roles.includes('club-admin');
+          if (actualMemberType === "player") {
+            return m.roles.includes("player");
+          } else if (actualMemberType === "youth") {
+            return m.roles.includes("player-underage") || m.needsGuardian;
+          } else if (actualMemberType === "coach") {
+            return m.roles.includes("coach");
+          } else if (actualMemberType === "admin") {
+            return m.roles.includes("admin") || m.roles.includes("club-admin");
           }
           return false;
         });
-        
-        console.log('📋 Filtered members:', filtered.length);
-        console.log('📋 Filtered member data:', JSON.stringify(filtered, null, 2));
-        
+
+        console.log("📋 Filtered members:", filtered.length);
+        console.log(
+          "📋 Filtered member data:",
+          JSON.stringify(filtered, null, 2),
+        );
+
         setMembers(filtered);
       } else {
-        console.error('Failed to fetch members:', result.error);
+        console.error("Failed to fetch members:", result.error);
       }
     } catch (error) {
-      console.error('Error fetching members:', error);
+      console.error("Error fetching members:", error);
     } finally {
       setLoading(false);
     }
@@ -126,11 +156,12 @@ export default function RemoveMemberScreen() {
       setFilteredMembers(members);
       return;
     }
-    
+
     const query = searchQuery.toLowerCase();
-    const filtered = members.filter(m => 
-      m.name.toLowerCase().includes(query) ||
-      m.email.toLowerCase().includes(query)
+    const filtered = members.filter(
+      (m) =>
+        m.name.toLowerCase().includes(query) ||
+        m.email.toLowerCase().includes(query),
     );
     setFilteredMembers(filtered);
   }, [members, searchQuery]);
@@ -140,11 +171,11 @@ export default function RemoveMemberScreen() {
   }, [filterMembers]);
 
   const handleMemberToggle = (member: GroupMemberData) => {
-    setSelectedMembers(prev => {
-      const isAlreadySelected = prev.some(m => m.userId === member.userId);
+    setSelectedMembers((prev) => {
+      const isAlreadySelected = prev.some((m) => m.userId === member.userId);
       if (isAlreadySelected) {
         // Remove from selection
-        return prev.filter(m => m.userId !== member.userId);
+        return prev.filter((m) => m.userId !== member.userId);
       } else {
         // Add to selection
         return [...prev, member];
@@ -162,22 +193,22 @@ export default function RemoveMemberScreen() {
       setIsConfirmModalVisible(false);
       return;
     }
-    
+
     setIsConfirmModalVisible(false);
     setRemoving(true);
-    
-    const results = {success: 0, failed: 0, errors: [] as string[]};
-    const level = (removalLevel as RemovalLevel) || 'group';
-    
+
+    const results = { success: 0, failed: 0, errors: [] as string[] };
+    const level = (removalLevel as RemovalLevel) || "group";
+
     // Process each selected member
     for (const member of selectedMembers) {
       try {
         let result;
-        
-        if (level === 'club') {
+
+        if (level === "club") {
           result = await removeMemberFromClubService(
             clubId as string,
-            member.userId
+            member.userId,
           );
         } else {
           const roleToRemove = getRoleToRemove();
@@ -185,34 +216,39 @@ export default function RemoveMemberScreen() {
             clubId as string,
             groupId as string,
             member.userId,
-            roleToRemove
+            roleToRemove,
           );
         }
-        
-        console.log(`[DEBUG] Result for ${member.name}:`, JSON.stringify(result, null, 2));
-        
+
+        console.log(
+          `[DEBUG] Result for ${member.name}:`,
+          JSON.stringify(result, null, 2),
+        );
+
         if (result.success) {
           results.success++;
         } else {
           results.failed++;
-          const errorMsg = result.error || result.message || 'Unknown error';
+          const errorMsg = result.error || result.message || "Unknown error";
           console.log(`[DEBUG] Error message: ${errorMsg}`);
           results.errors.push(`${member.name}: ${errorMsg}`);
         }
       } catch (error: any) {
         console.error(`Error removing ${member.name}:`, error);
         results.failed++;
-        results.errors.push(`${member.name}: ${error.message || 'Unexpected error'}`);
+        results.errors.push(
+          `${member.name}: ${error.message || "Unexpected error"}`,
+        );
       }
     }
-    
+
     setRemovalResults(results);
     setRemoving(false);
     setShowResultModal(true);
-    
+
     // Clear selection after showing results
     setSelectedMembers([]);
-    
+
     // Refresh member list
     await fetchMembers();
   };
@@ -223,21 +259,31 @@ export default function RemoveMemberScreen() {
 
   const getMemberTypeLabel = () => {
     switch (actualMemberType) {
-      case 'player': return 'Player';
-      case 'youth': return 'Youth Player';
-      case 'coach': return 'Coach';
-      case 'admin': return 'Admin';
-      default: return 'Member';
+      case "player":
+        return t("common:player");
+      case "youth":
+        return t("common:youthPlayer");
+      case "coach":
+        return t("common:coach");
+      case "admin":
+        return t("common:admin");
+      default:
+        return t("common:member");
     }
   };
 
   const getRoleLabel = () => {
     switch (actualMemberType) {
-      case 'player': return 'player role';
-      case 'youth': return 'youth player role';
-      case 'coach': return 'coach role';
-      case 'admin': return 'admin role';
-      default: return 'member';
+      case "player":
+        return "player role";
+      case "youth":
+        return "youth player role";
+      case "coach":
+        return "coach role";
+      case "admin":
+        return "admin role";
+      default:
+        return "member";
     }
   };
 
@@ -246,17 +292,22 @@ export default function RemoveMemberScreen() {
    */
   const getRoleToRemove = (): string | undefined => {
     switch (actualMemberType) {
-      case 'player': return 'player';
-      case 'youth': return 'player-underage';
-      case 'coach': return 'coach';
-      case 'admin': return 'admin';
-      default: return undefined; // Remove all roles if type not recognized
+      case "player":
+        return "player";
+      case "youth":
+        return "player-underage";
+      case "coach":
+        return "coach";
+      case "admin":
+        return "admin";
+      default:
+        return undefined; // Remove all roles if type not recognized
     }
   };
 
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
-    const isSelected = selectedMembers.some(m => m.userId === item.userId);
-    
+    const isSelected = selectedMembers.some((m) => m.userId === item.userId);
+
     return (
       <TouchableOpacity
         style={[styles.memberItem, isSelected && styles.memberItemSelected]}
@@ -264,13 +315,15 @@ export default function RemoveMemberScreen() {
         disabled={removing}
       >
         <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-          {isSelected && <Ionicons name="checkmark" size={16} color={theme.colors.primary} />}
+          {isSelected && (
+            <Ionicons name="checkmark" size={16} color={theme.colors.primary} />
+          )}
         </View>
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{item.name}</Text>
           <Text style={styles.memberEmail}>{item.email}</Text>
           <View style={styles.memberRoles}>
-            {item.roles.map(role => (
+            {item.roles.map((role) => (
               <View key={role} style={styles.roleTag}>
                 <Text style={styles.roleText}>{role}</Text>
               </View>
@@ -282,11 +335,11 @@ export default function RemoveMemberScreen() {
   };
 
   const renderConfirmModal = () => {
-    const level = (removalLevel as RemovalLevel) || 'group';
-    const scope = level === 'club' ? clubName : groupName;
+    const level = (removalLevel as RemovalLevel) || "group";
+    const scope = level === "club" ? clubName : groupName;
     const memberCount = selectedMembers.length;
     const roleLabel = getRoleLabel();
-    
+
     return (
       <Modal
         visible={isConfirmModalVisible}
@@ -297,28 +350,38 @@ export default function RemoveMemberScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Ionicons 
-                name="warning" 
-                size={48} 
-                color="#FF6B6B" 
-              />
+              <Ionicons name="warning" size={48} color="#FF6B6B" />
               <Text style={styles.modalTitle}>
-                Remove {memberCount} {getMemberTypeLabel()}{memberCount > 1 ? 's' : ''}?
+                {t("screens:removeMember.removeCountConfirmTitle", {
+                  count: memberCount,
+                  memberType: getMemberTypeLabel(),
+                })}
               </Text>
             </View>
-            
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+
+            <ScrollView
+              style={styles.modalBody}
+              showsVerticalScrollIndicator={false}
+            >
               <Text style={styles.modalMessage}>
-                {level === 'club' 
-                  ? `This will remove ${roleLabel} from ${memberCount} member${memberCount > 1 ? 's' : ''} in all groups within ${scope}. This action cannot be undone.`
-                  : `This will remove ${roleLabel} from ${memberCount} member${memberCount > 1 ? 's' : ''} in ${scope}. They will remain in the club and other groups.`}
+                {level === "club"
+                  ? `This will remove ${roleLabel} from ${memberCount} member${memberCount > 1 ? "s" : ""} in all groups within ${scope}. This action cannot be undone.`
+                  : `This will remove ${roleLabel} from ${memberCount} member${memberCount > 1 ? "s" : ""} in ${scope}. They will remain in the club and other groups.`}
               </Text>
-              
+
               <View style={styles.infoSection}>
-                <Text style={styles.infoSectionTitle}>{getMemberTypeLabel()}s to remove:</Text>
+                <Text style={styles.infoSectionTitle}>
+                  {t("screens:removeMember.membersToRemove", {
+                    memberType: getMemberTypeLabel(),
+                  })}
+                </Text>
                 {selectedMembers.map((member) => (
                   <View key={member.userId} style={styles.infoItem}>
-                    <Ionicons name="person" size={16} color={theme.colors.textSecondary} />
+                    <Ionicons
+                      name="person"
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
                     <View style={styles.dependentInfo}>
                       <Text style={styles.infoText}>{member.name}</Text>
                       <Text style={styles.infoSubtext}>{member.email}</Text>
@@ -327,14 +390,16 @@ export default function RemoveMemberScreen() {
                 ))}
               </View>
             </ScrollView>
-            
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={handleCancelConfirm}
                 disabled={removing}
               >
-                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+                <Text style={styles.modalButtonTextCancel}>
+                  {t("common:cancel")}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm]}
@@ -342,10 +407,16 @@ export default function RemoveMemberScreen() {
                 disabled={removing}
               >
                 {removing ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.primary}
+                  />
                 ) : (
                   <Text style={styles.modalButtonText}>
-                    Remove {memberCount > 1 ? `${memberCount} ${getMemberTypeLabel()}s` : getMemberTypeLabel()}
+                    {t("screens:removeMember.removeCountButton", {
+                      count: memberCount,
+                      memberType: getMemberTypeLabel(),
+                    })}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -361,7 +432,9 @@ export default function RemoveMemberScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Loading members...</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:removeMember.loadingMembers")}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -370,37 +443,57 @@ export default function RemoveMemberScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.title}>Remove {getMemberTypeLabel()}</Text>
+          <Text style={styles.title}>
+            {t("screens:removeMember.removeType", {
+              memberType: getMemberTypeLabel(),
+            })}
+          </Text>
           <Text style={styles.subtitle}>
-            {removalLevel === 'club' ? `From ${clubName}` : `From ${groupName}`}
+            {t("screens:removeMember.fromScope", {
+              scope: removalLevel === "club" ? clubName : groupName,
+            })}
           </Text>
         </View>
       </View>
 
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={theme.colors.textSecondary} style={styles.searchIcon} />
+        <Ionicons
+          name="search"
+          size={20}
+          color={theme.colors.textSecondary}
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by name or email..."
+          placeholder={t("screens:removeMember.searchPlaceholder")}
           placeholderTextColor={theme.colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
           editable={!removing}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
+          <TouchableOpacity onPress={() => setSearchQuery("")}>
+            <Ionicons
+              name="close-circle"
+              size={20}
+              color={theme.colors.textSecondary}
+            />
           </TouchableOpacity>
         )}
       </View>
 
       <View style={styles.content}>
         <Text style={styles.instructionText}>
-          Select {getMemberTypeLabel().toLowerCase()}(s) to remove:
+          {t("screens:removeMember.selectToRemove", {
+            memberType: getMemberTypeLabel().toLowerCase(),
+          })}
         </Text>
 
         {filteredMembers.length > 0 ? (
@@ -411,24 +504,38 @@ export default function RemoveMemberScreen() {
             style={styles.membersList}
             contentContainerStyle={[
               styles.membersListContent,
-              selectedMembers.length > 0 && styles.membersListContentWithActions
+              selectedMembers.length > 0 &&
+                styles.membersListContentWithActions,
             ]}
           />
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={64} color={theme.colors.textSecondary} />
+            <Ionicons
+              name="people-outline"
+              size={64}
+              color={theme.colors.textSecondary}
+            />
             <Text style={styles.emptyStateText}>
-              {searchQuery ? 'No members match your search' : `No ${getMemberTypeLabel().toLowerCase()}s found`}
+              {searchQuery
+                ? t("screens:removeMember.noMembersMatchSearch")
+                : t("screens:removeMember.noMembersOfType", {
+                    memberType: getMemberTypeLabel().toLowerCase(),
+                  })}
             </Text>
           </View>
         )}
       </View>
 
       {selectedMembers.length > 0 && (
-        <View style={[styles.actionContainer, { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) }]}>
+        <View
+          style={[
+            styles.actionContainer,
+            { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
+          ]}
+        >
           <View style={styles.actionButton}>
             <Button
-              label="Cancel"
+              label={t("common:cancel")}
               onPress={() => setSelectedMembers([])}
               theme="secondary"
               disabled={removing}
@@ -436,7 +543,13 @@ export default function RemoveMemberScreen() {
           </View>
           <View style={styles.actionButton}>
             <Button
-              label={removing ? 'Removing...' : `Continue (${selectedMembers.length})`}
+              label={
+                removing
+                  ? t("screens:removeMember.removing")
+                  : t("screens:removeMember.continueWithCount", {
+                      count: selectedMembers.length,
+                    })
+              }
               onPress={handleContinue}
               theme="primary"
               disabled={removing}
@@ -463,25 +576,44 @@ export default function RemoveMemberScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Ionicons 
-                name={removalResults.failed === 0 ? 'checkmark-circle' : 'warning'} 
-                size={48} 
-                color={removalResults.failed === 0 ? theme.colors.secondary : '#FF6B6B'} 
+              <Ionicons
+                name={
+                  removalResults.failed === 0 ? "checkmark-circle" : "warning"
+                }
+                size={48}
+                color={
+                  removalResults.failed === 0
+                    ? theme.colors.secondary
+                    : "#FF6B6B"
+                }
               />
               <Text style={styles.modalTitle}>
-                {removalResults.failed === 0 ? `${getMemberTypeLabel()}s Removed` : 'Removal Complete'}
+                {removalResults.failed === 0
+                  ? t("screens:removeMember.membersRemoved", {
+                      memberType: getMemberTypeLabel(),
+                    })
+                  : t("screens:removeMember.removalComplete")}
               </Text>
             </View>
-            
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+
+            <ScrollView
+              style={styles.modalBody}
+              showsVerticalScrollIndicator={false}
+            >
               <Text style={styles.modalMessage}>
-                {removalResults.success > 0 && `Successfully removed ${getRoleLabel()} from ${removalResults.success} member${removalResults.success > 1 ? 's' : ''}.`}
-                {removalResults.failed > 0 && `\n\nFailed to remove ${getRoleLabel()} from ${removalResults.failed} member${removalResults.failed > 1 ? 's' : ''}.`}
+                {removalResults.success > 0 &&
+                  t("screens:removeMember.successCount", {
+                    count: removalResults.success,
+                  })}
+                {removalResults.failed > 0 &&
+                  `\n\n${t("screens:removeMember.failureCount", { count: removalResults.failed })}`}
               </Text>
-              
+
               {removalResults.errors.length > 0 && (
                 <View style={styles.infoSection}>
-                  <Text style={styles.infoSectionTitle}>Errors:</Text>
+                  <Text style={styles.infoSectionTitle}>
+                    {t("screens:removeMember.errorsLabel")}
+                  </Text>
                   {removalResults.errors.map((error, index) => (
                     <View key={index} style={styles.errorItem}>
                       <Ionicons name="close-circle" size={16} color="#FF6B6B" />
@@ -491,7 +623,7 @@ export default function RemoveMemberScreen() {
                 </View>
               )}
             </ScrollView>
-            
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm]}
@@ -502,7 +634,7 @@ export default function RemoveMemberScreen() {
                   }
                 }}
               >
-                <Text style={styles.modalButtonText}>OK</Text>
+                <Text style={styles.modalButtonText}>{t("common:ok")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -518,8 +650,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: theme.layout.containerPadding,
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
@@ -543,8 +675,8 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: theme.colors.inputBackground,
     marginHorizontal: theme.layout.containerPadding,
     marginVertical: theme.spacing.md,
@@ -581,8 +713,8 @@ const styles = StyleSheet.create({
     paddingBottom: 100, // Extra padding when action buttons are visible
   },
   memberItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: theme.colors.inputBackground,
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.medium,
@@ -601,8 +733,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: theme.colors.textSecondary,
     marginRight: theme.spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   checkboxSelected: {
     backgroundColor: theme.colors.secondary,
@@ -623,8 +755,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   memberRoles: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: theme.spacing.xs,
   },
   roleTag: {
@@ -640,18 +772,18 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: theme.spacing.xxl,
   },
   emptyStateText: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.md,
-    textAlign: 'center',
+    textAlign: "center",
   },
   actionContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.md,
     paddingHorizontal: theme.layout.containerPadding,
     paddingTop: theme.spacing.lg,
@@ -659,7 +791,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderTopWidth: 1,
     borderTopColor: theme.colors.inputBorder,
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -669,7 +801,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: theme.colors.textSecondary,
   },
@@ -681,33 +813,33 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.md,
   },
-  
+
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: theme.spacing.lg,
   },
   modalContent: {
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.large,
-    width: '100%',
+    width: "100%",
     maxWidth: 500,
-    maxHeight: '80%',
-    overflow: 'hidden',
+    maxHeight: "80%",
+    overflow: "hidden",
   },
   modalHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingTop: theme.spacing.xl,
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
@@ -717,7 +849,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.text,
     marginTop: theme.spacing.md,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalBody: {
     paddingHorizontal: theme.spacing.lg,
@@ -739,8 +871,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
     backgroundColor: theme.colors.inputBackground,
@@ -763,7 +895,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
     borderTopWidth: 1,
@@ -773,16 +905,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.medium,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalButtonCancel: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: theme.colors.textSecondary,
   },
   modalButtonConfirm: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: "#FF6B6B",
   },
   modalButtonDisabled: {
     backgroundColor: theme.colors.textSecondary,
@@ -801,17 +933,17 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   errorItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: "#FFF5F5",
     borderRadius: theme.borderRadius.small,
     marginBottom: theme.spacing.xs,
   },
   errorText: {
     fontSize: theme.typography.fontSize.small,
-    color: '#FF6B6B',
+    color: "#FF6B6B",
     marginLeft: theme.spacing.sm,
     flex: 1,
   },

@@ -22,6 +22,7 @@ import { functions } from '@/services/core/firebase';
 import { router, useLocalSearchParams } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -40,6 +41,7 @@ interface RespondToEmailInviteResponse {
 }
 
 export default function InvitationRejectScreen() {
+  const { t } = useTranslation(["screens", "common"]);
   const { token } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [response, setResponse] = useState<RespondToEmailInviteResponse | null>(null);
@@ -47,12 +49,13 @@ export default function InvitationRejectScreen() {
 
   useEffect(() => {
     if (!token || Array.isArray(token)) {
-      setError('Invalid invitation link. No token found.');
+      setError(t("screens:invitationReject.failedToProcess"));
       setLoading(false);
       return;
     }
 
     processRejection(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const processRejection = async (invitationToken: string) => {
@@ -78,7 +81,7 @@ export default function InvitationRejectScreen() {
 
     } catch (error) {
       console.error('❌ Error processing invitation rejection:', error);
-      setError('Failed to process invitation rejection. Please try again or contact support.');
+      setError(t("screens:invitationReject.failedToProcess"));
     } finally {
       setLoading(false);
     }
@@ -105,7 +108,7 @@ export default function InvitationRejectScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>Processing your response...</Text>
+          <Text style={styles.loadingText}>{t("screens:invitationReject.processingResponse")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -116,17 +119,17 @@ export default function InvitationRejectScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <Text style={styles.errorIcon}>❌</Text>
-          <Text style={styles.errorTitle}>Error</Text>
+          <Text style={styles.errorTitle}>{t("common:error")}</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           
           <View style={styles.buttonContainer}>
             <Button 
-              label="Go to Home" 
+              label={t("common:goToHome")} 
               onPress={handleGoHome}
               theme="primary"
             />
             <Button 
-              label="Contact Support" 
+              label={t("common:contactSupport")} 
               onPress={handleContactSupport}
               theme="secondary"
             />
@@ -144,28 +147,28 @@ export default function InvitationRejectScreen() {
         <SafeAreaView style={styles.container}>
           <View style={styles.centerContent}>
             <Text style={styles.successIcon}>✅</Text>
-            <Text style={styles.successTitle}>Invitation Declined</Text>
+            <Text style={styles.successTitle}>{t("screens:invitationReject.invitationDeclined")}</Text>
             <Text style={styles.successMessage}>
               {response.message}
             </Text>
             
             {invitationDetails && (
               <View style={styles.invitationDetails}>
-                <Text style={styles.detailsTitle}>You declined invitation to:</Text>
-                <Text style={styles.detailsText}>Group: {invitationDetails.groupName}</Text>
-                <Text style={styles.detailsText}>Club: {invitationDetails.clubName}</Text>
-                <Text style={styles.detailsText}>Invited by: {invitationDetails.inviterName}</Text>
+                <Text style={styles.detailsTitle}>{t("screens:invitationReject.youDeclinedInvitationTo")}</Text>
+                <Text style={styles.detailsText}>{t("screens:invitationAccept.group", { name: invitationDetails.groupName })}</Text>
+                <Text style={styles.detailsText}>{t("screens:invitationAccept.club", { name: invitationDetails.clubName })}</Text>
+                <Text style={styles.detailsText}>{t("screens:invitationAccept.invitedByDetail", { name: invitationDetails.inviterName })}</Text>
               </View>
             )}
 
             <View style={styles.buttonContainer}>
               <Button 
-                label="Changed My Mind - Accept Instead" 
+                label={t("screens:invitationReject.changedMyMind")} 
                 onPress={handleChangeMyMind}
                 theme="primary"
               />
               <Button 
-                label="Go to Home" 
+                label={t("common:goToHome")} 
                 onPress={handleGoHome}
                 theme="secondary"
               />
@@ -180,11 +183,11 @@ export default function InvitationRejectScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <Text style={styles.warningIcon}>⚠️</Text>
-          <Text style={styles.warningTitle}>Invitation Status</Text>
+          <Text style={styles.warningTitle}>{t("screens:invitationReject.invitationStatus")}</Text>
           <Text style={styles.warningMessage}>{response.message}</Text>
           
           <Button 
-            label="Go to Home" 
+            label={t("common:goToHome")} 
             onPress={handleGoHome}
             theme="primary"
           />
