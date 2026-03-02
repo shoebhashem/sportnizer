@@ -157,7 +157,20 @@
     "noClubs": "No clubs yet",
     "signOutConfirmation": "Are you sure you want to sign out?",
     "profilePictureUploaded": "Profile picture uploaded! It may take a moment to appear everywhere.",
-    "legal": "Legal"
+    "legal": "Legal",
+    "tapToChangePicture": "Tap to change picture",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "enterYourName": "Enter your name",
+    "enterPhoneNumber": "Enter phone number",
+    "notSet": "Not set",
+    "groups": "Groups",
+    "signOut": "Sign Out",
+    "signingOut": "Signing Out...",
+    "language": "Language",
+    "languageDescription": "Choose your preferred language",
+    "selectLanguage": "Select language"
   },
   "createClubForm": {
     "createYourClub": "Create Your Club",

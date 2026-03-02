@@ -162,8 +162,19 @@
     "signOutConfirmation": "Är du säker på att du vill logga ut?",
     "profilePictureUploaded": "Profilbilden laddades upp! Det kan ta en stund innan den visas överallt.",
     "legal": "Juridisk information",
+    "tapToChangePicture": "Tryck för att byta bild",
+    "name": "Namn",
+    "email": "E-post",
+    "phone": "Telefon",
+    "enterYourName": "Ange ditt namn",
+    "enterPhoneNumber": "Ange telefonnummer",
+    "notSet": "Ej angivet",
+    "groups": "Grupper",
+    "signOut": "Logga ut",
+    "signingOut": "Loggar ut...",
     "language": "Språk",
-    "languageDescription": "Välj ditt föredragna språk"
+    "languageDescription": "Välj ditt föredragna språk",
+    "selectLanguage": "Välj språk"
   },
 
   "createClubForm": {

@@ -1,0 +1,215 @@
+{
+  "confirmationModal": {
+    "confirm": "Bekræft"
+  },
+
+  "deletionConfirmationModal": {
+    "gracePeriodNote": "{{gracePeriodDays}}-dages henstandsperiode – Du kan fortryde!",
+    "deletionMessage": "Er du sikker på, at du vil slette \"{{entityName}}\"? Dette vil påvirke {{affectedCount}} medlemmer.",
+    "deleting": "Sletter..."
+  },
+
+  "invitationModal": {
+    "roleUpdate": "Rolleopdatering",
+    "clubAdminInvitation": "Klubadministrator-invitation",
+    "childMemberInvitation": "Børnemedlems-invitation",
+    "groupInvitation": "Gruppeinvitation",
+    "youthInvitationMessage": "{{inviterName}} vil tilføje {{youthName}} til {{groupName}} i {{clubName}}.",
+    "wouldYouLikeToAddYouth": "Vil du tilføje {{youthName}} til denne gruppe?",
+    "roleUpdateMessage": "{{inviterName}} vil opdatere din rolle til {{roleName}} i {{groupName}} ({{clubName}}).",
+    "wouldYouLikeToAcceptRoleUpdate": "Vil du acceptere denne rolleopdatering?",
+    "clubAdminMessage": "{{inviterName}} vil gerne have dig som klubadministrator for {{clubName}}.",
+    "wouldYouLikeToAcceptRole": "Vil du acceptere denne rolle?",
+    "regularInvitationMessage": "{{inviterName}} har inviteret dig til at blive medlem af {{groupName}} i {{clubName}} som {{roleName}}.",
+    "wouldYouLikeToJoin": "Vil du tilmelde dig denne gruppe?",
+    "reject": "Afvis",
+    "acceptRole": "Accepter rolle",
+    "acceptAndJoin": "Accepter & tilmeld"
+  },
+
+  "roleFilterModal": {
+    "filterByRole": "Filtrer efter rolle",
+    "apply": "Anvend",
+    "selectAll": "Vælg alle",
+    "clearAll": "Ryd alle",
+    "selectWhichRoles": "Vælg hvilke roller der skal modtage denne begivenhedsinvitation",
+    "noRolesSelected": "Ingen roller valgt – hele gruppen inviteres",
+    "rolesSelected_one": "{{count}} rolle valgt",
+    "rolesSelected_other": "{{count}} roller valgt",
+    "roles": {
+      "players": "Spillere",
+      "playersDesc": "Almindelige holdspillere",
+      "youthPlayers": "Ungdomsspillere",
+      "youthPlayersDesc": "Mindreårige spillere (værger underrettes)",
+      "coaches": "Trænere",
+      "coachesDesc": "Holdtrænere og assistenter",
+      "admins": "Administratorer",
+      "adminsDesc": "Gruppeadministratorer",
+      "clubAdmins": "Klubadministratorer",
+      "clubAdminsDesc": "Klubadministratorer",
+      "guardians": "Værger",
+      "guardiansDesc": "Forældre/værger til ungdomsmedlemmer"
+    }
+  },
+
+  "memberContactModal": {
+    "contactDetails": "Kontaktoplysninger",
+    "loadingDetails": "Indlæser oplysninger...",
+    "notAvailable": "Ikke tilgængelig",
+    "youthPlayer": "Ungdomsspiller",
+    "email": "E-mail",
+    "phone": "Telefon",
+    "dateOfBirth": "Fødselsdato",
+    "guardianContacts": "Værgekontakter",
+    "noGuardianInfo": "Ingen værgeinformation tilgængelig"
+  },
+
+  "eventCard": {
+    "today": "I dag",
+    "tomorrow": "I morgen",
+    "you": "Dig",
+    "forRecipient": "For: {{name}}",
+    "gatherTime": "Samling: {{time}}",
+    "startTime": "Start: {{time}}",
+    "ofTotalInvited": "af {{total}} inviterede",
+    "deadlineApproaching": "Deadline nærmer sig"
+  },
+
+  "newsCard": {
+    "you": "Dig",
+    "new": "Ny",
+    "issuedBy": "Udgivet af {{name}}",
+    "justNow": "Lige nu",
+    "minutesAgo": "{{count}}m siden",
+    "hoursAgo": "{{count}}t siden",
+    "daysAgo": "{{count}}d siden"
+  },
+
+  "paymentCard": {
+    "dueToday": "Forfalder i dag",
+    "dueTomorrow": "Forfalder i morgen",
+    "dueDate": "Forfalder {{date}}",
+    "daysOverdue": "{{count}} dage forsinket",
+    "oneDayRemaining": "1 dag tilbage",
+    "daysRemaining": "{{count}} dage tilbage",
+    "for": "For:",
+    "amount": "Beløb:",
+    "payNowOverdue": "Betal nu (forsinket)",
+    "payNow": "Betal nu",
+    "paid": "Betalt",
+    "noDueDate": "Ingen forfaldsdato"
+  },
+
+  "paymentStatusBadge": {
+    "paid": "Betalt",
+    "notPaid": "Ikke betalt",
+    "overdue": "Forsinket",
+    "paidBy": "af {{paidBy}}"
+  },
+
+  "notificationBell": {
+    "notifications": "Notifikationer",
+    "markAllRead": "Markér alle som læst",
+    "noNotifications": "Ingen notifikationer",
+    "paymentRequired": "Betaling påkrævet",
+    "paymentMessage": "{{amount}} betaling påkrævet for {{group}}",
+    "payNow": "Betal nu",
+    "processing": "Behandler...",
+    "later": "Senere",
+    "paymentError": "Betalingsfejl"
+  },
+
+  "dropdownInput": {
+    "selectAnOption": "Vælg en mulighed"
+  },
+
+  "genderPicker": {
+    "male": "Mand",
+    "female": "Kvinde",
+    "other": "Andet",
+    "preferNotToSay": "Ønsker ikke at oplyse",
+    "selectGender": "Vælg køn",
+    "selectLabel": "Vælg {{label}}"
+  },
+
+  "floatingActionButton": {
+    "newEvent": "Ny begivenhed",
+    "news": "Nyheder",
+    "event": "Begivenhed"
+  },
+
+  "profilePictureUpload": {
+    "uploadMemberPhoto": "Upload medlemsfoto",
+    "uploadProfilePicture": "Upload profilbillede",
+    "newImageSelected": "Nyt billede valgt",
+    "chooseFromGallery": "Vælg fra galleri",
+    "takePhoto": "Tag foto",
+    "uploading": "Uploader...",
+    "uploadImage": "Upload billede",
+    "permissionRequired": "Tilladelse påkrævet",
+    "cameraPermissionMessage": "Vi har brug for kameratilladelse for at tage et foto.",
+    "galleryPermissionMessage": "Vi har brug for adgang til fotobiblioteket for at vælge et foto.",
+    "missingUserInfo": "Manglende brugeroplysninger til upload",
+    "uploadFailed": "Upload mislykkedes",
+    "failedToUploadProfilePicture": "Kunne ikke uploade profilbillede",
+    "unexpectedError": "Der opstod en uventet fejl"
+  },
+
+  "legalAcceptanceScreen": {
+    "updatedTermsTitle": "Opdaterede vilkår & privatlivspolitik",
+    "termsTitle": "Servicevilkår & privatlivspolitik",
+    "updatedSubtitle": "Vi har opdateret vores juridiske dokumenter. Gennemgå og accepter venligst for at fortsætte.",
+    "newSubtitle": "Gennemgå og accepter venligst vores vilkår for at oprette din konto.",
+    "whatsChanged": "Hvad er ændret",
+    "keyPoints": "Nøglepunkter",
+    "keyPointTitles": {
+      "dataProtection": "Databeskyttelse",
+      "clubResponsibilities": "Klubansvar",
+      "dataProcessing": "Sådan behandler vi data",
+      "dataRetention": "Dataopbevaring",
+      "yourRights": "Dine rettigheder"
+    },
+    "keyPointDescriptions": {
+      "dataProtection": "Vi beskytter dine persondata i overensstemmelse med GDPR og gældende privatlivslovgivning.",
+      "clubResponsibilities": "Klubadministratorer er ansvarlige for at administrere deres klubs data og medlemsoplysninger.",
+      "dataProcessing": "Vi behandler dine data for at levere klubadministrationstjenester, herunder medlemshåndtering, begivenhedsplanlægning og betalingsbehandling.",
+      "dataRetention": "Dine data opbevares, mens din konto er aktiv, og i en rimelig periode derefter af hensyn til lovmæssig overholdelse.",
+      "yourRights": "Du har ret til at tilgå, rette, slette og eksportere dine persondata til enhver tid."
+    },
+    "fullDocuments": "Fulde dokumenter",
+    "readTermsOfService": "Læs servicevilkår",
+    "readPrivacyPolicy": "Læs privatlivspolitik",
+    "versionInfo": "Vilkår: {{termsVersion}} | Privatliv: {{privacyVersion}}",
+    "effectiveDate": "Gældende fra: {{date}}",
+    "agreementCheckbox": "Jeg har læst og accepterer servicevilkårene og privatlivspolitikken",
+    "signOut": "Log ud",
+    "agreeAndContinue": "Jeg accepterer & fortsæt",
+    "pleaseWait": "Vent venligst..."
+  },
+
+  "legalSettingsSection": {
+    "legal": "Juridisk",
+    "termsOfService": "Servicevilkår",
+    "privacyPolicy": "Privatlivspolitik",
+    "version": "Version {{version}}",
+    "accepted": "Accepteret",
+    "updateRequired": "Opdatering påkrævet",
+    "lastAcceptedOn": "Sidst accepteret den {{date}}"
+  },
+
+  "subscriptionWarningBanner": {
+    "memberLimitReached": "Medlemsgrænse nået",
+    "approachingMemberLimit": "Nærmer sig medlemsgrænsen",
+    "limitReachedMessage": "Du har nået grænsen på {{max}} medlemmer på {{tier}}-planen.",
+    "approachingLimitMessage": "Kun {{remaining}} medlemsplads(er) tilbage på {{tier}}-planen.",
+    "upgrade": "Opgrader"
+  },
+
+  "countdownTimer": {
+    "expired": "Udløbet",
+    "gracePeriodExpired": "Henstandsperiode udløbet",
+    "compactFormat": "{{days}}d {{hours}}t",
+    "fullFormat": "{{days}} dage, {{hours}} timer, {{minutes}} minutter",
+    "remaining": "tilbage"
+  }
+}

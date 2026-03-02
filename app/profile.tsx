@@ -21,6 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import ConfirmationModal from "../components/ConfirmationModal";
+import DropdownInput from "../components/DropdownInput";
 import LegalSettingsSection from "../components/LegalSettingsSection";
 import ProfilePictureUpload from "../components/ProfilePictureUpload";
 import { getDefaultProfilePicture } from "../constants/profilePictures";
@@ -116,6 +117,23 @@ export default function ProfileScreen() {
     }
     return groups;
   }, [userProfile?.clubAccess]);
+
+  // Language dropdown options
+  const languageOptions = useMemo(
+    () =>
+      (
+        SUPPORTED_LANGUAGES as readonly {
+          code: string;
+          label: string;
+          nativeLabel: string;
+          flag: string;
+        }[]
+      ).map((lang) => ({
+        id: lang.code,
+        name: `${lang.flag}  ${lang.nativeLabel || lang.label}`,
+      })),
+    [],
+  );
 
   // Display name helper (same logic as old UserAvatar)
   const getDisplayName = () => {
@@ -335,7 +353,9 @@ export default function ProfileScreen() {
                 />
               </View>
             </TouchableOpacity>
-            <Text style={styles.tapToChangeText}>Tap to change picture</Text>
+            <Text style={styles.tapToChangeText}>
+              {t("screens:profile.tapToChangePicture")}
+            </Text>
           </View>
 
           {/* ---- Info Section ---- */}
@@ -350,13 +370,15 @@ export default function ProfileScreen() {
                 />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Name</Text>
+                <Text style={styles.fieldLabel}>
+                  {t("screens:profile.name")}
+                </Text>
                 {isEditing ? (
                   <TextInput
                     style={styles.fieldInput}
                     value={displayName}
                     onChangeText={setDisplayName}
-                    placeholder="Enter your name"
+                    placeholder={t("screens:profile.enterYourName")}
                     placeholderTextColor={theme.colors.textSecondary}
                   />
                 ) : (
@@ -375,7 +397,9 @@ export default function ProfileScreen() {
                 />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Email</Text>
+                <Text style={styles.fieldLabel}>
+                  {t("screens:profile.email")}
+                </Text>
                 <Text style={styles.fieldValue}>
                   {userProfile?.email || user.email}
                 </Text>
@@ -392,13 +416,15 @@ export default function ProfileScreen() {
                 />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Phone</Text>
+                <Text style={styles.fieldLabel}>
+                  {t("screens:profile.phone")}
+                </Text>
                 {isEditing ? (
                   <TextInput
                     style={styles.fieldInput}
                     value={phoneNumber}
                     onChangeText={setPhoneNumber}
-                    placeholder="Enter phone number"
+                    placeholder={t("screens:profile.enterPhoneNumber")}
                     placeholderTextColor={theme.colors.textSecondary}
                     keyboardType="phone-pad"
                   />
@@ -409,7 +435,7 @@ export default function ProfileScreen() {
                       !userProfile?.phoneNumber && styles.fieldEmpty,
                     ]}
                   >
-                    {userProfile?.phoneNumber || "Not set"}
+                    {userProfile?.phoneNumber || t("screens:profile.notSet")}
                   </Text>
                 )}
               </View>
@@ -425,7 +451,9 @@ export default function ProfileScreen() {
                 />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Date of Birth</Text>
+                <Text style={styles.fieldLabel}>
+                  {t("screens:profile.dateOfBirth")}
+                </Text>
                 {isEditing ? (
                   <TextInput
                     style={styles.fieldInput}
@@ -443,7 +471,7 @@ export default function ProfileScreen() {
                   >
                     {userProfile?.dateOfBirth
                       ? new Date(userProfile.dateOfBirth).toLocaleDateString()
-                      : "Not set"}
+                      : t("screens:profile.notSet")}
                   </Text>
                 )}
               </View>
@@ -453,7 +481,9 @@ export default function ProfileScreen() {
           {/* ---- Clubs Section ---- */}
           {userClubs.length > 0 && (
             <View style={styles.membershipSection}>
-              <Text style={styles.sectionTitle}>Clubs</Text>
+              <Text style={styles.sectionTitle}>
+                {t("screens:profile.clubs")}
+              </Text>
               {userClubs.map((club, index) => (
                 <View key={`club-${index}`} style={styles.membershipCard}>
                   <View style={styles.membershipCardHeader}>
@@ -479,7 +509,9 @@ export default function ProfileScreen() {
           {/* ---- Groups Section ---- */}
           {userGroups.length > 0 && (
             <View style={styles.membershipSection}>
-              <Text style={styles.sectionTitle}>Groups</Text>
+              <Text style={styles.sectionTitle}>
+                {t("screens:profile.groups")}
+              </Text>
               {userGroups.map((group, index) => (
                 <View key={`group-${index}`} style={styles.membershipCard}>
                   <View style={styles.membershipCardHeader}>
@@ -508,41 +540,13 @@ export default function ProfileScreen() {
 
           {/* ---- Language Selector ---- */}
           <View style={styles.languageSection}>
-            <Text style={styles.sectionTitle}>
-              {t("screens:profile.language")}
-            </Text>
-            <Text style={styles.languageDescription}>
-              {t("screens:profile.languageDescription")}
-            </Text>
-            <View style={styles.languageOptions}>
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={[
-                    styles.languageOption,
-                    language === lang.code && styles.languageOptionActive,
-                  ]}
-                  onPress={() => setLanguage(lang.code as SupportedLanguage)}
-                >
-                  <Text style={styles.languageFlag}>{lang.flag}</Text>
-                  <Text
-                    style={[
-                      styles.languageLabel,
-                      language === lang.code && styles.languageLabelActive,
-                    ]}
-                  >
-                    {lang.label}
-                  </Text>
-                  {language === lang.code && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color={theme.colors.accent}
-                    />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
+            <DropdownInput
+              label={t("screens:profile.language")}
+              value={language}
+              onValueChange={(value) => setLanguage(value as SupportedLanguage)}
+              options={languageOptions}
+              placeholder={t("screens:profile.selectLanguage")}
+            />
           </View>
 
           {/* ---- Sign Out ---- */}
@@ -558,7 +562,9 @@ export default function ProfileScreen() {
                 color={theme.colors.error}
               />
               <Text style={styles.signOutText}>
-                {isSigningOut ? "Signing Out..." : "Sign Out"}
+                {isSigningOut
+                  ? t("screens:profile.signingOut")
+                  : t("screens:profile.signOut")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -577,10 +583,10 @@ export default function ProfileScreen() {
       {/* Sign Out Confirmation Modal */}
       <ConfirmationModal
         visible={showSignOutModal}
-        title="Sign Out"
-        message="Are you sure you want to sign out?"
-        confirmText="Sign Out"
-        cancelText="Cancel"
+        title={t("screens:profile.signOut")}
+        message={t("screens:profile.signOutConfirmation")}
+        confirmText={t("screens:profile.signOut")}
+        cancelText={t("common:cancel")}
         onConfirm={handleSignOutConfirm}
         onCancel={() => setShowSignOutModal(false)}
         confirmButtonTheme="primary"
@@ -591,7 +597,7 @@ export default function ProfileScreen() {
         visible={alertModal.visible}
         title={alertModal.title}
         message={alertModal.message}
-        confirmText="OK"
+        confirmText={t("common:ok")}
         onConfirm={hideAlert}
         onCancel={hideAlert}
       />
@@ -772,42 +778,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: theme.colors.inputBorder,
-  },
-  languageDescription: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  languageOptions: {
-    gap: 8,
-  },
-  languageOption: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: theme.colors.inputBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-  },
-  languageOptionActive: {
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.accent + "10",
-  },
-  languageFlag: {
-    fontSize: 22,
-    marginRight: 12,
-  },
-  languageLabel: {
-    flex: 1,
-    fontSize: 15,
-    color: theme.colors.text,
-    fontWeight: "500" as const,
-  },
-  languageLabelActive: {
-    color: theme.colors.accent,
-    fontWeight: "600" as const,
   },
   // ---- Sign Out ----
   signOutSection: {

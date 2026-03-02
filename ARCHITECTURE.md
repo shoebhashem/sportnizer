@@ -27,6 +27,7 @@
 - [Firestore Security Rules & Access Control](#-firestore-security-rules--access-control)
 - [Stripe Connect & Payment System](#-stripe-connect--payment-system)
 - [Legal & Compliance System](#-legal--compliance-system)
+- [Internationalization (i18n)](#-internationalization-i18n)
 - [Implementation Notes](#implementation-notes)
 
 ---
@@ -2296,8 +2297,7 @@ functions/src/
 │   ├── removeMemberFromClub.ts
 │   ├── removeMemberFromGroup.ts
 │   ├── updateUserClubInfo.ts      # Updates user document club access
-│   ├── updateUserGroupInfo.ts     # Updates user document group access
-│   └── updateUserEventInfo.ts     # Updates user document event access
+│   └── updateUserGroupInfo.ts     # Updates user document group access
 ├── polls/              # Poll operations
 │   ├── createPoll.ts
 │   ├── updatePoll.ts
@@ -2481,9 +2481,6 @@ await documentRef.update({
 1. **User Documents** (`/users/{userId}`):
    - ✅ **`updateUserClubInfo.ts`**: Updates `clubAccess[]` + increments version
    - ✅ **`updateUserGroupInfo.ts`**: Updates `groupAccess[]` + increments version
-   - ✅ **`updateUserEventInfo.ts`**: Updates `eventAccess[]` + increments version
-   - ✅ **`updateUserPollInfo.ts`**: Updates `pollAccess[]` + increments version
-   - ✅ **`updateUserAnnouncementInfo.ts`**: Updates `announcementAccess[]` + increments version
 
 2. **Member Management Functions** (update club/group member collections):
    - ✅ **`addMemberToClub.ts`**: Updates member collections + increments version
@@ -3026,7 +3023,7 @@ if (result.success) {
 
 - Each function handles **ONE document type** and **ONE operation**
 - Functions are pure, stateless, and focused
-- Examples: `createClub`, `addMemberToGroup`, `updateUserEventInfo`
+- Examples: `createClub`, `addMemberToGroup`, `updateUserGroupInfo`
 
 **Layer 2: Orchestrating Services (Business Logic Coordination)**
 
@@ -3134,11 +3131,11 @@ Based on common user workflows, these orchestrating services are needed:
 
 #### **Event Management Services:**
 
-- `createNewClubEvent` → createEvent + updateUserEventInfo (for all club members)
-- `createNewGroupEvent` → createEvent + updateUserEventInfo (for group members)
-- `createNewSubgroupEvent` → createEvent + updateUserEventInfo (for subgroup members)
-- `respondToEvent` → updateEvent (responses array) + updateUserEventInfo (user's response)
-- `updateEventDetails` → updateEvent + updateUserEventInfo (for all participants if details changed)
+- `createNewClubEvent` → createEvent + notify all club members
+- `createNewGroupEvent` → createEvent + notify group members
+- `createNewSubgroupEvent` → createEvent + notify subgroup members
+- `respondToEvent` → updateEvent (responses array)
+- `updateEventDetails` → updateEvent + notify all participants if details changed
 
 #### **Advanced Services:**
 
@@ -5215,7 +5212,6 @@ addMemberToClub(clubId, memberData); // Only updates club member collection
 addMemberToGroup(clubId, groupId, memberData); // Only updates group member collection
 updateUserClubInfo(userId, clubData); // Only updates user document clubAccess[]
 updateUserGroupInfo(userId, groupData); // Only updates user document groupAccess[]
-updateUserEventInfo(userId, eventData); // Only updates user document eventAccess[]
 ```
 
 #### **Orchestrating Services (Layer 2) - Business Logic Coordination:**
@@ -5231,7 +5227,7 @@ addMemberToGroupService(membershipData) {
 
 createNewClubEventService(eventData) {
   1. Call createEvent() → Create event document
-  2. Call updateUserEventInfo() → Update all target users' eventAccess[]
+  2. Notify target users about the new event
 }
 ```
 
@@ -5250,9 +5246,6 @@ Every user-related change requires updating the user document:
 // Required functions for user document synchronization
 updateUserClubInfo(); // When user joins/leaves clubs
 updateUserGroupInfo(); // When user joins/leaves groups
-updateUserEventInfo(); // When user gets invited/responds to events
-updateUserPollInfo(); // When user gets poll access
-updateUserAnnouncementInfo(); // When user gets announcement access
 ```
 
 ---
@@ -11473,6 +11466,566 @@ Body:
 
 ---
 
+## 🗄️ Complete Firestore Data Model
+
+> **Comprehensive reference** of every collection, subcollection, document, field, nested object, and array element in the Clubnizer Firestore database. Last audited: March 2026.
+
+### Collection Overview
+
+| #   | Path                                                                        | Type            | Purpose                                                   |
+| --- | --------------------------------------------------------------------------- | --------------- | --------------------------------------------------------- |
+| 1   | `users/{userId}`                                                            | Top-level       | User profiles & access control                            |
+| 2   | `users/{userId}/notifications/{notificationId}`                             | Subcollection   | In-app notifications                                      |
+| 3   | `clubs/{clubId}`                                                            | Top-level       | Club documents                                            |
+| 4   | `clubs/{clubId}/allMembers/members`                                         | Single document | Club-wide member list                                     |
+| 5   | `clubs/{clubId}/groups/{groupId}`                                           | Subcollection   | Groups within a club                                      |
+| 6   | `clubs/{clubId}/groups/{groupId}/allMembers/members`                        | Single document | Group member list                                         |
+| 7   | `clubs/{clubId}/groups/{groupId}/subgroups/{subgroupId}`                    | Subcollection   | Subgroups within a group                                  |
+| 8   | `clubs/{clubId}/groups/{groupId}/subgroups/{subgroupId}/allMembers/members` | Single document | Subgroup member list                                      |
+| 9   | `clubs/{clubId}/groups/{groupId}/statistics/{year}`                         | Subcollection   | Yearly attendance stats                                   |
+| 10  | `clubs/{clubId}/events/{eventId}`                                           | Subcollection   | Events scoped to a club                                   |
+| 11  | `clubs/{clubId}/news/{newsId}`                                              | Subcollection   | News articles scoped to a club                            |
+| 12  | `invitations/{invitationToken}`                                             | Top-level       | Invitation source of truth                                |
+| 13  | `membershipFees/{feeId}`                                                    | Top-level       | Membership fee definitions                                |
+| 14  | `payments/{paymentId}`                                                      | Top-level       | Payment records                                           |
+| 15  | `stripeEvents/{eventId}`                                                    | Top-level       | Stripe webhook idempotency                                |
+| 16  | `emailVerifications/{verificationToken}`                                    | Top-level       | Email verification tokens                                 |
+| 17  | `legal_acceptances/{acceptanceId}`                                          | Top-level       | Legal acceptance audit trail                              |
+| 18  | `config/legal`                                                              | Single document | Legal document version config                             |
+| 19  | `guardianInvitations/{invitationId}`                                        | Top-level       | Guardian invitations (rules defined, not yet implemented) |
+
+### Complete Hierarchy Diagram
+
+```
+Firestore Root
+│
+├── users/{userId}                                              # User profile & access
+│   ├── uid: string                                             # Firebase Auth UID
+│   ├── email: string                                           # Lowercase trimmed
+│   ├── displayName: string                                     # Full name
+│   ├── photoURL?: string                                       # Profile picture URL
+│   ├── phoneNumber?: string | null                             # Phone
+│   ├── dateOfBirth?: Timestamp | null                          # Date of birth
+│   ├── emailVerified?: boolean                                 # Custom email verification flag
+│   ├── verificationStatus?: "pending" | "verified" | "rejected"
+│   ├── clubAccess: ClubAccess[]                                # ⭐ SINGLE SOURCE OF TRUTH for permissions
+│   │   └── [each ClubAccess element]:
+│   │       ├── clubId: string
+│   │       ├── clubName: string
+│   │       ├── role: "club-admin" | "member"
+│   │       ├── joinedAt: Timestamp
+│   │       ├── lastModifiedAt: Timestamp
+│   │       ├── isActive?: boolean                              # false when club is soft-deleted
+│   │       ├── deletionScheduledAt?: Timestamp
+│   │       ├── groupAccess?: GroupAccess[]
+│   │       │   └── [each GroupAccess element]:
+│   │       │       ├── groupId: string
+│   │       │       ├── groupName: string
+│   │       │       ├── roles: string[]                         # e.g. ["player", "coach"]
+│   │       │       ├── joinedAt: Timestamp
+│   │       │       ├── lastModifiedAt: Timestamp
+│   │       │       ├── isActive?: boolean
+│   │       │       └── deletionScheduledAt?: Timestamp
+│   ├── activeClubsAsAdmin?: number                             # Count of clubs where user is admin
+│   ├── maxClubsAsAdmin?: number                                # Maximum clubs as admin (default: 1)
+│   ├── groupsCreated?: number
+│   ├── events: EventInvitation[]                               # Event invitation references
+│   │   └── [each EventInvitation element]:
+│   │       ├── eventId: string
+│   │       ├── response: "not replied" | "accepted" | "declined"
+│   │       ├── invitedAt?: Timestamp
+│   │       └── respondedAt?: Timestamp
+│   ├── eventsResponses: any[]                                  # Event responses (legacy)
+│   ├── dependents?: DependentInfo[]                            # For guardians — youth members they manage
+│   │   └── [each DependentInfo element]:
+│   │       ├── uid: string                                     # Youth member's UID
+│   │       ├── childName: string
+│   │       ├── relationship: string
+│   │       ├── addedAt: Timestamp
+│   │       └── clubAccess?: ClubAccess[]                       # Youth's synced access
+│   ├── guardians?: GuardianInfo[]                              # For youth members — their guardians
+│   │   └── [each GuardianInfo element]:
+│   │       ├── uid: string                                     # Guardian's UID
+│   │       ├── name: string
+│   │       ├── email: string
+│   │       ├── phoneNumber?: string
+│   │       ├── relationship: string
+│   │       └── addedAt: Timestamp
+│   ├── legalAcceptance?: {                                     # Legal acceptance tracking
+│   │   ├── termsVersion: string
+│   │   ├── privacyVersion: string
+│   │   ├── acceptedAt: Timestamp
+│   │   └── acceptanceMethod: string
+│   │   }
+│   ├── acceptedTermsVersion?: string | null                    # e.g. "TERMS_2026.1"
+│   ├── acceptedPrivacyVersion?: string | null                  # e.g. "PRIVACY_2026.1"
+│   ├── legalAcceptedAt?: Timestamp | null
+│   ├── isActive?: boolean
+│   ├── preferences?: map
+│   ├── version?: number                                        # Cache optimization version
+│   ├── createdAt: Timestamp
+│   ├── lastActive?: Timestamp
+│   ├── lastLoginAt?: Timestamp
+│   │
+│   └── /notifications/{notificationId}                         # ── Subcollection ──
+│       ├── type: string                                        # "group_invitation" | "youth_member_invitation" |
+│       │                                                       #  "announcement" | "event" | "poll" | "role_changed" |
+│       │                                                       #  "member_joined" | "event_cancelled" |
+│       │                                                       #  "payment_request" | "club_admin_invitation"
+│       ├── title: string
+│       ├── message: string
+│       ├── invitationToken?: string                            # Links to invitations/{token}
+│       ├── sourceId?: string                                   # Generic source document ID
+│       ├── sourceCollection?: string                           # e.g. "invitations", "membershipFees"
+│       ├── read: boolean
+│       ├── dismissed: boolean                                  # Soft-delete flag
+│       ├── clubId: string
+│       ├── clubName: string
+│       ├── groupId?: string
+│       ├── groupName?: string
+│       ├── youthData?: {                                       # For youth invitations
+│       │   ├── childName: string
+│       │   ├── dateOfBirth: string
+│       │   └── relationship: string
+│       │   }
+│       ├── metadata?: {                                        # Context-specific data
+│       │   ├── feeId?: string                                  # For payment_request
+│       │   ├── beneficiaryId?: string                          # For payment_request
+│       │   ├── beneficiaryName?: string                        # For payment_request
+│       │   ├── amount?: number                                 # For payment_request
+│       │   ├── currency?: string                               # For payment_request
+│       │   ├── dueDate?: Timestamp                             # For payment_request
+│       │   ├── action?: string                                 # "role_update" | "new_member" | "club_admin"
+│       │   ├── role?: string                                   # e.g. "player", "coach", "club-admin"
+│       │   └── existingYouthUid?: string                       # For existing youth invitations
+│       │   }
+│       ├── priority?: "low" | "normal" | "high"
+│       ├── actionUrl?: string                                  # Deep link URL
+│       ├── createdAt: Timestamp
+│       ├── readAt?: Timestamp
+│       ├── dismissedAt?: Timestamp
+│       └── actionTakenAt?: Timestamp
+│
+├── clubs/{clubId}                                              # Club document
+│   ├── name: string
+│   ├── description: string
+│   ├── location: string                                        # City
+│   ├── address?: string                                        # Full street address
+│   ├── phoneNumber?: string
+│   ├── logoUrl?: string                                        # Resized logo URL
+│   ├── admins: string[]                                        # User IDs of club admins
+│   ├── memberCount: number
+│   ├── isActive: boolean
+│   ├── deletionScheduledAt?: Timestamp                         # Soft delete — permanent deletion date
+│   ├── deletedBy?: string
+│   ├── deletedAt?: Timestamp
+│   ├── createdAt: Timestamp
+│   ├── createdBy: string
+│   ├── lastModifiedAt: Timestamp
+│   ├── version: number
+│   ├── totalCounts?: number                                    # Total members across all groups
+│   ├── activeGroupCount?: number
+│   ├── maxGroups?: number                                      # Default: 99
+│   ├── maxMembers?: number                                     # Based on subscription tier
+│   ├── subscription?: {                                        # Clubnizer platform subscription
+│   │   ├── tier: "free" | "basic" | "pro" | "enterprise"
+│   │   ├── status: "active" | "past_due" | "cancelled" | "trialing"
+│   │   ├── stripeCustomerId: string | null
+│   │   ├── stripeSubscriptionId: string | null
+│   │   ├── stripePriceId: string | null
+│   │   ├── currentPeriodStart: Timestamp | null
+│   │   ├── currentPeriodEnd: Timestamp | null
+│   │   ├── cancelAtPeriodEnd: boolean
+│   │   └── paymentFailedAt: Timestamp | null
+│   │   }
+│   ├── stripe?: {                                              # Stripe Connect (receiving payments)
+│   │   ├── accountId: string                                   # Stripe Connect account ID
+│   │   ├── country: string                                     # e.g. "SE"
+│   │   ├── currency: string                                    # e.g. "sek"
+│   │   ├── status: "pending" | "active" | "restricted" | "inactive"
+│   │   ├── chargesEnabled?: boolean
+│   │   ├── payoutsEnabled?: boolean
+│   │   ├── onboardingComplete?: boolean
+│   │   ├── detailsSubmitted?: boolean                          # Set by webhook
+│   │   ├── createdAt: Timestamp
+│   │   └── lastUpdatedAt: Timestamp
+│   │   }
+│   │
+│   ├── /allMembers/members                                     # ── Single Document ──
+│   │   ├── members: ClubMemberData[]                           # Array of club members
+│   │   │   └── [each ClubMemberData element]:
+│   │   │       ├── userId: string
+│   │   │       ├── name: string
+│   │   │       ├── email?: string                              # Optional for youth
+│   │   │       ├── photoURL: string
+│   │   │       ├── roles: string[]                             # ["club-admin","admin","coach","player","player-underage","guardian"]
+│   │   │       ├── addedBy: string                             # userId of who added
+│   │   │       ├── joinedAt: Timestamp
+│   │   │       ├── lastModifiedAt: Timestamp
+│   │   │       ├── needsGuardian: boolean                      # true for youth members
+│   │   │       ├── guardiansContacts: GuardianContact[]
+│   │   │       │   └── [each GuardianContact]:
+│   │   │       │       ├── userId: string
+│   │   │       │       ├── name: string
+│   │   │       │       └── email: string
+│   │   │       ├── isActive?: boolean                          # false = soft deleted
+│   │   │       ├── inactiveSince?: Timestamp | null
+│   │   │       ├── scheduledForDeletion?: Timestamp | null     # 30 days from inactiveSince
+│   │   │       ├── reactivatedAt?: Timestamp
+│   │   │       └── reactivationCount?: number
+│   │   ├── memberCount: number
+│   │   ├── lastUpdated: Timestamp
+│   │   ├── createdAt: Timestamp
+│   │   └── version: number                                     # Incremented on every member change
+│   │
+│   ├── /events/{eventId}                                       # ── Subcollection ──
+│   │   ├── title: string
+│   │   ├── description?: string
+│   │   ├── eventType: "training" | "match" | "meeting" | "other"
+│   │   ├── targetScope: {                                      # Event targeting info
+│   │   │   ├── level: "club" | "group" | "subgroup"
+│   │   │   ├── clubId: string
+│   │   │   ├── clubName: string
+│   │   │   ├── groupId?: string
+│   │   │   ├── groupName?: string
+│   │   │   ├── subgroupId?: string
+│   │   │   └── subgroupName?: string
+│   │   │   }
+│   │   ├── startDate: Timestamp
+│   │   ├── endDate?: Timestamp
+│   │   ├── gatheringTime?: Timestamp
+│   │   ├── location?: string
+│   │   ├── capacity?: {                                        # Optional capacity limit
+│   │   │   ├── min: number | null
+│   │   │   └── max: number
+│   │   │   }
+│   │   ├── responseDeadline?: Timestamp
+│   │   ├── invitedUserIds: string[]                            # Array of invited user IDs
+│   │   ├── responses: EventResponse[]                          # Array of response objects
+│   │   │   └── [each EventResponse element]:
+│   │   │       ├── userId: string
+│   │   │       ├── userName: string
+│   │   │       ├── photoUrl?: string
+│   │   │       ├── response: "pending" | "accepted" | "declined"
+│   │   │       ├── status: "pending" | "accepted" | "declined" # Alias
+│   │   │       ├── respondedAt?: Timestamp
+│   │   │       ├── isYouthMember?: boolean
+│   │   │       ├── guardianIds?: string[]
+│   │   │       ├── guardianNames?: string[]
+│   │   │       ├── respondedBy?: string                        # Guardian userId (for youth)
+│   │   │       ├── respondedByName?: string
+│   │   │       ├── responseHistory?: ResponseHistoryEntry[]
+│   │   │       │   └── [each ResponseHistoryEntry]:
+│   │   │       │       ├── response: "accepted" | "declined"
+│   │   │       │       ├── changedAt: Timestamp
+│   │   │       │       ├── changedBy: string
+│   │   │       │       └── changedByName: string
+│   │   │       ├── actualAttendance?: boolean                  # Post-event attendance
+│   │   │       ├── recordedBy?: string
+│   │   │       └── recordedAt?: Timestamp
+│   │   ├── responseSummary: {
+│   │   │   ├── totalInvited: number
+│   │   │   ├── accepted: number
+│   │   │   ├── declined: number
+│   │   │   ├── pending: number
+│   │   │   └── attended?: number                               # After completion
+│   │   │   }
+│   │   ├── isActive: boolean
+│   │   ├── status: "scheduled" | "completed" | "cancelled"
+│   │   ├── createdAt: Timestamp
+│   │   ├── createdBy: string
+│   │   ├── createdByName?: string
+│   │   ├── lastModifiedAt: Timestamp
+│   │   ├── version: number
+│   │   ├── completedAt?: Timestamp                             # When attendance was recorded
+│   │   ├── completedBy?: string
+│   │   └── completedByName?: string
+│   │
+│   ├── /news/{newsId}                                          # ── Subcollection ──
+│   │   ├── newsId: string
+│   │   ├── title: string
+│   │   ├── description: string
+│   │   ├── targetScope: {                                      # News targeting info
+│   │   │   ├── level: "club" | "group" | "subgroup"
+│   │   │   ├── clubId: string
+│   │   │   ├── clubName: string
+│   │   │   ├── groupId?: string
+│   │   │   ├── groupName?: string
+│   │   │   ├── subgroupId?: string
+│   │   │   └── subgroupName?: string
+│   │   │   }
+│   │   ├── recipientUserIds: string[]                          # Who can see this news
+│   │   ├── roleFilter?: string[] | null                        # Role-based filter applied
+│   │   ├── emailDelivery: {
+│   │   │   ├── enabled: boolean
+│   │   │   ├── sentAt?: Timestamp
+│   │   │   ├── sentCount?: number
+│   │   │   └── failedCount?: number
+│   │   │   }
+│   │   ├── readBy?: ReadEntry[]
+│   │   │   └── [each ReadEntry]:
+│   │   │       ├── userId: string
+│   │   │       └── readAt: Timestamp
+│   │   ├── readCount?: number
+│   │   ├── createdBy: string
+│   │   ├── createdByName: string
+│   │   ├── createdAt: Timestamp
+│   │   ├── updatedAt?: Timestamp
+│   │   ├── isActive: boolean
+│   │   └── version: number
+│   │
+│   └── /groups/{groupId}                                       # ── Subcollection ──
+│       ├── name: string
+│       ├── description: string
+│       ├── clubId: string                                      # Parent club reference
+│       ├── clubName: string                                    # Denormalized
+│       ├── sport: string                                       # Sport type
+│       ├── coaches: string[]                                   # User IDs
+│       ├── admins: string[]                                    # User IDs
+│       ├── memberCount: number
+│       ├── subGroups: SubGroupRef[]                            # Denormalized subgroup metadata
+│       │   └── [each SubGroupRef]:
+│       │       ├── id: string
+│       │       └── name: string
+│       ├── isActive: boolean
+│       ├── deletionScheduledAt?: Timestamp
+│       ├── deletedBy?: string
+│       ├── deletedAt?: Timestamp
+│       ├── createdAt: Timestamp
+│       ├── createdBy: string
+│       ├── lastModifiedAt: Timestamp
+│       ├── version: number
+│       ├── maxMembers?: number                                 # Default: 30
+│       │
+│       ├── /allMembers/members                                 # ── Single Document ──
+│       │   ├── members: GroupMemberData[]                      # Array of group members
+│       │   │   └── [each GroupMemberData element]:
+│       │   │       ├── userId: string
+│       │   │       ├── name: string
+│       │   │       ├── email?: string                          # Optional for youth
+│       │   │       ├── photoURL: string
+│       │   │       ├── roles: string[]                         # ["admin","coach","player","player-underage","guardian"]
+│       │   │       ├── joinedAt: Timestamp
+│       │   │       ├── needsGuardian: boolean
+│       │   │       ├── guardiansContacts: GuardianContact[]
+│       │   │       │   └── [each GuardianContact]:
+│       │   │       │       ├── userId: string
+│       │   │       │       ├── name: string
+│       │   │       │       └── email: string
+│       │   │       ├── paymentStatus?: {                       # Set when membership fee created
+│       │   │       │   ├── activeFeeId: string
+│       │   │       │   ├── status: "pending" | "paid"
+│       │   │       │   ├── amount: number
+│       │   │       │   ├── currency: string
+│       │   │       │   ├── dueDate: Timestamp | null
+│       │   │       │   ├── paidAt: Timestamp | null
+│       │   │       │   └── paidBy: string | null               # Guardian name or null if self
+│       │   │       │   }
+│       │   │       ├── isActive?: boolean                      # false = soft deleted
+│       │   │       ├── inactiveSince?: Timestamp | null
+│       │   │       ├── scheduledForDeletion?: Timestamp | null # 30 days from inactiveSince
+│       │   │       ├── reactivatedAt?: Timestamp
+│       │   │       └── reactivationCount?: number
+│       │   ├── memberCount: number
+│       │   ├── lastUpdated: Timestamp
+│       │   └── version: number
+│       │
+│       ├── /statistics/{year}                                  # ── Subcollection (doc ID = year, e.g. "2026") ──
+│       │   ├── year: number
+│       │   ├── groupId: string
+│       │   ├── groupName: string
+│       │   ├── clubId: string
+│       │   ├── memberStats: {                                  # Map: userId → stats
+│       │   │   └── [userId]: {
+│       │   │       ├── userName: string
+│       │   │       ├── eventsInvitedTo: number
+│       │   │       ├── eventsAccepted: number
+│       │   │       ├── eventsDeclined: number
+│       │   │       ├── eventsAttended: number
+│       │   │       ├── attendanceRate: number
+│       │   │       ├── responseRate: number
+│       │   │       ├── byEventType: {
+│       │   │       │   ├── training: { invited: number, attended: number }
+│       │   │       │   ├── match: { invited: number, attended: number }
+│       │   │       │   ├── meeting: { invited: number, attended: number }
+│       │   │       │   └── other: { invited: number, attended: number }
+│       │   │       │   }
+│       │   │       └── lastUpdated: Timestamp
+│       │   │       }
+│       │   │   }
+│       │   ├── groupAggregates: {
+│       │   │   ├── totalEvents: number
+│       │   │   ├── totalEventsByType: {
+│       │   │   │   ├── training: number
+│       │   │   │   ├── match: number
+│       │   │   │   ├── meeting: number
+│       │   │   │   └── other: number
+│       │   │   │   }
+│       │   │   └── averageAttendanceRate: number
+│       │   │   }
+│       │   ├── createdAt: Timestamp
+│       │   └── lastUpdated: Timestamp
+│       │
+│       └── /subgroups/{subgroupId}                             # ── Subcollection (auto-generated ID) ──
+│           ├── name: string
+│           ├── createdBy: string (userId)
+│           ├── createdAt: Timestamp
+│           ├── description?: string
+│           ├── color?: string
+│           │
+│           └── /allMembers/members                             # ── Single Document ──
+│               ├── members: GroupMemberData[]                  # Same structure as group-level
+│               │   └── [each GroupMemberData element]:
+│               │       ├── userId: string
+│               │       ├── name: string
+│               │       ├── email?: string
+│               │       ├── photoURL: string
+│               │       ├── roles: string[]
+│               │       ├── joinedAt: Timestamp
+│               │       ├── needsGuardian: boolean
+│               │       └── guardiansContacts: GuardianContact[]
+│               │           └── [each]: { userId, name, email }
+│               │       ⚠️ NOTE: Subgroups use HARD DELETE (members removed from array).
+│               │       No isActive/inactiveSince/scheduledForDeletion fields.
+│               ├── memberCount: number
+│               ├── lastUpdated: Timestamp
+│               └── version: number
+│
+├── invitations/{invitationToken}                               # Invitation (doc ID = token)
+│   ├── email: string                                           # Normalized lowercase
+│   ├── clubId: string
+│   ├── clubName: string
+│   ├── groupId: string | null                                  # null for club_admin invitations
+│   ├── groupName: string | null
+│   ├── inviterName: string
+│   ├── inviterUid: string
+│   ├── createdAt: Timestamp
+│   ├── used: boolean                                           # Whether invitation has been consumed
+│   ├── status: "pending" | "accepted" | "rejected"
+│   ├── type: "club_admin_invitation" | "group_invitation"
+│   ├── workflowVersion: "3.0"
+│   ├── respondedAt: Timestamp | null
+│   ├── expiresAt: Timestamp                                    # 7 days from creation
+│   ├── isExistingUser: boolean
+│   ├── userId: string | null                                   # Existing user's ID
+│   ├── role: "club-admin" | "player" | "coach" | "admin" | "player-underage"
+│   ├── invitationType: "regular" | "youth_member" | "youth_member_existing" | "club_admin"
+│   ├── youthData?: {                                           # For youth_member type
+│   │   ├── childName: string
+│   │   ├── dateOfBirth: string
+│   │   └── relationship: string
+│   │   }
+│   ├── existingYouthData?: {                                   # For youth_member_existing type
+│   │   ├── youthUid: string
+│   │   └── youthName: string
+│   │   }
+│   ├── message?: string                                        # Optional invite message
+│   └── metadata?: {
+│       ├── action?: "role_update" | "new_member"
+│       ├── newRole?: string
+│       └── existingRoles?: string[]
+│       }
+│
+├── membershipFees/{feeId}                                      # Membership fee definition
+│   ├── clubId: string
+│   ├── groupId: string
+│   ├── groupName: string
+│   ├── title: string                                           # Max 100 chars
+│   ├── description: string
+│   ├── amount: number                                          # In smallest currency unit (öre/cents)
+│   ├── currency: string                                        # Lowercase, e.g. "sek"
+│   ├── dueDate: Timestamp | null
+│   ├── targetRoles: string[]                                   # e.g. ["player", "coach"]
+│   ├── includedMembers: string[]                               # User IDs of targeted members
+│   ├── totalExpected: number                                   # Total members expected to pay
+│   ├── totalPaid: number                                       # Count of members who have paid
+│   ├── status: "active" | "closed"
+│   ├── createdBy: string
+│   ├── createdAt: Timestamp
+│   └── lastModifiedAt: Timestamp
+│
+├── payments/{paymentId}                                        # Payment record
+│   ├── feeId: string                                           # Links to membershipFees/{feeId}
+│   ├── feeTitle: string
+│   ├── clubId: string
+│   ├── groupId: string
+│   ├── payerId: string                                         # User who initiated payment
+│   ├── payerName: string
+│   ├── beneficiaryId: string                                   # User the payment is for
+│   ├── beneficiaryName: string
+│   ├── amount: number                                          # In smallest currency unit
+│   ├── currency: string
+│   ├── platformFee: number                                     # Clubnizer's 2% fee
+│   ├── status: "pending" | "succeeded" | "failed" | "expired" | "refunded"
+│   ├── createdAt: Timestamp
+│   ├── paidAt: Timestamp | null
+│   ├── stripeCheckoutSessionId: string | null
+│   ├── stripePaymentIntentId: string | null
+│   ├── failureReason?: string
+│   ├── failedAt?: Timestamp
+│   ├── expiredAt?: Timestamp
+│   └── refundedAt?: Timestamp
+│
+├── stripeEvents/{stripeEventId}                                # Webhook idempotency (doc ID = evt_...)
+│   ├── type: string                                            # e.g. "checkout.session.completed"
+│   ├── processedAt: Timestamp                                  # When processing started
+│   ├── livemode: boolean
+│   ├── status?: "processed" | "failed"                         # Set after processing
+│   ├── completedAt?: Timestamp
+│   ├── error?: string
+│   └── failedAt?: Timestamp
+│
+├── emailVerifications/{verificationToken}                      # Email verification token
+│   ├── uid: string                                             # User's Firebase Auth UID
+│   ├── email: string                                           # Lowercase trimmed
+│   ├── createdAt: Timestamp
+│   ├── expiresAt: Timestamp                                    # 24 hours from creation
+│   └── verified: boolean                                       # Starts as false
+│
+├── legal_acceptances/{acceptanceId}                            # Legal acceptance audit trail
+│   ├── acceptanceId: string
+│   ├── userId: string
+│   ├── termsVersion: string                                    # e.g. "TERMS_2026.1"
+│   ├── privacyVersion: string                                  # e.g. "PRIVACY_2026.1"
+│   ├── acceptedAt: Timestamp
+│   ├── acceptanceMethod: "signup" | "login_re-acceptance" | "app_prompt"
+│   └── clientInfo: {
+│       ├── platform: "ios" | "android" | "web"
+│       └── appVersion: string                                  # e.g. "1.0.0"
+│       }
+│
+├── config/legal                                                # Legal document version config (single doc)
+│   ├── currentTermsVersion: string                             # e.g. "TERMS_2026.1"
+│   ├── currentPrivacyVersion: string                           # e.g. "PRIVACY_2026.1"
+│   ├── termsLastUpdated: Timestamp
+│   ├── privacyLastUpdated: Timestamp
+│   ├── termsEffectiveDate: Timestamp
+│   ├── privacyEffectiveDate: Timestamp
+│   └── materialChangesSummary: string | null                   # Shown on re-acceptance
+│
+└── guardianInvitations/{invitationId}                          # ⚠️ Rules defined but NOT YET IMPLEMENTED
+    ├── (security rules exist but no Cloud Function writes to this collection)
+    └── (planned for future guardian-specific invitation flow)
+```
+
+### Key Architecture Notes
+
+1. **Single Document Pattern**: All `allMembers/members` paths (club, group, subgroup) use a **single document** containing a `members[]` array — NOT individual documents per member. This greatly reduces Firestore reads.
+
+2. **Soft Delete vs Hard Delete**:
+   - **Club & Group levels**: Use soft delete (`isActive: false`, `inactiveSince`, `scheduledForDeletion` — 30-day grace period)
+   - **Subgroup level**: Use **hard delete** (member removed from array immediately, no soft-delete fields)
+
+3. **Version Tracking**: The `version` field on `allMembers/members` documents, user profiles, clubs, groups, events, and news increments on every write. Used for cache invalidation and optimistic updates.
+
+4. **ClubMemberData vs GroupMemberData**: Club-level members include `addedBy` and `lastModifiedAt` fields that group-level members do not have. Group-level members include `paymentStatus` when membership fees are created.
+
+5. **Denormalization**: Club names, group names, and user names are stored redundantly in many places (events, invitations, notifications, news) to avoid expensive joins.
+
+6. **Guardian Contact Structure**: `guardiansContacts[]` on member data uses `{ userId, name, email }` — a lightweight reference. Full guardian data lives in the user document's `guardians[]` array.
+
+---
+
 ## Data Model Conventions
 
 ### Firestore Document Structure
@@ -11991,7 +12544,7 @@ When any operation affects user access, **ALL relevant user documents MUST be up
 #### 🏛️ When a New Club is Created:
 
 1. **Creator becomes club-admin**: Add new club entry to creator's `clubAccess[]`
-2. **Nested arrays are empty**: `groupAccess: []`, `eventAccess: []`, `pollAccess: []`, `announcementAccess: []`
+2. **Nested arrays are empty**: `groupAccess: []`
 
 #### 👥 When a New Group is Created in a Club:
 
@@ -12008,8 +12561,8 @@ When any operation affects user access, **ALL relevant user documents MUST be up
 #### 📅 When Events/Polls/Announcements are Created:
 
 1. **Determine target scope** (club-wide, group-specific, subgroup-specific)
-2. **Auto-update ALL affected users**: Add to respective `eventAccess[]`, `pollAccess[]`, `announcementAccess[]`
-3. **Match target scope to user permissions**: Only users with access to the target scope get the item
+2. **Auto-notify ALL affected users**: Users with access to the target scope receive notifications
+3. **Match target scope to user permissions**: Only users with access to the target scope see the item
 
 ### Permission Inheritance Rules
 
@@ -12031,9 +12584,8 @@ When any operation affects user access, **ALL relevant user documents MUST be up
 // Example permission checking
 canUserAccessEvent(userId: string, eventId: string): boolean {
   const user = getUserDocument(userId);
-  return user.clubAccess.some(club =>
-    club.eventAccess.some(event => event.eventId === eventId)
-  );
+  // Check via events[] array on user document or event's own responses/invitees
+  return user.events?.some(event => event.eventId === eventId) ?? false;
 }
 
 canUserManageGroup(userId: string, groupId: string): boolean {
@@ -12077,7 +12629,7 @@ interface ClubAccess {
   role: 'club-admin' | 'member';
   joinedAt: Date;
   lastModifiedAt: Date;
-  // ... includes nested groupAccess, eventAccess, pollAccess, announcementAccess
+  // ... includes nested groupAccess
 }
 ```
 
@@ -12423,16 +12975,16 @@ Due to Firestore rules limitations with nested array operations, permissions are
 3. **Document rule changes** - Update this architecture documentation when rules change
 4. **Test edge cases** - Verify security with users who have multiple roles
 
-## �🔥 Event Response Management
+## 🔥 Event Response Management
 
 ### **Event Response System**
 
-**Event Responses**: Users can respond to events using the existing `updateEvent.ts` and `updateUserEventInfo.ts` functions:
+**Event Responses**: Users respond to events using the existing `updateEvent.ts` function:
 
 #### **Event Response Flow:**
 
 1. **User responds to event** → Call `updateEvent` to update event's `responses[]` array
-2. **Update user document** → Call `updateUserEventInfo` with `operation: 'update_response'`
+2. **User document updated** → Update user's `events[]` array with response status
 3. **Both updates happen atomically** → Ensures consistency
 
 #### **Service Implementation:**
@@ -12446,12 +12998,8 @@ async respondToEvent(userId: string, eventId: string, clubId: string, response: 
       responses: { userId, response, respondedAt: new Date() }
     });
 
-    // 2. Update user document eventAccess (atomic)
-    await updateUserEventInfo(userId, {
-      eventId,
-      response,
-      clubId
-    }, 'update_response');
+    // 2. Update user document events array (atomic)
+    // Uses the events[] / eventsResponses[] arrays on the user document
 
     return { success: true };
   } catch (error) {
@@ -12527,7 +13075,7 @@ Use Case: Invite player to team
 
 ```typescript
 // Workflow: Create event for entire club
-Functions: createEvent → updateUserEventInfo (for all club members)
+Functions: createEvent + notify all club members
 Use Case: Club-wide meeting, general announcement
 ```
 
@@ -12535,7 +13083,7 @@ Use Case: Club-wide meeting, general announcement
 
 ```typescript
 // Workflow: Create event for specific group
-Functions: createEvent → updateUserEventInfo (for group members only)
+Functions: createEvent + notify group members only
 Use Case: Team practice, group training
 ```
 
@@ -12543,7 +13091,7 @@ Use Case: Team practice, group training
 
 ```typescript
 // Workflow: Create event for subgroups within group
-Functions: createEvent → updateUserEventInfo (for subgroup members only)
+Functions: createEvent + notify subgroup members only
 Use Case: Age-specific training, advanced player sessions
 ```
 
@@ -12551,7 +13099,7 @@ Use Case: Age-specific training, advanced player sessions
 
 ```typescript
 // Workflow: User responds to event invitation
-Functions: updateEvent (responses array) → updateUserEventInfo (user response)
+Functions: updateEvent (responses array)
 Use Case: Accept/decline event invitation
 ```
 
@@ -12561,7 +13109,7 @@ Use Case: Accept/decline event invitation
 
 ```typescript
 // Workflow: Remove member from group (keep club access)
-Functions: removeMemberFromGroup → updateUserGroupInfo → updateUserEventInfo (remove group events)
+Functions: removeMemberFromGroup → updateUserGroupInfo
 Use Case: Transfer player between teams
 ```
 
@@ -12569,7 +13117,7 @@ Use Case: Transfer player between teams
 
 ```typescript
 // Workflow: Complete removal from club
-Functions: removeMemberFromClub → removeMemberFromGroup (all groups) → updateUserClubInfo → updateUserGroupInfo → updateUserEventInfo
+Functions: removeMemberFromClub → removeMemberFromGroup (all groups) → updateUserClubInfo → updateUserGroupInfo
 Use Case: Member leaves club entirely
 ```
 
@@ -15464,9 +16012,9 @@ Clubnizer implements a version-controlled legal acceptance system that tracks us
 
 **Critical Distinction:**
 
-| Role                | Entity     | Responsibilities                                                                                                                                 |
-| ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Data Controller** | Each Club  | Determines purposes/means of processing member data, obtains guardian consent for youth members, responds to data subject requests for club data |
+| Role                | Entity    | Responsibilities                                                                                                                                 |
+| ------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Data Controller** | Each Club | Determines purposes/means of processing member data, obtains guardian consent for youth members, responds to data subject requests for club data |
 | **Data Processor**  | Clubnizer | Processes club data on behalf of clubs, provides platform infrastructure, implements security measures                                           |
 
 Clubnizer acts as **Data Controller** only for account-level data (login credentials, account settings). For all club membership data, the Club is the Data Controller and Clubnizer is the Data Processor.
@@ -15868,6 +16416,141 @@ docs/
 ├── TERMS_OF_SERVICE.md        # Full Terms of Service document
 └── PRIVACY_POLICY.md          # Full Privacy Policy document
 ```
+
+---
+
+## 🌍 Internationalization (i18n)
+
+### Overview
+
+Clubnizer supports multiple languages using a client-side internationalization system built with `i18next`, `react-i18next`, and `expo-localization`. The system provides automatic language detection based on the device's OS locale, manual language switching via the user profile, and persistent language preference storage.
+
+**Supported Languages:**
+
+- 🇬🇧 English (en) — default fallback
+- 🇸🇪 Swedish (sv)
+
+### Packages
+
+| Package             | Purpose                                        |
+| ------------------- | ---------------------------------------------- |
+| `i18next`           | Core translation framework                     |
+| `react-i18next`     | React bindings and `useTranslation` hook       |
+| `expo-localization` | Reads device OS locale for automatic detection |
+
+### File Structure
+
+```
+i18n/
+├── index.ts                    # i18next initialization, language helpers, SUPPORTED_LANGUAGES
+├── locales/
+│   ├── en/                     # English translations
+│   │   ├── common.json         # Shared strings (OK, Cancel, Save, etc.)
+│   │   ├── navigation.json     # Tab labels and screen titles
+│   │   ├── screens.json        # Screen-specific strings (~40+ screens)
+│   │   └── components.json     # Reusable component strings
+│   └── sv/                     # Swedish translations (same structure)
+│       ├── common.json
+│       ├── navigation.json
+│       ├── screens.json
+│       └── components.json
+contexts/
+└── LanguageContext.tsx          # LanguageProvider, useLanguage hook
+```
+
+### Translation Namespaces
+
+The translation files are organized into 4 namespaces to keep things manageable:
+
+| Namespace    | File              | Usage                                                      |
+| ------------ | ----------------- | ---------------------------------------------------------- |
+| `common`     | `common.json`     | Buttons, labels, validation messages shared across screens |
+| `navigation` | `navigation.json` | Tab names (`tabs.*`) and Stack screen titles (`screens.*`) |
+| `screens`    | `screens.json`    | All screen-specific text, organized by screen name         |
+| `components` | `components.json` | Reusable component text (modals, cards, inputs)            |
+
+### How It Works
+
+#### Language Detection & Persistence
+
+1. On app start, `getStoredLanguage()` (in `i18n/index.ts`) checks `AsyncStorage` for key `@clubnizer_language`
+2. If no stored preference, `expo-localization` reads the device's OS language setting
+3. If the detected language is supported, it's used; otherwise falls back to English
+4. When the user manually switches language in their profile, `setStoredLanguage()` saves to `AsyncStorage` and updates i18next
+
+#### Provider Architecture
+
+`LanguageProvider` is the **outermost** context provider in `app/_layout.tsx`:
+
+```
+LanguageProvider → DataCacheProvider → UserProvider → EventProvider → NewsProvider → AuthProvider → RootLayoutNav
+```
+
+This ensures all child components (including other providers) can access the current language.
+
+#### Using Translations in Components
+
+```tsx
+import { useTranslation } from "react-i18next";
+
+// Specify which namespaces you need
+const { t } = useTranslation(["screens", "common"]);
+
+// Use with namespace prefix
+<Text>{t("screens:profile.signOut")}</Text>
+<Text>{t("common:cancel")}</Text>
+
+// With interpolation
+<Text>{t("screens:home.welcome", { name: userName })}</Text>
+```
+
+#### Navigation Titles
+
+Screen titles in `app/_layout.tsx` and tab labels in `app/(tabs)/_layout.tsx` use the `navigation` namespace:
+
+```tsx
+const { t } = useTranslation("navigation");
+
+// Tab titles
+<Tabs.Screen name="index" options={{ title: t("tabs.home") }} />
+
+// Stack screen titles
+<Stack.Screen name="profile" options={{ title: t("screens.profile") }} />
+```
+
+### Adding a New Language
+
+1. **Create translation files**: Copy `i18n/locales/en/` to `i18n/locales/{code}/` and translate all 4 JSON files
+2. **Register in i18n/index.ts**: Add the new locale imports and add to `resources` object in `i18next.init()`
+3. **Add to SUPPORTED_LANGUAGES**: Add entry with `{ code, label, nativeLabel, flag }` to the `SUPPORTED_LANGUAGES` array in `i18n/index.ts`
+
+The language will automatically appear in the profile dropdown.
+
+### Adding New Translation Keys
+
+1. Add the key to the appropriate namespace JSON file in **both** `en/` and `sv/` (and any other language)
+2. Use the correct namespace prefix when calling `t()`:
+   - Shared UI strings → `common.json` → `t("common:keyName")`
+   - Screen-specific text → `screens.json` → `t("screens:screenName.keyName")`
+   - Component text → `components.json` → `t("components:componentName.keyName")`
+   - Navigation titles → `navigation.json` → `t("navigation:screens.screenName")`
+
+### Key Files
+
+| File                           | Purpose                                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `i18n/index.ts`                | i18next init, `SUPPORTED_LANGUAGES`, `getStoredLanguage()`, `setStoredLanguage()`         |
+| `contexts/LanguageContext.tsx` | `LanguageProvider`, `useLanguage()` hook (returns `language`, `setLanguage`, `isLoading`) |
+| `app/_layout.tsx`              | Wraps app with `LanguageProvider`, `RootLayoutNav` uses translations for screen titles    |
+| `app/(tabs)/_layout.tsx`       | Tab titles translated via `useTranslation("navigation")`                                  |
+| `app/profile.tsx`              | Language selector dropdown in user profile                                                |
+
+### Important Notes
+
+- **Server-side messages**: Firebase Cloud Functions return English messages. The client ignores these and constructs translated messages based on the response state (e.g., `requiresEmailVerification`, `isInvitedUser`)
+- **Email templates**: Emails sent by Cloud Functions (verification, invitations) are currently in English only
+- **AsyncStorage key**: `@clubnizer_language` — do not change without migration
+- **Fallback behavior**: If a translation key is missing, i18next falls back to English (the `fallbackLng`)
 
 ---
 

@@ -8,13 +8,6 @@ export interface UserProfile {
   phoneNumber?: string | null;
   dateOfBirth?: Date | null;
   emailVerified?: boolean; // Custom email verification status
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-    country?: string;
-  };
   // Updated to new access-based structure
   clubAccess: ClubAccess[];
   // Subscription limits (usage tracking)
@@ -68,10 +61,6 @@ export interface ClubAccess {
   isActive?: boolean; // false when club is soft-deleted
   deletionScheduledAt?: Date; // when permanent deletion will occur
   groupAccess?: GroupAccess[]; // nested group access within this club
-  eventAccess?: EventAccess[]; // nested event access within this club
-  pollAccess?: PollAccess[]; // nested poll access within this club
-  announcementAccess?: AnnouncementAccess[]; // nested announcement access within this club
-  groupInvites?: GroupInvite[]; // pending group invitations for this club
 }
 
 export interface GroupAccess {
@@ -82,43 +71,6 @@ export interface GroupAccess {
   lastModifiedAt: Date;
   isActive?: boolean; // false when group is soft-deleted
   deletionScheduledAt?: Date; // when permanent deletion will occur
-}
-
-export interface EventAccess {
-  eventId: string;
-  eventName: string;
-  startDate: Date;
-  startTime: string;
-  location: string;
-  response: "pending" | "accepted" | "declined"; // pending initially until user responds
-  targetScope: "club" | "group" | "subgroup";
-  targetId: string; // clubId, groupId, or subGroupId
-}
-
-export interface PollAccess {
-  pollId: string;
-  pollName: string;
-  response: "pending" | "submitted";
-  targetScope: "club" | "group" | "subgroup";
-}
-
-export interface AnnouncementAccess {
-  announcementId: string;
-  announcementName: string;
-  readAt?: Date;
-  targetScope: "club" | "group" | "subgroup";
-}
-
-export interface GroupInvite {
-  inviteId: string;
-  groupId: string;
-  groupName: string;
-  clubId?: string; // Optional since it's nested within ClubAccess
-  invitedBy: string;
-  invitedByName?: string;
-  status: "pending" | "accepted" | "rejected";
-  message?: string;
-  createdAt: Date;
 }
 
 export interface EventInvitation {

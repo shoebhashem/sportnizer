@@ -72,11 +72,8 @@ export { updateGuardianDependentClubRemoval } from "./members/updateGuardianDepe
 
 // User Document Update Functions (Atomic)
 export { updateGuardianDependentAccess } from "./members/updateGuardianDependentAccess";
-export { updateUserAnnouncementInfo } from "./members/updateUserAnnouncementInfo";
 export { updateUserClubInfo } from "./members/updateUserClubInfo";
-export { updateUserEventInfo } from "./members/updateUserEventInfo";
 export { updateUserGroupInfo } from "./members/updateUserGroupInfo";
-export { updateUserPollInfo } from "./members/updateUserPollInfo";
 export { markUserInactive } from "./users/markUserInactive";
 export { updateUserClubRemoval } from "./users/updateUserClubRemoval";
 export { updateUserGroupRemoval } from "./users/updateUserGroupRemoval";

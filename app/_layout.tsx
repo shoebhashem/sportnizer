@@ -256,7 +256,7 @@ function RootLayoutNav() {
         name="profile"
         options={{
           headerShown: true,
-          title: t("screens.myProfile"),
+          title: t("screens.profile"),
           headerStyle: {
             backgroundColor: theme.colors.primary,
           },

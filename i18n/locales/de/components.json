@@ -1,0 +1,215 @@
+{
+  "confirmationModal": {
+    "confirm": "Bestätigen"
+  },
+
+  "deletionConfirmationModal": {
+    "gracePeriodNote": "{{gracePeriodDays}}-tägige Frist – Sie können dies rückgängig machen!",
+    "deletionMessage": "Sind Sie sicher, dass Sie \"{{entityName}}\" löschen möchten? Dies betrifft {{affectedCount}} Mitglieder.",
+    "deleting": "Wird gelöscht..."
+  },
+
+  "invitationModal": {
+    "roleUpdate": "Rollenaktualisierung",
+    "clubAdminInvitation": "Vereinsadministrator-Einladung",
+    "childMemberInvitation": "Kinder-Mitgliedseinladung",
+    "groupInvitation": "Gruppeneinladung",
+    "youthInvitationMessage": "{{inviterName}} möchte {{youthName}} zu {{groupName}} in {{clubName}} hinzufügen.",
+    "wouldYouLikeToAddYouth": "Möchten Sie {{youthName}} zu dieser Gruppe hinzufügen?",
+    "roleUpdateMessage": "{{inviterName}} möchte Ihre Rolle in {{groupName}} ({{clubName}}) auf {{roleName}} aktualisieren.",
+    "wouldYouLikeToAcceptRoleUpdate": "Möchten Sie diese Rollenaktualisierung annehmen?",
+    "clubAdminMessage": "{{inviterName}} möchte, dass Sie Vereinsadministrator für {{clubName}} werden.",
+    "wouldYouLikeToAcceptRole": "Möchten Sie diese Rolle annehmen?",
+    "regularInvitationMessage": "{{inviterName}} hat Sie eingeladen, {{groupName}} in {{clubName}} als {{roleName}} beizutreten.",
+    "wouldYouLikeToJoin": "Möchten Sie dieser Gruppe beitreten?",
+    "reject": "Ablehnen",
+    "acceptRole": "Rolle annehmen",
+    "acceptAndJoin": "Annehmen & Beitreten"
+  },
+
+  "roleFilterModal": {
+    "filterByRole": "Nach Rolle filtern",
+    "apply": "Anwenden",
+    "selectAll": "Alle auswählen",
+    "clearAll": "Alle abwählen",
+    "selectWhichRoles": "Wählen Sie, welche Rollen diese Termineinladung erhalten sollen",
+    "noRolesSelected": "Keine Rollen ausgewählt – die gesamte Gruppe wird eingeladen",
+    "rolesSelected_one": "{{count}} Rolle ausgewählt",
+    "rolesSelected_other": "{{count}} Rollen ausgewählt",
+    "roles": {
+      "players": "Spieler",
+      "playersDesc": "Reguläre Mannschaftsspieler",
+      "youthPlayers": "Jugendspieler",
+      "youthPlayersDesc": "Minderjährige Spieler (Erziehungsberechtigte werden benachrichtigt)",
+      "coaches": "Trainer",
+      "coachesDesc": "Mannschaftstrainer und Assistenten",
+      "admins": "Administratoren",
+      "adminsDesc": "Gruppenadministratoren",
+      "clubAdmins": "Vereinsadministratoren",
+      "clubAdminsDesc": "Vereinsadministratoren",
+      "guardians": "Erziehungsberechtigte",
+      "guardiansDesc": "Eltern/Erziehungsberechtigte von Jugendmitgliedern"
+    }
+  },
+
+  "memberContactModal": {
+    "contactDetails": "Kontaktdaten",
+    "loadingDetails": "Details werden geladen...",
+    "notAvailable": "Nicht verfügbar",
+    "youthPlayer": "Jugendspieler",
+    "email": "E-Mail",
+    "phone": "Telefon",
+    "dateOfBirth": "Geburtsdatum",
+    "guardianContacts": "Erziehungsberechtigte Kontakte",
+    "noGuardianInfo": "Keine Informationen zu Erziehungsberechtigten verfügbar"
+  },
+
+  "eventCard": {
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "you": "Du",
+    "forRecipient": "Für: {{name}}",
+    "gatherTime": "Treffpunkt: {{time}}",
+    "startTime": "Beginn: {{time}}",
+    "ofTotalInvited": "von {{total}} eingeladen",
+    "deadlineApproaching": "Frist nähert sich"
+  },
+
+  "newsCard": {
+    "you": "Du",
+    "new": "Neu",
+    "issuedBy": "Veröffentlicht von {{name}}",
+    "justNow": "Gerade eben",
+    "minutesAgo": "vor {{count}} Min.",
+    "hoursAgo": "vor {{count}} Std.",
+    "daysAgo": "vor {{count}} T."
+  },
+
+  "paymentCard": {
+    "dueToday": "Fällig heute",
+    "dueTomorrow": "Fällig morgen",
+    "dueDate": "Fällig {{date}}",
+    "daysOverdue": "{{count}} Tage überfällig",
+    "oneDayRemaining": "1 Tag verbleibend",
+    "daysRemaining": "{{count}} Tage verbleibend",
+    "for": "Für:",
+    "amount": "Betrag:",
+    "payNowOverdue": "Jetzt zahlen (überfällig)",
+    "payNow": "Jetzt zahlen",
+    "paid": "Bezahlt",
+    "noDueDate": "Kein Fälligkeitsdatum"
+  },
+
+  "paymentStatusBadge": {
+    "paid": "Bezahlt",
+    "notPaid": "Nicht bezahlt",
+    "overdue": "Überfällig",
+    "paidBy": "von {{paidBy}}"
+  },
+
+  "notificationBell": {
+    "notifications": "Benachrichtigungen",
+    "markAllRead": "Alle als gelesen markieren",
+    "noNotifications": "Keine Benachrichtigungen",
+    "paymentRequired": "Zahlung erforderlich",
+    "paymentMessage": "Zahlung von {{amount}} erforderlich für {{group}}",
+    "payNow": "Jetzt zahlen",
+    "processing": "Wird verarbeitet...",
+    "later": "Später",
+    "paymentError": "Zahlungsfehler"
+  },
+
+  "dropdownInput": {
+    "selectAnOption": "Option auswählen"
+  },
+
+  "genderPicker": {
+    "male": "Männlich",
+    "female": "Weiblich",
+    "other": "Divers",
+    "preferNotToSay": "Keine Angabe",
+    "selectGender": "Geschlecht wählen",
+    "selectLabel": "{{label}} wählen"
+  },
+
+  "floatingActionButton": {
+    "newEvent": "Neuer Termin",
+    "news": "Neuigkeit",
+    "event": "Termin"
+  },
+
+  "profilePictureUpload": {
+    "uploadMemberPhoto": "Mitgliederfoto hochladen",
+    "uploadProfilePicture": "Profilbild hochladen",
+    "newImageSelected": "Neues Bild ausgewählt",
+    "chooseFromGallery": "Aus Galerie wählen",
+    "takePhoto": "Foto aufnehmen",
+    "uploading": "Wird hochgeladen...",
+    "uploadImage": "Bild hochladen",
+    "permissionRequired": "Berechtigung erforderlich",
+    "cameraPermissionMessage": "Wir benötigen die Kamera-Berechtigung, um ein Foto aufzunehmen.",
+    "galleryPermissionMessage": "Wir benötigen die Berechtigung für die Fotogalerie, um ein Foto auszuwählen.",
+    "missingUserInfo": "Fehlende Benutzerinformationen für den Upload",
+    "uploadFailed": "Hochladen fehlgeschlagen",
+    "failedToUploadProfilePicture": "Profilbild konnte nicht hochgeladen werden",
+    "unexpectedError": "Ein unerwarteter Fehler ist aufgetreten"
+  },
+
+  "legalAcceptanceScreen": {
+    "updatedTermsTitle": "Aktualisierte AGB & Datenschutzrichtlinie",
+    "termsTitle": "Nutzungsbedingungen & Datenschutzrichtlinie",
+    "updatedSubtitle": "Wir haben unsere rechtlichen Dokumente aktualisiert. Bitte überprüfen und akzeptieren Sie diese, um fortzufahren.",
+    "newSubtitle": "Bitte überprüfen und akzeptieren Sie unsere Bedingungen, um Ihr Konto zu erstellen.",
+    "whatsChanged": "Was hat sich geändert",
+    "keyPoints": "Wichtige Punkte",
+    "keyPointTitles": {
+      "dataProtection": "Datenschutz",
+      "clubResponsibilities": "Vereinsverantwortlichkeiten",
+      "dataProcessing": "Datenverarbeitung",
+      "dataRetention": "Datenspeicherung",
+      "yourRights": "Ihre Rechte"
+    },
+    "keyPointDescriptions": {
+      "dataProtection": "Wir schützen Ihre persönlichen Daten gemäß DSGVO und geltenden Datenschutzgesetzen.",
+      "clubResponsibilities": "Vereinsadministratoren sind für die Verwaltung der Vereinsdaten und Mitgliederinformationen verantwortlich.",
+      "dataProcessing": "Wir verarbeiten Ihre Daten, um Vereinsverwaltungsdienste bereitzustellen, einschließlich Mitgliederverwaltung, Terminplanung und Zahlungsabwicklung.",
+      "dataRetention": "Ihre Daten werden gespeichert, solange Ihr Konto aktiv ist, und für einen angemessenen Zeitraum danach zur Einhaltung gesetzlicher Vorschriften.",
+      "yourRights": "Sie haben jederzeit das Recht, auf Ihre persönlichen Daten zuzugreifen, sie zu korrigieren, zu löschen und zu exportieren."
+    },
+    "fullDocuments": "Vollständige Dokumente",
+    "readTermsOfService": "Nutzungsbedingungen lesen",
+    "readPrivacyPolicy": "Datenschutzrichtlinie lesen",
+    "versionInfo": "AGB: {{termsVersion}} | Datenschutz: {{privacyVersion}}",
+    "effectiveDate": "Gültig ab: {{date}}",
+    "agreementCheckbox": "Ich habe die Nutzungsbedingungen und die Datenschutzrichtlinie gelesen und stimme ihnen zu",
+    "signOut": "Abmelden",
+    "agreeAndContinue": "Zustimmen & Fortfahren",
+    "pleaseWait": "Bitte warten..."
+  },
+
+  "legalSettingsSection": {
+    "legal": "Rechtliches",
+    "termsOfService": "Nutzungsbedingungen",
+    "privacyPolicy": "Datenschutzrichtlinie",
+    "version": "Version {{version}}",
+    "accepted": "Akzeptiert",
+    "updateRequired": "Aktualisierung erforderlich",
+    "lastAcceptedOn": "Zuletzt akzeptiert am {{date}}"
+  },
+
+  "subscriptionWarningBanner": {
+    "memberLimitReached": "Mitgliederlimit erreicht",
+    "approachingMemberLimit": "Mitgliederlimit fast erreicht",
+    "limitReachedMessage": "Sie haben das Limit von {{max}} Mitgliedern im {{tier}}-Plan erreicht.",
+    "approachingLimitMessage": "Nur noch {{remaining}} Mitgliederplatz/-plätze im {{tier}}-Plan verfügbar.",
+    "upgrade": "Upgrade"
+  },
+
+  "countdownTimer": {
+    "expired": "Abgelaufen",
+    "gracePeriodExpired": "Frist abgelaufen",
+    "compactFormat": "{{days}}T {{hours}}Std",
+    "fullFormat": "{{days}} Tage, {{hours}} Stunden, {{minutes}} Minuten",
+    "remaining": "verbleibend"
+  }
+}

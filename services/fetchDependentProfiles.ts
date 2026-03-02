@@ -37,7 +37,6 @@ export async function fetchDependentProfiles(
           phoneNumber: data.phoneNumber || null,
           dateOfBirth: data.dateOfBirth || null,
           emailVerified: data.emailVerified || false,
-          address: data.address,
           clubAccess: data.clubAccess || [],
           groupsCreated: data.groupsCreated || 0,
           events: data.events || [],

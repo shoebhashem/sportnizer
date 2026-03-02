@@ -1,5 +1,5 @@
-import * as admin from 'firebase-admin';
-import { getDefaultProfilePictureUrl } from './config';
+import * as admin from "firebase-admin";
+import { getDefaultProfilePictureUrl } from "./config";
 
 /**
  * User creation data interface - matches ARCHITECTURE.md structure
@@ -22,28 +22,6 @@ export interface UserCreationData {
       roles: string[];
       joinedAt: Date;
       lastModifiedAt: Date;
-    }[];
-    eventAccess: {
-      eventId: string;
-      eventName: string;
-      startDate: Date;
-      startTime: string;
-      location: string;
-      response: 'pending' | 'accepted' | 'declined';
-      targetScope: 'club' | 'group' | 'subgroup';
-      targetId: string;
-    }[];
-    pollAccess: {
-      pollId: string;
-      pollName: string;
-      response: 'pending' | 'submitted';
-      targetScope: 'club' | 'group' | 'subgroup';
-    }[];
-    announcementAccess: {
-      announcementId: string;
-      announcementName: string;
-      readAt?: Date;
-      targetScope: 'club' | 'group' | 'subgroup';
     }[];
   }[];
   eventsInvited: any[];
@@ -71,28 +49,28 @@ export const createOrUpdateUserWithGroup = async (
   groupName: string,
   clubId: string,
   clubName: string,
-  role: string = 'member',
-  additionalData?: Partial<UserCreationData>
+  role: string = "member",
+  additionalData?: Partial<UserCreationData>,
 ): Promise<void> => {
-  const userRef = admin.firestore().collection('users').doc(userRecord.uid);
+  const userRef = admin.firestore().collection("users").doc(userRecord.uid);
   const userDoc = await userRef.get();
-  
+
   if (userDoc.exists) {
     // Update existing user - work with nested structure according to ARCHITECTURE.md
     const userData = userDoc.data();
     const currentClubAccess = userData?.clubAccess || [];
-    
+
     // Find existing club
     const existingClub = currentClubAccess.find(
-      (club: any) => club.clubId === clubId
+      (club: any) => club.clubId === clubId,
     );
-    
+
     if (existingClub) {
       // Club exists, check if group already exists within it
       const existingGroup = existingClub.groupAccess?.find(
-        (group: any) => group.groupId === groupId
+        (group: any) => group.groupId === groupId,
       );
-      
+
       if (!existingGroup) {
         // Add group to existing club
         const newGroupMembership = {
@@ -100,16 +78,16 @@ export const createOrUpdateUserWithGroup = async (
           groupName,
           roles: [role],
           joinedAt: new Date(),
-          lastModifiedAt: new Date()
+          lastModifiedAt: new Date(),
         };
-        
+
         const updates: any = {
-          [`clubAccess.${currentClubAccess.indexOf(existingClub)}.groupAccess`]: 
+          [`clubAccess.${currentClubAccess.indexOf(existingClub)}.groupAccess`]:
             admin.firestore.FieldValue.arrayUnion(newGroupMembership),
           version: admin.firestore.FieldValue.increment(1),
           ...additionalData,
         };
-        
+
         await userRef.update(updates);
       }
     } else {
@@ -117,58 +95,58 @@ export const createOrUpdateUserWithGroup = async (
       const newClubAccess = {
         clubId,
         clubName,
-        role: 'player',
+        role: "player",
         joinedAt: new Date(),
         lastModifiedAt: new Date(),
-        groupAccess: [{
-          groupId,
-          groupName,
-          roles: [role],
-          joinedAt: new Date(),
-          lastModifiedAt: new Date()
-        }],
-        eventAccess: [],
-        pollAccess: [],
-        announcementAccess: []
+        groupAccess: [
+          {
+            groupId,
+            groupName,
+            roles: [role],
+            joinedAt: new Date(),
+            lastModifiedAt: new Date(),
+          },
+        ],
       };
-      
+
       const updates: any = {
         clubAccess: admin.firestore.FieldValue.arrayUnion(newClubAccess),
         version: admin.firestore.FieldValue.increment(1),
         ...additionalData,
       };
-      
+
       await userRef.update(updates);
     }
   } else {
     // Create new user document according to ARCHITECTURE.md structure
     const defaultUserData: UserCreationData = {
-      name: userRecord.displayName || userRecord.email?.split('@')[0] || 'User',
-      email: userRecord.email?.toLowerCase() || '',
+      name: userRecord.displayName || userRecord.email?.split("@")[0] || "User",
+      email: userRecord.email?.toLowerCase() || "",
       version: 1, // Start with version 1
       emailVerified: userRecord.emailVerified || false,
       profilePicture: getDefaultProfilePictureUrl(),
-      clubAccess: [{
-        clubId,
-        clubName,
-        role: 'player',
-        joinedAt: new Date(),
-        lastModifiedAt: new Date(),
-        groupAccess: [{
-          groupId,
-          groupName,
-          roles: [role],
+      clubAccess: [
+        {
+          clubId,
+          clubName,
+          role: "player",
           joinedAt: new Date(),
-          lastModifiedAt: new Date()
-        }],
-        eventAccess: [],
-        pollAccess: [],
-        announcementAccess: []
-      }],
+          lastModifiedAt: new Date(),
+          groupAccess: [
+            {
+              groupId,
+              groupName,
+              roles: [role],
+              joinedAt: new Date(),
+              lastModifiedAt: new Date(),
+            },
+          ],
+        },
+      ],
       eventsInvited: [],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
-    
+
     await userRef.set({
       ...defaultUserData,
       ...additionalData,
@@ -181,13 +159,13 @@ export const createOrUpdateUserWithGroup = async (
  */
 export const findOrCreateUserByEmail = async (
   email: string,
-  name?: string
+  name?: string,
 ): Promise<admin.auth.UserRecord> => {
   try {
     // Try to find existing user
     return await admin.auth().getUserByEmail(email);
   } catch (error: any) {
-    if (error.code === 'auth/user-not-found') {
+    if (error.code === "auth/user-not-found") {
       // Create new user
       return await admin.auth().createUser({
         email: email.toLowerCase(),
@@ -204,20 +182,24 @@ export const findOrCreateUserByEmail = async (
 export const cleanupExpiredTokens = async (
   collectionName: string,
   uid: string,
-  field: string = 'uid'
+  field: string = "uid",
 ): Promise<void> => {
-  const expiredTokensQuery = await admin.firestore()
+  const expiredTokensQuery = await admin
+    .firestore()
     .collection(collectionName)
-    .where(field, '==', uid)
-    .where('verified', '==', false)
+    .where(field, "==", uid)
+    .where("verified", "==", false)
     .get();
-  
+
   if (!expiredTokensQuery.empty) {
     const batch = admin.firestore().batch();
-    expiredTokensQuery.docs.forEach(doc => {
+    expiredTokensQuery.docs.forEach((doc) => {
       batch.delete(doc.ref);
     });
     await batch.commit();
-    console.log(`Cleaned up ${expiredTokensQuery.docs.length} expired tokens for user:`, uid);
+    console.log(
+      `Cleaned up ${expiredTokensQuery.docs.length} expired tokens for user:`,
+      uid,
+    );
   }
 };
