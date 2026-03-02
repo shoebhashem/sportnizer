@@ -1,10 +1,10 @@
 import { auth, db, functions } from "@/services/core/firebase";
 import {
-    createUserWithEmailAndPassword,
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    signOut,
-    User,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  User,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -39,6 +39,20 @@ export const signInUser = async (email: string, password: string) => {
     }
 
     const userData = userDoc.data() as UserProfile;
+
+    // Check if email is verified (custom verification system in Firestore)
+    // Invited users are pre-verified (emailVerified: true), regular users must verify first
+    if (userData.emailVerified === false) {
+      await signOut(auth);
+      return {
+        success: false,
+        error: {
+          code: "auth/email-not-verified",
+          message:
+            "Please verify your email before signing in. Check your inbox for the verification link.",
+        },
+      };
+    }
 
     return { success: true, user, profile: userData };
   } catch (error: any) {
