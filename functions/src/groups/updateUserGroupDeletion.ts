@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
@@ -53,7 +54,7 @@ export const updateUserGroupDeletion = onCall(
                 
                 // Add or remove deletionScheduledAt
                 if (deletionScheduledAt) {
-                  updatedGroup.deletionScheduledAt = admin.firestore.Timestamp.fromMillis(deletionScheduledAt);
+                  updatedGroup.deletionScheduledAt = Timestamp.fromMillis(deletionScheduledAt);
                 } else if (group.deletionScheduledAt) {
                   // Remove field when reactivating
                   delete updatedGroup.deletionScheduledAt;
@@ -71,7 +72,7 @@ export const updateUserGroupDeletion = onCall(
       // 5. Update user document
       await userRef.update({
         clubAccess: updatedClubAccess,
-        version: admin.firestore.FieldValue.increment(1)
+        version: FieldValue.increment(1)
       });
       
       console.log(`Updated user ${userId} groupAccess for group ${groupId}: isActive=${isActive}`);

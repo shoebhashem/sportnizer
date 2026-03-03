@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { AddMemberToClubRequest, FunctionResponse } from "../types/interfaces";
 import { config } from "../utils/config";
@@ -129,10 +130,10 @@ export const addMemberToClub = onCall(
           // Update with modified array
           await clubMemberRef.update({
             members: currentMembers,
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-            memberCount: admin.firestore.FieldValue.increment(1),
-            version: admin.firestore.FieldValue.increment(1),
-            lastModified: admin.firestore.FieldValue.serverTimestamp(),
+            lastUpdated: FieldValue.serverTimestamp(),
+            memberCount: FieldValue.increment(1),
+            version: FieldValue.increment(1),
+            lastModified: FieldValue.serverTimestamp(),
           });
 
           console.log(
@@ -154,9 +155,9 @@ export const addMemberToClub = onCall(
           // Update with modified array
           await clubMemberRef.update({
             members: currentMembers,
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-            version: admin.firestore.FieldValue.increment(1),
-            lastModified: admin.firestore.FieldValue.serverTimestamp(),
+            lastUpdated: FieldValue.serverTimestamp(),
+            version: FieldValue.increment(1),
+            lastModified: FieldValue.serverTimestamp(),
           });
 
           console.log(
@@ -166,15 +167,15 @@ export const addMemberToClub = onCall(
       } else {
         // New member - add to club
         await clubMemberRef.update({
-          members: admin.firestore.FieldValue.arrayUnion({
+          members: FieldValue.arrayUnion({
             ...memberData,
             isActive: true,
             lastModifiedAt: new Date(),
           }),
-          lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-          memberCount: admin.firestore.FieldValue.increment(1),
-          version: admin.firestore.FieldValue.increment(1),
-          lastModified: admin.firestore.FieldValue.serverTimestamp(),
+          lastUpdated: FieldValue.serverTimestamp(),
+          memberCount: FieldValue.increment(1),
+          version: FieldValue.increment(1),
+          lastModified: FieldValue.serverTimestamp(),
         });
 
         console.log(
@@ -188,9 +189,9 @@ export const addMemberToClub = onCall(
         .collection("clubs")
         .doc(clubId)
         .update({
-          totalCounts: admin.firestore.FieldValue.increment(1),
-          version: admin.firestore.FieldValue.increment(1), // Increment version
-          lastModified: admin.firestore.FieldValue.serverTimestamp(),
+          totalCounts: FieldValue.increment(1),
+          version: FieldValue.increment(1), // Increment version
+          lastModified: FieldValue.serverTimestamp(),
         });
 
       console.log(

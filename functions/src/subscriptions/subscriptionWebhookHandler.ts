@@ -13,6 +13,7 @@
  */
 
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import Stripe from "stripe";
 import {
@@ -75,15 +76,15 @@ async function updateClubSubscription(
     status: string;
     stripeSubscriptionId: string | null;
     stripePriceId: string | null;
-    currentPeriodStart: admin.firestore.Timestamp | null;
-    currentPeriodEnd: admin.firestore.Timestamp | null;
+    currentPeriodStart: Timestamp | null;
+    currentPeriodEnd: Timestamp | null;
     cancelAtPeriodEnd: boolean;
-    paymentFailedAt: admin.firestore.Timestamp | null;
+    paymentFailedAt: Timestamp | null;
   }>,
 ): Promise<void> {
   const updateData: Record<string, any> = {
-    lastModified: admin.firestore.FieldValue.serverTimestamp(),
-    version: admin.firestore.FieldValue.increment(1),
+    lastModified: FieldValue.serverTimestamp(),
+    version: FieldValue.increment(1),
   };
 
   // Flatten subscription updates
@@ -147,12 +148,12 @@ async function handleSubscriptionChange(
 
   // Safely convert Unix timestamps to Firestore Timestamps
   const currentPeriodStart = subscription.current_period_start
-    ? admin.firestore.Timestamp.fromMillis(
+    ? Timestamp.fromMillis(
         subscription.current_period_start * 1000,
       )
     : null;
   const currentPeriodEnd = subscription.current_period_end
-    ? admin.firestore.Timestamp.fromMillis(
+    ? Timestamp.fromMillis(
         subscription.current_period_end * 1000,
       )
     : null;
@@ -222,7 +223,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 
   await updateClubSubscription(club.clubId, {
     status: "past_due",
-    paymentFailedAt: admin.firestore.Timestamp.now(),
+    paymentFailedAt: Timestamp.now(),
   });
 }
 

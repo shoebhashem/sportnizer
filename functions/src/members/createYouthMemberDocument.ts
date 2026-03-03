@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
@@ -124,8 +125,8 @@ export const createYouthMemberDocument = onCall(
         // NO emailVerified - not applicable
         // NO verificationStatus - not applicable
 
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastActive: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        lastActive: FieldValue.serverTimestamp(),
       };
 
       await youthDocRef.set(youthProfile);
@@ -137,7 +138,7 @@ export const createYouthMemberDocument = onCall(
         .collection('users')
         .doc(guardianUid)
         .update({
-          dependents: admin.firestore.FieldValue.arrayUnion({
+          dependents: FieldValue.arrayUnion({
             uid: youthDocRef.id,
             childName: childName.trim(),
             dateOfBirth,
@@ -145,7 +146,7 @@ export const createYouthMemberDocument = onCall(
             addedAt: new Date(),
             clubAccess: [], // Initialize empty - will be populated when youth joins clubs
           }),
-          version: admin.firestore.FieldValue.increment(1),
+          version: FieldValue.increment(1),
         });
 
       console.log(`✅ Guardian ${guardianUid} updated with dependent ${youthDocRef.id}`);

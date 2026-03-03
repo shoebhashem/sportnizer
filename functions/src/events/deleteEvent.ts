@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
@@ -35,8 +36,8 @@ export const deleteEvent = onCall(
       // Soft delete - mark as inactive
       await eventRef.update({
         isActive: false,
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-        version: admin.firestore.FieldValue.increment(1)
+        lastModifiedAt: FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1)
       });
       
       // 4. Return consistent response

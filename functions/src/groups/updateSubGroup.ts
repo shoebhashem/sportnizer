@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { UpdateSubGroupRequest, UpdateSubGroupResponse } from '../types/interfaces';
 import { config } from '../utils/config';
@@ -150,7 +151,7 @@ export const updateSubGroup = onCall(
 
       // Build update object
       const updateData: any = {
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        updatedAt: FieldValue.serverTimestamp()
       };
 
       if (name) {
@@ -178,18 +179,18 @@ export const updateSubGroup = onCall(
           const batch = db.batch();
           
           batch.update(groupRef, {
-            subGroups: admin.firestore.FieldValue.arrayRemove({
+            subGroups: FieldValue.arrayRemove({
               id: subGroupId,
               name: oldName
             })
           });
           
           batch.update(groupRef, {
-            subGroups: admin.firestore.FieldValue.arrayUnion({
+            subGroups: FieldValue.arrayUnion({
               id: subGroupId,
               name: name.trim()
             }),
-            lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
+            lastModifiedAt: FieldValue.serverTimestamp()
           });
           
           await batch.commit();

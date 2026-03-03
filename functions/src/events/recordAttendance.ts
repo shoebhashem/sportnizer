@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
   RecordAttendanceRequest,
@@ -167,7 +168,7 @@ export const recordAttendance = onCall(
               ...responses[responseIndex],
               actualAttendance: record.attended,
               recordedBy: data.recordedBy,
-              recordedAt: admin.firestore.Timestamp.now(),
+              recordedAt: Timestamp.now(),
             };
 
             if (record.attended) {
@@ -196,10 +197,10 @@ export const recordAttendance = onCall(
           responses,
           responseSummary,
           status: "completed",
-          completedAt: admin.firestore.FieldValue.serverTimestamp(),
+          completedAt: FieldValue.serverTimestamp(),
           completedBy: data.recordedBy,
           completedByName: recorderName,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         });
 
         console.log(`✅ Attendance recorded: ${attendedCount} attended`);

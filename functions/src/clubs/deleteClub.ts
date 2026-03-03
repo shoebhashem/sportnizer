@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
@@ -43,7 +44,7 @@ export const deleteClub = onCall(
       }
       
       // Calculate deletion timestamp
-      const deletionTimestamp = admin.firestore.Timestamp.fromMillis(
+      const deletionTimestamp = Timestamp.fromMillis(
         Date.now() + GRACE_PERIOD_MS
       );
       
@@ -52,16 +53,16 @@ export const deleteClub = onCall(
         isActive: false,
         deletionScheduledAt: deletionTimestamp,
         deletedBy: request.auth.uid,
-        deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+        deletedAt: FieldValue.serverTimestamp(),
         verificationToken: verificationToken || null,
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-        version: admin.firestore.FieldValue.increment(1)
+        lastModifiedAt: FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1)
       });
       
       // Decrement user's active clubs counter (subscription limit tracking)
       const userRef = db.collection('users').doc(request.auth.uid);
       await userRef.update({
-        activeClubsAsAdmin: admin.firestore.FieldValue.increment(-1)
+        activeClubsAsAdmin: FieldValue.increment(-1)
       });
       
       console.log(`Soft deleted club ${clubId}. Decremented user's activeClubsAsAdmin.`);
@@ -77,7 +78,7 @@ export const deleteClub = onCall(
             isActive: false,
             deletionScheduledAt: deletionTimestamp,
             deletedBy: request.auth!.uid,
-            deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+            deletedAt: FieldValue.serverTimestamp(),
             deletionReason: 'club-deletion'
           });
           
@@ -89,7 +90,7 @@ export const deleteClub = onCall(
                 isActive: false,
                 deletionScheduledAt: deletionTimestamp,
                 deletedBy: request.auth!.uid,
-                deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+                deletedAt: FieldValue.serverTimestamp(),
                 deletionReason: 'club-deletion'
               });
             });

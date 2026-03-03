@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 
@@ -76,10 +77,10 @@ export const resetPaymentSetup = onCall(
       const previousStripeData = clubData.stripe;
 
       await clubRef.update({
-        stripe: admin.firestore.FieldValue.delete(),
+        stripe: FieldValue.delete(),
         previousStripeAccount: {
           ...previousStripeData,
-          disconnectedAt: admin.firestore.FieldValue.serverTimestamp(),
+          disconnectedAt: FieldValue.serverTimestamp(),
           disconnectedBy: request.auth.uid,
         },
       });

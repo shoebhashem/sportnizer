@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { FunctionResponse } from '../types/interfaces';
 import { config } from '../utils/config';
@@ -60,8 +61,8 @@ export const updateGuardianDependentAccess = onCall(
       // Update guardian document
       await guardianRef.update({
         dependents: dependents,
-        version: admin.firestore.FieldValue.increment(1),
-        lastModified: admin.firestore.FieldValue.serverTimestamp()
+        version: FieldValue.increment(1),
+        lastModified: FieldValue.serverTimestamp()
       });
 
       console.log(`Successfully updated dependent access for youth ${youthUid} in guardian ${guardianUid}'s profile`);

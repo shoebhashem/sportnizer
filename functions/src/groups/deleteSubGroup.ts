@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { DeleteSubGroupRequest, DeleteSubGroupResponse } from '../types/interfaces';
 import { config } from '../utils/config';
@@ -113,11 +114,11 @@ export const deleteSubGroup = onCall(
 
       // Update group document to remove subgroup metadata
       batch.update(groupRef, {
-        subGroups: admin.firestore.FieldValue.arrayRemove({
+        subGroups: FieldValue.arrayRemove({
           id: subGroupId,
           name: subgroupName
         }),
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
+        lastModifiedAt: FieldValue.serverTimestamp()
       });
 
       // Delete allMembers/members document

@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { NotificationType } from "../types/interfaces";
 import { config } from "../utils/config";
@@ -143,7 +144,7 @@ export const createNotification = onCall(
         ...(groupName && { groupName }),
 
         // Timestamps
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
 
         // Optional fields
         priority,
@@ -238,7 +239,7 @@ export const createNotificationDirect = async (
     ...(hasMetadata ? { metadata: (notificationData as any).metadata } : {}),
 
     // Timestamps
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
 
     // Optional fields
     priority: notificationData.priority || "normal",

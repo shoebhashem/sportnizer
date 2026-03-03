@@ -8,6 +8,7 @@
  */
 
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import Stripe from "stripe";
 import {
@@ -158,7 +159,7 @@ export const createSubscriptionCheckout = onCall(
         await clubRef.update({
           "subscription.stripeCustomerId": customerId,
           "subscription.status": "active", // Will be updated by webhook
-          lastModified: admin.firestore.FieldValue.serverTimestamp(),
+          lastModified: FieldValue.serverTimestamp(),
         });
       }
 

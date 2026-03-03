@@ -8,6 +8,7 @@ export interface UserProfile {
   phoneNumber?: string | null;
   dateOfBirth?: Date | null;
   emailVerified?: boolean; // Custom email verification status
+  personalNumber?: PersonalNumber | null; // Swedish personnummer for LOK-stöd (encrypted)
   // Updated to new access-based structure
   clubAccess: ClubAccess[];
   // Subscription limits (usage tracking)
@@ -84,4 +85,78 @@ export interface ProfilePictureUploadResult {
   success: boolean;
   photoURL?: string;
   error?: string;
+}
+
+// --- RF Integration Types (Swedish LOK-stöd) ---
+
+// Personnummer stored encrypted on user document
+export interface PersonalNumber {
+  encrypted: string; // AES-256 encrypted personnummer (YYYYMMDDXXXX)
+  lastFour: string; // Last 4 digits for masked UI display (e.g. "3847")
+  providedAt: Date; // When first provided
+  updatedAt?: Date; // When last modified (undefined if never edited)
+  consentAt: Date; // When explicit LOK consent was given
+  consentVersion: string; // e.g. "LOK_CONSENT_2026.1"
+}
+
+// RF integration config on club document
+export interface RfIntegration {
+  organizationNumber: string; // Swedish org.nr (XXXXXX-XXXX)
+  rfOrganizationId?: string; // RF förenings-ID (from IdrottOnline)
+  districtId?: string; // Specialdistriktsförbund (SDF)
+  municipality?: string; // Kommun — needed for LOK & kommun reporting
+  integrationEnabled: boolean; // Whether RF sync is active for this club
+  lastSyncAt?: Date; // Last successful API sync
+  integrationStatus?: "pending" | "active" | "error";
+}
+
+// LOK reporting metadata on event document
+export interface LokReporting {
+  eligible: boolean; // Is this a LOK-eligible activity?
+  durationMinutes?: number; // Calculated/stored activity duration
+  reportedAt?: Date; // When submitted to RF
+  reportingPeriod?: string; // e.g. "2026-H1" or "2026-H2"
+  reportId?: string; // Reference to lokReports/{id}
+}
+
+// LOK report snapshot — top-level collection
+export interface LokReport {
+  clubId: string;
+  clubName: string;
+  organizationNumber: string; // Snapshot of club org.nr at report time
+  period: string; // "2026-H1" or "2026-H2"
+  periodStart: Date;
+  periodEnd: Date;
+  status: "draft" | "submitted" | "accepted" | "rejected";
+  totalActivities: number;
+  totalParticipants: number; // Unique participants
+  totalLeaders: number; // Unique leaders
+  activities: LokReportActivity[];
+  submittedAt?: Date;
+  submittedBy?: string;
+  rfReceiptId?: string; // RF API response ID
+  rfErrors?: string[]; // Validation errors from RF
+  createdAt: Date;
+  lastUpdatedAt: Date;
+}
+
+// Activity entry within a LOK report snapshot
+export interface LokReportActivity {
+  eventId: string; // Reference to source event
+  date: Date;
+  durationMinutes: number;
+  activityType: string; // e.g. "training", "match"
+  sport: string; // From group's sport field
+  groupId: string;
+  groupName: string;
+  participants: LokParticipant[];
+  participantCount: number;
+}
+
+// Participant entry within a LOK report activity
+export interface LokParticipant {
+  userId: string;
+  personalNumber: string; // Decrypted personnummer for RF submission
+  role: "participant" | "leader";
+  ageAtActivity: number; // Calculated from personnummer
 }

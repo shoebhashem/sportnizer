@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { checkClubLimit, DEFAULT_LIMITS } from "../utils/limits";
@@ -73,9 +74,9 @@ export const createClub = onCall(
         description: clubData.description || "",
         location: clubData.location || "",
         isActive: true,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         createdBy: request.auth.uid,
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastModifiedAt: FieldValue.serverTimestamp(),
         version: 1,
         // Subscription limits (usage tracking)
         activeGroupCount: 0, // No groups yet
@@ -87,14 +88,14 @@ export const createClub = onCall(
       await clubMemberRef.set({
         members: [], // Empty array, will be populated when members are added
         memberCount: 0,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastUpdated: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         version: 1,
       });
 
       // Increment user's active clubs counter
       await userRef.update({
-        activeClubsAsAdmin: admin.firestore.FieldValue.increment(1),
+        activeClubsAsAdmin: FieldValue.increment(1),
       });
 
       console.log(

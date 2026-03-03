@@ -27,6 +27,9 @@ export interface EventResponse {
   actualAttendance?: boolean; // Whether the person actually attended (recorded after event)
   recordedBy?: string; // User ID who recorded the attendance
   recordedAt?: Date; // When attendance was recorded
+
+  // LOK-stöd role for RF reporting
+  lokRole?: "participant" | "leader";
 }
 
 // Event document structure according to ARCHITECTURE.md
@@ -83,6 +86,15 @@ export interface EventData {
 
   // For display purposes (guardian view)
   recipientName?: string; // Which child is this event for
+
+  // LOK-stöd reporting metadata
+  lok?: {
+    eligible: boolean; // Is this a LOK-eligible activity?
+    durationMinutes?: number; // Calculated/stored activity duration
+    reportedAt?: Date; // When submitted to RF
+    reportingPeriod?: string; // e.g. "2026-H1" or "2026-H2"
+    reportId?: string; // Reference to lokReports/{id}
+  };
 }
 
 export interface RecurringSettings {

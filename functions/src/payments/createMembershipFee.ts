@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
     getMinimumChargeAmount,
@@ -193,7 +194,7 @@ export const createMembershipFee = onCall(
         if (isNaN(parsedDate.getTime())) {
           throw new HttpsError("invalid-argument", "Invalid due date format");
         }
-        dueDateTimestamp = admin.firestore.Timestamp.fromDate(parsedDate);
+        dueDateTimestamp = Timestamp.fromDate(parsedDate);
       }
 
       // 9. Create the membership fee document
@@ -214,8 +215,8 @@ export const createMembershipFee = onCall(
         totalPaid: 0,
         status: "active",
         createdBy: request.auth.uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        lastModifiedAt: FieldValue.serverTimestamp(),
       });
 
       // 10. Update each target member's payment status

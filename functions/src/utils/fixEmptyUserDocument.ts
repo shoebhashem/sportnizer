@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config, getDefaultProfilePictureUrl } from './config';
 
@@ -57,8 +58,8 @@ export const fixEmptyUserDocument = onCall(
         profilePicture: authUser.photoURL || getDefaultProfilePictureUrl(),
         clubAccess: userData?.clubAccess || [], // Preserve existing clubAccess if any
         version: userData?.version || 1,
-        createdAt: userData?.createdAt || admin.firestore.FieldValue.serverTimestamp(),
-        lastActive: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: userData?.createdAt || FieldValue.serverTimestamp(),
+        lastActive: FieldValue.serverTimestamp(),
         // Preserve any existing data
         ...userData
       };

@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { FunctionResponse, UpdateUserGroupInfoRequest } from '../types/interfaces';
 import { config } from '../utils/config';
@@ -198,8 +199,8 @@ export const updateUserGroupInfo = onCall(
 
                 await clubMembersRef.update({
                   members: clubMembers,
-                  version: admin.firestore.FieldValue.increment(1),
-                  lastModified: admin.firestore.FieldValue.serverTimestamp()
+                  version: FieldValue.increment(1),
+                  lastModified: FieldValue.serverTimestamp()
                 });
 
                 console.log(`✅ Added roles [${roles.join(', ')}] to club member list`);
@@ -259,8 +260,8 @@ export const updateUserGroupInfo = onCall(
 
                 await clubMembersRef.update({
                   members: clubMembers,
-                  version: admin.firestore.FieldValue.increment(1),
-                  lastModified: admin.firestore.FieldValue.serverTimestamp()
+                  version: FieldValue.increment(1),
+                  lastModified: FieldValue.serverTimestamp()
                 });
 
                 console.log(`✅ Removed roles [${removedRoles.join(', ')}] from club member list`);
@@ -279,8 +280,8 @@ export const updateUserGroupInfo = onCall(
       // Update user document with new nested structure and increment version
       await userRef.update({
         clubAccess: clubAccess,
-        version: admin.firestore.FieldValue.increment(1),
-        lastModified: admin.firestore.FieldValue.serverTimestamp()
+        version: FieldValue.increment(1),
+        lastModified: FieldValue.serverTimestamp()
       });
 
       console.log(`Successfully ${operation === 'add' ? 'added' : 'removed'} group info for user ${uid}`);

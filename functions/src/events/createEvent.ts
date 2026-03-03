@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { EventData } from '../types/interfaces';
 import { config } from '../utils/config';
@@ -48,9 +49,9 @@ export const createEvent = onCall(
         responseDeadline: eventData.responseDeadline || null,
         responses: eventData.responses || [], // Pre-populated by service layer
         isActive: eventData.isActive !== false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         createdBy: request.auth.uid,
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastModifiedAt: FieldValue.serverTimestamp(),
         version: 1
       });
       

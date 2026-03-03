@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { getDefaultProfilePictureUrl } from "./config";
 
 /**
@@ -25,7 +26,7 @@ export interface UserCreationData {
     }[];
   }[];
   eventsInvited: any[];
-  createdAt: admin.firestore.FieldValue;
+  createdAt: FieldValue;
 }
 
 /**
@@ -83,8 +84,8 @@ export const createOrUpdateUserWithGroup = async (
 
         const updates: any = {
           [`clubAccess.${currentClubAccess.indexOf(existingClub)}.groupAccess`]:
-            admin.firestore.FieldValue.arrayUnion(newGroupMembership),
-          version: admin.firestore.FieldValue.increment(1),
+            FieldValue.arrayUnion(newGroupMembership),
+          version: FieldValue.increment(1),
           ...additionalData,
         };
 
@@ -110,8 +111,8 @@ export const createOrUpdateUserWithGroup = async (
       };
 
       const updates: any = {
-        clubAccess: admin.firestore.FieldValue.arrayUnion(newClubAccess),
-        version: admin.firestore.FieldValue.increment(1),
+        clubAccess: FieldValue.arrayUnion(newClubAccess),
+        version: FieldValue.increment(1),
         ...additionalData,
       };
 
@@ -144,7 +145,7 @@ export const createOrUpdateUserWithGroup = async (
         },
       ],
       eventsInvited: [],
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     };
 
     await userRef.set({

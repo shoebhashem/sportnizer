@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
@@ -41,8 +42,8 @@ export const updateEvent = onCall(
 
       // Update only the provided fields
       const updateData: any = {
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        version: admin.firestore.FieldValue.increment(1),
+        updatedAt: FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1),
       };
 
       if (eventData.title) updateData.title = eventData.title;
@@ -54,18 +55,18 @@ export const updateEvent = onCall(
 
       // Handle date/time updates
       if (eventData.startDate) {
-        updateData.startDate = admin.firestore.Timestamp.fromDate(
+        updateData.startDate = Timestamp.fromDate(
           new Date(eventData.startDate),
         );
       }
       if (eventData.endDate) {
-        updateData.endDate = admin.firestore.Timestamp.fromDate(
+        updateData.endDate = Timestamp.fromDate(
           new Date(eventData.endDate),
         );
       }
       if (eventData.gatheringTime !== undefined) {
         updateData.gatheringTime = eventData.gatheringTime
-          ? admin.firestore.Timestamp.fromDate(
+          ? Timestamp.fromDate(
               new Date(eventData.gatheringTime),
             )
           : null;
@@ -81,7 +82,7 @@ export const updateEvent = onCall(
       // Handle response deadline
       if (eventData.responseDeadline !== undefined) {
         updateData.responseDeadline = eventData.responseDeadline
-          ? admin.firestore.Timestamp.fromDate(
+          ? Timestamp.fromDate(
               new Date(eventData.responseDeadline),
             )
           : null;

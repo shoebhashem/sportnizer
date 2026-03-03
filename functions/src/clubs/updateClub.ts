@@ -1,6 +1,8 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
+import { isClubAdmin } from "../utils/roleValidation";
 import { validateRequiredFields } from "../utils/validation";
 
 export const updateClub = onCall(
@@ -26,8 +28,9 @@ export const updateClub = onCall(
         throw new HttpsError("not-found", "Club not found");
       }
 
-      const club = clubDoc.data();
-      if (!club?.admins?.includes(request.auth.uid)) {
+      // Check permission via user's clubAccess (single source of truth)
+      const hasPermission = await isClubAdmin(request.auth.uid, clubId);
+      if (!hasPermission) {
         throw new HttpsError(
           "permission-denied",
           "Only club admins can update club details",
@@ -36,8 +39,8 @@ export const updateClub = onCall(
 
       // Update only the provided fields
       const updateData: any = {
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-        version: admin.firestore.FieldValue.increment(1),
+        lastModifiedAt: FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1),
       };
 
       if (clubData.name) updateData.name = clubData.name.trim();

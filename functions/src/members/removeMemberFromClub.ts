@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
@@ -88,8 +89,8 @@ export const removeMemberFromClub = onCall(
       await clubMemberRef.update({
         members: updatedMembers,
         memberCount: updatedMembers.length,
-        version: admin.firestore.FieldValue.increment(1),
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1),
+        lastModified: FieldValue.serverTimestamp(),
       });
 
       console.log(`✅ Successfully removed user ${userId} from club ${clubId}`);

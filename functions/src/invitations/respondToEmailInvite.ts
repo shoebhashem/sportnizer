@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
@@ -111,7 +112,7 @@ export const respondToEmailInvite = onCall(
         await inviteRef.update({
           status: 'rejected',
           used: true,
-          respondedAt: admin.firestore.FieldValue.serverTimestamp(),
+          respondedAt: FieldValue.serverTimestamp(),
           userResponse: action
         });
 
@@ -143,7 +144,7 @@ export const respondToEmailInvite = onCall(
           // User needs to sign up first
           await inviteRef.update({
             status: 'accepted_pending_signup',
-            respondedAt: admin.firestore.FieldValue.serverTimestamp(),
+            respondedAt: FieldValue.serverTimestamp(),
             userResponse: action,
             userInfo: userInfo || {}
           });
@@ -163,7 +164,7 @@ export const respondToEmailInvite = onCall(
             await inviteRef.update({
               status: 'accepted',
               used: true,
-              respondedAt: admin.firestore.FieldValue.serverTimestamp(),
+              respondedAt: FieldValue.serverTimestamp(),
               userResponse: action,
               acceptedByUserId: userId
             });
@@ -196,7 +197,7 @@ export const respondToEmailInvite = onCall(
                   name: userInfo?.displayName || inviteData.email?.split('@')[0] || 'Unknown User',
                   email: inviteData.email || '',
                   roles: ['player'],
-                  joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+                  joinedAt: FieldValue.serverTimestamp(),
                   photoURL: '',
                   needsGuardian: false,
                   guardiansContacts: [],
@@ -204,18 +205,18 @@ export const respondToEmailInvite = onCall(
                 };
 
                 await clubMemberRef.update({
-                  members: admin.firestore.FieldValue.arrayUnion(clubMemberData),
-                  lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-                  memberCount: admin.firestore.FieldValue.increment(1),
-                  version: admin.firestore.FieldValue.increment(1),
-                  lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                  members: FieldValue.arrayUnion(clubMemberData),
+                  lastUpdated: FieldValue.serverTimestamp(),
+                  memberCount: FieldValue.increment(1),
+                  version: FieldValue.increment(1),
+                  lastModified: FieldValue.serverTimestamp(),
                 });
 
                 // Update club total count
                 await admin.firestore().collection('clubs').doc(inviteData.clubId).update({
-                  totalCounts: admin.firestore.FieldValue.increment(1),
-                  version: admin.firestore.FieldValue.increment(1),
-                  lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                  totalCounts: FieldValue.increment(1),
+                  version: FieldValue.increment(1),
+                  lastModified: FieldValue.serverTimestamp(),
                 });
 
                 console.log('✅ User added to club membership successfully');
@@ -231,7 +232,7 @@ export const respondToEmailInvite = onCall(
                 name: userInfo?.displayName || inviteData.email?.split('@')[0] || 'Unknown User',
                 email: inviteData.email || '',
                 roles: ['player'],
-                joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+                joinedAt: FieldValue.serverTimestamp(),
                 photoURL: '',
                 needsGuardian: false,
                 guardiansContacts: [],
@@ -247,11 +248,11 @@ export const respondToEmailInvite = onCall(
                 .doc('members');
 
               await groupMemberRef.update({
-                members: admin.firestore.FieldValue.arrayUnion(groupMemberData),
-                lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-                memberCount: admin.firestore.FieldValue.increment(1),
-                version: admin.firestore.FieldValue.increment(1),
-                lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                members: FieldValue.arrayUnion(groupMemberData),
+                lastUpdated: FieldValue.serverTimestamp(),
+                memberCount: FieldValue.increment(1),
+                version: FieldValue.increment(1),
+                lastModified: FieldValue.serverTimestamp(),
               });
 
               console.log('✅ User added to group membership successfully');
@@ -270,7 +271,7 @@ export const respondToEmailInvite = onCall(
                 if (clubIndex >= 0) {
                   // Club exists, update it
                   clubAccess[clubIndex].role = 'member';
-                  clubAccess[clubIndex].joinedAt = admin.firestore.FieldValue.serverTimestamp();
+                  clubAccess[clubIndex].joinedAt = FieldValue.serverTimestamp();
                   
                   if (!clubAccess[clubIndex].groupAccess) {
                     clubAccess[clubIndex].groupAccess = [];
@@ -286,7 +287,7 @@ export const respondToEmailInvite = onCall(
                       groupId: inviteData.groupId,
                       groupName: inviteData.groupName,
                       roles: ['player'],
-                      joinedAt: admin.firestore.FieldValue.serverTimestamp()
+                      joinedAt: FieldValue.serverTimestamp()
                     });
                   }
                   
@@ -296,13 +297,13 @@ export const respondToEmailInvite = onCall(
                     clubId: inviteData.clubId,
                     clubName: inviteData.clubName,
                     role: 'player',
-                    joinedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    joinedAt: FieldValue.serverTimestamp(),
+                    lastModifiedAt: FieldValue.serverTimestamp(),
                     groupAccess: [{
                       groupId: inviteData.groupId,
                       groupName: inviteData.groupName,
                       roles: ['player'],
-                      joinedAt: admin.firestore.FieldValue.serverTimestamp()
+                      joinedAt: FieldValue.serverTimestamp()
                     }]
                   });
                 }
@@ -310,8 +311,8 @@ export const respondToEmailInvite = onCall(
                 // Update user document
                 await userRef.update({
                   clubAccess: clubAccess,
-                  lastModified: admin.firestore.FieldValue.serverTimestamp(),
-                  version: admin.firestore.FieldValue.increment(1)
+                  lastModified: FieldValue.serverTimestamp(),
+                  version: FieldValue.increment(1)
                 });
               }
 

@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
@@ -64,8 +65,8 @@ export const markUserInactive = onCall(
 
       await userRef.update({
         isActive: false,
-        inactiveSince: admin.firestore.FieldValue.serverTimestamp(),
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        inactiveSince: FieldValue.serverTimestamp(),
+        lastModified: FieldValue.serverTimestamp(),
       });
 
       console.log(`✅ Marked user ${userId} as inactive`);

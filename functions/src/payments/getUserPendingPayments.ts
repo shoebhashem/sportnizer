@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 
@@ -16,7 +17,7 @@ interface PendingPayment {
   groupName: string;
   amount: number;
   currency: string;
-  dueDate: admin.firestore.Timestamp | null;
+  dueDate: Timestamp | null;
   isOverdue: boolean;
   daysRemaining: number | null;
   status: "pending" | "paid";

@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { permanentlyDeleteClub } from "../clubs/permanentlyDeleteClub";
 import { permanentlyDeleteGroup } from "../groups/permanentlyDeleteGroup";
@@ -18,7 +19,7 @@ export const cleanupDeletedEntities = onSchedule(
   },
   async () => {
     const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
+    const now = Timestamp.now();
 
     console.log(`🗑️ Starting cleanup of deleted entities at ${now.toDate()}`);
 
@@ -94,13 +95,13 @@ export const cleanupDeletedEntities = onSchedule(
 
                 const updateData: any = {
                   clubAccess: updatedClubAccess,
-                  version: admin.firestore.FieldValue.increment(1),
+                  version: FieldValue.increment(1),
                 };
 
                 if (!hasActiveGroups && userData?.isActive !== false) {
                   updateData.isActive = false;
                   updateData.inactiveSince =
-                    admin.firestore.FieldValue.serverTimestamp();
+                    FieldValue.serverTimestamp();
                   console.log(
                     `Marking user ${userId} as inactive (no active groups)`,
                   );
@@ -165,7 +166,7 @@ export const cleanupDeletedEntities = onSchedule(
 
                 const updateData: any = {
                   clubAccess: updatedClubAccess,
-                  version: admin.firestore.FieldValue.increment(1),
+                  version: FieldValue.increment(1),
                 };
 
                 // Mark user inactive if no clubs remain
@@ -175,7 +176,7 @@ export const cleanupDeletedEntities = onSchedule(
                 ) {
                   updateData.isActive = false;
                   updateData.inactiveSince =
-                    admin.firestore.FieldValue.serverTimestamp();
+                    FieldValue.serverTimestamp();
                   console.log(`Marking user ${userId} as inactive (no clubs)`);
                 }
 
@@ -237,8 +238,8 @@ export const cleanupDeletedEntities = onSchedule(
                 await membersDoc.ref.update({
                   members: remainingMembers,
                   memberCount: remainingMembers.length,
-                  version: admin.firestore.FieldValue.increment(1),
-                  lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                  version: FieldValue.increment(1),
+                  lastModified: FieldValue.serverTimestamp(),
                 });
 
                 groupMembersDeleted += expiredMembers.length;
@@ -297,8 +298,8 @@ export const cleanupDeletedEntities = onSchedule(
               await membersDoc.ref.update({
                 members: remainingMembers,
                 memberCount: remainingMembers.length,
-                version: admin.firestore.FieldValue.increment(1),
-                lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                version: FieldValue.increment(1),
+                lastModified: FieldValue.serverTimestamp(),
               });
 
               clubMembersDeleted += expiredMembers.length;
@@ -324,7 +325,7 @@ export const cleanupDeletedEntities = onSchedule(
 
                     const updateData: any = {
                       clubAccess: updatedClubAccess,
-                      version: admin.firestore.FieldValue.increment(1),
+                      version: FieldValue.increment(1),
                     };
 
                     // Check if user should be marked globally inactive
@@ -345,7 +346,7 @@ export const cleanupDeletedEntities = onSchedule(
                       ) {
                         updateData.isActive = false;
                         updateData.inactiveSince =
-                          admin.firestore.FieldValue.serverTimestamp();
+                          FieldValue.serverTimestamp();
                         updateData.scheduledForDeletion = new Date(
                           Date.now() + 60 * 24 * 60 * 60 * 1000,
                         ); // 60 days

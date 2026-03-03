@@ -1,0 +1,81 @@
+name: Cloud Functions Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "functions/**"
+      - ".github/workflows/functions-tests.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "functions/**"
+      - ".github/workflows/functions-tests.yml"
+
+jobs:
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Setup Java (required by Firebase Emulators)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Build functions
+        working-directory: functions
+        run: npm run build
+
+      - name: Run integration tests against emulators
+        working-directory: functions
+        run: |
+          firebase emulators:exec \
+            --only auth,firestore,functions,storage \
+            --project sportnizer \
+            'npx jest --runInBand --forceExit'
+
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Lint
+        working-directory: functions
+        run: npm run lint
+
+      - name: Type check
+        working-directory: functions
+        run: npx tsc --noEmit

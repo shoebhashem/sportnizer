@@ -1,0 +1,279 @@
+/**
+ * RF Integration & Kommun Export Service (Frontend)
+ *
+ * Provides frontend service layer for:
+ * - LOK report management (generate, view, submit)
+ * - RF API status checking
+ * - Club RF settings management
+ * - Kommun export generation
+ */
+
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../core/firebase";
+
+// ─── Types ─────────────────────────────────────────────────────
+
+export interface LokReportSummary {
+  id: string;
+  period: string;
+  status: "draft" | "submitted" | "accepted" | "rejected";
+  totalActivities: number;
+  totalParticipants: number;
+  totalLeaders: number;
+  submittedAt?: any;
+  rfReceiptId?: string;
+  createdAt: any;
+}
+
+export interface GenerateReportResult {
+  success: boolean;
+  reportId?: string;
+  summary?: {
+    totalActivities: number;
+    totalParticipants: number;
+    totalLeaders: number;
+    skippedActivities: number;
+    warnings: string[];
+  };
+  error?: string;
+}
+
+export interface SubmitReportResult {
+  success: boolean;
+  status?: string;
+  receiptId?: string;
+  errors?: { code: string; message: string }[];
+  warnings?: { code: string; message: string }[];
+  error?: string;
+}
+
+export interface RfApiStatusResult {
+  success: boolean;
+  connected: boolean;
+  message: string;
+}
+
+export interface RfSettings {
+  organizationNumber?: string;
+  rfOrganizationId?: string;
+  districtId?: string;
+  municipality?: string;
+  integrationEnabled?: boolean;
+}
+
+export interface KommunExportResult {
+  success: boolean;
+  content?: string;
+  mimeType?: string;
+  filename?: string;
+  summary?: {
+    totalActivities: number;
+    totalParticipants: number;
+    totalLeaders: number;
+    period: string;
+  };
+  error?: string;
+}
+
+// ─── LOK Report Functions ──────────────────────────────────────
+
+/**
+ * Generate a draft LOK report for a period.
+ */
+export const generateLokReport = async (
+  clubId: string,
+  period: string,
+): Promise<GenerateReportResult> => {
+  try {
+    const fn = httpsCallable(functions, "generateLokReport");
+    const result = await fn({ clubId, period });
+    return result.data as GenerateReportResult;
+  } catch (error: any) {
+    console.error("Error generating LOK report:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to generate LOK report.",
+    };
+  }
+};
+
+/**
+ * Get LOK report details.
+ */
+export const getLokReport = async (
+  reportId: string,
+): Promise<{ success: boolean; report?: any; error?: string }> => {
+  try {
+    const fn = httpsCallable(functions, "getLokReport");
+    const result = await fn({ reportId });
+    return result.data as any;
+  } catch (error: any) {
+    console.error("Error getting LOK report:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to get LOK report.",
+    };
+  }
+};
+
+/**
+ * List LOK reports for a club.
+ */
+export const listLokReports = async (
+  clubId: string,
+  status?: string,
+): Promise<{
+  success: boolean;
+  reports: LokReportSummary[];
+  error?: string;
+}> => {
+  try {
+    const fn = httpsCallable(functions, "listLokReports");
+    const result = await fn({ clubId, status });
+    return result.data as any;
+  } catch (error: any) {
+    console.error("Error listing LOK reports:", error);
+    return {
+      success: false,
+      reports: [],
+      error: error.message || "Failed to list LOK reports.",
+    };
+  }
+};
+
+/**
+ * Delete a draft LOK report.
+ */
+export const deleteLokReport = async (
+  reportId: string,
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const fn = httpsCallable(functions, "deleteLokReport");
+    const result = await fn({ reportId });
+    return result.data as any;
+  } catch (error: any) {
+    console.error("Error deleting LOK report:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to delete LOK report.",
+    };
+  }
+};
+
+// ─── RF API Functions ──────────────────────────────────────────
+
+/**
+ * Submit a LOK report to RF.
+ */
+export const submitLokReportToRf = async (
+  reportId: string,
+): Promise<SubmitReportResult> => {
+  try {
+    const fn = httpsCallable(functions, "submitLokReportToRf");
+    const result = await fn({ reportId });
+    return result.data as SubmitReportResult;
+  } catch (error: any) {
+    console.error("Error submitting LOK report:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to submit LOK report to RF.",
+    };
+  }
+};
+
+/**
+ * Check RF API connection status.
+ */
+export const checkRfApiStatus = async (): Promise<RfApiStatusResult> => {
+  try {
+    const fn = httpsCallable(functions, "checkRfApiStatus");
+    const result = await fn();
+    return result.data as RfApiStatusResult;
+  } catch (error: any) {
+    console.error("Error checking RF API status:", error);
+    return {
+      success: false,
+      connected: false,
+      message: error.message || "Failed to check RF API status.",
+    };
+  }
+};
+
+/**
+ * Update club RF integration settings.
+ */
+export const updateClubRfSettings = async (
+  clubId: string,
+  rfSettings: RfSettings,
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const fn = httpsCallable(functions, "updateClubRfSettings");
+    const result = await fn({ clubId, rfSettings });
+    return result.data as any;
+  } catch (error: any) {
+    console.error("Error updating RF settings:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to update RF settings.",
+    };
+  }
+};
+
+// ─── Kommun Export Functions ───────────────────────────────────
+
+/**
+ * Generate kommun attendance export.
+ */
+export const generateKommunExport = async (
+  clubId: string,
+  period: string,
+  format: "csv" | "json" = "csv",
+): Promise<KommunExportResult> => {
+  try {
+    const fn = httpsCallable(functions, "generateKommunExport");
+    const result = await fn({ clubId, period, format });
+    return result.data as KommunExportResult;
+  } catch (error: any) {
+    console.error("Error generating kommun export:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to generate export.",
+    };
+  }
+};
+
+/**
+ * Download kommun export content as a file (web platform).
+ * Creates a blob URL and triggers download.
+ */
+export const downloadKommunExport = (
+  content: string,
+  filename: string,
+  mimeType: string,
+): void => {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+// ─── Service Export ────────────────────────────────────────────
+
+export const rfService = {
+  generateLokReport,
+  getLokReport,
+  listLokReports,
+  deleteLokReport,
+  submitLokReportToRf,
+  checkRfApiStatus,
+  updateClubRfSettings,
+  generateKommunExport,
+  downloadKommunExport,
+};
+
+export default rfService;

@@ -9,6 +9,7 @@
  */
 
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import Stripe from "stripe";
 import { getPriceIdForSubscription } from "../config/subscriptionConfig";
@@ -187,7 +188,7 @@ export const updateSubscription = onCall(
       await clubRef.update({
         "subscription.tier": newTier,
         "subscription.stripePriceId": newPriceId,
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        lastModified: FieldValue.serverTimestamp(),
       });
 
       return {

@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 
@@ -69,7 +70,7 @@ export const verifyEmail = onRequest(
         .set(
           {
             emailVerified: true,
-            verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+            verifiedAt: FieldValue.serverTimestamp(),
           },
           { merge: true },
         );
@@ -81,7 +82,7 @@ export const verifyEmail = onRequest(
         .doc(token)
         .update({
           verified: true,
-          verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+          verifiedAt: FieldValue.serverTimestamp(),
         });
 
       // Clean up verification document after successful verification

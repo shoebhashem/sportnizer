@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
   AddMemberToSubGroupRequest,
@@ -149,16 +150,16 @@ export const addMemberToSubGroup = onCall(
         await subgroupMemberRef.update({
           members: updatedMembers,
           memberCount: updatedMembers.length,
-          version: admin.firestore.FieldValue.increment(1),
-          lastModified: admin.firestore.FieldValue.serverTimestamp(),
+          version: FieldValue.increment(1),
+          lastModified: FieldValue.serverTimestamp(),
         });
       } else {
         await subgroupMemberRef.set({
           members: updatedMembers,
           memberCount: updatedMembers.length,
           version: 1,
-          lastModified: admin.firestore.FieldValue.serverTimestamp(),
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastModified: FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       }
 

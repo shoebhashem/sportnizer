@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import Stripe from "stripe";
 import { config } from "../utils/config";
@@ -103,9 +104,9 @@ export const checkStripeAccountStatus = onCall(
           "stripe.payoutsEnabled": payoutsEnabled,
           "stripe.onboardingComplete": onboardingComplete,
           "stripe.lastStatusCheck":
-            admin.firestore.FieldValue.serverTimestamp(),
+            FieldValue.serverTimestamp(),
           "stripe.detailsSubmitted": account.details_submitted || false,
-          lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastModifiedAt: FieldValue.serverTimestamp(),
         });
 
       return {

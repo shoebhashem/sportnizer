@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
@@ -45,7 +46,7 @@ export const updateUserClubDeletion = onCall(
           
           // Add or remove deletionScheduledAt
           if (deletionScheduledAt) {
-            updatedClub.deletionScheduledAt = admin.firestore.Timestamp.fromMillis(deletionScheduledAt);
+            updatedClub.deletionScheduledAt = Timestamp.fromMillis(deletionScheduledAt);
           } else if (club.deletionScheduledAt) {
             delete updatedClub.deletionScheduledAt;
           }
@@ -59,7 +60,7 @@ export const updateUserClubDeletion = onCall(
               };
               
               if (deletionScheduledAt) {
-                updatedGroup.deletionScheduledAt = admin.firestore.Timestamp.fromMillis(deletionScheduledAt);
+                updatedGroup.deletionScheduledAt = Timestamp.fromMillis(deletionScheduledAt);
               } else if (group.deletionScheduledAt) {
                 delete updatedGroup.deletionScheduledAt;
               }
@@ -83,16 +84,16 @@ export const updateUserClubDeletion = onCall(
       // 6. Update user document
       const updateData: any = {
         clubAccess: updatedClubAccess,
-        version: admin.firestore.FieldValue.increment(1)
+        version: FieldValue.increment(1)
       };
       
       if (userMarkedInactive) {
         updateData.isActive = false;
-        updateData.inactiveSince = admin.firestore.FieldValue.serverTimestamp();
+        updateData.inactiveSince = FieldValue.serverTimestamp();
       } else if (isActive && userData.isActive === false) {
         // Reactivating - mark user as active if they were inactive
         updateData.isActive = true;
-        updateData.inactiveSince = admin.firestore.FieldValue.delete();
+        updateData.inactiveSince = FieldValue.delete();
       }
       
       await userRef.update(updateData);

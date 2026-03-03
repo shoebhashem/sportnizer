@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
@@ -120,7 +121,7 @@ export const sendGroupInvitation = onCall(
             groupName: isClubAdminInvite ? null : groupName,
             inviterName,
             inviterUid: actualInviterUid,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             used: false,
             status: "pending",
             type: isClubAdminInvite

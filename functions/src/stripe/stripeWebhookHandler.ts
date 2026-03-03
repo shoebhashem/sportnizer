@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import Stripe from "stripe";
 import { config } from "../utils/config";
@@ -87,7 +88,7 @@ export const stripeWebhookHandler = onRequest(
     try {
       await eventRef.set({
         type: event.type,
-        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        processedAt: FieldValue.serverTimestamp(),
         livemode: event.livemode,
       });
     } catch (_error) {
@@ -136,7 +137,7 @@ export const stripeWebhookHandler = onRequest(
       // Update event as successfully processed
       await eventRef.update({
         status: "processed",
-        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        completedAt: FieldValue.serverTimestamp(),
       });
     } catch (error) {
       console.error("Error processing webhook event:", event.type, error);
@@ -145,7 +146,7 @@ export const stripeWebhookHandler = onRequest(
       await eventRef.update({
         status: "failed",
         error: error instanceof Error ? error.message : "Unknown error",
-        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+        failedAt: FieldValue.serverTimestamp(),
       });
     }
   },
@@ -182,14 +183,14 @@ async function handleCheckoutCompleted(
   await paymentRef.update({
     status: "succeeded",
     stripePaymentIntentId: session.payment_intent,
-    paidAt: admin.firestore.FieldValue.serverTimestamp(),
+    paidAt: FieldValue.serverTimestamp(),
   });
 
   // 2. Update fee's totalPaid count
   const feeRef = db.collection("membershipFees").doc(feeId);
   await feeRef.update({
-    totalPaid: admin.firestore.FieldValue.increment(1),
-    lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    totalPaid: FieldValue.increment(1),
+    lastModifiedAt: FieldValue.serverTimestamp(),
   });
 
   // 3. Update member's payment status in allMembers
@@ -228,7 +229,7 @@ async function handleCheckoutExpired(
   const paymentRef = db.collection("payments").doc(metadata.paymentId);
   await paymentRef.update({
     status: "expired",
-    expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiredAt: FieldValue.serverTimestamp(),
   });
 }
 
@@ -251,7 +252,7 @@ async function handlePaymentFailed(
     status: "failed",
     failureReason:
       paymentIntent.last_payment_error?.message || "Payment failed",
-    failedAt: admin.firestore.FieldValue.serverTimestamp(),
+    failedAt: FieldValue.serverTimestamp(),
   });
 }
 
@@ -287,7 +288,7 @@ async function handleChargeRefunded(
   // Update payment status
   await paymentDoc.ref.update({
     status: "refunded",
-    refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+    refundedAt: FieldValue.serverTimestamp(),
   });
 
   // Decrement fee's totalPaid count
@@ -295,8 +296,8 @@ async function handleChargeRefunded(
     .collection("membershipFees")
     .doc(paymentData.feeId)
     .update({
-      totalPaid: admin.firestore.FieldValue.increment(-1),
-      lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      totalPaid: FieldValue.increment(-1),
+      lastModifiedAt: FieldValue.serverTimestamp(),
     });
 
   // Update member's payment status back to pending
@@ -343,8 +344,8 @@ async function handleAccountUpdated(
     "stripe.onboardingComplete":
       (account.charges_enabled && account.payouts_enabled) || false,
     "stripe.detailsSubmitted": account.details_submitted || false,
-    "stripe.lastUpdated": admin.firestore.FieldValue.serverTimestamp(),
-    lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    "stripe.lastUpdated": FieldValue.serverTimestamp(),
+    lastModifiedAt: FieldValue.serverTimestamp(),
   });
 }
 
@@ -472,7 +473,7 @@ async function dismissPaymentNotifications(
         batch.update(doc.ref, {
           dismissed: true,
           read: true,
-          actionTakenAt: admin.firestore.FieldValue.serverTimestamp(),
+          actionTakenAt: FieldValue.serverTimestamp(),
         });
       });
       await batch.commit();

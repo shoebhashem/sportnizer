@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
   RemoveMemberFromGroupRequest,
@@ -230,9 +231,9 @@ export const removeMemberFromGroup = onCall(
       // Update the members document
       await groupMemberRef.update({
         members: currentMembers,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        version: admin.firestore.FieldValue.increment(1),
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        lastUpdated: FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1),
+        lastModified: FieldValue.serverTimestamp(),
       });
 
       console.log(
@@ -293,8 +294,8 @@ export const removeMemberFromGroup = onCall(
 
                   await subgroupMemberRef.update({
                     members: subgroupMembers,
-                    version: admin.firestore.FieldValue.increment(1),
-                    lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                    version: FieldValue.increment(1),
+                    lastModified: FieldValue.serverTimestamp(),
                   });
                 }
               } else {
@@ -308,8 +309,8 @@ export const removeMemberFromGroup = onCall(
 
                 await subgroupMemberRef.update({
                   members: subgroupMembers,
-                  version: admin.firestore.FieldValue.increment(1),
-                  lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                  version: FieldValue.increment(1),
+                  lastModified: FieldValue.serverTimestamp(),
                 });
 
                 console.log(
@@ -406,7 +407,7 @@ export const removeMemberFromGroup = onCall(
                           await guardianUserRef.update({
                             clubAccess: guardianClubAccess,
                             lastModifiedAt:
-                              admin.firestore.FieldValue.serverTimestamp(),
+                              FieldValue.serverTimestamp(),
                           });
 
                           console.log(
@@ -425,8 +426,8 @@ export const removeMemberFromGroup = onCall(
                   // Update club members document
                   await clubMembersRef.update({
                     members: clubMembers,
-                    version: admin.firestore.FieldValue.increment(1),
-                    lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                    version: FieldValue.increment(1),
+                    lastModified: FieldValue.serverTimestamp(),
                   });
                 }
               }
@@ -500,7 +501,7 @@ export const removeMemberFromGroup = onCall(
 
               await userRef.update({
                 clubAccess,
-                lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+                lastModifiedAt: FieldValue.serverTimestamp(),
               });
             }
 
@@ -549,9 +550,9 @@ export const removeMemberFromGroup = onCall(
 
                       await guardianRef.update({
                         dependents: dependents,
-                        version: admin.firestore.FieldValue.increment(1),
+                        version: FieldValue.increment(1),
                         lastModified:
-                          admin.firestore.FieldValue.serverTimestamp(),
+                          FieldValue.serverTimestamp(),
                       });
 
                       console.log(
@@ -629,7 +630,7 @@ export const removeMemberFromGroup = onCall(
                     await userRef.update({
                       clubAccess,
                       lastModifiedAt:
-                        admin.firestore.FieldValue.serverTimestamp(),
+                        FieldValue.serverTimestamp(),
                     });
 
                     console.log(
@@ -640,8 +641,8 @@ export const removeMemberFromGroup = onCall(
 
                 await clubMembersRef.update({
                   members: clubMembers,
-                  version: admin.firestore.FieldValue.increment(1),
-                  lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                  version: FieldValue.increment(1),
+                  lastModified: FieldValue.serverTimestamp(),
                 });
 
                 console.log(

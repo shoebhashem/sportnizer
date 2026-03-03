@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
     FunctionResponse,
@@ -144,8 +145,8 @@ export const updateUserClubInfo = onCall(
       // Update user document with new structure and increment version
       const updateData: any = {
         clubAccess: clubAccess,
-        version: admin.firestore.FieldValue.increment(1),
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1),
+        lastModified: FieldValue.serverTimestamp(),
       };
 
       // 🆕 GLOBAL REACTIVATION: Check if user is globally inactive and reactivate
@@ -163,15 +164,15 @@ export const updateUserClubInfo = onCall(
             `♻️ Reactivating user ${uid} at GLOBAL level - was inactive but joining club`,
           );
           updateData.isActive = true;
-          updateData.inactiveSince = admin.firestore.FieldValue.delete();
-          updateData.scheduledForDeletion = admin.firestore.FieldValue.delete();
+          updateData.inactiveSince = FieldValue.delete();
+          updateData.scheduledForDeletion = FieldValue.delete();
         } else {
           console.log(
             `⚠️ User ${uid} grace period expired, but allowing reactivation on rejoin`,
           );
           updateData.isActive = true;
-          updateData.inactiveSince = admin.firestore.FieldValue.delete();
-          updateData.scheduledForDeletion = admin.firestore.FieldValue.delete();
+          updateData.inactiveSince = FieldValue.delete();
+          updateData.scheduledForDeletion = FieldValue.delete();
         }
       }
 

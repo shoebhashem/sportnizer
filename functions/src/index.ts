@@ -132,3 +132,18 @@ export { createNews } from "./news/createNews";
 
 // Legal Functions
 export { getLegalConfig, recordLegalAcceptance } from "./legal/legalFunctions";
+
+// LOK-stöd / RF Integration Functions
+export {
+    getPersonnummerStatus, removePersonnummer, storePersonnummer
+} from "./lok/encryptPersonnummer";
+export { generateKommunExport } from "./lok/kommunExport";
+export {
+    deleteLokReport, generateLokReport,
+    getLokReport,
+    listLokReports
+} from "./lok/lokReportService";
+export {
+    checkRfApiStatus, submitLokReportToRf, updateClubRfSettings
+} from "./lok/rfApiService";
+

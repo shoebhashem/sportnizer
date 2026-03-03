@@ -12,6 +12,7 @@
  */
 
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 
 /**
@@ -159,8 +160,8 @@ async function updateMemberPhotoInArray(
 
     await docRef.update({
       members,
-      version: admin.firestore.FieldValue.increment(1),
-      lastModified: admin.firestore.FieldValue.serverTimestamp(),
+      version: FieldValue.increment(1),
+      lastModified: FieldValue.serverTimestamp(),
     });
 
     console.log(`✅ Updated photoURL in ${docPath}`);

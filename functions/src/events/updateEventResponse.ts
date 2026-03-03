@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
     UpdateEventResponseRequest,
@@ -352,7 +353,7 @@ export const updateEventResponse = onCall(
         ) {
           responseHistory.push({
             response: oldResponse,
-            changedAt: admin.firestore.Timestamp.now(), // Use Timestamp.now() for array fields
+            changedAt: Timestamp.now(), // Use Timestamp.now() for array fields
             changedBy: authUid,
             changedByName: responderName,
           });
@@ -362,7 +363,7 @@ export const updateEventResponse = onCall(
         const updatedResponse: any = {
           ...responses[responseIndex],
           response: data.response,
-          respondedAt: admin.firestore.Timestamp.now(), // Use Timestamp.now() for array fields
+          respondedAt: Timestamp.now(), // Use Timestamp.now() for array fields
         };
 
         // If guardian or admin/coach is responding, track who responded
@@ -396,8 +397,8 @@ export const updateEventResponse = onCall(
         transaction.update(eventRef, {
           responses,
           responseSummary,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          version: admin.firestore.FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
+          version: FieldValue.increment(1),
         });
 
         console.log(`✅ Response updated: ${oldResponse} → ${data.response}`);

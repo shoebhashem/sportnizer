@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 
@@ -67,7 +68,7 @@ export const recordLegalAcceptance = onCall(
       }
 
       const db = admin.firestore();
-      const now = admin.firestore.FieldValue.serverTimestamp();
+      const now = FieldValue.serverTimestamp();
 
       // Create acceptance record in /legal_acceptances
       const acceptanceRef = db.collection("legal_acceptances").doc();

@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import Stripe from "stripe";
 import { STRIPE_CONFIG } from "../config/stripe";
@@ -107,9 +108,9 @@ export const createStripeConnectedAccount = onCall(
             chargesEnabled: false,
             payoutsEnabled: false,
             onboardingComplete: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
           },
-          lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastModifiedAt: FieldValue.serverTimestamp(),
         });
 
       return {

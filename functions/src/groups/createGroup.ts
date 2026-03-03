@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { checkGroupLimit, DEFAULT_LIMITS } from "../utils/limits";
@@ -81,10 +82,10 @@ export const createGroup = onCall(
           // Reactivate the group
           await existingGroup.ref.update({
             isActive: true,
-            deletionScheduledAt: admin.firestore.FieldValue.delete(),
-            deletedBy: admin.firestore.FieldValue.delete(),
-            deletedAt: admin.firestore.FieldValue.delete(),
-            lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+            deletionScheduledAt: FieldValue.delete(),
+            deletedBy: FieldValue.delete(),
+            deletedAt: FieldValue.delete(),
+            lastModifiedAt: FieldValue.serverTimestamp(),
             // Update clubName (in case it changed), description and sport if provided
             clubName: clubData?.name || "Unknown Club",
             ...(groupData.description && {
@@ -95,7 +96,7 @@ export const createGroup = onCall(
 
           // Increment club's active group counter
           await clubRef.update({
-            activeGroupCount: admin.firestore.FieldValue.increment(1),
+            activeGroupCount: FieldValue.increment(1),
           });
 
           console.log(
@@ -140,9 +141,9 @@ export const createGroup = onCall(
         admins: [request.auth.uid], // User IDs with group-admin role (creator becomes admin)
         subGroups: [], // Array of {id, name} for each subgroup
         isActive: true,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         createdBy: request.auth.uid,
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastModifiedAt: FieldValue.serverTimestamp(),
         version: 1,
         // Subscription limits
         maxMembers: DEFAULT_LIMITS.maxMembers, // Free tier default: 30
@@ -153,14 +154,14 @@ export const createGroup = onCall(
       await groupMemberRef.set({
         members: [], // Empty array, will be populated when members are added
         memberCount: 0,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastUpdated: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         version: 1,
       });
 
       // Increment club's active group counter
       await clubRef.update({
-        activeGroupCount: admin.firestore.FieldValue.increment(1),
+        activeGroupCount: FieldValue.increment(1),
       });
 
       console.log(

@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 
@@ -12,12 +13,12 @@ interface MembershipFeeSummary {
   groupName: string;
   amount: number;
   currency: string;
-  dueDate: admin.firestore.Timestamp | null;
+  dueDate: Timestamp | null;
   status: "active" | "closed";
   totalExpected: number;
   totalPaid: number;
   percentPaid: number;
-  createdAt: admin.firestore.Timestamp;
+  createdAt: Timestamp;
 }
 
 /**

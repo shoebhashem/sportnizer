@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { isClubAdmin } from "../utils/roleValidation";
@@ -69,11 +70,11 @@ export const reactivateGroup = onCall(
       // 4. Reactivate group
       await groupRef.update({
         isActive: true,
-        deletionScheduledAt: admin.firestore.FieldValue.delete(),
-        reactivatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        deletionScheduledAt: FieldValue.delete(),
+        reactivatedAt: FieldValue.serverTimestamp(),
         reactivatedBy: request.auth.uid,
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-        version: admin.firestore.FieldValue.increment(1),
+        lastModifiedAt: FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1),
       });
 
       // 5. Reactivate all subgroups (cascade)
@@ -87,9 +88,9 @@ export const reactivateGroup = onCall(
         subgroupsSnapshot.docs.forEach((subgroupDoc) => {
           batch.update(subgroupDoc.ref, {
             isActive: true,
-            deletionScheduledAt: admin.firestore.FieldValue.delete(),
-            reactivatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            deletionReason: admin.firestore.FieldValue.delete(),
+            deletionScheduledAt: FieldValue.delete(),
+            reactivatedAt: FieldValue.serverTimestamp(),
+            deletionReason: FieldValue.delete(),
           });
         });
         await batch.commit();

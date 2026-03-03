@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
@@ -343,7 +344,7 @@ export const createNews = onCall(
         readCount: 0,
         createdBy: data.createdBy,
         createdByName: data.createdByName,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         isActive: true,
         version: 1,
       };
@@ -435,7 +436,7 @@ export const createNews = onCall(
 
         // Update news document with email delivery stats
         await newsRef.update({
-          "emailDelivery.sentAt": admin.firestore.FieldValue.serverTimestamp(),
+          "emailDelivery.sentAt": FieldValue.serverTimestamp(),
           "emailDelivery.sentCount": emailsSent,
           "emailDelivery.failedCount": emailsFailed,
         });

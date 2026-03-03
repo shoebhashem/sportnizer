@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 /**
  * Marks a user as inactive in a specific club
@@ -67,7 +68,7 @@ export async function markUserInactiveInClub(params: {
     // Update user document
     await userRef.update({
       clubAccess,
-      lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastModifiedAt: FieldValue.serverTimestamp(),
     });
 
     console.log(

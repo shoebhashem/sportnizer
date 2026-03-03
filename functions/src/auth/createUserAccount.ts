@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
     CreateUserAccountRequest,
@@ -76,8 +77,8 @@ export const createUserAccount = onCall(
         dependents: [], // Initialize empty array for youth members/dependents
         emailVerified: isInvitedUser, // Skip verification for invited users
         verificationStatus: isInvitedUser ? "verified" : "pending", // Pre-verify invited users
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastActive: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        lastActive: FieldValue.serverTimestamp(),
         // Subscription limits (usage tracking)
         activeClubsAsAdmin: 0, // No clubs created yet
         maxClubsAsAdmin: DEFAULT_LIMITS.maxClubsAsAdmin, // Free tier default: 1
@@ -85,7 +86,7 @@ export const createUserAccount = onCall(
         acceptedTermsVersion: legalAcceptance?.termsVersion || null,
         acceptedPrivacyVersion: legalAcceptance?.privacyVersion || null,
         legalAcceptedAt: legalAcceptance
-          ? admin.firestore.FieldValue.serverTimestamp()
+          ? FieldValue.serverTimestamp()
           : null,
       };
 
@@ -103,7 +104,7 @@ export const createUserAccount = onCall(
           userId: uid,
           termsVersion: legalAcceptance.termsVersion,
           privacyVersion: legalAcceptance.privacyVersion,
-          acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+          acceptedAt: FieldValue.serverTimestamp(),
           acceptanceMethod: legalAcceptance.acceptanceMethod || "signup",
           clientInfo: legalAcceptance.clientInfo || {
             platform: "web",
@@ -205,7 +206,7 @@ export const createUserAccount = onCall(
           await db.collection("emailVerifications").doc(verificationToken).set({
             uid: uid,
             email: email.toLowerCase().trim(),
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             expiresAt: expirationDate,
             verified: false,
           });

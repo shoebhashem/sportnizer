@@ -1,13 +1,15 @@
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
 /**
  * Scheduled function that runs monthly to:
- * 1. Delete club events older than 6 months
+ * 1. Delete club events older than 6 months (or 12 months for RF-integrated clubs)
  * 2. Delete Stripe webhook event records older than 7 days
  * 3. Delete dismissed notifications older than 30 days
  * 4. Delete read notifications older than 90 days
  * 5. Delete any notifications older than 6 months (catch-all)
+ * 6. Delete LOK reports older than 7 years (RF audit requirement)
  * Runs on the 1st of every month at 4 AM UTC.
  */
 export const cleanupOldEvents = onSchedule(
@@ -21,10 +23,19 @@ export const cleanupOldEvents = onSchedule(
     const now = new Date();
     const sixMonthsAgo = new Date(now);
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const cutoffTimestamp = admin.firestore.Timestamp.fromDate(sixMonthsAgo);
+    const cutoffTimestamp = Timestamp.fromDate(sixMonthsAgo);
+
+    // Extended retention for RF-integrated clubs (12 months for LOK reporting)
+    const twelveMonthsAgo = new Date(now);
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    const rfCutoffTimestamp =
+      Timestamp.fromDate(twelveMonthsAgo);
 
     console.log(
       `🗑️ Starting cleanup of events older than ${sixMonthsAgo.toISOString()}`,
+    );
+    console.log(
+      `📊 RF-integrated clubs: events older than ${twelveMonthsAgo.toISOString()}`,
     );
 
     let totalEventsDeleted = 0;
@@ -39,11 +50,16 @@ export const cleanupOldEvents = onSchedule(
         const clubId = clubDoc.id;
 
         try {
+          // Use extended retention for RF-integrated clubs
+          const clubData = clubDoc.data();
+          const isRfClub = clubData.rf?.integrationEnabled === true;
+          const eventCutoff = isRfClub ? rfCutoffTimestamp : cutoffTimestamp;
+
           const oldEventsSnapshot = await db
             .collection("clubs")
             .doc(clubId)
             .collection("events")
-            .where("startDate", "<", cutoffTimestamp)
+            .where("startDate", "<", eventCutoff)
             .get();
 
           if (oldEventsSnapshot.empty) {
@@ -106,7 +122,7 @@ export const cleanupOldEvents = onSchedule(
       try {
         const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const stripeCutoff = admin.firestore.Timestamp.fromDate(sevenDaysAgo);
+        const stripeCutoff = Timestamp.fromDate(sevenDaysAgo);
 
         const oldStripeEventsSnapshot = await db
           .collection("stripeEvents")
@@ -156,12 +172,12 @@ export const cleanupOldEvents = onSchedule(
         const thirtyDaysAgo = new Date(now);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const thirtyDayCutoff =
-          admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
+          Timestamp.fromDate(thirtyDaysAgo);
 
         const ninetyDaysAgo = new Date(now);
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
         const ninetyDayCutoff =
-          admin.firestore.Timestamp.fromDate(ninetyDaysAgo);
+          Timestamp.fromDate(ninetyDaysAgo);
 
         // Reuse sixMonthsAgo cutoff from event cleanup above
 
@@ -235,6 +251,55 @@ export const cleanupOldEvents = onSchedule(
       } catch (notifError) {
         console.error("❌ Error cleaning notifications:", notifError);
         errors.push(`Notifications: ${notifError}`);
+      }
+
+      // 4. Cleanup LOK reports older than 7 years (RF audit requirement)
+      console.log("📊 Cleaning up old LOK reports...");
+      let lokReportsDeleted = 0;
+
+      try {
+        const sevenYearsAgo = new Date(now);
+        sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
+        const lokCutoff = Timestamp.fromDate(sevenYearsAgo);
+
+        const oldLokReportsSnapshot = await db
+          .collection("lokReports")
+          .where("createdAt", "<", lokCutoff)
+          .get();
+
+        if (!oldLokReportsSnapshot.empty) {
+          const batches: admin.firestore.WriteBatch[] = [];
+          let currentBatch = db.batch();
+          let operationCount = 0;
+
+          for (const doc of oldLokReportsSnapshot.docs) {
+            currentBatch.delete(doc.ref);
+            operationCount++;
+
+            if (operationCount === 500) {
+              batches.push(currentBatch);
+              currentBatch = db.batch();
+              operationCount = 0;
+            }
+          }
+
+          if (operationCount > 0) {
+            batches.push(currentBatch);
+          }
+
+          for (const batch of batches) {
+            await batch.commit();
+          }
+
+          lokReportsDeleted = oldLokReportsSnapshot.size;
+        }
+
+        console.log(
+          `✅ Deleted ${lokReportsDeleted} LOK reports older than 7 years`,
+        );
+      } catch (lokError) {
+        console.error("❌ Error cleaning LOK reports:", lokError);
+        errors.push(`LOK reports: ${lokError}`);
       }
     } catch (error) {
       console.error("❌ Fatal error in event cleanup:", error);

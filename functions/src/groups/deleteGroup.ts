@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { isClubAdmin } from "../utils/roleValidation";
@@ -51,7 +52,7 @@ export const deleteGroup = onCall(
       }
 
       // Calculate deletion timestamp
-      const deletionTimestamp = admin.firestore.Timestamp.fromMillis(
+      const deletionTimestamp = Timestamp.fromMillis(
         Date.now() + GRACE_PERIOD_MS,
       );
 
@@ -60,15 +61,15 @@ export const deleteGroup = onCall(
         isActive: false,
         deletionScheduledAt: deletionTimestamp,
         deletedBy: request.auth.uid,
-        deletedAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-        version: admin.firestore.FieldValue.increment(1),
+        deletedAt: FieldValue.serverTimestamp(),
+        lastModifiedAt: FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1),
       });
 
       // Decrement club's active group counter (subscription limit tracking)
       const clubRef = db.collection("clubs").doc(clubId);
       await clubRef.update({
-        activeGroupCount: admin.firestore.FieldValue.increment(-1),
+        activeGroupCount: FieldValue.increment(-1),
       });
 
       console.log(
@@ -84,7 +85,7 @@ export const deleteGroup = onCall(
             isActive: false,
             deletionScheduledAt: deletionTimestamp,
             deletedBy: request.auth!.uid,
-            deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+            deletedAt: FieldValue.serverTimestamp(),
             deletionReason: "parent-group-deletion",
           });
         });

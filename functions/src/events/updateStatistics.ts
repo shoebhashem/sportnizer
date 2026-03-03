@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { YearlyAttendanceStatistics } from "../types/interfaces";
 import { config } from "../utils/config";
@@ -104,8 +105,8 @@ export async function updateStatisticsInternal(
             },
             averageAttendanceRate: 0,
           },
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
+          lastUpdated: FieldValue.serverTimestamp(),
         };
       } else {
         statsData = statsDoc.data() as YearlyAttendanceStatistics;
@@ -133,7 +134,7 @@ export async function updateStatisticsInternal(
               meeting: { invited: 0, attended: 0 },
               other: { invited: 0, attended: 0 },
             },
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+            lastUpdated: FieldValue.serverTimestamp(),
           };
         }
 
@@ -169,7 +170,7 @@ export async function updateStatisticsInternal(
               100
             : 0;
 
-        memberStats.lastUpdated = admin.firestore.FieldValue.serverTimestamp();
+        memberStats.lastUpdated = FieldValue.serverTimestamp();
       });
 
       // Update group aggregates
@@ -192,7 +193,7 @@ export async function updateStatisticsInternal(
           ? totalAttendanceRate / memberStatsArray.length
           : 0;
 
-      statsData.lastUpdated = admin.firestore.FieldValue.serverTimestamp();
+      statsData.lastUpdated = FieldValue.serverTimestamp();
 
       // Save statistics document
       transaction.set(statsRef, statsData, { merge: true });

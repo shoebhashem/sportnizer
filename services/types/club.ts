@@ -1,4 +1,5 @@
 import { GuardianContact } from "./group";
+import { RfIntegration } from "./user";
 
 // Subscription types
 export type SubscriptionTier = "free" | "basic" | "pro" | "enterprise";
@@ -64,6 +65,8 @@ export interface ClubData {
     createdAt: any;
     lastUpdatedAt: any;
   };
+  // RF (Riksidrottsförbundet) integration for LOK-stöd
+  rf?: RfIntegration;
 }
 
 export interface ClubMemberData {

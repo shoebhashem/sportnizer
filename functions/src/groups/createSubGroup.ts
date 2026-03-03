@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
     CreateSubGroupRequest,
@@ -164,18 +165,18 @@ export const createSubGroup = onCall(
 
       // Update group document to add subgroup metadata
       batch.update(groupRef, {
-        subGroups: admin.firestore.FieldValue.arrayUnion({
+        subGroups: FieldValue.arrayUnion({
           id: subgroupId,
           name: trimmedSubGroupName,
         }),
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastModifiedAt: FieldValue.serverTimestamp(),
       });
 
       // Create subgroup document
       batch.set(subgroupRef, {
         name: trimmedSubGroupName,
         createdBy: uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         description: description || "",
         color: color || "",
       });
@@ -188,8 +189,8 @@ export const createSubGroup = onCall(
       batch.set(subgroupMembersRef, {
         members: [],
         version: 1,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        lastModified: FieldValue.serverTimestamp(),
       });
 
       // Commit batch

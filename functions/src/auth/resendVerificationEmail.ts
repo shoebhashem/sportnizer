@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { ResendVerificationEmailRequest } from "../types/interfaces";
 import { config } from "../utils/config";
@@ -61,7 +62,7 @@ export const resendVerificationEmail = onCall(
         .set({
           uid,
           email: email.toLowerCase(),
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           expiresAt: new Date(Date.now() + config.expiration.emailVerification),
           verified: false,
         });

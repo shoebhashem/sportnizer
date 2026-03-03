@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
@@ -65,12 +66,12 @@ export const reactivateClub = onCall(
       // 4. Reactivate club
       await clubRef.update({
         isActive: true,
-        deletionScheduledAt: admin.firestore.FieldValue.delete(),
-        reactivatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        deletionScheduledAt: FieldValue.delete(),
+        reactivatedAt: FieldValue.serverTimestamp(),
         reactivatedBy: request.auth.uid,
-        verificationToken: admin.firestore.FieldValue.delete(),
-        lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-        version: admin.firestore.FieldValue.increment(1)
+        verificationToken: FieldValue.delete(),
+        lastModifiedAt: FieldValue.serverTimestamp(),
+        version: FieldValue.increment(1)
       });
       
       // 5. Reactivate all groups and subgroups (cascade)
@@ -87,9 +88,9 @@ export const reactivateClub = onCall(
           // Reactivate group
           batch.update(groupDoc.ref, {
             isActive: true,
-            deletionScheduledAt: admin.firestore.FieldValue.delete(),
-            reactivatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            deletionReason: admin.firestore.FieldValue.delete()
+            deletionScheduledAt: FieldValue.delete(),
+            reactivatedAt: FieldValue.serverTimestamp(),
+            deletionReason: FieldValue.delete()
           });
           reactivatedGroupCount++;
           
@@ -102,9 +103,9 @@ export const reactivateClub = onCall(
             subgroupsSnapshot.docs.forEach((subgroupDoc) => {
               batch.update(subgroupDoc.ref, {
                 isActive: true,
-                deletionScheduledAt: admin.firestore.FieldValue.delete(),
-                reactivatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                deletionReason: admin.firestore.FieldValue.delete()
+                deletionScheduledAt: FieldValue.delete(),
+                reactivatedAt: FieldValue.serverTimestamp(),
+                deletionReason: FieldValue.delete()
               });
             });
           }

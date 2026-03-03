@@ -17,6 +17,7 @@
 - [Usage Limits & Subscription System](#usage-limits--subscription-system)
 - [Group & Club Deletion Architecture](#️-group--club-deletion-architecture)
 - [Event Management & Attendance Statistics](#-event-management--attendance-statistics)
+- [LOK-stöd & RF Integration (Swedish Clubs)](#-lok-stöd--rf-integration-swedish-clubs)
 - [News System](#-news-system)
 - [Data Model Conventions](#data-model-conventions)
 - [Development Conventions](#development-conventions)
@@ -2315,6 +2316,12 @@ functions/src/
 │   ├── processInvitation.ts
 │   ├── processGuardianInvitation.ts
 │   └── respondToInvitation.ts
+├── lok/                # LOK-stöd & RF integration (Swedish clubs)
+│   ├── encryptPersonnummer.ts     # AES-256-GCM encryption + CRUD functions
+│   ├── lokValidation.ts           # LOK eligibility rules engine (internal)
+│   ├── lokReportService.ts        # Report lifecycle (generate/list/get/delete)
+│   ├── rfApiService.ts            # RF API 2.0 via Gravitee (submit/status/settings)
+│   └── kommunExport.ts            # Municipality attendance export (CSV/JSON)
 ├── types/              # TypeScript interfaces
 ├── utils/              # Shared utilities
 └── index.ts           # Export all functions
@@ -2919,6 +2926,11 @@ services/
 ├── core/              # Firebase config, utilities
 ├── constants/         # Service constants and config
 ├── types/             # TypeScript interfaces and types
+├── lok/               # LOK-stöd & RF integration services
+│   ├── personnummerService.ts    # Validation, formatting, Cloud Function calls
+│   ├── lokValidationService.ts   # Client-side LOK rules, period helpers
+│   ├── rfService.ts              # Reports, RF submission, kommun export
+│   └── index.ts                  # Barrel export
 ├── club.ts           # Club management orchestration
 ├── group.ts          # Group management orchestration
 ├── event.ts          # Event management orchestration
@@ -11132,6 +11144,412 @@ _This event management architecture provides a comprehensive, scalable solution 
 
 ---
 
+## 🇸🇪 LOK-stöd & RF Integration (Swedish Clubs)
+
+### Overview
+
+LOK-stöd (Lokalt aktivitetsstöd) is a government subsidy administered by the Swedish Sports Confederation (Riksidrottsförbundet / RF) to support youth sports activities. Swedish clubs registered with RF can receive financial support for qualifying activities.
+
+Clubnizer integrates with RF's API 2.0 to automate attendance reporting, replacing the manual process of entering data through IdrottOnline.
+
+**Key terminology:**
+
+- **RF** — Riksidrottsförbundet (Swedish Sports Confederation)
+- **LOK-stöd** — Lokalt aktivitetsstöd (local activity support / government subsidy)
+- **IdrottOnline** — RF's existing web platform for club administration
+- **Personnummer** — Swedish personal identity number (12 digits: YYYYMMDDXXXX)
+- **Gravitee** — RF's API gateway platform for third-party integrations
+- **Kommun** — Swedish municipality (may require separate attendance reports)
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         FRONTEND (Expo)                             │
+│                                                                     │
+│  ┌──────────────────────┐  ┌─────────────────┐  ┌───────────────┐  │
+│  │ PersonnummerInput    │  │ LOK Personnummer │  │ LOK Services  │  │
+│  │ (component)          │  │ Screen           │  │ (barrel)      │  │
+│  │ - auto-format        │  │ - collection     │  │               │  │
+│  │ - Luhn validation    │  │ - GDPR consent   │  │ personnummer  │  │
+│  │ - masked display     │  │ - replace/remove │  │ lokValidation │  │
+│  │ - consent checkbox   │  │ - privacy policy │  │ rfService     │  │
+│  └──────────┬───────────┘  └────────┬────────┘  └───────┬───────┘  │
+│             │                       │                    │          │
+│             └───────────────────────┼────────────────────┘          │
+│                                     │ httpsCallable()               │
+└─────────────────────────────────────┼───────────────────────────────┘
+                                      │
+┌─────────────────────────────────────┼───────────────────────────────┐
+│                    CLOUD FUNCTIONS  │  (functions/src/lok/)          │
+│                                     ▼                               │
+│  ┌────────────────────┐  ┌──────────────────┐  ┌────────────────┐  │
+│  │ encryptPersonnummer│  │ lokValidation    │  │ lokReport      │  │
+│  │ - AES-256-GCM      │  │ - age 7-25       │  │ Service        │  │
+│  │ - store/remove     │  │ - ≥3 participants│  │ - generate     │  │
+│  │ - status query     │  │ - ≥60 min        │  │ - list/get     │  │
+│  │ - batch decrypt    │  │ - ≥1 leader      │  │ - delete       │  │
+│  └────────────────────┘  └──────────────────┘  └───────┬────────┘  │
+│                                                         │          │
+│  ┌────────────────────┐  ┌──────────────────────────────┤          │
+│  │ kommunExport       │  │ rfApiService                 │          │
+│  │ - CSV (semicolon)  │  │ - OAuth2 via Gravitee        │          │
+│  │ - JSON             │  │ - submit reports ─────────────┼──►RF API│
+│  │ - (Excel planned)  │  │ - status check               │          │
+│  └────────────────────┘  └──────────────────────────────┘          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Personnummer Management
+
+#### What is a Personnummer?
+
+A Swedish personal identity number (personnummer) in the format `YYYYMMDDXXXX` (12 digits). The last digit is a Luhn checksum. Examples: `199001011234`, `200512159876`.
+
+This is **sensitive personal data** under GDPR and requires explicit consent, encryption at rest, and purpose limitation.
+
+#### Why Clubnizer Needs It
+
+RF requires personnummer in LOK-stöd attendance reports to:
+
+1. Verify participant age (LOK supports ages 7-25 only)
+2. Identify unique participants across clubs (prevent double-counting)
+3. Calculate subsidy amounts per reporting period
+
+Without personnummer, a club cannot submit LOK-stöd reports electronically.
+
+#### Security Architecture — "Never Plaintext"
+
+```
+User enters YYYYMMDDXXXX
+        │
+        ▼
+┌─ CLIENT (PersonnummerInput) ──────────────────────────┐
+│  1. Format validation (12 digits, valid date)         │
+│  2. Luhn checksum verification                        │
+│  3. Sends full number to Cloud Function via HTTPS     │
+│  4. Receives only { lastFour: "1234" } back           │
+│  5. NEVER stores full number locally                  │
+└───────────────────────────────────────────────────────┘
+        │
+        ▼
+┌─ CLOUD FUNCTION (encryptPersonnummer.ts) ─────────────┐
+│  1. Re-validates format + Luhn server-side            │
+│  2. Encrypts with AES-256-GCM:                       │
+│     - 16-byte random IV (unique per encryption)       │
+│     - 16-byte authentication tag (tamper detection)   │
+│     - 32-byte key from Google Cloud Secret Manager    │
+│  3. Stores in Firestore:                              │
+│     users/{uid}/personalNumber: {                     │
+│       encrypted: "iv:authTag:ciphertext" (hex)        │
+│       lastFour: "1234"                                │
+│       consentAt: Timestamp                            │
+│       consentVersion: "LOK_CONSENT_2026.1"            │
+│       providedAt: Timestamp                           │
+│     }                                                 │
+│  4. Returns { success: true, lastFour: "1234" }       │
+└───────────────────────────────────────────────────────┘
+        │
+        ▼ (only during report generation)
+┌─ CLOUD FUNCTION (lokReportService.ts) ────────────────┐
+│  1. Reads encrypted value from Firestore              │
+│  2. Decrypts server-side (decryptPersonnummerBatch)   │
+│  3. Uses decrypted number ONLY in the RF API payload  │
+│  4. Never returns decrypted number to any client      │
+└───────────────────────────────────────────────────────┘
+```
+
+**Key security properties:**
+
+- **Encryption at rest**: AES-256-GCM with unique IV per personnummer (no two encrypted values are identical even for the same input)
+- **Authentication tag**: GCM mode detects any tampering with the ciphertext
+- **Key management**: Encryption key stored in Google Cloud Secret Manager (`PERSONNUMMER_ENCRYPTION_KEY`), never in code
+- **Minimal exposure**: Client only ever sees the last 4 digits
+- **Purpose limitation**: Decryption only occurs in `lokReportService.ts` for RF submission — nowhere else
+- **No bulk export**: There is no function that returns decrypted personnummer to any client
+
+#### Personnummer Lifecycle
+
+```
+States:
+  ┌─────────┐     store()     ┌──────────┐    store()     ┌──────────┐
+  │  NONE   │ ──────────────► │  STORED  │ ─────────────► │ REPLACED │
+  │         │                 │          │                 │(re-stored│
+  └─────────┘                 └──────────┘                 │ with new)│
+                                │    ▲                     └──────────┘
+                       remove() │    │ store()
+                                ▼    │
+                              ┌──────────┐
+                              │ REMOVED  │
+                              │(deleted) │
+                              └──────────┘
+```
+
+- **Store** (first time): Requires personnummer + consent checkbox + consent version. Writes encrypted value, lastFour, consentAt, providedAt.
+- **Replace** (update): User enters new personnummer. Old encrypted value is overwritten (not versioned). Sets `updatedAt`. Same consent required.
+- **Remove** (GDPR right to erasure): Deletes the entire `personalNumber` field from the user document permanently. The user is no longer included in LOK reporting until they provide it again.
+- **Status check**: Returns `{ hasPersonnummer, lastFour, consentVersion }` — never the full number.
+
+#### GDPR Compliance
+
+| GDPR Requirement           | Implementation                                                     |
+| -------------------------- | ------------------------------------------------------------------ |
+| **Lawful basis**           | Explicit opt-in consent (checkbox on collection screen)            |
+| **Purpose limitation**     | Personnummer used exclusively for LOK-stöd RF reporting            |
+| **Data minimization**      | Only personnummer stored; last4 for display; full number encrypted |
+| **Right to access**        | User sees last4 + consent date in the UI                           |
+| **Right to erasure**       | "Remove my personnummer" button → permanent deletion               |
+| **Right to rectification** | "Update personnummer" → replace with new value                     |
+| **Consent withdrawal**     | Removing personnummer implicitly withdraws consent                 |
+| **Privacy policy**         | Separate LOK-stöd privacy policy version (`PRIVACY_2026.2`)        |
+| **Consent versioning**     | `LOK_CONSENT_2026.1` tracked per user to detect outdated consent   |
+
+#### Validation Rules
+
+The personnummer is validated both client-side (for instant feedback) and server-side (for security):
+
+1. **Format**: Must be 10 or 12 digits (hyphens/spaces stripped automatically)
+2. **Normalization**: 10-digit → 12-digit (infer century: `≤ currentYear` → 20xx, else → 19xx)
+3. **Date validity**: Month 1-12, day 1-31, actual calendar date check
+4. **Luhn checksum**: Last digit verified against Luhn algorithm on the 10-digit middle portion (YYMMDDXXXX)
+
+### LOK-stöd Validation Engine
+
+The LOK validation engine (`lokValidation.ts`) enforces RF's rules for qualifying activities:
+
+| Rule                     | Requirement                                | Constant                       |
+| ------------------------ | ------------------------------------------ | ------------------------------ |
+| **Participant age**      | 7-25 years old on the activity date        | `MIN_AGE: 7`, `MAX_AGE: 25`    |
+| **Minimum participants** | ≥ 3 LOK-eligible participants per activity | `MIN_PARTICIPANTS: 3`          |
+| **Maximum counted**      | Max 30 participants counted per activity   | `MAX_PARTICIPANTS_COUNTED: 30` |
+| **Minimum duration**     | ≥ 60 minutes                               | `MIN_DURATION_MINUTES: 60`     |
+| **Leader requirement**   | ≥ 1 leader per activity                    | `MIN_LEADERS: 1`               |
+| **Activity types**       | training, match, meeting (not "other")     | Validated against list         |
+| **Reporting periods**    | H1 (Jan-Jun) or H2 (Jul-Dec)               | Two periods per year           |
+| **Submission deadline**  | 25th of the month after the period ends    | H1: July 25, H2: January 25    |
+
+**Client-side helper** (`lokValidationService.ts`) provides the same rules for pre-flight checks in the UI without calling Cloud Functions.
+
+### LOK Report Lifecycle
+
+```
+1. GENERATE              2. REVIEW                3. SUBMIT              4. RESULT
+┌───────────────┐      ┌───────────────┐      ┌───────────────┐      ┌───────────────┐
+│ Club admin    │      │ Review draft  │      │ Submit to RF  │      │ RF returns    │
+│ selects period│─────►│ - activities  │─────►│ via API 2.0   │─────►│ receipt_id +  │
+│ → generates   │      │ - participants│      │ (Gravitee)    │      │ status:       │
+│   draft report│      │ - validation  │      │               │      │ accepted /    │
+│               │      │   warnings    │      │               │      │ rejected /    │
+└───────────────┘      └───────────────┘      └───────────────┘      │ pending_review│
+                                                                      └───────────────┘
+```
+
+**Report statuses**: `draft` → `submitted` → `accepted` | `rejected` | `pending_review`
+
+**What happens during generation** (`generateLokReport`):
+
+1. Fetches all completed events in the period for the club
+2. Filters LOK-eligible events (correct type, duration, participant count)
+3. Decrypts personnummer for all participants server-side
+4. Calculates age at activity date for each participant
+5. Validates each activity against LOK rules
+6. Creates `lokReports/{reportId}` document with full activity+participant data
+7. Updates each event's `lok.reportingPeriod` and `lok.reportId`
+
+**Stored at**: `lokReports/{reportId}` (top-level collection)
+
+### RF API 2.0 Integration
+
+#### Connection Architecture
+
+```
+Clubnizer Cloud Functions
+        │
+        │ HTTPS + OAuth2 Bearer Token
+        │ X-API-Key header
+        ▼
+┌─────────────────┐
+│  Gravitee       │   RF's API gateway
+│  (api.rf.se/v2) │   for third-party apps
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  RF Backend     │   Processes LOK-stöd
+│  (internal)     │   attendance data
+└─────────────────┘
+```
+
+#### Authentication Flow
+
+1. **API Key**: Static key (`RF_API_KEY`) sent in `X-API-Key` header on every request
+2. **OAuth2**: Client credentials grant → `POST /oauth/token` with `RF_CLIENT_ID` + `RF_CLIENT_SECRET`
+3. **Token caching**: Access token cached in memory with 60-second safety margin before expiry
+4. **Auto-refresh**: On 401 response, token cache cleared and re-acquired on next request
+
+#### Required Credentials (Firebase Secrets)
+
+```bash
+firebase functions:secrets:set RF_API_KEY          # Gravitee API key
+firebase functions:secrets:set RF_CLIENT_ID        # OAuth2 client ID
+firebase functions:secrets:set RF_CLIENT_SECRET    # OAuth2 client secret
+firebase functions:secrets:set PERSONNUMMER_ENCRYPTION_KEY  # 32-byte hex key for AES-256
+```
+
+#### What Needs to Be Done Before Production
+
+| #   | Task                                        | Status         | Notes                                                |
+| --- | ------------------------------------------- | -------------- | ---------------------------------------------------- |
+| 1   | Sign API agreement with RF                  | ❌ Not started | Contact RF for third-party integration partnership   |
+| 2   | Register on Gravitee developer portal       | ❌ Not started | Create application, request LOK-stöd API scope       |
+| 3   | Obtain API credentials (key + OAuth client) | ❌ Not started | Provided after approval                              |
+| 4   | Verify exact API endpoint paths             | ❌ Not started | Our code uses `/lok/reports` — needs verification    |
+| 5   | Verify payload field names                  | ❌ Not started | We use snake_case — RF may use different conventions |
+| 6   | Test against RF sandbox/test environment    | ❌ Not started | RF may provide a test environment                    |
+| 7   | RF approval of integration                  | ❌ Not started | RF may require a review of the integration           |
+| 8   | Generate encryption key for personnummer    | ❌ Not started | `openssl rand -hex 32` → set as Firebase secret      |
+
+**The code is architecturally complete** — all function signatures, payload mapping, error handling, and status tracking are implemented. The mapping from our data model to the RF API payload happens in one place (`submitLokReportToRf`), making it straightforward to adjust field names once the exact API contract is confirmed.
+
+### Kommun (Municipality) Export
+
+#### Purpose
+
+Some Swedish municipalities require separate attendance reports beyond what RF receives. This export generates municipality-friendly reports from the same LOK report data.
+
+#### Supported Formats
+
+| Format            | Status         | Description                                                                        |
+| ----------------- | -------------- | ---------------------------------------------------------------------------------- |
+| **CSV**           | ✅ Implemented | Semicolon-delimited, UTF-8 BOM, Swedish headers. Opens correctly in Swedish Excel. |
+| **JSON**          | ✅ Implemented | Structured data for programmatic consumption.                                      |
+| **Excel (.xlsx)** | 📋 Planned     | Proper Excel file with formatting. Requires `exceljs` package.                     |
+| **PDF**           | 📋 Planned     | Formal document with club logo/headers. Requires `pdfkit` package.                 |
+
+**Adding a new format** is a 3-step process:
+
+1. Add to `KommunExportOptions.format` union type
+2. Write a `generateXlsx()` or `generatePdf()` function
+3. Add an `else if` branch in the main export function
+
+The data collection logic is shared — only the rendering layer changes.
+
+#### CSV Specifics
+
+- **Delimiter**: Semicolon (`;`) — standard for Swedish Excel locale
+- **Encoding**: UTF-8 with BOM (`\uFEFF`) for correct Swedish character display (å, ä, ö)
+- **Headers (Swedish)**: Datum, Aktivitetstyp, Idrott, Grupp, Längd (min), Deltagare (7-25 år), Ledare, Totalt närvarande
+- **Includes**: Header section with club name, org number, kommun, period + summary row at the bottom
+
+### Permission Model
+
+| Function                | Who can call                       | Check method                                   |
+| ----------------------- | ---------------------------------- | ---------------------------------------------- |
+| `storePersonnummer`     | Any authenticated user (self only) | `request.auth.uid` → writes to own user doc    |
+| `removePersonnummer`    | Any authenticated user (self only) | `request.auth.uid` → deletes from own user doc |
+| `getPersonnummerStatus` | Any authenticated user (self only) | `request.auth.uid` → reads own user doc        |
+| `generateLokReport`     | Club admins only                   | `clubData.admins?.includes(userId)`            |
+| `getLokReport`          | Club admins only                   | Same check                                     |
+| `listLokReports`        | Club admins only                   | Same check                                     |
+| `deleteLokReport`       | Club admins only (draft only)      | Same check + `report.status === "draft"`       |
+| `submitLokReportToRf`   | Club admins only (draft only)      | Same check + `report.status === "draft"`       |
+| `checkRfApiStatus`      | Any authenticated user             | Credentials test only                          |
+| `updateClubRfSettings`  | Club admins only                   | Same admin check                               |
+| `generateKommunExport`  | Club admins only                   | Same admin check                               |
+
+**Design principle**: Personnummer operations are self-service (a member manages their own data). Report, export, and settings operations are admin-only.
+
+**Not yet implemented**: A dedicated "LOK-ansvarig" (LOK administrator) role. Currently any club admin can manage LOK. A future sub-role could restrict LOK operations to a specific person.
+
+### Data Retention
+
+The cleanup worker (`functions/src/scheduled/cleanupOldEvents.ts`) applies RF-aware retention:
+
+| Data                    | RF-integrated clubs | Regular clubs |
+| ----------------------- | ------------------- | ------------- |
+| Completed events        | 12 months           | 6 months      |
+| `lokReports/{reportId}` | 7 years             | N/A           |
+
+The 7-year retention for LOK reports aligns with Swedish bookkeeping requirements (bokföringslagen).
+
+### Cloud Functions — File Reference
+
+| File                                       | Exported Functions                                                       | Purpose                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------ |
+| `functions/src/lok/encryptPersonnummer.ts` | `storePersonnummer`, `removePersonnummer`, `getPersonnummerStatus`       | Personnummer CRUD + AES-256-GCM encryption |
+| `functions/src/lok/lokValidation.ts`       | _(internal only)_                                                        | LOK eligibility rules engine               |
+| `functions/src/lok/lokReportService.ts`    | `generateLokReport`, `getLokReport`, `listLokReports`, `deleteLokReport` | Report lifecycle management                |
+| `functions/src/lok/rfApiService.ts`        | `submitLokReportToRf`, `checkRfApiStatus`, `updateClubRfSettings`        | RF API 2.0 communication                   |
+| `functions/src/lok/kommunExport.ts`        | `generateKommunExport`                                                   | Municipality attendance export             |
+
+### Frontend Services — File Reference
+
+| File                                   | Purpose                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------ |
+| `services/lok/personnummerService.ts`  | Client-side validation, formatting, masked display, Cloud Function calls |
+| `services/lok/lokValidationService.ts` | Client-side LOK rule constants, eligibility pre-checks, period helpers   |
+| `services/lok/rfService.ts`            | Report generation/submission, RF status, kommun export + download        |
+| `services/lok/index.ts`                | Barrel export for all LOK services                                       |
+
+### Frontend Components & Screens
+
+| File                               | Purpose                                                                                                                                        |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components/PersonnummerInput.tsx` | Specialized input: auto-format with hyphen, real-time Luhn validation, masked display for stored values, inline consent checkbox, replace mode |
+| `app/lok-personnummer.tsx`         | Collection screen: explanation of purpose, security info, PersonnummerInput, privacy link, submit/update/remove actions                        |
+
+### i18n
+
+The `lokPersonnummer` screen namespace is translated in all 8 languages:
+
+| Language  | File                           | Status |
+| --------- | ------------------------------ | ------ |
+| English   | `i18n/locales/en/screens.json` | ✅     |
+| Swedish   | `i18n/locales/sv/screens.json` | ✅     |
+| German    | `i18n/locales/de/screens.json` | ✅     |
+| Spanish   | `i18n/locales/es/screens.json` | ✅     |
+| French    | `i18n/locales/fr/screens.json` | ✅     |
+| Italian   | `i18n/locales/it/screens.json` | ✅     |
+| Norwegian | `i18n/locales/no/screens.json` | ✅     |
+| Danish    | `i18n/locales/da/screens.json` | ✅     |
+
+### What's Implemented vs. What's Left
+
+#### ✅ Implemented (Backend + Frontend)
+
+1. **Personnummer collection & encryption** — Full end-to-end: UI → Cloud Function → AES-256-GCM → Firestore
+2. **Personnummer lifecycle** — Store, replace, remove (GDPR), status check
+3. **LOK validation engine** — All RF rules enforced server-side + client-side helpers
+4. **LOK report generation** — Collect events, decrypt personnummer, validate, create report
+5. **LOK report management** — List, get, delete (drafts only)
+6. **RF API submission** — OAuth2 auth, payload construction, status tracking, error handling
+7. **Kommun CSV/JSON export** — Municipality-friendly reports from LOK data
+8. **Cleanup worker** — RF-aware data retention (12 mo events, 7 yr reports)
+9. **Data model** — All types on `UserProfile`, `ClubData`, `EventData`, `EventResponse`
+10. **Privacy policy** — Bumped to `PRIVACY_2026.2` with LOK consent version
+11. **i18n** — Personnummer collection screen in 8 languages
+
+#### 📋 Not Yet Implemented (Future Work)
+
+| #   | Feature                                     | Complexity | Notes                                                       |
+| --- | ------------------------------------------- | ---------- | ----------------------------------------------------------- |
+| 1   | **RF API credential setup**                 | External   | Requires agreement with RF + Gravitee registration          |
+| 2   | **LOK report review UI**                    | Medium     | Admin screen to review draft reports before submission      |
+| 3   | **LOK report submission UI**                | Medium     | Admin screen to submit and track RF responses               |
+| 4   | **LOK eligibility indicators on events**    | Low        | Badge/icon on event cards showing LOK eligibility           |
+| 5   | **LOK role assignment UI**                  | Low        | Assign "participant" vs "leader" role per event response    |
+| 6   | **RF settings admin screen**                | Medium     | Club settings page for org number, RF ID, district, kommun  |
+| 7   | **Kommun export UI**                        | Low        | Download button on LOK report detail screen                 |
+| 8   | **Excel (.xlsx) export**                    | Low        | Add `exceljs` to functions, write `generateXlsx()`          |
+| 9   | **PDF export**                              | Low        | Add `pdfkit` to functions, write `generatePdf()`            |
+| 10  | **LOK-ansvarig role**                       | Medium     | Dedicated sub-role for LOK administration                   |
+| 11  | **Consent re-prompt**                       | Low        | Detect outdated consent version, prompt user to re-accept   |
+| 12  | **LOK dashboard/statistics**                | Medium     | Overview of LOK-eligible activities, coverage, trends       |
+| 13  | **Firestore security rules for lokReports** | Low        | Add read/write rules for `lokReports/{reportId}` collection |
+| 14  | **Navigation entry point**                  | Low        | Add LOK menu item in club settings or manage-club screen    |
+
+---
+
 ## 📰 News System
 
 ### Overview
@@ -11493,6 +11911,7 @@ Body:
 | 17  | `legal_acceptances/{acceptanceId}`                                          | Top-level       | Legal acceptance audit trail                              |
 | 18  | `config/legal`                                                              | Single document | Legal document version config                             |
 | 19  | `guardianInvitations/{invitationId}`                                        | Top-level       | Guardian invitations (rules defined, not yet implemented) |
+| 20  | `lokReports/{reportId}`                                                     | Top-level       | LOK-stöd report snapshots for RF (Swedish clubs)          |
 
 ### Complete Hierarchy Diagram
 
@@ -11508,6 +11927,14 @@ Firestore Root
 │   ├── dateOfBirth?: Timestamp | null                          # Date of birth
 │   ├── emailVerified?: boolean                                 # Custom email verification flag
 │   ├── verificationStatus?: "pending" | "verified" | "rejected"
+│   ├── personalNumber?: {                                      # Swedish personnummer for LOK-stöd (encrypted)
+│   │   ├── encrypted: string                                   # AES-256 encrypted (YYYYMMDDXXXX)
+│   │   ├── lastFour: string                                    # Last 4 digits for masked display
+│   │   ├── providedAt: Timestamp                               # When first provided
+│   │   ├── updatedAt?: Timestamp                               # When last modified
+│   │   ├── consentAt: Timestamp                                # When explicit LOK consent was given
+│   │   └── consentVersion: string                              # e.g. "LOK_CONSENT_2026.1"
+│   │   }
 │   ├── clubAccess: ClubAccess[]                                # ⭐ SINGLE SOURCE OF TRUTH for permissions
 │   │   └── [each ClubAccess element]:
 │   │       ├── clubId: string
@@ -11650,6 +12077,15 @@ Firestore Root
 │   │   ├── createdAt: Timestamp
 │   │   └── lastUpdatedAt: Timestamp
 │   │   }
+│   ├── rf?: {                                                  # RF integration config (Swedish clubs only)
+│   │   ├── organizationNumber: string                          # Swedish org.nr (XXXXXX-XXXX)
+│   │   ├── rfOrganizationId?: string                           # RF förenings-ID (from IdrottOnline)
+│   │   ├── districtId?: string                                 # Specialdistriktsförbund (SDF)
+│   │   ├── municipality?: string                               # Kommun — for LOK & kommun reporting
+│   │   ├── integrationEnabled: boolean                         # Whether RF sync is active
+│   │   ├── lastSyncAt?: Timestamp                              # Last successful API sync
+│   │   └── integrationStatus?: "pending" | "active" | "error"
+│   │   }
 │   │
 │   ├── /allMembers/members                                     # ── Single Document ──
 │   │   ├── members: ClubMemberData[]                           # Array of club members
@@ -11722,7 +12158,8 @@ Firestore Root
 │   │   │       │       └── changedByName: string
 │   │   │       ├── actualAttendance?: boolean                  # Post-event attendance
 │   │   │       ├── recordedBy?: string
-│   │   │       └── recordedAt?: Timestamp
+│   │   │       ├── recordedAt?: Timestamp
+│   │   │       └── lokRole?: "participant" | "leader"           # RF role classification for LOK
 │   │   ├── responseSummary: {
 │   │   │   ├── totalInvited: number
 │   │   │   ├── accepted: number
@@ -11739,7 +12176,14 @@ Firestore Root
 │   │   ├── version: number
 │   │   ├── completedAt?: Timestamp                             # When attendance was recorded
 │   │   ├── completedBy?: string
-│   │   └── completedByName?: string
+│   │   ├── completedByName?: string
+│   │   └── lok?: {                                             # LOK reporting metadata (Swedish clubs)
+│   │       ├── eligible: boolean                               # Is this a LOK-eligible activity?
+│   │       ├── durationMinutes?: number                        # Calculated activity duration
+│   │       ├── reportedAt?: Timestamp                          # When submitted to RF
+│   │       ├── reportingPeriod?: string                        # e.g. "2026-H1" or "2026-H2"
+│   │       └── reportId?: string                               # Reference to lokReports/{id}
+│   │       }
 │   │
 │   ├── /news/{newsId}                                          # ── Subcollection ──
 │   │   ├── newsId: string
@@ -12006,6 +12450,40 @@ Firestore Root
 └── guardianInvitations/{invitationId}                          # ⚠️ Rules defined but NOT YET IMPLEMENTED
     ├── (security rules exist but no Cloud Function writes to this collection)
     └── (planned for future guardian-specific invitation flow)
+│
+├── lokReports/{reportId}                                       # LOK-stöd report snapshots (Swedish clubs)
+│   ├── clubId: string
+│   ├── clubName: string
+│   ├── organizationNumber: string                              # Snapshot of club org.nr at report time
+│   ├── period: string                                          # "2026-H1" or "2026-H2"
+│   ├── periodStart: Timestamp                                  # Jan 1 or Jul 1
+│   ├── periodEnd: Timestamp                                    # Jun 30 or Dec 31
+│   ├── status: "draft" | "submitted" | "accepted" | "rejected"
+│   ├── totalActivities: number
+│   ├── totalParticipants: number                               # Unique participants
+│   ├── totalLeaders: number                                    # Unique leaders
+│   ├── activities: LokActivity[]                                # Frozen snapshot of reported activities
+│   │   └── [each LokActivity]:
+│   │       ├── eventId: string                                 # Reference to source event
+│   │       ├── date: Timestamp
+│   │       ├── durationMinutes: number
+│   │       ├── activityType: string                            # e.g. "training", "match"
+│   │       ├── sport: string                                   # From group’s sport field
+│   │       ├── groupId: string
+│   │       ├── groupName: string
+│   │       ├── participants: LokParticipant[]
+│   │       │   └── [each LokParticipant]:
+│   │       │       ├── userId: string
+│   │       │       ├── personalNumber: string                  # Decrypted for RF submission
+│   │       │       ├── role: "participant" | "leader"
+│   │       │       └── ageAtActivity: number                   # Calculated from personnummer
+│   │       └── participantCount: number
+│   ├── submittedAt?: Timestamp
+│   ├── submittedBy?: string
+│   ├── rfReceiptId?: string                                    # RF API response ID
+│   ├── rfErrors?: string[]                                     # Validation errors from RF
+│   ├── createdAt: Timestamp
+│   └── lastUpdatedAt: Timestamp
 ```
 
 ### Key Architecture Notes

@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import Stripe from "stripe";
 import { STRIPE_CONFIG, calculatePlatformFee } from "../config/stripe";
@@ -189,7 +190,7 @@ export const createCheckoutSession = onCall(
         currency: feeData.currency,
         platformFee,
         status: "pending",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         paidAt: null,
         stripeCheckoutSessionId: null,
         stripePaymentIntentId: null,

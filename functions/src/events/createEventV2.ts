@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
@@ -314,20 +315,20 @@ export const createEventV2 = onCall(
 
       // Parse dates - use startTime/endTime if provided (contains actual time),
       // otherwise fall back to startDate/endDate (date-only strings)
-      const startDate = admin.firestore.Timestamp.fromDate(
+      const startDate = Timestamp.fromDate(
         new Date(data.startTime || data.startDate),
       );
-      const endDate = admin.firestore.Timestamp.fromDate(
+      const endDate = Timestamp.fromDate(
         new Date(data.endTime || data.endDate),
       );
 
       // Parse gathering time: frontend now sends full ISO timestamp
       const gatheringTime = data.gatheringTime
-        ? admin.firestore.Timestamp.fromDate(new Date(data.gatheringTime))
+        ? Timestamp.fromDate(new Date(data.gatheringTime))
         : null;
 
       const responseDeadline = data.responseDeadline
-        ? admin.firestore.Timestamp.fromDate(new Date(data.responseDeadline))
+        ? Timestamp.fromDate(new Date(data.responseDeadline))
         : null;
 
       const eventDocument: EventDocument = {
@@ -368,8 +369,8 @@ export const createEventV2 = onCall(
         },
         createdBy: data.createdBy,
         createdByName: data.createdByName,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
         status: "scheduled",
         isActive: true,
         version: 1, // Version field for future notification system

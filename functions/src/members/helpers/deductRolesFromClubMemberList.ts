@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 /**
  * Deducts roles from a member's club member list
@@ -100,8 +101,8 @@ export async function deductRolesFromClubMemberList(params: {
     // Update club members document
     await clubMembersRef.update({
       members: clubMembers,
-      version: admin.firestore.FieldValue.increment(1),
-      lastModified: admin.firestore.FieldValue.serverTimestamp(),
+      version: FieldValue.increment(1),
+      lastModified: FieldValue.serverTimestamp(),
     });
 
     console.log(

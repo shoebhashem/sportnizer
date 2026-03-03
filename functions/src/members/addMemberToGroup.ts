@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { AddMemberToGroupRequest, FunctionResponse } from "../types/interfaces";
 import { config } from "../utils/config";
@@ -295,10 +296,10 @@ export const addMemberToGroup = onCall(
 
               await groupMemberRef.update({
                 members: currentMembers,
-                lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-                memberCount: admin.firestore.FieldValue.increment(1),
-                version: admin.firestore.FieldValue.increment(1),
-                lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                lastUpdated: FieldValue.serverTimestamp(),
+                memberCount: FieldValue.increment(1),
+                version: FieldValue.increment(1),
+                lastModified: FieldValue.serverTimestamp(),
               });
 
               console.log(
@@ -329,10 +330,10 @@ export const addMemberToGroup = onCall(
 
               await groupMemberRef.update({
                 members: currentMembers,
-                lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-                memberCount: admin.firestore.FieldValue.increment(1),
-                version: admin.firestore.FieldValue.increment(1),
-                lastModified: admin.firestore.FieldValue.serverTimestamp(),
+                lastUpdated: FieldValue.serverTimestamp(),
+                memberCount: FieldValue.increment(1),
+                version: FieldValue.increment(1),
+                lastModified: FieldValue.serverTimestamp(),
               });
             }
           }
@@ -349,23 +350,23 @@ export const addMemberToGroup = onCall(
 
         // Add to group
         await groupMemberRef.update({
-          members: admin.firestore.FieldValue.arrayUnion({
+          members: FieldValue.arrayUnion({
             ...memberData,
             isActive: true,
             lastModifiedAt: new Date(),
           }),
-          lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-          memberCount: admin.firestore.FieldValue.increment(1),
-          version: admin.firestore.FieldValue.increment(1),
-          lastModified: admin.firestore.FieldValue.serverTimestamp(),
+          lastUpdated: FieldValue.serverTimestamp(),
+          memberCount: FieldValue.increment(1),
+          version: FieldValue.increment(1),
+          lastModified: FieldValue.serverTimestamp(),
         });
       }
 
       // Update group member count
       await groupRef.update({
-        membersCount: admin.firestore.FieldValue.increment(1),
-        version: admin.firestore.FieldValue.increment(1), // Increment version
-        lastModified: admin.firestore.FieldValue.serverTimestamp(),
+        membersCount: FieldValue.increment(1),
+        version: FieldValue.increment(1), // Increment version
+        lastModified: FieldValue.serverTimestamp(),
       });
 
       console.log(
