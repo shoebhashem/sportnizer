@@ -60,6 +60,11 @@
     "passwordRequirements": "La contraseña debe tener al menos 6 caracteres",
     "passwordsDoNotMatch": "Las contraseñas no coinciden",
     "nameRequired": "Por favor ingrese su nombre completo",
+    "legalAgreementPrefix": "He leído y acepto los",
+    "termsOfService": "Términos de Servicio",
+    "and": "y la",
+    "privacyPolicy": "Política de Privacidad",
+    "legalAcceptanceRequired": "Por favor acepte los Términos de Servicio y la Política de Privacidad para crear una cuenta.",
     "success": {
       "accountCreatedVerifyEmail": "¡Cuenta creada exitosamente!\n\nPor favor revise su bandeja de entrada y haga clic en el enlace de verificación para activar su cuenta. Debe verificar su correo antes de iniciar sesión.",
       "accountCreatedActivated": "🎉 ¡Cuenta creada exitosamente!\n\n¡Su cuenta ha sido activada y puede comenzar a usar Clubnizer de inmediato!",

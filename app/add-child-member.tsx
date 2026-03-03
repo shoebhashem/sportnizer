@@ -26,6 +26,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/contexts/UserContext";
 import type { YouthOption } from "@/services/validation/types";
 import { validateMemberForInvitation } from "@/services/validation/validateMemberForInvitation";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,17 +35,18 @@ import { StatusBar } from "expo-status-bar";
 import React, { useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 export default function AddChildMemberScreen() {
   const { groupId, groupName, clubId, clubName } = useLocalSearchParams();
   const { user } = useAuth();
+  const { userProfile } = useUserProfile();
   const navigation = useNavigation();
   const { t } = useTranslation(["screens", "common"]);
 
@@ -374,7 +376,10 @@ export default function AddChildMemberScreen() {
         clubName: clubName as string,
         groupId: groupId as string,
         groupName: groupName as string,
-        inviterName: user.displayName || user.email || "Admin",
+        inviterName:
+          userProfile?.displayName ||
+          user?.displayName ||
+          "A club administrator",
         inviterUid: user.uid,
         invitationType: invitationType,
         role: "player-underage",

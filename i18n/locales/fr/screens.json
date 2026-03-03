@@ -60,6 +60,11 @@
     "passwordRequirements": "Le mot de passe doit contenir au moins 6 caractères",
     "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
     "nameRequired": "Veuillez entrer votre nom complet",
+    "legalAgreementPrefix": "J'ai lu et j'accepte les",
+    "termsOfService": "conditions d'utilisation",
+    "and": "et la",
+    "privacyPolicy": "politique de confidentialité",
+    "legalAcceptanceRequired": "Veuillez accepter les conditions d'utilisation et la politique de confidentialité pour créer un compte.",
     "success": {
       "accountCreatedVerifyEmail": "Compte créé avec succès !\n\nVeuillez vérifier votre boîte de réception et cliquer sur le lien de vérification pour activer votre compte. Vous devez vérifier votre e-mail avant de pouvoir vous connecter.",
       "accountCreatedActivated": "🎉 Compte créé avec succès !\n\nVotre compte a été activé et vous pouvez commencer à utiliser Clubnizer immédiatement !",

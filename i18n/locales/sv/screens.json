@@ -62,6 +62,11 @@
     "passwordRequirements": "Lösenordet måste vara minst 6 tecken",
     "passwordsDoNotMatch": "Lösenorden matchar inte",
     "nameRequired": "Ange ditt fullständiga namn",
+    "legalAgreementPrefix": "Jag har läst och godkänner",
+    "termsOfService": "användarvillkoren",
+    "and": "och",
+    "privacyPolicy": "integritetspolicyn",
+    "legalAcceptanceRequired": "Du måste godkänna användarvillkoren och integritetspolicyn för att skapa ett konto.",
     "success": {
       "accountCreatedVerifyEmail": "Kontot har skapats!\n\nKontrollera din inkorg och klicka på verifieringslänken för att aktivera ditt konto. Du måste verifiera din e-post innan du kan logga in.",
       "accountCreatedActivated": "🎉 Kontot har skapats!\n\nDitt konto har aktiverats och du kan börja använda Clubnizer direkt!",

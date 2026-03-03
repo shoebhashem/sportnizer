@@ -175,12 +175,62 @@ export const addMemberToGroup = onCall(
           }
         }
       } else {
-        // Adding player or player-underage - requires club-admin or group admin
+        // Adding player or player-underage - requires club-admin, group admin, or valid invitation
         if (!isClubAdmin && !isGroupAdmin) {
-          throw new HttpsError(
-            "permission-denied",
-            "Insufficient permissions. Only club administrators and group admins can add members to groups.",
-          );
+          // Check if there's a valid pending/accepted invitation for this user
+          // This handles the invitation acceptance flow where the invitee adds themselves
+          const targetUserId = memberData.userId;
+
+          const targetUserDoc = await admin
+            .firestore()
+            .collection("users")
+            .doc(targetUserId)
+            .get();
+
+          const targetUserEmail = targetUserDoc.exists
+            ? targetUserDoc.data()?.email?.toLowerCase()
+            : null;
+
+          let hasValidInvitation = false;
+
+          // Check by userId (pending or accepted_pending_signup)
+          const invitationByUserIdQuery = await admin
+            .firestore()
+            .collection("invitations")
+            .where("userId", "==", targetUserId)
+            .where("groupId", "==", groupId)
+            .where("status", "in", ["pending", "accepted_pending_signup"])
+            .limit(1)
+            .get();
+
+          if (!invitationByUserIdQuery.empty) {
+            hasValidInvitation = true;
+            console.log(`✅ Valid invitation found by userId for player role`);
+          }
+
+          // If not found by userId, check by email
+          if (!hasValidInvitation && targetUserEmail) {
+            const invitationByEmailQuery = await admin
+              .firestore()
+              .collection("invitations")
+              .where("email", "==", targetUserEmail)
+              .where("groupId", "==", groupId)
+              .where("status", "in", ["pending", "accepted_pending_signup"])
+              .limit(1)
+              .get();
+
+            if (!invitationByEmailQuery.empty) {
+              hasValidInvitation = true;
+              console.log(`✅ Valid invitation found by email for player role`);
+            }
+          }
+
+          if (!hasValidInvitation) {
+            throw new HttpsError(
+              "permission-denied",
+              "Insufficient permissions. Only club administrators and group admins can add members to groups.",
+            );
+          }
         }
       }
 

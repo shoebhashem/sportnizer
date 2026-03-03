@@ -60,6 +60,11 @@
     "passwordRequirements": "Passordet må være minst 6 tegn",
     "passwordsDoNotMatch": "Passordene er ikke like",
     "nameRequired": "Vennligst skriv inn fullt navn",
+    "legalAgreementPrefix": "Jeg har lest og godtar",
+    "termsOfService": "tjenestevilkårene",
+    "and": "og",
+    "privacyPolicy": "personvernreglene",
+    "legalAcceptanceRequired": "Du må godta tjenestevilkårene og personvernreglene for å opprette en konto.",
     "success": {
       "accountCreatedVerifyEmail": "Konto opprettet!\n\nSjekk e-postinnboksen din og klikk på bekreftelseslenken for å aktivere kontoen din. Du må bekrefte e-posten din før du kan logge inn.",
       "accountCreatedActivated": "🎉 Konto opprettet!\n\nKontoen din er aktivert, og du kan begynne å bruke Clubnizer med en gang!",

@@ -60,6 +60,11 @@
     "passwordRequirements": "Adgangskoden skal være mindst 6 tegn",
     "passwordsDoNotMatch": "Adgangskoderne stemmer ikke overens",
     "nameRequired": "Indtast venligst dit fulde navn",
+    "legalAgreementPrefix": "Jeg har læst og accepterer",
+    "termsOfService": "servicevilkårene",
+    "and": "og",
+    "privacyPolicy": "privatlivspolitikken",
+    "legalAcceptanceRequired": "Accepter venligst servicevilkårene og privatlivspolitikken for at oprette en konto.",
     "success": {
       "accountCreatedVerifyEmail": "Konto oprettet!\n\nTjek venligst din e-mail-indbakke og klik på bekræftelseslinket for at aktivere din konto. Du skal bekræfte din e-mail, før du kan logge ind.",
       "accountCreatedActivated": "🎉 Konto oprettet!\n\nDin konto er blevet aktiveret, og du kan begynde at bruge Clubnizer med det samme!",

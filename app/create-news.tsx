@@ -297,10 +297,7 @@ export default function CreateNewsScreen() {
         sendEmail,
         createdBy: user.uid,
         createdByName:
-          userProfile?.displayName ||
-          user.displayName ||
-          user.email ||
-          "Unknown",
+          userProfile?.displayName || user.displayName || "A club member",
       });
 
       if (response.success) {
@@ -442,7 +439,9 @@ export default function CreateNewsScreen() {
               borderRadius: 8,
             }}
           >
-            <Text style={{ color: "white", fontWeight: "600" }}>{t("common:goBack")}</Text>
+            <Text style={{ color: "white", fontWeight: "600" }}>
+              {t("common:goBack")}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -481,7 +480,9 @@ export default function CreateNewsScreen() {
                 color: theme.colors.text,
               }}
             >
-              {isEditMode ? t("screens:createNews.editNews") : t("screens:createNews.createNews")}
+              {isEditMode
+                ? t("screens:createNews.editNews")
+                : t("screens:createNews.createNews")}
             </Text>
             <Text
               style={{
@@ -560,7 +561,10 @@ export default function CreateNewsScreen() {
                         : theme.colors.textSecondary,
                   }}
                 >
-                  {t("screens:createNews.titleCharCount", { length: title.length, max: MAX_TITLE_LENGTH })}
+                  {t("screens:createNews.titleCharCount", {
+                    length: title.length,
+                    max: MAX_TITLE_LENGTH,
+                  })}
                 </Text>
               </View>
               <TextInput
@@ -642,7 +646,9 @@ export default function CreateNewsScreen() {
                   marginTop: 4,
                 }}
               >
-                {t("screens:createNews.wordCount", { words: Math.ceil(description.length / 6) })}
+                {t("screens:createNews.wordCount", {
+                  words: Math.ceil(description.length / 6),
+                })}
               </Text>
             </View>
 
@@ -693,7 +699,9 @@ export default function CreateNewsScreen() {
                           marginTop: 2,
                         }}
                       >
-                        {t("screens:createNews.recipientCount", { count: memberCount })}
+                        {t("screens:createNews.recipientCount", {
+                          count: memberCount,
+                        })}
                       </Text>
                     )}
                   </View>

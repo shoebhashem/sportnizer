@@ -10,14 +10,14 @@ import { httpsCallable } from "firebase/functions";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    KeyboardAvoidingView,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signUpUser } from "../services/auth/authService";
@@ -218,9 +218,7 @@ export default function SignupScreen() {
 
     // Validate legal acceptance
     if (!hasAcceptedLegal) {
-      setModalMessage(
-        "Please accept the Terms of Service and Privacy Policy to create an account.",
-      );
+      setModalMessage(t("screens:signup.legalAcceptanceRequired"));
       setErrorModalVisible(true);
       isValid = false;
     }
@@ -580,7 +578,7 @@ export default function SignupScreen() {
                 )}
               </View>
               <Text style={styles.legalText}>
-                I have read and agree to the{" "}
+                {t("screens:signup.legalAgreementPrefix")}{" "}
                 <Text
                   style={styles.legalLink}
                   onPress={(e) => {
@@ -588,9 +586,9 @@ export default function SignupScreen() {
                     Linking.openURL(LEGAL_URLS.termsOfService);
                   }}
                 >
-                  Terms of Service
+                  {t("screens:signup.termsOfService")}
                 </Text>{" "}
-                and{" "}
+                {t("screens:signup.and")}{" "}
                 <Text
                   style={styles.legalLink}
                   onPress={(e) => {
@@ -598,7 +596,7 @@ export default function SignupScreen() {
                     Linking.openURL(LEGAL_URLS.privacyPolicy);
                   }}
                 >
-                  Privacy Policy
+                  {t("screens:signup.privacyPolicy")}
                 </Text>
               </Text>
             </Pressable>

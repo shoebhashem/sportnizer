@@ -80,6 +80,24 @@ const primaryButton = (label: string, link: string) => `
 `;
 
 // =======================================================
+// SHARED FOOTER
+// =======================================================
+const emailFooter = () => `
+  <div style="
+    border-top: 1px solid ${BRAND.border};
+    padding: 20px 30px;
+    text-align: center;
+  ">
+    <p style="color: ${BRAND.textLight}; font-size: 13px; margin: 0; line-height: 1.6;">
+      <strong style="color: ${BRAND.accent};">Clubnizer</strong> — Organize your club, simplify your game.
+    </p>
+    <p style="margin: 6px 0 0; font-size: 12px;">
+      <a href="https://clubnizer.com" style="color: ${BRAND.textLight}; text-decoration: none;">clubnizer.com</a>
+    </p>
+  </div>
+`;
+
+// =======================================================
 // BASE WRAPPER
 // =======================================================
 const emailWrapper = (content: string) => `
@@ -93,6 +111,7 @@ const emailWrapper = (content: string) => `
     overflow: hidden;
   ">
     ${content}
+    ${emailFooter()}
   </div>
 `;
 
@@ -130,6 +149,11 @@ export const groupInvitationTemplate = (
         <strong style="color:${BRAND.accent};">${groupName}</strong>.
       </p>
 
+      <p style="color:${BRAND.textLight}; font-size:15px; line-height:1.6;">
+        Clubnizer helps sports clubs manage teams, events, and communication
+        &mdash; all in one place. Accept the invitation to get started with your team.
+      </p>
+
       ${primaryButton(`Join ${groupName}`, invitationLink)}
 
       <p style="font-size:14px; color:#999;">
@@ -160,9 +184,14 @@ export const groupInvitationWithActionsTemplate = (
       </h2>
 
       <p style="color:${BRAND.textLight}; font-size:16px; line-height:1.6;">
-        <strong>${inviterName}</strong> invited you to join 
+        <strong>${inviterName}</strong> has invited you to join 
         <strong style="color:${BRAND.accent};">${groupName}</strong> 
-        in ${clubName}.
+        in <strong>${clubName}</strong>.
+      </p>
+
+      <p style="color:${BRAND.textLight}; font-size:15px; line-height:1.6;">
+        Clubnizer helps sports clubs manage teams, events, and communication
+        &mdash; all in one place. Accept the invitation to get started with your team.
       </p>
 
       ${primaryButton("Accept Invitation", acceptLink)}
@@ -197,8 +226,13 @@ export const clubAdminInvitationTemplate = (
       </h2>
 
       <p style="color:${BRAND.textLight}; font-size:16px; line-height:1.6;">
-        <strong>${inviterName}</strong> invited you to manage 
-        <strong style="color:${BRAND.accent};">${clubName}</strong>.
+        <strong>${inviterName}</strong> has invited you to help manage 
+        <strong style="color:${BRAND.accent};">${clubName}</strong> on Clubnizer.
+      </p>
+
+      <p style="color:${BRAND.textLight}; font-size:15px; line-height:1.6;">
+        As a club administrator, you'll be able to manage members, create events,
+        and oversee your club's activities.
       </p>
 
       ${primaryButton("Accept Invitation", acceptLink)}
@@ -229,13 +263,20 @@ export const guardianInvitationTemplate = (
 
     <div style="padding: 40px 30px;">
       <h2 style="color:${BRAND.textDark}; margin-top:0;">
-        Confirmation Required
+        Your child has been added to a team
       </h2>
 
       <p style="color:${BRAND.textLight}; font-size:16px; line-height:1.6;">
-        <strong>${inviterName}</strong> added 
+        <strong>${inviterName}</strong> has added 
         <strong>${memberName}</strong> to 
-        <strong style="color:${BRAND.accent};">${groupName}</strong>.
+        <strong style="color:${BRAND.accent};">${groupName}</strong> on Clubnizer.
+        As the designated guardian, we need your confirmation before
+        ${memberName} can participate.
+      </p>
+
+      <p style="color:${BRAND.textLight}; font-size:15px; line-height:1.6;">
+        Clubnizer is a platform that helps sports clubs organize teams,
+        schedule events, and communicate with members and guardians securely.
       </p>
 
       ${primaryButton("Confirm Participation", invitationLink)}
@@ -258,15 +299,19 @@ export const emailVerificationTemplate = (
   isResend = false,
 ) =>
   emailWrapper(`
-    ${emailHeader("Account Verification")}
+    ${emailHeader(isResend ? "Email Verification" : "Welcome to Clubnizer!")}
 
     <div style="padding: 40px 30px;">
       <h2 style="color:${BRAND.textDark}; margin-top:0;">
-        ${isResend ? "Verify Your Email - Resent" : `Welcome ${fullName}!`}
+        ${isResend ? "Verify Your Email" : `Welcome ${fullName}!`}
       </h2>
 
       <p style="color:${BRAND.textLight}; font-size:16px; line-height:1.6;">
-        Please verify your email address to activate your account.
+        ${
+          isResend
+            ? "A new verification link has been generated for you. Please click the button below to verify your email address."
+            : "Thank you for joining Clubnizer &mdash; the platform that helps sports clubs manage teams, events, and communication. Please verify your email to get started."
+        }
       </p>
 
       ${primaryButton("Verify Your Email", verificationLink)}
@@ -314,7 +359,7 @@ export const newsEmailTemplate = (
         text-align:center;
         margin-top:30px;
       ">
-        Sent by <strong>${senderName}</strong> via <strong style="color:${BRAND.accent};">${targetName}</strong>
+        Sent by <strong>${senderName}</strong> via <strong style="color:${BRAND.accent};">${targetName}</strong> on Clubnizer
       </p>
     </div>
   `);

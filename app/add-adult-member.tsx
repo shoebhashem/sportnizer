@@ -33,6 +33,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/contexts/UserContext";
 import { addRegularMemberToGroupService } from "@/services/orchestration/addRegularMemberToGroup";
 import { validateMemberForInvitation } from "@/services/validation/validateMemberForInvitation";
 import { Ionicons } from "@expo/vector-icons";
@@ -41,11 +42,11 @@ import { StatusBar } from "expo-status-bar";
 import React, { useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 /**
@@ -108,6 +109,7 @@ export default function AddAdultMemberScreen() {
    */
   const { groupId, groupName, clubId, clubName, role } = useLocalSearchParams();
   const { user } = useAuth();
+  const { userProfile } = useUserProfile();
   const navigation = useNavigation();
 
   // Get role configuration
@@ -454,7 +456,10 @@ export default function AddAdultMemberScreen() {
               groupId: groupId as string,
               groupName: groupName as string,
             }),
-        inviterName: user.displayName || user.email || "Unknown User",
+        inviterName:
+          userProfile?.displayName ||
+          user.displayName ||
+          "A club administrator",
         inviterUid: user.uid,
         role: memberRole,
         ...(isClubAdminInvitation && { invitationType: "club_admin" as const }),

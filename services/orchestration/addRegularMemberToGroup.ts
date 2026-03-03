@@ -859,25 +859,10 @@ export const addRegularMemberToGroupService = {
       }
     }
 
-    // 👥 Add user to the group's member list
-    console.log("📞 Calling addMemberToGroup atomic function...");
-    const addMemberToGroupFn = httpsCallable(functions, "addMemberToGroup");
-    const groupResult = await addMemberToGroupFn({
-      clubId: invitationData.clubId,
-      groupId: invitationData.groupId,
-      memberData,
-    });
-
-    const groupResponse = groupResult.data as {
-      success: boolean;
-      error?: string;
-    };
-    if (!groupResponse.success) {
-      throw new Error(`Failed to add member to group: ${groupResponse.error}`);
-    }
-    console.log("✅ Member added to group successfully");
-
-    // 👤 Update user's profile to show they're in this club
+    // � Update user's profile to show they're in this club
+    // ⚠️ IMPORTANT: This MUST run before addMemberToGroup, because
+    // addMemberToGroup checks the calling user's clubAccess array
+    // for permission. Without clubAccess set, it fails with 403.
     console.log("📞 Calling updateUserClubInfo atomic function...");
     const updateUserClubInfoFn = httpsCallable(functions, "updateUserClubInfo");
     const userClubResult = await updateUserClubInfoFn({
@@ -896,6 +881,24 @@ export const addRegularMemberToGroupService = {
       );
     }
     console.log("✅ User club info updated successfully");
+
+    // 👥 Add user to the group's member list
+    console.log("📞 Calling addMemberToGroup atomic function...");
+    const addMemberToGroupFn = httpsCallable(functions, "addMemberToGroup");
+    const groupResult = await addMemberToGroupFn({
+      clubId: invitationData.clubId,
+      groupId: invitationData.groupId,
+      memberData,
+    });
+
+    const groupResponse = groupResult.data as {
+      success: boolean;
+      error?: string;
+    };
+    if (!groupResponse.success) {
+      throw new Error(`Failed to add member to group: ${groupResponse.error}`);
+    }
+    console.log("✅ Member added to group successfully");
 
     // 👥 Update user's profile to show they're in this group
     console.log("📞 Calling updateUserGroupInfo atomic function...");
