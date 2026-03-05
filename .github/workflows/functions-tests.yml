@@ -51,6 +51,7 @@ jobs:
           firebase emulators:exec \
             --only auth,firestore,functions,storage \
             --project sportnizer \
+<<<<<<< HEAD
             'npx jest --runInBand --forceExit'
 
   lint:
@@ -79,3 +80,6 @@ jobs:
       - name: Type check
         working-directory: functions
         run: npx tsc --noEmit
+=======
+            'npx jest --runInBand --forceExit --silent'
+>>>>>>> development
