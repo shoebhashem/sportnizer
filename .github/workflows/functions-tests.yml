@@ -47,8 +47,93 @@ jobs:
 
       - name: Run integration tests against emulators
         working-directory: functions
+        id: tests
+        continue-on-error: true
         run: |
           firebase emulators:exec \
             --only auth,firestore,functions,storage \
             --project sportnizer \
-            'npx jest --runInBand --forceExit --silent'
+            'npx jest --runInBand --forceExit --silent --json --outputFile=test-results.json'
+
+      - name: Test Summary
+        if: always()
+        working-directory: functions
+        run: |
+          if [ ! -f test-results.json ]; then
+            echo "❌ test-results.json not found — tests may have crashed before producing output"
+            exit 1
+          fi
+
+          node -e "
+          const fs = require('fs');
+          const results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+
+          const passed = results.numPassedTests;
+          const failed = results.numFailedTests;
+          const total = results.numTotalTests;
+          const suitesPassed = results.numPassedTestSuites;
+          const suitesFailed = results.numFailedTestSuites;
+          const suitesTotal = results.numTotalTestSuites;
+          const duration = (results.testResults.reduce((a, s) => a + (s.endTime - s.startTime), 0) / 1000).toFixed(1);
+
+          // Console output
+          console.log('');
+          if (failed === 0) {
+            console.log('✅ All tests passed!');
+            console.log('Tests: ' + passed + ' passed, ' + total + ' total');
+            console.log('Suites: ' + suitesPassed + ' passed, ' + suitesTotal + ' total');
+            console.log('Time: ' + duration + 's');
+          } else {
+            console.log('❌ ' + failed + ' failed, ' + passed + ' passed, ' + total + ' total');
+            console.log('Suites: ' + suitesFailed + ' failed, ' + suitesPassed + ' passed, ' + suitesTotal + ' total');
+            console.log('Time: ' + duration + 's');
+            console.log('');
+            console.log('=== FAILED TESTS ===');
+            console.log('');
+
+            for (const suite of results.testResults) {
+              const failures = suite.testResults.filter(t => t.status === 'failed');
+              if (failures.length === 0) continue;
+
+              const suiteName = suite.testResults[0]?.ancestorTitles?.[0] || suite.name.split('/').pop();
+              console.log('Suite: ' + suiteName);
+              for (const t of failures) {
+                const testName = t.ancestorTitles.slice(1).concat(t.title).join(' > ');
+                console.log('  ✗ ' + testName);
+                for (const msg of t.failureMessages) {
+                  const short = msg.split('\\n').slice(0, 6).join('\\n');
+                  console.log('    ' + short.replace(/\\n/g, '\\n    '));
+                }
+                console.log('');
+              }
+            }
+          }
+
+          // GitHub Job Summary
+          const summary = [];
+          if (failed === 0) {
+            summary.push('## ✅ All ' + total + ' tests passed (' + duration + 's)');
+          } else {
+            summary.push('## ❌ ' + failed + ' failed, ' + passed + ' passed, ' + total + ' total (' + duration + 's)');
+            summary.push('');
+            summary.push('| Suite | Test | Error |');
+            summary.push('|-------|------|-------|');
+            for (const suite of results.testResults) {
+              const failures = suite.testResults.filter(t => t.status === 'failed');
+              if (failures.length === 0) continue;
+              const suiteName = suite.testResults[0]?.ancestorTitles?.[0] || suite.name.split('/').pop();
+              for (const t of failures) {
+                const testName = t.ancestorTitles.slice(1).concat(t.title).join(' > ');
+                const errorLine = t.failureMessages[0]?.split('\\n').find(l => l.includes('Expected') || l.includes('Received') || l.includes('Error') || l.trim().length > 0) || 'See logs';
+                const cleanError = errorLine.replace(/\\u001b\[[0-9;]*m/g, '').replace(/\|/g, '\\\\|').trim().substring(0, 120);
+                summary.push('| ' + suiteName + ' | ' + testName + ' | ' + cleanError + ' |');
+              }
+            }
+          }
+          summary.push('');
+          summary.push('**Suites:** ' + suitesFailed + ' failed, ' + suitesPassed + ' passed, ' + suitesTotal + ' total');
+
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\\n'));
+
+          if (failed > 0) process.exit(1);
+          "
