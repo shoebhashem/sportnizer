@@ -3763,7 +3763,7 @@ async function validateAdultInvitation(
     };
   }
 
-  const groupMembership = clubAccess.groups?.find(
+  const groupMembership = clubAccess.groupAccess?.find(
     (g: any) => g.groupId === groupId,
   );
 
@@ -4194,7 +4194,7 @@ const validateAllEmails = async (): Promise<boolean> => {
     const blockedAddresses = blockedEmails.map(({ email }) => email).join(", ");
     showModal(
       "Cannot Send Invitations",
-      `The following email(s) already have this role in the group:\n\n${blockedAddresses}\n\nPlease remove them before continuing.`,
+      `The following email(s) already have this role in the group:\n\n${blockedAddresses}`,
     );
     return false;
   }
@@ -6803,10 +6803,10 @@ The following table defines who can perform each action:
 
 | Action                              | Player | Guardian | Coach | Admin (Group) | Club-Admin   |
 | ----------------------------------- | ------ | -------- | ----- | ------------- | ------------ |
-| **Add Player (Group)**              | ❌     | ❌       | ❌    | ✅            | ✅           |
-| **Add Youth Player (Group)**        | ❌     | ❌       | ❌    | ✅            | ✅           |
-| **Add Coach (Group)**               | ❌     | ❌       | ❌    | ❌            | ✅           |
-| **Add Admin (Group)**               | ❌     | ❌       | ❌    | ❌            | ✅           |
+| **Add Player (Group)**              | ❌ ¹   | ❌ ¹     | ❌    | ✅            | ✅           |
+| **Add Youth Player (Group)**        | ❌ ¹   | ❌ ¹     | ❌    | ✅            | ✅           |
+| **Add Coach (Group)**               | ❌ ²   | ❌ ²     | ❌    | ❌            | ✅           |
+| **Add Admin (Group)**               | ❌ ²   | ❌ ²     | ❌    | ❌            | ✅           |
 | **Remove Player (Group)**           | ❌     | ❌       | ❌    | ✅            | ✅           |
 | **Remove Youth Player (Group)**     | ❌     | ❌       | ❌    | ✅            | ✅           |
 | **Remove Coach (Group)**            | ❌     | ❌       | ❌    | ❌            | ✅           |
@@ -6824,6 +6824,11 @@ The following table defines who can perform each action:
 - Adding/removing coaches and admins is restricted to club-admin only
 - Track Payments is restricted to club-admin only
 - Group-level admin role is scoped to the specific group (admin in Group A cannot manage Group B)
+
+**Footnotes (Updated Mar 2026):**
+
+- ¹ **Invitation bypass**: Players/guardians with a valid pending invitation (status `pending` or `accepted_pending_signup`) for the target group are allowed to add themselves. This enables the invitation acceptance flow where a new user signs up and is automatically added to the group they were invited to.
+- ² **Invitation bypass (staff)**: Non-admin users with a valid pending invitation matching a coach/admin role for the target group are allowed to add themselves. Same pattern as ¹ but additionally verifies the invited role matches the role being added.
 
 ---
 
@@ -12399,7 +12404,7 @@ Firestore Root
 │   ├── beneficiaryName: string
 │   ├── amount: number                                          # In smallest currency unit
 │   ├── currency: string
-│   ├── platformFee: number                                     # Clubnizer's 2% fee
+│   ├── platformFee: number                                     # Clubnizer's 1.5% fee
 │   ├── status: "pending" | "succeeded" | "failed" | "expired" | "refunded"
 │   ├── createdAt: Timestamp
 │   ├── paidAt: Timestamp | null
@@ -15664,13 +15669,13 @@ _This child/youth member system extends the existing architecture with minimal n
 
 ### Overview
 
-Clubnizer implements a **Stripe Connect Platform model** to enable clubs to receive membership fee payments from their members. The platform takes a 2% commission on each transaction, while Stripe processing fees are charged to the club (merchant).
+Clubnizer implements a **Stripe Connect Platform model** to enable clubs to receive membership fee payments from their members. The platform takes a 1.5% commission on each transaction, while Stripe processing fees are charged to the club (merchant).
 
 **Key Design Decisions**:
 
 - **Stripe Connect Express**: Clubs onboard via Stripe-hosted forms (Stripe handles KYC/compliance)
 - **Destination Charges with `on_behalf_of`**: Club is the settlement merchant, pays Stripe fees
-- **Platform Fee**: 2% `application_fee_amount` on each transaction goes to Clubnizer
+- **Platform Fee**: 1.5% `application_fee_amount` on each transaction goes to Clubnizer
 - **Role-Based Fee Targeting**: Fees target specific roles (e.g., `player`, `player-underage`)
 - **Guardian Payment Support**: For underage players, guardians receive and pay the fee
 
@@ -15688,7 +15693,7 @@ Clubnizer implements a **Stripe Connect Platform model** to enable clubs to rece
 │  └──────────────┘    └──────────────┘    └──────────────┘                   │
 │         │                   │                    │                          │
 │         │                   │                    │                          │
-│    2% Platform         Stripe Fees          Receives                        │
+│    1.5% Platform         Stripe Fees          Receives                        │
 │       Fee             (~1.5-2.9%)          Payments                          │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
@@ -15770,7 +15775,7 @@ interface Payment {
   // Financial details
   amount: number; // Total charged (öre/cents)
   currency: string;
-  platformFee: number; // Your 2% (öre/cents)
+  platformFee: number; // Your 1.5% (öre/cents)
 
   // Status tracking
   status: "pending" | "succeeded" | "failed" | "refunded";
@@ -15959,9 +15964,9 @@ When creating a fee, club admin selects which roles should pay:
 │  │                                                 │
 │  │ Members pay:           1 500.00 SEK             │
 │  │ Stripe fee (~1.5%):      ~22.50 SEK             │
-│  │ Clubnizer fee (2%):     -30.00 SEK             │
+│  │ Clubnizer fee (1.5%):    -22.50 SEK             │
 │  │ ─────────────────────────────────────           │
-│  │ Your club receives:   ≈1 447.50 SEK             │
+│  │ Your club receives:   ≈1 455.00 SEK             │
 │  │                                                 │
 │  │ Total expected: 20 members × 1500 SEK           │
 │  │                 = 30 000.00 SEK                 │
@@ -16304,8 +16309,8 @@ services/
  */
 
 export const STRIPE_CONFIG = {
-  // Platform takes 2% of each payment
-  platformFeePercent: 2,
+  // Platform takes 1.5% of each payment
+  platformFeePercent: 1.5,
 
   // Default currency (fallback only - each club uses their own)
   defaultCurrency: "sek",
@@ -16471,7 +16476,7 @@ firestore.rules                  - Add payment collection rules
 
 ---
 
-_This payment system integrates with Stripe Connect using the Platform model with destination charges. Clubs receive payments directly into their Stripe accounts, with Clubnizer collecting a 2% platform fee. The architecture supports international clubs with automatic currency detection and provides guardian payment flows for underage members._
+_This payment system integrates with Stripe Connect using the Platform model with destination charges. Clubs receive payments directly into their Stripe accounts, with Clubnizer collecting a 1.5% platform fee. The architecture supports international clubs with automatic currency detection and provides guardian payment flows for underage members._
 
 ---
 

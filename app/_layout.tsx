@@ -6,8 +6,11 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { NewsProvider } from "@/contexts/NewsContext";
 import { UserProvider } from "@/contexts/UserContext";
 import "@/i18n";
-import { Stack } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { router, Stack, useNavigation } from "expo-router";
+import React from "react";
 import { useTranslation } from "react-i18next";
+import { Platform, TouchableOpacity } from "react-native";
 
 // Suppress console logs in production to prevent exposing sensitive data
 if (!__DEV__) {
@@ -38,10 +41,31 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const { t } = useTranslation("navigation");
+  const navigation = useNavigation();
+
+  // Fallback back button for when the navigation stack is empty (e.g., after
+  // returning from an external redirect like Stripe checkout on web).
+  const renderFallbackBackButton = () => {
+    if (navigation.canGoBack()) {
+      // Normal stack — let expo-router render its default back arrow
+      return undefined;
+    }
+    // No stack history — show a manual arrow that navigates home
+    return (
+      <TouchableOpacity
+        onPress={() => router.replace("/(tabs)")}
+        style={{ marginLeft: Platform.OS === "web" ? 8 : 0, padding: 8 }}
+      >
+        <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <Stack
       screenOptions={{
         contentStyle: { backgroundColor: theme.colors.primary },
+        headerLeft: renderFallbackBackButton,
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

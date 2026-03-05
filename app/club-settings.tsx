@@ -532,7 +532,9 @@ export default function ClubSettingsScreen() {
             <TouchableOpacity
               style={styles.optionItem}
               onPress={() =>
-                router.push(`/manage-club?clubId=${clubId}&tab=groups` as any)
+                router.push(
+                  `/manage-club?clubId=${clubId}&tab=groups&deleteMode=true` as any,
+                )
               }
             >
               <View style={styles.optionIcon}>

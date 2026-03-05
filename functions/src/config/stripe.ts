@@ -13,10 +13,10 @@
 
 export const STRIPE_CONFIG = {
   /**
-   * Platform takes 2% of each payment
+   * Platform takes 1.5% of each payment
    * This is Clubnizer's commission on every transaction
    */
-  platformFeePercent: 2,
+  platformFeePercent: 1.5,
 
   /**
    * Default currency (fallback only - each club uses their own based on country)
@@ -58,7 +58,7 @@ export const STRIPE_CONFIG = {
  * @returns Platform fee in öre/cents (rounded down to avoid overcharging)
  *
  * @example
- * calculatePlatformFee(150000) // Returns 4500 (45.00 SEK = 3% of 1500 SEK)
+ * calculatePlatformFee(150000) // Returns 2250 (22.50 SEK = 1.5% of 1500 SEK)
  */
 export function calculatePlatformFee(amountInSmallestUnit: number): number {
   return Math.floor(

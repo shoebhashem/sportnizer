@@ -142,7 +142,7 @@ async function cleanupInvitationNotification(
     const notificationsRef = collection(db, "users", userId, "notifications");
     const q = query(
       notificationsRef,
-      where("data.invitationToken", "==", invitationToken),
+      where("invitationToken", "==", invitationToken),
       where("dismissed", "==", false),
     );
 
@@ -980,7 +980,12 @@ export const addRegularMemberToGroupService = {
     });
 
     // 🧹 Clean up the notification (for existing users who had in-app notification)
-    await cleanupInvitationNotification(userId, invitationToken);
+    // For youth flows, the notification lives under the guardian's UID, not the youth's
+    const notificationUserId =
+      memberData.guardiansContacts && memberData.guardiansContacts.length > 0
+        ? memberData.guardiansContacts[0].guardianUid
+        : userId;
+    await cleanupInvitationNotification(notificationUserId, invitationToken);
   },
 
   /**
@@ -1367,7 +1372,12 @@ export const addRegularMemberToGroupService = {
     });
 
     // 🧹 Clean up the notification (for existing users who had in-app notification)
-    await cleanupInvitationNotification(userId, invitationToken);
+    // For youth flows, the notification lives under the guardian's UID, not the youth's
+    const notificationUserId =
+      memberData.guardiansContacts && memberData.guardiansContacts.length > 0
+        ? memberData.guardiansContacts[0].guardianUid
+        : userId;
+    await cleanupInvitationNotification(notificationUserId, invitationToken);
   },
 
   /**

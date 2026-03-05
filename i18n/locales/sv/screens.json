@@ -125,7 +125,7 @@
   "groups": {
     "myGroups": "Mina grupper",
     "noGroups": "Inga grupper ännu",
-    "noGroupsMessage": "Du tillhör inga grupper ännu. Gå med i en klubb eller be en klubbadmin att skapa en grupp åt dig!",
+    "noGroupsMessage": "Du tillhör inga grupper ännu.",
     "loadingGroups": "Laddar grupper...",
     "memberCount_one": "{{count}} medlem",
     "memberCount_other": "{{count}} medlemmar"
@@ -365,7 +365,8 @@
     "totalMembers": "Totalt antal medlemmar",
     "deleteGroup": "Ta bort grupp",
     "deleteGroupConfirm": "Är du säker på att du vill ta bort \"{{groupName}}\"?",
-    "scheduledForDeletion": "Schemalagd för radering"
+    "scheduledForDeletion": "Schemalagd för radering",
+    "selectGroupToDelete": "Välj en grupp att ta bort"
   },
 
   "manageGroup": {
@@ -545,7 +546,10 @@
     "downgradeConfirm": "Din prenumeration nedgraderas omedelbart. Du behåller dina nuvarande funktioner till slutet av din faktureringsperiod.",
     "upgradeConfirm": "Din prenumeration uppgraderas omedelbart.",
     "confirmChange": "Bekräfta ändring",
-    "continueToPayment": "Fortsätt till betalning"
+    "continueToPayment": "Fortsätt till betalning",
+    "trialBanner": "Första 6 månaderna gratis — ingen debitering förrän {{date}}",
+    "trialConfirmMessage": "Ditt kort sparas men du debiteras inte förrän {{date}}. Du kan avbryta när som helst under provperioden.",
+    "trialFeature": "6 månaders gratis provperiod"
   },
 
   "addAdultMember": {
@@ -717,7 +721,7 @@
     "feeBreakdown": "Avgiftsfördelning (uppskattad)",
     "membersPay": "Medlemmar betalar:",
     "stripeFee": "Stripe-avgift (~{{percent}}%):",
-    "clubnizerFee": "Clubnizer-avgift (2%):",
+    "clubnizerFee": "Clubnizer-avgift (1.5%):",
     "clubReceives": "Klubben får:",
     "totalExpected": "Förväntat totalt:",
     "stripeFeesDisclaimer": "Stripe-avgifter är uppskattningar och kan variera beroende på korttyp",
@@ -773,7 +777,7 @@
     "step2Desc": "Stripe verifierar din organisations identitet (krävs enligt lag)",
     "step3Title": "Lägg till bankkonto",
     "step3Desc": "Koppla det bankkonto dit betalningar ska sättas in",
-    "platformFeeNote": "Clubnizer tar 3% i plattformsavgift per betalning. Stripe-avgifter hanteras separat.",
+    "platformFeeNote": "Clubnizer tar 1.5% i plattformsavgift per betalning. Stripe-avgifter hanteras separat.",
     "creatingAccount": "Skapar konto...",
     "createStripeAccount": "Skapa Stripe-konto",
     "continueSetupWithStripe": "Fortsätt installation med Stripe",

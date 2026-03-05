@@ -3,14 +3,14 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -24,6 +24,7 @@ import { useUser } from "../contexts/UserContext";
 import { eventCreationService } from "../services/event/createEvent";
 import { getEventDetails } from "../services/event/eventService";
 import { fetchGroupMembers } from "../services/fetchGroupMembers";
+import { subgroupService } from "../services/subgroup";
 
 interface EventData {
   title: string;
@@ -322,10 +323,24 @@ export default function CreateEventScreen() {
         return;
       }
 
-      const result = await fetchGroupMembers(
-        eventContext.clubId,
-        eventContext.groupId!,
-      );
+      let result;
+      if (
+        eventContext.level === "subgroup" &&
+        eventContext.groupId &&
+        eventContext.subgroupId
+      ) {
+        // Fetch subgroup members specifically
+        result = await subgroupService.getSubgroupMembers(
+          eventContext.clubId,
+          eventContext.groupId,
+          eventContext.subgroupId,
+        );
+      } else {
+        result = await fetchGroupMembers(
+          eventContext.clubId,
+          eventContext.groupId!,
+        );
+      }
 
       if (result.success && result.members) {
         let filteredMembers = result.members;
@@ -584,7 +599,10 @@ export default function CreateEventScreen() {
       setModal({
         visible: true,
         title: t("screens:createEvent.eventCreated"),
-        message: t("screens:createEvent.eventCreatedMessage", { title: eventData.title, count: result.totalRecipients }),
+        message: t("screens:createEvent.eventCreatedMessage", {
+          title: eventData.title,
+          count: result.totalRecipients,
+        }),
         type: "success",
       });
     } catch (error) {
@@ -595,7 +613,9 @@ export default function CreateEventScreen() {
       setModal({
         visible: true,
         title: t("screens:createEvent.creationFailed"),
-        message: t("screens:createEvent.creationFailedMessage", { error: errorMessage }),
+        message: t("screens:createEvent.creationFailedMessage", {
+          error: errorMessage,
+        }),
         type: "error",
       });
     } finally {
@@ -681,7 +701,9 @@ export default function CreateEventScreen() {
       setModal({
         visible: true,
         title: t("screens:createEvent.eventUpdated"),
-        message: t("screens:createEvent.eventUpdatedMessage", { title: eventData.title }),
+        message: t("screens:createEvent.eventUpdatedMessage", {
+          title: eventData.title,
+        }),
         type: "success",
       });
     } catch (error) {
@@ -692,7 +714,9 @@ export default function CreateEventScreen() {
       setModal({
         visible: true,
         title: t("screens:createEvent.updateFailed"),
-        message: t("screens:createEvent.updateFailedMessage", { error: errorMessage }),
+        message: t("screens:createEvent.updateFailedMessage", {
+          error: errorMessage,
+        }),
         type: "error",
       });
     } finally {
@@ -750,13 +774,17 @@ export default function CreateEventScreen() {
 
   const getButtonLabel = (): string => {
     if (isCreating) {
-      return isEditMode ? t("screens:createEvent.savingChanges") : t("screens:createEvent.creatingEvent");
+      return isEditMode
+        ? t("screens:createEvent.savingChanges")
+        : t("screens:createEvent.creatingEvent");
     }
     if (isEditMode) {
       return t("screens:createEvent.saveChanges");
     }
     if (eventContext && eventContext.level !== "club" && memberCount > 0) {
-      return t("screens:createEvent.createEventWithRecipients", { count: memberCount });
+      return t("screens:createEvent.createEventWithRecipients", {
+        count: memberCount,
+      });
     }
     return t("screens:createEvent.createEvent");
   };
@@ -777,7 +805,9 @@ export default function CreateEventScreen() {
             ? t("common:coaches")
             : t("common:admins");
     }
-    return t("screens:createEvent.rolesSelected", { count: selectedRoles.length });
+    return t("screens:createEvent.rolesSelected", {
+      count: selectedRoles.length,
+    });
   };
 
   const formatDate = (date: Date) => {
@@ -826,7 +856,9 @@ export default function CreateEventScreen() {
               borderRadius: 8,
             }}
           >
-            <Text style={{ color: "white", fontWeight: "600" }}>{t("common:goBack")}</Text>
+            <Text style={{ color: "white", fontWeight: "600" }}>
+              {t("common:goBack")}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -857,7 +889,9 @@ export default function CreateEventScreen() {
             color: theme.colors.text,
           }}
         >
-          {isEditMode ? t("screens:createEvent.editEvent") : t("screens:createEvent.createEvent")}
+          {isEditMode
+            ? t("screens:createEvent.editEvent")
+            : t("screens:createEvent.createEvent")}
         </Text>
       </View>
 
@@ -1330,10 +1364,22 @@ export default function CreateEventScreen() {
                   }}
                 >
                   {[
-                    { minutes: 60, label: t("screens:createEvent.duration1Hour") },
-                    { minutes: 90, label: t("screens:createEvent.duration1_5Hours") },
-                    { minutes: 120, label: t("screens:createEvent.duration2Hours") },
-                    { minutes: 180, label: t("screens:createEvent.duration3Hours") },
+                    {
+                      minutes: 60,
+                      label: t("screens:createEvent.duration1Hour"),
+                    },
+                    {
+                      minutes: 90,
+                      label: t("screens:createEvent.duration1_5Hours"),
+                    },
+                    {
+                      minutes: 120,
+                      label: t("screens:createEvent.duration2Hours"),
+                    },
+                    {
+                      minutes: 180,
+                      label: t("screens:createEvent.duration3Hours"),
+                    },
                   ].map((option) => (
                     <TouchableOpacity
                       key={option.minutes}
@@ -1552,7 +1598,9 @@ export default function CreateEventScreen() {
                         fontSize: 14,
                       }}
                     >
-                      {eventData.gatheringTime ? t("common:remove") : t("common:add")}
+                      {eventData.gatheringTime
+                        ? t("common:remove")
+                        : t("common:add")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1783,7 +1831,9 @@ export default function CreateEventScreen() {
                         marginTop: 2,
                       }}
                     >
-                      {t("screens:createEvent.onlyFirstNMembers", { count: eventData.capacity.maxAttendees || 10 })}
+                      {t("screens:createEvent.onlyFirstNMembers", {
+                        count: eventData.capacity.maxAttendees || 10,
+                      })}
                     </Text>
                   </View>
                 </TouchableOpacity>

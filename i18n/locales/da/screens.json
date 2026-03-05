@@ -120,7 +120,7 @@
   "groups": {
     "myGroups": "Mine grupper",
     "noGroups": "Ingen grupper endnu",
-    "noGroupsMessage": "Du tilhører ikke nogen grupper endnu. Meld dig ind i en klub eller bed en klubadministrator om at oprette en gruppe til dig!",
+    "noGroupsMessage": "Du tilhører ikke nogen grupper endnu.",
     "loadingGroups": "Indlæser grupper...",
     "memberCount_one": "{{count}} medlem",
     "memberCount_other": "{{count}} medlemmer"
@@ -363,7 +363,8 @@
     "deleteGroup": "Slet gruppe",
     "deleteGroupConfirm": "Er du sikker på, at du vil slette \"{{groupName}}\"?",
     "scheduledForDeletion": "Planlagt til sletning",
-    "permanentlyDeletedIn": "Slettes permanent om:"
+    "permanentlyDeletedIn": "Slettes permanent om:",
+    "selectGroupToDelete": "Vælg en gruppe at slette"
   },
   "manageGroup": {
     "loadingGroup": "Indlæser gruppe...",
@@ -577,7 +578,10 @@
     "downgradeConfirm": "Dit abonnement nedgraderes med det samme. Du beholder dine nuværende funktioner indtil slutningen af din faktureringsperiode.",
     "upgradeConfirm": "Dit abonnement opgraderes med det samme.",
     "confirmChange": "Bekræft ændring",
-    "continueToPayment": "Fortsæt til betaling"
+    "continueToPayment": "Fortsæt til betaling",
+    "trialBanner": "Første 6 måneder gratis — ingen opkrævning før {{date}}",
+    "trialConfirmMessage": "Dit kort gemmes, men du bliver ikke opkrævet før {{date}}. Du kan annullere når som helst i prøveperioden.",
+    "trialFeature": "6 måneders gratis prøveperiode"
   },
   "addAdultMember": {
     "addPlayer": "Tilføj spiller",
@@ -742,7 +746,7 @@
     "feeBreakdown": "Gebyropdeling (estimeret)",
     "membersPay": "Medlemmer betaler:",
     "stripeFee": "Stripe-gebyr (~{{percent}}%):",
-    "clubnizerFee": "Clubnizer-gebyr (2%):",
+    "clubnizerFee": "Clubnizer-gebyr (1.5%):",
     "clubReceives": "Klubben modtager:",
     "totalExpected": "Forventet i alt:",
     "stripeFeesDisclaimer": "Stripe-gebyrer er estimater og kan variere afhængigt af korttype",
@@ -796,7 +800,7 @@
     "step2Desc": "Stripe bekræfter din organisations identitet (lovpligtigt)",
     "step3Title": "Tilføj bankkonto",
     "step3Desc": "Tilknyt den bankkonto, hvor betalinger skal indsættes",
-    "platformFeeNote": "Clubnizer tager et platformgebyr på 3% pr. betaling. Stripe-gebyrer håndteres separat.",
+    "platformFeeNote": "Clubnizer tager et platformgebyr på 1.5% pr. betaling. Stripe-gebyrer håndteres separat.",
     "creatingAccount": "Opretter konto...",
     "createStripeAccount": "Opret Stripe-konto",
     "continueSetupWithStripe": "Fortsæt opsætning med Stripe",

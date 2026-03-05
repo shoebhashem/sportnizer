@@ -189,7 +189,7 @@ async function validateAdultInvitation(
   }
 
   // Check if user is in the target group
-  const groupMembership = clubAccess.groups?.find(
+  const groupMembership = clubAccess.groupAccess?.find(
     (g: any) => g.groupId === groupId,
   );
 
@@ -282,7 +282,7 @@ async function validateYouthInvitation(
     const isInTargetGroup =
       youth.clubAccess?.some((access: any) => {
         const matchesClub = access.clubId === clubId;
-        const matchesGroup = access.groups?.some(
+        const matchesGroup = access.groupAccess?.some(
           (g: any) => g.groupId === groupId,
         );
         return matchesClub && matchesGroup;
@@ -296,7 +296,7 @@ async function validateYouthInvitation(
       (c: any) => c.clubId === clubId,
     );
     const currentGroups =
-      targetClubAccess?.groups?.map((g: any) => ({
+      targetClubAccess?.groupAccess?.map((g: any) => ({
         groupId: g.groupId,
         groupName: g.groupName,
       })) || [];

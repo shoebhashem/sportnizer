@@ -973,7 +973,7 @@ export default function Index() {
           groupName={currentInvite.groupName}
           clubName={currentInvite.clubName}
           inviterName={currentInvite.invitedByName || "Someone"}
-          role={currentInvite.metadata?.role}
+          role={currentInvite.role}
           inviteeName={
             userProfile?.displayName || user?.displayName || undefined
           }

@@ -296,12 +296,31 @@ export const createEventV2 = onCall(
       // STEP 3.5: Ensure Creator Can Always See Event
       // ============================================================================
       // Always add creator to invitedUserIds so they can view/edit the event
-      // Creator will only be in responses array if they were selected as a recipient
       if (!invitedUserIds.includes(data.createdBy)) {
         invitedUserIds.push(data.createdBy);
-        console.log(
-          `✅ Added creator ${data.createdBy} to invitedUserIds (not in recipients)`,
-        );
+        console.log(`✅ Added creator ${data.createdBy} to invitedUserIds`);
+      }
+
+      // Always add creator to responses array so they can see the event in the app
+      const creatorInResponses = responses.some(
+        (r) => r.userId === data.createdBy,
+      );
+      if (!creatorInResponses) {
+        // Fetch creator profile for name/photo
+        const creatorDoc = await db
+          .collection("users")
+          .doc(data.createdBy)
+          .get();
+        const creatorData = creatorDoc.data();
+
+        responses.push({
+          userId: data.createdBy,
+          userName:
+            creatorData?.displayName || data.createdByName || "Event Creator",
+          photoUrl: creatorData?.photoURL || null,
+          response: "pending",
+        });
+        console.log(`✅ Added creator ${data.createdBy} to responses array`);
       }
 
       // ============================================================================

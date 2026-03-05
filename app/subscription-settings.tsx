@@ -233,6 +233,13 @@ export default function SubscriptionSettingsScreen() {
   const isPaidTier = currentTier === "basic" || currentTier === "pro";
   const isEnterprise = currentTier === "enterprise";
 
+  // Calculate trial end date (6 months from now)
+  const trialEndDate = React.useMemo(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 6);
+    return formatDate(date);
+  }, []);
+
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
@@ -402,10 +409,36 @@ export default function SubscriptionSettingsScreen() {
                     <Text style={styles.priceInterval}>/month</Text>
                   </View>
                 </View>
+                {isFreeTier && (
+                  <View style={styles.trialBanner}>
+                    <Ionicons
+                      name="gift"
+                      size={18}
+                      color={theme.colors.success}
+                    />
+                    <Text style={styles.trialBannerText}>
+                      {t("screens:subscriptionSettings.trialBanner", {
+                        date: trialEndDate,
+                      })}
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.tierDescription}>
                   {SUBSCRIPTION_TIERS.basic.description}
                 </Text>
                 <View style={styles.tierFeatures}>
+                  {isFreeTier && (
+                    <View style={styles.featureRow}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color={theme.colors.success}
+                      />
+                      <Text style={[styles.featureText, { fontWeight: "600" }]}>
+                        {t("screens:subscriptionSettings.trialFeature")}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.featureRow}>
                     <Ionicons
                       name="checkmark-circle"
@@ -464,10 +497,36 @@ export default function SubscriptionSettingsScreen() {
                     <Text style={styles.priceInterval}>/month</Text>
                   </View>
                 </View>
+                {isFreeTier && (
+                  <View style={styles.trialBanner}>
+                    <Ionicons
+                      name="gift"
+                      size={18}
+                      color={theme.colors.success}
+                    />
+                    <Text style={styles.trialBannerText}>
+                      {t("screens:subscriptionSettings.trialBanner", {
+                        date: trialEndDate,
+                      })}
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.tierDescription}>
                   {SUBSCRIPTION_TIERS.pro.description}
                 </Text>
                 <View style={styles.tierFeatures}>
+                  {isFreeTier && (
+                    <View style={styles.featureRow}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color={theme.colors.success}
+                      />
+                      <Text style={[styles.featureText, { fontWeight: "600" }]}>
+                        {t("screens:subscriptionSettings.trialFeature")}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.featureRow}>
                     <Ionicons
                       name="checkmark-circle"
@@ -582,7 +641,9 @@ export default function SubscriptionSettingsScreen() {
             ? currentTier === "pro" && selectedTier === "basic"
               ? t("screens:subscriptionSettings.downgradeConfirm")
               : t("screens:subscriptionSettings.upgradeConfirm")
-            : t("screens:subscriptionSettings.upgradeConfirm")
+            : t("screens:subscriptionSettings.trialConfirmMessage", {
+                date: trialEndDate,
+              })
         }
         confirmText={
           isPaidTier
@@ -843,6 +904,21 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.md,
+  },
+  trialBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: theme.spacing.md,
+    gap: 8,
+  },
+  trialBannerText: {
+    flex: 1,
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.success,
+    fontWeight: "600",
   },
   tierFeatures: {
     marginBottom: theme.spacing.lg,

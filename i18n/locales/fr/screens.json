@@ -120,7 +120,7 @@
   "groups": {
     "myGroups": "Mes groupes",
     "noGroups": "Pas encore de groupe",
-    "noGroupsMessage": "Vous n'appartenez à aucun groupe pour le moment. Rejoignez un club ou demandez à un administrateur de club de créer un groupe pour vous !",
+    "noGroupsMessage": "Vous n'appartenez à aucun groupe pour le moment.",
     "loadingGroups": "Chargement des groupes...",
     "memberCount_one": "{{count}} membre",
     "memberCount_other": "{{count}} membres"
@@ -363,7 +363,8 @@
     "deleteGroup": "Supprimer le groupe",
     "deleteGroupConfirm": "Êtes-vous sûr de vouloir supprimer \"{{groupName}}\" ?",
     "scheduledForDeletion": "Suppression programmée",
-    "permanentlyDeletedIn": "Sera définitivement supprimé dans :"
+    "permanentlyDeletedIn": "Sera définitivement supprimé dans :",
+    "selectGroupToDelete": "Sélectionnez un groupe à supprimer"
   },
   "manageGroup": {
     "loadingGroup": "Chargement du groupe...",
@@ -577,7 +578,10 @@
     "downgradeConfirm": "Votre abonnement sera rétrogradé immédiatement. Vous conserverez vos fonctionnalités actuelles jusqu'à la fin de votre période de facturation.",
     "upgradeConfirm": "Votre abonnement sera mis à niveau immédiatement.",
     "confirmChange": "Confirmer le changement",
-    "continueToPayment": "Continuer vers le paiement"
+    "continueToPayment": "Continuer vers le paiement",
+    "trialBanner": "6 premiers mois gratuits — aucun frais jusqu'au {{date}}",
+    "trialConfirmMessage": "Votre carte sera enregistrée mais vous ne serez pas débité avant le {{date}}. Vous pouvez annuler à tout moment pendant la période d'essai.",
+    "trialFeature": "6 mois d'essai gratuit"
   },
   "addAdultMember": {
     "addPlayer": "Ajouter un joueur",
@@ -742,7 +746,7 @@
     "feeBreakdown": "Détail de la cotisation (Estimation)",
     "membersPay": "Les membres paient :",
     "stripeFee": "Frais Stripe (~{{percent}}%) :",
-    "clubnizerFee": "Frais Clubnizer (2%) :",
+    "clubnizerFee": "Frais Clubnizer (1.5%) :",
     "clubReceives": "Le club reçoit :",
     "totalExpected": "Total attendu :",
     "stripeFeesDisclaimer": "Les frais Stripe sont des estimations et peuvent varier selon le type de carte",
@@ -796,7 +800,7 @@
     "step2Desc": "Stripe vérifiera l'identité de votre organisation (requis par la loi)",
     "step3Title": "Ajouter un compte bancaire",
     "step3Desc": "Connectez le compte bancaire sur lequel les paiements seront déposés",
-    "platformFeeNote": "Clubnizer prélève 3% de frais de plateforme sur chaque paiement. Les frais Stripe sont gérés séparément.",
+    "platformFeeNote": "Clubnizer prélève 1.5% de frais de plateforme sur chaque paiement. Les frais Stripe sont gérés séparément.",
     "creatingAccount": "Création du compte...",
     "createStripeAccount": "Créer un compte Stripe",
     "continueSetupWithStripe": "Continuer la configuration avec Stripe",

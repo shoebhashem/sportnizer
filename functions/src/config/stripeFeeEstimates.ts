@@ -188,7 +188,7 @@ export interface FeeEstimate {
   memberPays: number;
   /** Estimated Stripe fee (charged to club) */
   stripeFeeEstimate: number;
-  /** Platform fee (2% to Clubnizer) */
+  /** Platform fee (1.5% to Clubnizer) */
   platformFee: number;
   /** Estimated amount club receives after all fees */
   clubReceivesEstimate: number;
@@ -212,7 +212,7 @@ export interface FeeEstimate {
  * // {
  * //   memberPays: 150000,
  * //   stripeFeeEstimate: 2430,    // ~24.30 SEK (1.5% + 1.80)
- * //   platformFee: 4500,          // 45.00 SEK (3%)
+ * //   platformFee: 2250,          // 22.50 SEK (1.5%)
  * //   clubReceivesEstimate: 143070, // ~1430.70 SEK
  * //   currency: 'sek',
  * //   feeDescription: '1.5% + 1.80 kr'
@@ -232,7 +232,7 @@ export function estimateStripeFee(
     amount * (feeStructure.percentageFee / 100) + feeStructure.fixedFee,
   );
 
-  // Calculate platform fee (3%)
+  // Calculate platform fee (1.5%)
   const platformFee = Math.floor(
     amount * (STRIPE_CONFIG.platformFeePercent / 100),
   );

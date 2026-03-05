@@ -120,7 +120,7 @@
   "groups": {
     "myGroups": "Meine Gruppen",
     "noGroups": "Noch keine Gruppen",
-    "noGroupsMessage": "Sie gehören noch keiner Gruppe an. Treten Sie einem Verein bei oder lassen Sie sich von einem Administrator hinzufügen!",
+    "noGroupsMessage": "Sie gehören noch keiner Gruppe an.",
     "loadingGroups": "Gruppen werden geladen...",
     "memberCount_one": "{{count}} Mitglied",
     "memberCount_other": "{{count}} Mitglieder"
@@ -363,7 +363,8 @@
     "deleteGroup": "Gruppe löschen",
     "deleteGroupConfirm": "Sind Sie sicher, dass Sie \"{{groupName}}\" löschen möchten?",
     "scheduledForDeletion": "Zur Löschung vorgemerkt",
-    "permanentlyDeletedIn": "Wird endgültig gelöscht in:"
+    "permanentlyDeletedIn": "Wird endgültig gelöscht in:",
+    "selectGroupToDelete": "Wählen Sie eine Gruppe zum Löschen"
   },
   "manageGroup": {
     "loadingGroup": "Gruppe wird geladen...",
@@ -577,7 +578,10 @@
     "downgradeConfirm": "Ihr Abonnement wird sofort herabgestuft. Sie behalten Ihre aktuellen Funktionen bis zum Ende Ihres Abrechnungszeitraums.",
     "upgradeConfirm": "Ihr Abonnement wird sofort aufgestuft.",
     "confirmChange": "Änderung bestätigen",
-    "continueToPayment": "Weiter zur Zahlung"
+    "continueToPayment": "Weiter zur Zahlung",
+    "trialBanner": "Erste 6 Monate kostenlos — keine Gebühr bis {{date}}",
+    "trialConfirmMessage": "Ihre Karte wird gespeichert, aber erst ab {{date}} belastet. Sie können jederzeit während der Testphase kündigen.",
+    "trialFeature": "6 Monate kostenlose Testphase"
   },
   "addAdultMember": {
     "addPlayer": "Spieler hinzufügen",
@@ -742,7 +746,7 @@
     "feeBreakdown": "Beitragsaufschlüsselung (geschätzt)",
     "membersPay": "Mitglieder zahlen:",
     "stripeFee": "Stripe-Gebühr (~{{percent}}%):",
-    "clubnizerFee": "Clubnizer-Gebühr (2%):",
+    "clubnizerFee": "Clubnizer-Gebühr (1.5%):",
     "clubReceives": "Verein erhält:",
     "totalExpected": "Erwarteter Gesamtbetrag:",
     "stripeFeesDisclaimer": "Stripe-Gebühren sind Schätzungen und können je nach Kartentyp variieren",
@@ -796,7 +800,7 @@
     "step2Desc": "Stripe wird die Identität Ihrer Organisation verifizieren (gesetzlich vorgeschrieben)",
     "step3Title": "Bankkonto hinzufügen",
     "step3Desc": "Verbinden Sie das Bankkonto, auf das Zahlungen eingezahlt werden",
-    "platformFeeNote": "Clubnizer erhebt eine Plattformgebühr von 3% auf jede Zahlung. Stripe-Gebühren werden separat berechnet.",
+    "platformFeeNote": "Clubnizer erhebt eine Plattformgebühr von 1.5% auf jede Zahlung. Stripe-Gebühren werden separat berechnet.",
     "creatingAccount": "Konto wird erstellt...",
     "createStripeAccount": "Stripe-Konto erstellen",
     "continueSetupWithStripe": "Einrichtung mit Stripe fortsetzen",

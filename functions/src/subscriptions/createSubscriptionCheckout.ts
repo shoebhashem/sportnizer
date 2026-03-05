@@ -177,6 +177,7 @@ export const createSubscriptionCheckout = onCall(
         success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: cancelUrl,
         subscription_data: {
+          trial_period_days: 183,
           metadata: {
             clubId: clubId,
             tier: tier,

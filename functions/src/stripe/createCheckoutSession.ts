@@ -10,7 +10,7 @@ import { config } from "../utils/config";
  *
  * This creates a payment session that:
  * 1. Charges the member the full fee amount
- * 2. Sends the platform fee (2%) to Clubnizer
+ * 2. Sends the platform fee (1.5%) to Clubnizer
  * 3. Sends the rest to the club's connected account
  * 4. Club pays the Stripe processing fees (via on_behalf_of)
  *

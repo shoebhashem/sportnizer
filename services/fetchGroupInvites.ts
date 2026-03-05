@@ -17,6 +17,7 @@ export interface GroupInviteInfo {
   createdAt: any; // Firestore timestamp
   status: "pending" | "accepted" | "rejected";
   message?: string;
+  role?: string;
   invitationType?: string;
   youthData?: {
     childName: string;
@@ -109,6 +110,7 @@ export const fetchGroupInvites = async (
           createdAt: inviteData.createdAt,
           status: inviteData.status,
           message: inviteData.message,
+          role: inviteData.role,
           invitationType: inviteData.invitationType,
           youthData: inviteData.youthData,
           existingYouthData: inviteData.existingYouthData,

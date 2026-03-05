@@ -41,6 +41,7 @@ import {
     fetchNewsItem,
     updateNews,
 } from "../services/news/newsListener";
+import { subgroupService } from "../services/subgroup";
 
 const MAX_TITLE_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 4200;
@@ -200,6 +201,22 @@ export default function CreateNewsScreen() {
       if (newsContext.level === "club") {
         // Fetch club members
         const response = await fetchClubMembers(newsContext.clubId);
+        if (!response.success || !response.members) {
+          setMemberCount(0);
+          return;
+        }
+        members = response.members;
+      } else if (
+        newsContext.level === "subgroup" &&
+        newsContext.groupId &&
+        newsContext.subgroupId
+      ) {
+        // Fetch subgroup members specifically
+        const response = await subgroupService.getSubgroupMembers(
+          newsContext.clubId,
+          newsContext.groupId,
+          newsContext.subgroupId,
+        );
         if (!response.success || !response.members) {
           setMemberCount(0);
           return;

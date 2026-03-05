@@ -112,7 +112,7 @@ const STRIPE_FEE_ESTIMATES: Record<
   US: { percentage: 2.9, fixed: 30 },
 };
 
-const PLATFORM_FEE_PERCENT = 2;
+const PLATFORM_FEE_PERCENT = 1.5;
 
 export const paymentService = {
   // ---------------------------
@@ -403,7 +403,7 @@ export const paymentService = {
       amount * (feeStructure.percentage / 100) + feeStructure.fixed,
     );
 
-    // Calculate platform fee (2%)
+    // Calculate platform fee (1.5%)
     const platformFee = Math.floor(amount * (PLATFORM_FEE_PERCENT / 100));
 
     // Calculate club receives

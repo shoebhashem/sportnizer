@@ -120,7 +120,7 @@ export const addMemberToGroup = onCall(
             .collection("invitations")
             .where("userId", "==", targetUserId)
             .where("groupId", "==", groupId)
-            .where("status", "==", "pending")
+            .where("status", "in", ["pending", "accepted_pending_signup"])
             .limit(1)
             .get();
 
@@ -147,7 +147,7 @@ export const addMemberToGroup = onCall(
               .collection("invitations")
               .where("email", "==", targetUserEmail)
               .where("groupId", "==", groupId)
-              .where("status", "==", "pending")
+              .where("status", "in", ["pending", "accepted_pending_signup"])
               .limit(1)
               .get();
 
@@ -222,6 +222,61 @@ export const addMemberToGroup = onCall(
             if (!invitationByEmailQuery.empty) {
               hasValidInvitation = true;
               console.log(`✅ Valid invitation found by email for player role`);
+            }
+          }
+
+          // Fallback for youth (player-underage): check invitation by guardian's email/uid
+          // Youth members have no email; the invitation was sent to the guardian's email
+          if (
+            !hasValidInvitation &&
+            memberData.needsGuardian === true &&
+            memberData.guardiansContacts &&
+            memberData.guardiansContacts.length > 0
+          ) {
+            const guardian = memberData.guardiansContacts[0];
+            const guardianUid = guardian.guardianUid;
+            const guardianEmail = guardian.guardianEmail?.toLowerCase();
+
+            console.log(
+              `🔍 Youth member - checking invitation by guardian uid: ${guardianUid}, email: ${guardianEmail}`,
+            );
+
+            // Check by guardian userId
+            if (guardianUid) {
+              const invByGuardianUidQuery = await admin
+                .firestore()
+                .collection("invitations")
+                .where("userId", "==", guardianUid)
+                .where("groupId", "==", groupId)
+                .where("status", "in", ["pending", "accepted_pending_signup"])
+                .limit(1)
+                .get();
+
+              if (!invByGuardianUidQuery.empty) {
+                hasValidInvitation = true;
+                console.log(
+                  `✅ Valid invitation found by guardian userId for youth role`,
+                );
+              }
+            }
+
+            // Check by guardian email
+            if (!hasValidInvitation && guardianEmail) {
+              const invByGuardianEmailQuery = await admin
+                .firestore()
+                .collection("invitations")
+                .where("email", "==", guardianEmail)
+                .where("groupId", "==", groupId)
+                .where("status", "in", ["pending", "accepted_pending_signup"])
+                .limit(1)
+                .get();
+
+              if (!invByGuardianEmailQuery.empty) {
+                hasValidInvitation = true;
+                console.log(
+                  `✅ Valid invitation found by guardian email for youth role`,
+                );
+              }
             }
           }
 

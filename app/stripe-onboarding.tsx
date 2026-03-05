@@ -9,22 +9,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -428,17 +428,6 @@ export default function StripeOnboardingScreen() {
               </Text>
             </View>
           </View>
-
-          <View style={styles.feeInfo}>
-            <Ionicons
-              name="information-circle"
-              size={20}
-              color={theme.colors.secondary}
-            />
-            <Text style={styles.feeInfoText}>
-              {t("screens:stripeOnboarding.platformFeeNote")}
-            </Text>
-          </View>
         </View>
 
         {/* Error Message */}
@@ -822,20 +811,6 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 14,
     color: theme.colors.textSecondary,
-  },
-  feeInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: theme.colors.primary,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  feeInfoText: {
-    flex: 1,
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    marginLeft: 10,
   },
   errorContainer: {
     flexDirection: "row",

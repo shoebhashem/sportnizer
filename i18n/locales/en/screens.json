@@ -120,7 +120,7 @@
   "groups": {
     "myGroups": "My Groups",
     "noGroups": "No Groups Yet",
-    "noGroupsMessage": "You don't belong to any groups yet. Join a club or have a club admin create a group for you!",
+    "noGroupsMessage": "You don't belong to any groups yet.",
     "loadingGroups": "Loading groups...",
     "memberCount_one": "{{count}} member",
     "memberCount_other": "{{count}} members"
@@ -363,7 +363,8 @@
     "deleteGroup": "Delete Group",
     "deleteGroupConfirm": "Are you sure you want to delete \"{{groupName}}\"?",
     "scheduledForDeletion": "Scheduled for deletion",
-    "permanentlyDeletedIn": "Will be permanently deleted in:"
+    "permanentlyDeletedIn": "Will be permanently deleted in:",
+    "selectGroupToDelete": "Select a group to delete"
   },
   "manageGroup": {
     "loadingGroup": "Loading group...",
@@ -577,7 +578,10 @@
     "downgradeConfirm": "Your subscription will be downgraded immediately. You will keep your current features until the end of your billing period.",
     "upgradeConfirm": "Your subscription will be upgraded immediately.",
     "confirmChange": "Confirm Change",
-    "continueToPayment": "Continue to Payment"
+    "continueToPayment": "Continue to Payment",
+    "trialBanner": "First 6 months free — no charge until {{date}}",
+    "trialConfirmMessage": "Your card will be saved but you won't be charged until {{date}}. You can cancel anytime during the trial.",
+    "trialFeature": "6 months free trial"
   },
   "addAdultMember": {
     "addPlayer": "Add Player",
@@ -742,7 +746,7 @@
     "feeBreakdown": "Fee Breakdown (Estimated)",
     "membersPay": "Members pay:",
     "stripeFee": "Stripe fee (~{{percent}}%):",
-    "clubnizerFee": "Clubnizer fee (2%):",
+    "clubnizerFee": "Clubnizer fee (1.5%):",
     "clubReceives": "Club receives:",
     "totalExpected": "Total expected:",
     "stripeFeesDisclaimer": "Stripe fees are estimates and may vary based on card type",
@@ -796,7 +800,7 @@
     "step2Desc": "Stripe will verify your organization's identity (required by law)",
     "step3Title": "Add Bank Account",
     "step3Desc": "Connect the bank account where payments will be deposited",
-    "platformFeeNote": "Clubnizer takes a 3% platform fee on each payment. Stripe fees are handled separately.",
+    "platformFeeNote": "Clubnizer takes a 1.5% platform fee on each payment. Stripe fees are handled separately.",
     "creatingAccount": "Creating Account...",
     "createStripeAccount": "Create Stripe Account",
     "continueSetupWithStripe": "Continue Setup with Stripe",

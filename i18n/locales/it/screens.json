@@ -120,7 +120,7 @@
   "groups": {
     "myGroups": "I miei gruppi",
     "noGroups": "Nessun gruppo ancora",
-    "noGroupsMessage": "Non fai parte di nessun gruppo ancora. Unisciti a un club o chiedi a un amministratore di crearti un gruppo!",
+    "noGroupsMessage": "Non fai parte di nessun gruppo ancora.",
     "loadingGroups": "Caricamento gruppi...",
     "memberCount_one": "{{count}} membro",
     "memberCount_other": "{{count}} membri"
@@ -363,7 +363,8 @@
     "deleteGroup": "Elimina gruppo",
     "deleteGroupConfirm": "Sei sicuro di voler eliminare \"{{groupName}}\"?",
     "scheduledForDeletion": "Pianificato per l'eliminazione",
-    "permanentlyDeletedIn": "Verrà eliminato definitivamente tra:"
+    "permanentlyDeletedIn": "Verrà eliminato definitivamente tra:",
+    "selectGroupToDelete": "Seleziona un gruppo da eliminare"
   },
   "manageGroup": {
     "loadingGroup": "Caricamento gruppo...",
@@ -577,7 +578,10 @@
     "downgradeConfirm": "Il tuo abbonamento verrà declassato immediatamente. Manterrai le funzionalità attuali fino alla fine del periodo di fatturazione.",
     "upgradeConfirm": "Il tuo abbonamento verrà aggiornato immediatamente.",
     "confirmChange": "Conferma modifica",
-    "continueToPayment": "Continua al pagamento"
+    "continueToPayment": "Continua al pagamento",
+    "trialBanner": "Primi 6 mesi gratis — nessun addebito fino al {{date}}",
+    "trialConfirmMessage": "La tua carta verrà salvata ma non ti verrà addebitato nulla fino al {{date}}. Puoi annullare in qualsiasi momento durante il periodo di prova.",
+    "trialFeature": "6 mesi di prova gratuita"
   },
   "addAdultMember": {
     "addPlayer": "Aggiungi giocatore",
@@ -742,7 +746,7 @@
     "feeBreakdown": "Dettaglio quota (stimato)",
     "membersPay": "I membri pagano:",
     "stripeFee": "Commissione Stripe (~{{percent}}%):",
-    "clubnizerFee": "Commissione Clubnizer (2%):",
+    "clubnizerFee": "Commissione Clubnizer (1.5%):",
     "clubReceives": "Il club riceve:",
     "totalExpected": "Totale previsto:",
     "stripeFeesDisclaimer": "Le commissioni Stripe sono stime e possono variare in base al tipo di carta",
@@ -796,7 +800,7 @@
     "step2Desc": "Stripe verificherà l'identità della tua organizzazione (richiesto per legge)",
     "step3Title": "Aggiungi conto bancario",
     "step3Desc": "Collega il conto bancario dove verranno depositati i pagamenti",
-    "platformFeeNote": "Clubnizer applica una commissione piattaforma del 3% su ogni pagamento. Le commissioni Stripe sono gestite separatamente.",
+    "platformFeeNote": "Clubnizer applica una commissione piattaforma del 1.5% su ogni pagamento. Le commissioni Stripe sono gestite separatamente.",
     "creatingAccount": "Creazione account...",
     "createStripeAccount": "Crea account Stripe",
     "continueSetupWithStripe": "Continua la configurazione con Stripe",

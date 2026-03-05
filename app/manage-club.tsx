@@ -59,7 +59,7 @@ export default function ManageClubScreen() {
   const cache = useDataCache();
   const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
-  const { clubId } = useLocalSearchParams();
+  const { clubId, tab, deleteMode } = useLocalSearchParams();
   const { user } = useAuth();
   const navigation = useNavigation();
   const [club, setClub] = useState<ClubData | null>(null);
@@ -67,7 +67,10 @@ export default function ManageClubScreen() {
   const [groups, setGroups] = useState<ClubGroupData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClubAdmin, setIsClubAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<"members" | "groups">("members");
+  const [activeTab, setActiveTab] = useState<"members" | "groups">(
+    tab === "groups" ? "groups" : "members",
+  );
+  const [isDeleteMode, setIsDeleteMode] = useState(deleteMode === "true");
   const [showDeleteGroupModal, setShowDeleteGroupModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<ClubGroupData | null>(
     null,
@@ -376,7 +379,7 @@ export default function ManageClubScreen() {
               color={theme.colors.textSecondary}
             />
           </TouchableOpacity>
-          {isClubAdmin && item.isActive !== false && (
+          {isClubAdmin && isDeleteMode && item.isActive !== false && (
             <TouchableOpacity
               style={styles.deleteGroupButton}
               onPress={() => handleDeleteGroup(item)}
@@ -478,6 +481,33 @@ export default function ManageClubScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Delete Mode Banner */}
+        {isDeleteMode && (
+          <View style={styles.deleteModeBanner}>
+            <View style={styles.deleteModeBannerContent}>
+              <Ionicons
+                name="trash-outline"
+                size={20}
+                color={theme.colors.error}
+              />
+              <Text style={styles.deleteModeBannerText}>
+                {t("screens:manageClub.selectGroupToDelete")}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.deleteModeCancelButton}
+              onPress={() => {
+                setIsDeleteMode(false);
+                router.back();
+              }}
+            >
+              <Text style={styles.deleteModeCancelText}>
+                {t("common:cancel")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Tabs */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -775,6 +805,41 @@ const styles = StyleSheet.create({
   deleteGroupButton: {
     padding: theme.spacing.md,
     paddingLeft: theme.spacing.sm,
+  },
+  deleteModeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: theme.colors.error + "15",
+    borderWidth: 1,
+    borderColor: theme.colors.error + "40",
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  deleteModeBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    flex: 1,
+  },
+  deleteModeBannerText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.error,
+  },
+  deleteModeCancelButton: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
+    backgroundColor: theme.colors.inputBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  deleteModeCancelText: {
+    fontSize: theme.typography.fontSize.small,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.text,
   },
   groupInfo: {
     flex: 1,
