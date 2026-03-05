@@ -74,7 +74,7 @@ jobs:
 
       - name: Lint
         working-directory: functions
-        run: npm run lint
+        run: ESLINT_USE_FLAT_CONFIG=false npm run lint
 
       - name: Type check
         working-directory: functions
