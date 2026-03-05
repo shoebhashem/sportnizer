@@ -1,18 +1,18 @@
-import * as admin from 'firebase-admin';
+import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
-import { config } from '../utils/config';
-import { validateRequiredFields } from '../utils/validation';
+import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { config } from "../utils/config";
+import { validateRequiredFields } from "../utils/validation";
 
 /**
  * Creates a Firestore user document for a youth member (NO Firebase Auth account)
- * 
+ *
  * Youth members are minors who:
  * - Cannot sign in to the app (no Firebase Auth account)
  * - Are managed by guardians through guardian accounts
  * - Have full user documents with clubAccess structure
  * - Are linked bidirectionally to guardian documents
- * 
+ *
  * @param childName - Youth member's full name
  * @param dateOfBirth - ISO format date string (e.g., "2010-05-15")
  * @param guardianUid - Authenticated guardian's Firebase Auth UID
@@ -20,9 +20,9 @@ import { validateRequiredFields } from '../utils/validation';
  * @param guardianName - Guardian's display name
  * @param relationship - Relationship to youth ("parent", "guardian", "legal_guardian")
  * @param photoURL - Optional profile picture URL
- * 
+ *
  * @returns Promise with youth member UID on success
- * 
+ *
  * @throws HttpsError('unauthenticated') - Guardian not authenticated
  * @throws HttpsError('permission-denied') - UID mismatch
  * @throws HttpsError('invalid-argument') - Missing required fields
@@ -53,7 +53,10 @@ export const createYouthMemberDocument = onCall(
     try {
       // 1. Verify guardian is authenticated
       if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'Guardian must be authenticated');
+        throw new HttpsError(
+          "unauthenticated",
+          "Guardian must be authenticated",
+        );
       }
 
       const {
@@ -68,33 +71,59 @@ export const createYouthMemberDocument = onCall(
 
       // 2. Validate guardian UID matches authenticated user
       if (request.auth.uid !== guardianUid) {
-        throw new HttpsError('permission-denied', 'Guardian UID mismatch');
+        throw new HttpsError("permission-denied", "Guardian UID mismatch");
       }
 
       // 3. Validate required fields
       validateRequiredFields(request.data, [
-        'childName',
-        'dateOfBirth',
-        'guardianUid',
-        'guardianEmail',
-        'guardianName',
-        'relationship',
+        "childName",
+        "dateOfBirth",
+        "guardianUid",
+        "guardianEmail",
+        "guardianName",
+        "relationship",
       ]);
 
-      console.log(`Creating youth member document for ${childName} with guardian ${guardianUid}`);
+      console.log(
+        `Creating youth member document for ${childName} with guardian ${guardianUid}`,
+      );
 
       const db = admin.firestore();
 
       // 4. Validate guardian document exists
-      const guardianDoc = await db.collection('users').doc(guardianUid).get();
+      const guardianDoc = await db.collection("users").doc(guardianUid).get();
       if (!guardianDoc.exists) {
-        throw new HttpsError('not-found', 'Guardian user document not found');
+        throw new HttpsError("not-found", "Guardian user document not found");
+      }
+
+      // 4b. Check for existing dependent with same name + DOB (prevent duplicates)
+      const guardianData = guardianDoc.data();
+      const existingDependents = guardianData?.dependents || [];
+      const normalizedName = childName.trim().toLowerCase();
+
+      const existingDependent = existingDependents.find(
+        (dep: any) =>
+          dep.childName?.trim().toLowerCase() === normalizedName &&
+          dep.dateOfBirth === dateOfBirth,
+      );
+
+      if (existingDependent) {
+        // Youth already exists — return existing UID instead of creating duplicate
+        console.log(
+          `ℹ️ Youth "${childName}" already exists as dependent: ${existingDependent.uid}`,
+        );
+        return {
+          success: true,
+          youthUid: existingDependent.uid,
+          message: `Youth member ${childName} already exists`,
+        };
       }
 
       // 5. Create Firestore document for youth member (NO Firebase Auth account!)
-      const DEFAULT_CHILD_PHOTO = 'https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fchild_profile_icon.png?alt=media';
+      const DEFAULT_CHILD_PHOTO =
+        "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fchild_profile_icon.png?alt=media";
 
-      const youthDocRef = db.collection('users').doc(); // Auto-generate document ID
+      const youthDocRef = db.collection("users").doc(); // Auto-generate document ID
 
       const youthProfile = {
         uid: youthDocRef.id, // Document ID becomes the UID
@@ -135,7 +164,7 @@ export const createYouthMemberDocument = onCall(
 
       // 6. Update guardian document with dependent reference
       await db
-        .collection('users')
+        .collection("users")
         .doc(guardianUid)
         .update({
           dependents: FieldValue.arrayUnion({
@@ -149,7 +178,9 @@ export const createYouthMemberDocument = onCall(
           version: FieldValue.increment(1),
         });
 
-      console.log(`✅ Guardian ${guardianUid} updated with dependent ${youthDocRef.id}`);
+      console.log(
+        `✅ Guardian ${guardianUid} updated with dependent ${youthDocRef.id}`,
+      );
 
       return {
         success: true,
@@ -157,13 +188,16 @@ export const createYouthMemberDocument = onCall(
         message: `Youth member ${childName} created successfully`,
       };
     } catch (error) {
-      console.error('Error in createYouthMemberDocument:', error);
+      console.error("Error in createYouthMemberDocument:", error);
 
       if (error instanceof HttpsError) {
         throw error;
       }
 
-      throw new HttpsError('internal', 'Failed to create youth member document');
+      throw new HttpsError(
+        "internal",
+        "Failed to create youth member document",
+      );
     }
-  }
+  },
 );

@@ -402,47 +402,15 @@ export default function Index() {
       // Mark this invitation as processed immediately
       setProcessedInvites((prev) => new Set(prev.add(currentInvite.inviteId)));
 
-      // YOUTH INVITATION (NEW): Create youth document first, then process invitation
+      // YOUTH INVITATION (NEW): Orchestration handles youth doc creation after claiming invitation
       if (
         currentInvite.invitationType === "youth_member" &&
         currentInvite.youthData
       ) {
         console.log(
-          "👶 Creating youth member document before accepting invitation...",
+          "👶 Processing new youth invitation (orchestration will create youth doc)...",
         );
 
-        const { httpsCallable } = await import("firebase/functions");
-        const { functions } = await import("@/services/core/firebase");
-
-        const createYouthFn = httpsCallable(
-          functions,
-          "createYouthMemberDocument",
-        );
-        const youthResult = await createYouthFn({
-          guardianUid: currentUser.uid,
-          guardianEmail: currentUser.email || "",
-          guardianName:
-            currentUser.displayName ||
-            currentUser.email?.split("@")[0] ||
-            "Guardian",
-          childName: currentInvite.youthData.childName,
-          dateOfBirth: currentInvite.youthData.dateOfBirth,
-          relationship: currentInvite.youthData.relationship,
-        });
-
-        const youthResponse = youthResult.data as any;
-        if (!youthResponse.success) {
-          throw new Error(
-            youthResponse.error || "Failed to create youth member",
-          );
-        }
-
-        console.log(
-          "✅ Youth member document created:",
-          youthResponse.youthUid,
-        );
-
-        // Get guardian info for the invitation processing
         const guardianEmail = currentUser.email || "";
         const guardianName =
           userProfile?.displayName ||
@@ -450,19 +418,22 @@ export default function Index() {
           guardianEmail.split("@")[0] ||
           "Guardian";
 
-        // Now process the invitation with the youth's userId (not guardian's) and guardian info
         const { addRegularMemberToGroupService } =
           await import("@/services/orchestration/addRegularMemberToGroup");
         const invitationResult =
           await addRegularMemberToGroupService.processInvitationAfterUserResponse(
             currentInvite.inviteId, // invitationToken
-            youthResponse.youthUid, // Use youth's userId, not guardian's
-            "accept", // action
+            currentUser.uid, // guardian's userId (orchestration will create youth and override)
+            "accept",
             {
-              // guardianInfo to avoid permission issues
               guardianUid: currentUser.uid,
               guardianEmail: guardianEmail,
               guardianName: guardianName,
+              relationship: currentInvite.youthData.relationship,
+            },
+            {
+              childName: currentInvite.youthData.childName,
+              dateOfBirth: currentInvite.youthData.dateOfBirth,
               relationship: currentInvite.youthData.relationship,
             },
           );

@@ -23,8 +23,6 @@
 import { httpsCallable } from "firebase/functions";
 // functions: Our connection to the Firebase backend where our server functions live
 import { functions } from "../core/firebase";
-// dismissNotification: Tool to remove notifications from user's notification list
-import { dismissNotification } from "../fetchNotifications";
 
 // ===============================================================================
 // TYPESCRIPT INTERFACES: Data Structure Definitions
@@ -134,27 +132,27 @@ async function cleanupInvitationNotification(
     );
 
     // Import Firestore tools
-    const { getFirestore, collection, query, where, getDocs } =
+    const { getFirestore, collection, query, where, getDocs, deleteDoc } =
       await import("firebase/firestore");
     const db = getFirestore();
 
-    // Query for notification matching this invitation token
+    // Query for notification matching this invitation token (any status)
     const notificationsRef = collection(db, "users", userId, "notifications");
     const q = query(
       notificationsRef,
       where("invitationToken", "==", invitationToken),
-      where("dismissed", "==", false),
     );
 
     const snapshot = await getDocs(q);
 
     if (!snapshot.empty) {
-      // Found matching notification, dismiss it
-      const notificationDoc = snapshot.docs[0];
-      const notificationId = notificationDoc.id;
-
-      await dismissNotification(userId, notificationId);
-      console.log(`✅ Notification ${notificationId} dismissed successfully`);
+      // Found matching notification — delete it entirely (user already acted on it)
+      for (const notificationDoc of snapshot.docs) {
+        await deleteDoc(notificationDoc.ref);
+        console.log(
+          `✅ Notification ${notificationDoc.id} deleted successfully`,
+        );
+      }
     } else {
       // No notification found - this is expected for new users who received email invitations
       console.log("ℹ️ No notification found (expected for new users)");
@@ -405,6 +403,11 @@ export const addRegularMemberToGroupService = {
       guardianName: string;
       relationship: string;
     },
+    youthData?: {
+      childName: string;
+      dateOfBirth: string;
+      relationship: string;
+    },
   ): Promise<AcceptRejectResult> {
     try {
       // 📝 Log what we're starting to process
@@ -414,26 +417,58 @@ export const addRegularMemberToGroupService = {
         action,
       });
 
-      // 💾 STEP 1: Get invitation data directly from the database
-      console.log("📝 Getting invitation data directly from Firestore...");
+      // 💾 STEP 1: CLAIM invitation atomically via Firestore transaction
+      // This prevents double-processing: two concurrent calls cannot both claim it
+      console.log("📝 Claiming invitation via atomic transaction...");
 
-      // 💡 WHY WE GET DATA DIRECTLY:
-      // - We need the invitation details to know which club/group to add them to
-      // - The invitation should be in 'accepted_pending_signup' status at this point
-      // - Other functions might only work with 'pending' status, so we go direct
       let invitationData: any;
       try {
-        // Import Firebase tools dynamically (only when we need them)
-        const { getFirestore } = await import("firebase/firestore");
-        const { doc, getDoc } = await import("firebase/firestore");
+        const { getFirestore, doc, runTransaction } =
+          await import("firebase/firestore");
         const db = getFirestore();
 
-        // Get the invitation document by its token ID
         const invitationDocRef = doc(db, "invitations", invitationToken);
-        const invitationDocSnap = await getDoc(invitationDocRef);
 
-        // Check if the invitation exists
-        if (!invitationDocSnap.exists()) {
+        // Atomic read-then-update: only one caller can claim the invitation
+        invitationData = await runTransaction(db, async (transaction) => {
+          const invitationDocSnap = await transaction.get(invitationDocRef);
+
+          if (!invitationDocSnap.exists()) {
+            throw new Error("INVITATION_NOT_FOUND");
+          }
+
+          const data = invitationDocSnap.data();
+
+          // Already being processed by another call
+          if (data.status === "processing") {
+            throw new Error("INVITATION_ALREADY_PROCESSING");
+          }
+
+          // Verify invitation is in a valid state
+          const isNewUser = data.status === "accepted_pending_signup";
+          const isExistingUser = data.status === "pending";
+
+          if (!isNewUser && !isExistingUser) {
+            throw new Error(`INVALID_STATUS:${data.status}`);
+          }
+
+          // ✅ Atomically set status to "processing" so no other call can claim it
+          transaction.update(invitationDocRef, { status: "processing" });
+
+          // Return the original data with the original status preserved
+          return { ...data, _originalStatus: data.status };
+        });
+
+        // Restore the original status for downstream logic (isNewUser checks)
+        invitationData.status = invitationData._originalStatus;
+        delete invitationData._originalStatus;
+
+        console.log(
+          `📋 Claimed invitation for group: ${invitationData.groupName} (Status: ${invitationData.status}, User Type: ${invitationData.status === "accepted_pending_signup" ? "New" : "Existing"})`,
+        );
+      } catch (claimError: any) {
+        const msg = claimError.message || "";
+        if (msg === "INVITATION_NOT_FOUND") {
           return {
             success: false,
             action: "error",
@@ -441,38 +476,32 @@ export const addRegularMemberToGroupService = {
             error: "Invitation not found",
           };
         }
-
-        // Extract the invitation data
-        invitationData = invitationDocSnap.data();
-
-        // 🔍 Verify invitation status and determine user type
-        // - 'accepted_pending_signup': New user who signed up via email invitation
-        // - 'pending': Existing user accepting in-app invitation
-        const isNewUser = invitationData.status === "accepted_pending_signup";
-        const isExistingUser = invitationData.status === "pending";
-
-        if (!isNewUser && !isExistingUser) {
+        if (msg === "INVITATION_ALREADY_PROCESSING") {
+          return {
+            success: false,
+            action: "error",
+            message: "This invitation is already being processed",
+            error: "Invitation is currently being processed by another request",
+          };
+        }
+        if (msg.startsWith("INVALID_STATUS:")) {
+          const status = msg.split(":")[1];
           console.log(
-            `❌ Invitation status is ${invitationData.status}, expected 'accepted_pending_signup' or 'pending'`,
+            `❌ Invitation status is ${status}, expected 'accepted_pending_signup' or 'pending'`,
           );
           return {
             success: false,
             action: "error",
             message: "Invitation is not in the correct state for processing",
-            error: `Expected status 'accepted_pending_signup' or 'pending', got '${invitationData.status}'`,
+            error: `Expected status 'accepted_pending_signup' or 'pending', got '${status}'`,
           };
         }
-
-        console.log(
-          `📋 Found invitation for group: ${invitationData.groupName} (Status: ${invitationData.status}, User Type: ${isNewUser ? "New" : "Existing"})`,
-        );
-      } catch (firestoreError: any) {
-        console.error("❌ Error getting invitation data:", firestoreError);
+        console.error("❌ Error claiming invitation:", claimError);
         return {
           success: false,
           action: "error",
           message: "Failed to retrieve invitation data",
-          error: firestoreError.message,
+          error: claimError.message,
         };
       }
 
@@ -512,6 +541,45 @@ export const addRegularMemberToGroupService = {
             error: rejectError.message,
           };
         }
+      }
+
+      // 📋 STEP 2.5: For new youth invitations, create the youth document NOW
+      // (after the invitation has been claimed, so no duplicate youth docs on retry)
+      let createdYouthUid: string | undefined;
+      if (
+        invitationData.invitationType === "youth_member" &&
+        invitationData.youthData &&
+        guardianInfo &&
+        youthData
+      ) {
+        console.log(
+          "👶 Creating youth member document (post-claim, safe from duplicates)...",
+        );
+
+        const createYouthFn = httpsCallable(
+          functions,
+          "createYouthMemberDocument",
+        );
+        const youthResult = await createYouthFn({
+          guardianUid: guardianInfo.guardianUid,
+          guardianEmail: guardianInfo.guardianEmail,
+          guardianName: guardianInfo.guardianName,
+          childName: youthData.childName,
+          dateOfBirth: youthData.dateOfBirth,
+          relationship: youthData.relationship,
+        });
+
+        const youthResponse = youthResult.data as any;
+        if (!youthResponse.success) {
+          throw new Error(
+            youthResponse.error || "Failed to create youth member",
+          );
+        }
+
+        createdYouthUid = youthResponse.youthUid;
+        // Override userId to use the youth's UID for downstream operations
+        userId = createdYouthUid!;
+        console.log("✅ Youth member document created:", createdYouthUid);
       }
 
       // 📋 STEP 3: Prepare member data for the atomic functions (acceptance flow)
@@ -662,57 +730,62 @@ export const addRegularMemberToGroupService = {
         // 🔐 CLUB ADMIN PATH: Only add to club (no group operations)
         console.log("🔐 Processing CLUB ADMIN invitation - club-level only");
 
-        await this.callAtomicFunctionsForClubAdmin(
+        await this.executeAtomicOperations({
           invitationData,
           memberData,
+          clubInfo,
           userId,
           invitationToken,
-          isNewUser,
-        );
+          checkMembership: !isNewUser,
+          includeGroupOps: false,
+        });
       } else if (isExistingYouthFlow) {
         // 🔄 EXISTING YOUTH PATH: Youth already exists, check if in club
         console.log(
           "🔄 Processing for EXISTING YOUTH - checking club membership",
         );
 
-        // Call atomic functions with youth-specific membership checks
-        await this.callAtomicFunctionsForExistingYouth(
+        await this.executeAtomicOperations({
           invitationData,
           memberData,
           clubInfo,
           groupInfo,
-          youthUserId,
-          userId,
+          userId: youthUserId,
           invitationToken,
-        );
+          checkMembership: true,
+          includeGroupOps: true,
+          guardianUserId: userId,
+        });
       } else if (isNewUser) {
         // 🆕 NEW USER PATH: Skip membership checks (they're brand new)
         console.log("🆕 Processing for NEW USER - skipping membership checks");
 
-        // Call atomic functions directly (original working logic)
-        await this.callAtomicFunctionsDirectly(
+        await this.executeAtomicOperations({
           invitationData,
           memberData,
           clubInfo,
           groupInfo,
           userId,
           invitationToken,
-        );
+          checkMembership: false,
+          includeGroupOps: true,
+        });
       } else {
         // 👤 EXISTING USER PATH: Check memberships before adding
         console.log(
           "👤 Processing for EXISTING USER - checking existing memberships",
         );
 
-        // Call atomic functions with membership checks
-        await this.callAtomicFunctionsWithMembershipChecks(
+        await this.executeAtomicOperations({
           invitationData,
           memberData,
           clubInfo,
           groupInfo,
           userId,
           invitationToken,
-        );
+          checkMembership: true,
+          includeGroupOps: true,
+        });
       }
 
       // 🎉 SUCCESS: All processing completed
@@ -746,61 +819,481 @@ export const addRegularMemberToGroupService = {
   },
 
   /**
-   * 🔧 HELPER METHOD: Call atomic functions directly (for new users)
-   * - Used for new users who just signed up (no membership checks needed)
-   * - Preserves the original working logic
+   * 🔧 UNIFIED METHOD: Execute all atomic operations for invitation acceptance
+   * Consolidates the logic from the former callAtomicFunctionsDirectly,
+   * callAtomicFunctionsWithMembershipChecks, callAtomicFunctionsForExistingYouth,
+   * and callAtomicFunctionsForClubAdmin into a single configurable method.
+   *
+   * @param config.invitationData - The invitation document data
+   * @param config.memberData - The member data to add (userId, name, roles, etc.)
+   * @param config.clubInfo - Club info object for user profile updates
+   * @param config.groupInfo - Group info object (omit for club-admin invitations)
+   * @param config.userId - The user being added (youth UID for youth flows)
+   * @param config.invitationToken - The invitation document ID
+   * @param config.checkMembership - Whether to check existing memberships first
+   * @param config.includeGroupOps - Whether to include group-level operations
+   * @param config.guardianUserId - Guardian UID for notification cleanup (youth flows)
    */
-  async callAtomicFunctionsDirectly(
-    invitationData: any,
-    memberData: any,
-    clubInfo: any,
-    groupInfo: any,
-    userId: string,
-    invitationToken: string,
-  ) {
-    // Extract role from invitation data
-    const role = invitationData.role;
-    const isYouthRole = role === "player-underage";
-    const hasYouthData = !!invitationData.youthData;
-
-    // 🏛️ Add user to the club's member list
-    console.log("📞 Calling addMemberToClub atomic function...");
-    const addMemberToClubFn = httpsCallable(functions, "addMemberToClub");
-    const clubResult = await addMemberToClubFn({
-      clubId: invitationData.clubId,
+  async executeAtomicOperations(config: {
+    invitationData: any;
+    memberData: any;
+    clubInfo: any;
+    groupInfo?: any;
+    userId: string;
+    invitationToken: string;
+    checkMembership: boolean;
+    includeGroupOps: boolean;
+    guardianUserId?: string;
+  }) {
+    const {
+      invitationData,
       memberData,
-    });
+      clubInfo,
+      groupInfo,
+      userId,
+      invitationToken,
+      checkMembership,
+      includeGroupOps,
+      guardianUserId,
+    } = config;
 
-    const clubResponse = clubResult.data as {
-      success: boolean;
-      error?: string;
-    };
-    if (!clubResponse.success) {
-      throw new Error(`Failed to add member to club: ${clubResponse.error}`);
-    }
-    console.log("✅ Member added to club successfully");
+    const role = invitationData.role || "player";
+    const isYouthRole = role === "player-underage";
+    const hasGuardians =
+      memberData.guardiansContacts && memberData.guardiansContacts.length > 0;
+    const isClubAdminFlow = role === "club-admin" || !includeGroupOps;
 
-    // 👨‍👩‍👧 For youth roles, also add ALL guardians as club members
-    // One guardian role is added per youth's group membership
-    if (
-      isYouthRole &&
-      hasYouthData &&
-      memberData.guardiansContacts &&
-      memberData.guardiansContacts.length > 0
-    ) {
+    // For club-admin flow, override memberData with club-admin specific data
+    const effectiveMemberData = isClubAdminFlow
+      ? {
+          userId: userId,
+          name: memberData.name,
+          email: invitationData.email,
+          roles: ["club-admin"],
+          joinedAt: new Date(),
+          photoURL:
+            "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
+          addedBy: invitationData.inviterUid,
+          needsGuardian: false,
+          guardiansContacts: [],
+        }
+      : memberData;
+
+    // For club-admin flow, override clubInfo with club-admin role
+    const effectiveClubInfo = isClubAdminFlow
+      ? {
+          clubId: invitationData.clubId,
+          clubName: invitationData.clubName,
+          role: "club-admin",
+          joinedAt: new Date(),
+          lastModifiedAt: new Date(),
+        }
+      : clubInfo;
+
+    // ─────────────────────────────────────────────────────────
+    // STEP 1: Check existing memberships (if required)
+    // ─────────────────────────────────────────────────────────
+    let isClubMember = false;
+    let isGroupMember = false;
+    let currentRoles: string[] = [];
+
+    if (checkMembership) {
+      console.log("🔍 Checking existing memberships via backend...");
+
+      const checkMembershipFn = httpsCallable(functions, "checkMembership");
+      const membershipResult = await checkMembershipFn({
+        userId: userId,
+        clubId: invitationData.clubId,
+        ...(includeGroupOps ? { groupId: invitationData.groupId } : {}),
+        // For youth invitations, also check guardian's club membership
+        ...(isYouthRole && hasGuardians
+          ? { guardianUid: memberData.guardiansContacts[0].guardianUid }
+          : {}),
+      });
+
+      const membershipData = membershipResult.data as {
+        success: boolean;
+        isClubMember: boolean;
+        isGroupMember: boolean;
+        currentRoles?: string[];
+        error?: string;
+      };
+
+      if (!membershipData.success) {
+        throw new Error(`Failed to check membership: ${membershipData.error}`);
+      }
+
+      isClubMember = membershipData.isClubMember;
+      isGroupMember = membershipData.isGroupMember;
+      currentRoles = membershipData.currentRoles || [];
+
       console.log(
-        `📞 Adding ${memberData.guardiansContacts.length} guardian(s) to club...`,
+        `🔍 Membership status: Club=${isClubMember}, Group=${isGroupMember}, CurrentRoles=[${currentRoles.join(", ")}]`,
       );
 
-      // Process each guardian
-      for (const guardian of memberData.guardiansContacts) {
-        console.log(`  → Processing guardian: ${guardian.guardianName}`);
+      // Early exit: already in this group with same role — nothing to do
+      if (isGroupMember && currentRoles.includes(role)) {
+        console.log("⚠️ User already in group with this role — skipping");
+        const notifUserId = guardianUserId || userId;
+        await cleanupInvitationNotification(notifUserId, invitationToken);
+        return;
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // STEP 2: Role update for existing group members
+    // ─────────────────────────────────────────────────────────
+    if (includeGroupOps && isGroupMember && !currentRoles.includes(role)) {
+      console.log(
+        `🔄 User already a group member — updating role to add '${role}'`,
+      );
+
+      const updateMemberRoleFn = httpsCallable(functions, "updateMemberRole");
+      const roleUpdateResult = await updateMemberRoleFn({
+        clubId: invitationData.clubId,
+        groupId: invitationData.groupId,
+        userId: userId,
+        operation: "add",
+        roleToAdd: role,
+      });
+
+      const roleUpdateResponse = roleUpdateResult.data as {
+        success: boolean;
+        message?: string;
+        error?: string;
+        alreadyHasRole?: boolean;
+      };
+
+      if (roleUpdateResponse.success) {
+        console.log(`✅ Role update successful: ${roleUpdateResponse.message}`);
+
+        // Finalize: mark used + cleanup
+        await this.finalizeInvitation(
+          invitationToken,
+          guardianUserId || userId,
+          guardianUserId || userId,
+        );
+        return;
+      } else if (!roleUpdateResponse.alreadyHasRole) {
+        throw new Error(
+          `Failed to update member role: ${roleUpdateResponse.error}`,
+        );
+      }
+    }
+
+    // Club-admin role update for existing club members
+    if (isClubAdminFlow && isClubMember) {
+      console.log("✅ User already in club — adding club-admin role");
+
+      const updateClubMemberRoleFn = httpsCallable(
+        functions,
+        "updateClubMemberRole",
+      );
+      const roleResult = await updateClubMemberRoleFn({
+        clubId: invitationData.clubId,
+        userId: userId,
+        operation: "add",
+        roleToAdd: "club-admin",
+      });
+
+      const roleResponse = roleResult.data as {
+        success: boolean;
+        error?: string;
+      };
+      if (!roleResponse.success) {
+        throw new Error(`Failed to add club-admin role: ${roleResponse.error}`);
+      }
+      console.log("✅ Club-admin role added to existing member");
+
+      // Update user's clubAccess role
+      console.log("📞 Updating user's club access role...");
+      const updateUserClubInfoFn = httpsCallable(
+        functions,
+        "updateUserClubInfo",
+      );
+      await updateUserClubInfoFn({
+        uid: userId,
+        clubInfo: effectiveClubInfo,
+        role: "club-admin",
+      });
+      console.log("✅ User club access updated to club-admin");
+
+      // Finalize
+      await this.finalizeInvitation(invitationToken, userId, userId);
+      return;
+    }
+
+    // Youth already in club — use role accumulation instead of addMemberToClub
+    if (isYouthRole && isClubMember) {
+      console.log("✅ Youth already in club — using role accumulation");
+
+      const updateClubMemberRoleFn = httpsCallable(
+        functions,
+        "updateClubMemberRole",
+      );
+      const roleResult = await updateClubMemberRoleFn({
+        clubId: invitationData.clubId,
+        userId: userId,
+        operation: "add",
+        roleToAdd: "player-underage",
+      });
+
+      const roleResponse = roleResult.data as {
+        success: boolean;
+        error?: string;
+      };
+      if (!roleResponse.success) {
+        throw new Error(
+          `Failed to add player-underage role: ${roleResponse.error}`,
+        );
+      }
+      console.log("✅ Player-underage role accumulated in club");
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // STEP 3: Add user to club (if not already a member)
+    // ─────────────────────────────────────────────────────────
+    if (!isClubMember) {
+      console.log("📞 Calling addMemberToClub atomic function...");
+      const addMemberToClubFn = httpsCallable(functions, "addMemberToClub");
+      const clubResult = await addMemberToClubFn({
+        clubId: invitationData.clubId,
+        memberData: effectiveMemberData,
+      });
+
+      const clubResponse = clubResult.data as {
+        success: boolean;
+        error?: string;
+      };
+      if (!clubResponse.success) {
+        throw new Error(`Failed to add member to club: ${clubResponse.error}`);
+      }
+      console.log("✅ Member added to club successfully");
+
+      // Update user's club info in their profile
+      // ⚠️ IMPORTANT: This MUST run before addMemberToGroup, because
+      // addMemberToGroup checks the calling user's clubAccess array
+      // for permission. Without clubAccess set, it fails with 403.
+      console.log("📞 Calling updateUserClubInfo atomic function...");
+      const updateUserClubInfoFn = httpsCallable(
+        functions,
+        "updateUserClubInfo",
+      );
+      const userClubResult = await updateUserClubInfoFn({
+        uid: userId,
+        clubInfo: effectiveClubInfo,
+        role: role,
+      });
+
+      const userClubResponse = userClubResult.data as {
+        success: boolean;
+        error?: string;
+      };
+      if (!userClubResponse.success) {
+        throw new Error(
+          `Failed to update user club info: ${userClubResponse.error}`,
+        );
+      }
+      console.log("✅ User club info updated successfully");
+    } else {
+      console.log("ℹ️ User already a club member, skipping club addition");
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // STEP 4: Process guardians for youth roles
+    // ─────────────────────────────────────────────────────────
+    if (isYouthRole && hasGuardians) {
+      await this.processGuardiansForClub(
+        invitationData,
+        memberData.guardiansContacts,
+        clubInfo,
+        checkMembership,
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // STEP 5: Add user to group (if includeGroupOps and not already a member)
+    // ─────────────────────────────────────────────────────────
+    if (includeGroupOps && groupInfo) {
+      if (!isGroupMember) {
+        console.log("📞 Calling addMemberToGroup atomic function...");
+        const addMemberToGroupFn = httpsCallable(functions, "addMemberToGroup");
+        const groupResult = await addMemberToGroupFn({
+          clubId: invitationData.clubId,
+          groupId: invitationData.groupId,
+          memberData,
+        });
+
+        const groupResponse = groupResult.data as {
+          success: boolean;
+          error?: string;
+        };
+        if (!groupResponse.success) {
+          throw new Error(
+            `Failed to add member to group: ${groupResponse.error}`,
+          );
+        }
+        console.log("✅ Member added to group successfully");
+
+        // Update user's group info
+        console.log("📞 Calling updateUserGroupInfo atomic function...");
+        const updateUserGroupInfoFn = httpsCallable(
+          functions,
+          "updateUserGroupInfo",
+        );
+        const userGroupResult = await updateUserGroupInfoFn({
+          uid: userId,
+          clubId: invitationData.clubId,
+          groupInfo,
+          roles: [role],
+          operation: "add",
+          updateClubMemberListRoles: isClubMember, // Update club member list if user was already in club
+        });
+
+        const userGroupResponse = userGroupResult.data as {
+          success: boolean;
+          error?: string;
+        };
+        if (!userGroupResponse.success) {
+          throw new Error(
+            `Failed to update user group info: ${userGroupResponse.error}`,
+          );
+        }
+        console.log("✅ User group info updated successfully");
+      } else {
+        console.log("ℹ️ User already a group member, skipping group addition");
+      }
+
+      // ─────────────────────────────────────────────────────────
+      // STEP 6: Update guardian dependent access (youth flows)
+      // ─────────────────────────────────────────────────────────
+      if (isYouthRole && hasGuardians) {
+        console.log("📞 Updating guardian dependent access...");
+        const updateGuardianDependentAccessFn = httpsCallable(
+          functions,
+          "updateGuardianDependentAccess",
+        );
+
+        for (const guardian of memberData.guardiansContacts) {
+          try {
+            const guardianAccessResult = await updateGuardianDependentAccessFn({
+              youthUid: userId,
+              guardianUid: guardian.guardianUid,
+            });
+
+            const guardianAccessResponse = guardianAccessResult.data as {
+              success: boolean;
+              error?: string;
+            };
+            if (guardianAccessResponse.success) {
+              console.log(
+                `✅ Updated dependent access in guardian ${guardian.guardianUid}'s profile`,
+              );
+            } else {
+              console.warn(
+                `⚠️ Failed to update dependent access for guardian ${guardian.guardianUid}:`,
+                guardianAccessResponse.error,
+              );
+            }
+          } catch (guardianError) {
+            console.error(
+              `⚠️ Error updating guardian ${guardian.guardianUid}'s dependent access:`,
+              guardianError,
+            );
+            // Don't throw - continue with invitation processing
+          }
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // STEP 7: Finalize — mark invitation used + delete notification
+    // ─────────────────────────────────────────────────────────
+    const acceptingUserId = guardianUserId || userId;
+    await this.finalizeInvitation(
+      invitationToken,
+      acceptingUserId,
+      acceptingUserId,
+    );
+  },
+
+  /**
+   * 🔧 HELPER: Process guardian club memberships for youth invitations
+   * Checks each guardian's membership and either adds them or accumulates the guardian role.
+   */
+  async processGuardiansForClub(
+    invitationData: any,
+    guardiansContacts: any[],
+    clubInfo: any,
+    shouldCheckMembership: boolean,
+  ) {
+    console.log(
+      `📞 Processing ${guardiansContacts.length} guardian(s) for club membership...`,
+    );
+
+    const checkMembershipFn = httpsCallable(functions, "checkMembership");
+
+    for (const guardian of guardiansContacts) {
+      console.log(`  → Processing guardian: ${guardian.guardianName}`);
+
+      let guardianInClub = false;
+
+      if (shouldCheckMembership) {
+        // Check if guardian is already in the club
+        const guardianMembershipResult = await checkMembershipFn({
+          userId: guardian.guardianUid,
+          clubId: invitationData.clubId,
+        });
+
+        const guardianMembershipData = guardianMembershipResult.data as {
+          success: boolean;
+          isClubMember: boolean;
+          error?: string;
+        };
+
+        guardianInClub = guardianMembershipData.isClubMember;
+      }
+
+      if (guardianInClub) {
+        // Guardian already in club — add 'guardian' role
+        console.log(
+          `ℹ️ Guardian ${guardian.guardianName} already in club, adding guardian role...`,
+        );
+
+        try {
+          const updateClubMemberRoleFn = httpsCallable(
+            functions,
+            "updateClubMemberRole",
+          );
+          const roleResult = await updateClubMemberRoleFn({
+            clubId: invitationData.clubId,
+            userId: guardian.guardianUid,
+            operation: "add",
+            roleToAdd: "guardian",
+          });
+
+          const roleResponse = roleResult.data as {
+            success: boolean;
+            error?: string;
+          };
+          if (roleResponse.success) {
+            console.log("✅ Guardian role added successfully");
+          } else {
+            console.log("⚠️ Failed to add guardian role:", roleResponse.error);
+          }
+        } catch (roleError) {
+          console.error("⚠️ Error adding guardian role:", roleError);
+          // Don't throw - guardian role addition is supplementary
+        }
+      } else {
+        // Guardian not in club — add them as new member
+        console.log("📞 Adding guardian to club...");
 
         const guardianMemberData = {
           userId: guardian.guardianUid,
           name: guardian.guardianName,
           email: guardian.guardianEmail,
-          roles: ["guardian"], // One guardian role per youth's group membership
+          roles: ["guardian"],
           joinedAt: new Date(),
           photoURL:
             "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
@@ -810,6 +1303,7 @@ export const addRegularMemberToGroupService = {
         };
 
         try {
+          const addMemberToClubFn = httpsCallable(functions, "addMemberToClub");
           const guardianClubResult = await addMemberToClubFn({
             clubId: invitationData.clubId,
             memberData: guardianMemberData,
@@ -822,7 +1316,7 @@ export const addRegularMemberToGroupService = {
           if (guardianClubResponse.success) {
             console.log("✅ Guardian added to club successfully");
 
-            // Update guardian's user profile to show they're in this club
+            // Update guardian's user profile club info
             console.log("📞 Calling updateUserClubInfo for guardian...");
             const updateUserClubInfoFn = httpsCallable(
               functions,
@@ -858,1024 +1352,26 @@ export const addRegularMemberToGroupService = {
         }
       }
     }
+  },
 
-    // � Update user's profile to show they're in this club
-    // ⚠️ IMPORTANT: This MUST run before addMemberToGroup, because
-    // addMemberToGroup checks the calling user's clubAccess array
-    // for permission. Without clubAccess set, it fails with 403.
-    console.log("📞 Calling updateUserClubInfo atomic function...");
-    const updateUserClubInfoFn = httpsCallable(functions, "updateUserClubInfo");
-    const userClubResult = await updateUserClubInfoFn({
-      uid: userId,
-      clubInfo,
-      role: role,
-    });
-
-    const userClubResponse = userClubResult.data as {
-      success: boolean;
-      error?: string;
-    };
-    if (!userClubResponse.success) {
-      throw new Error(
-        `Failed to update user club info: ${userClubResponse.error}`,
-      );
-    }
-    console.log("✅ User club info updated successfully");
-
-    // 👥 Add user to the group's member list
-    console.log("📞 Calling addMemberToGroup atomic function...");
-    const addMemberToGroupFn = httpsCallable(functions, "addMemberToGroup");
-    const groupResult = await addMemberToGroupFn({
-      clubId: invitationData.clubId,
-      groupId: invitationData.groupId,
-      memberData,
-    });
-
-    const groupResponse = groupResult.data as {
-      success: boolean;
-      error?: string;
-    };
-    if (!groupResponse.success) {
-      throw new Error(`Failed to add member to group: ${groupResponse.error}`);
-    }
-    console.log("✅ Member added to group successfully");
-
-    // 👥 Update user's profile to show they're in this group
-    console.log("📞 Calling updateUserGroupInfo atomic function...");
-    const updateUserGroupInfoFn = httpsCallable(
-      functions,
-      "updateUserGroupInfo",
-    );
-    const userGroupResult = await updateUserGroupInfoFn({
-      uid: userId,
-      clubId: invitationData.clubId,
-      groupInfo,
-      roles: [invitationData.role], // ✅ Use role from invitation
-      operation: "add",
-    });
-
-    const userGroupResponse = userGroupResult.data as {
-      success: boolean;
-      error?: string;
-    };
-    if (!userGroupResponse.success) {
-      throw new Error(
-        `Failed to update user group info: ${userGroupResponse.error}`,
-      );
-    }
-    console.log("✅ User group info updated successfully");
-
-    // 👶 For youth members, update all guardians' dependent access
-    if (
-      isYouthRole &&
-      hasYouthData &&
-      memberData.guardiansContacts &&
-      memberData.guardiansContacts.length > 0
-    ) {
-      console.log("📞 Updating guardian dependent access for youth member...");
-      const updateGuardianDependentAccessFn = httpsCallable(
-        functions,
-        "updateGuardianDependentAccess",
-      );
-
-      // Update each guardian's dependents array with youth's updated clubAccess
-      for (const guardian of memberData.guardiansContacts) {
-        try {
-          const guardianAccessResult = await updateGuardianDependentAccessFn({
-            youthUid: userId,
-            guardianUid: guardian.guardianUid,
-          });
-
-          const guardianAccessResponse = guardianAccessResult.data as {
-            success: boolean;
-            error?: string;
-          };
-          if (guardianAccessResponse.success) {
-            console.log(
-              `✅ Updated dependent access in guardian ${guardian.guardianUid}'s profile`,
-            );
-          } else {
-            console.warn(
-              `⚠️ Failed to update dependent access for guardian ${guardian.guardianUid}:`,
-              guardianAccessResponse.error,
-            );
-          }
-        } catch (guardianError) {
-          console.error(
-            `⚠️ Error updating guardian ${guardian.guardianUid}'s dependent access:`,
-            guardianError,
-          );
-          // Don't throw - continue with invitation processing
-        }
-      }
-    }
-
-    // ✅ Mark invitation as used (so it can't be used again)
+  /**
+   * 🔧 HELPER: Finalize invitation — mark as used and delete notification
+   */
+  async finalizeInvitation(
+    invitationToken: string,
+    acceptingUserId: string,
+    notificationUserId: string,
+  ) {
     console.log("📞 Calling markInvitationUsed atomic function...");
     const markInvitationUsedFn = httpsCallable(functions, "markInvitationUsed");
     await markInvitationUsedFn({
       invitationToken: invitationToken,
-      userId: userId,
+      userId: acceptingUserId,
       status: "accepted",
     });
 
-    // 🧹 Clean up the notification (for existing users who had in-app notification)
-    // For youth flows, the notification lives under the guardian's UID, not the youth's
-    const notificationUserId =
-      memberData.guardiansContacts && memberData.guardiansContacts.length > 0
-        ? memberData.guardiansContacts[0].guardianUid
-        : userId;
+    // Delete the notification document
     await cleanupInvitationNotification(notificationUserId, invitationToken);
-  },
-
-  /**
-   * 🔧 HELPER METHOD: Call atomic functions with membership checks (for existing users)
-   * - Used for existing users accepting in-app invitations
-   * - Checks existing memberships before calling atomic functions using secure backend function
-   * - Handles role updates for existing members (e.g., player → coach)
-   */
-  async callAtomicFunctionsWithMembershipChecks(
-    invitationData: any,
-    memberData: any,
-    clubInfo: any,
-    groupInfo: any,
-    userId: string,
-    invitationToken: string,
-  ) {
-    // 🔒 STEP 1: Check memberships using secure backend function
-    console.log("🔍 Checking existing memberships via backend...");
-
-    const role = invitationData.role;
-    const isYouthRole = role === "player-underage";
-    const hasYouthData = isYouthRole && !!invitationData.youthData;
-
-    const checkMembershipFn = httpsCallable(functions, "checkMembership");
-    const membershipResult = await checkMembershipFn({
-      userId: userId,
-      clubId: invitationData.clubId,
-      groupId: invitationData.groupId,
-      // For youth invitations, also check guardian's club membership
-      ...(hasYouthData && memberData.guardiansContacts?.[0]
-        ? { guardianUid: memberData.guardiansContacts[0].guardianUid }
-        : {}),
-    });
-
-    const membershipData = membershipResult.data as {
-      success: boolean;
-      isClubMember: boolean;
-      isGroupMember: boolean;
-      currentRoles?: string[]; // Current roles if already a member
-      isGuardianClubMember?: boolean;
-      error?: string;
-    };
-
-    if (!membershipData.success) {
-      throw new Error(`Failed to check membership: ${membershipData.error}`);
-    }
-
-    const isClubMember = membershipData.isClubMember;
-    const isGroupMember = membershipData.isGroupMember;
-    const currentRoles = membershipData.currentRoles || [];
-    const isGuardianInClub = membershipData.isGuardianClubMember || false;
-
-    console.log(
-      `🔍 Membership status: Club=${isClubMember}, Group=${isGroupMember}, CurrentRoles=[${currentRoles.join(", ")}]`,
-    );
-
-    // 🎯 STEP 2: Check if this is a role update for existing member
-    const requestedRole = invitationData.role || "player";
-    const isRoleUpdate = isGroupMember && !currentRoles.includes(requestedRole);
-
-    if (isRoleUpdate) {
-      console.log(
-        `🔄 User is already a group member - updating role to add '${requestedRole}'`,
-      );
-
-      const updateMemberRoleFn = httpsCallable(functions, "updateMemberRole");
-      const roleUpdateResult = await updateMemberRoleFn({
-        clubId: invitationData.clubId,
-        groupId: invitationData.groupId,
-        userId: userId,
-        operation: "add",
-        roleToAdd: requestedRole,
-      });
-
-      const roleUpdateResponse = roleUpdateResult.data as {
-        success: boolean;
-        message?: string;
-        error?: string;
-        alreadyHasRole?: boolean;
-      };
-
-      if (roleUpdateResponse.success) {
-        console.log(`✅ Role update successful: ${roleUpdateResponse.message}`);
-
-        // Clean up notification
-        await cleanupInvitationNotification(userId, invitationToken);
-
-        return; // Exit early - no need to add member again
-      } else if (!roleUpdateResponse.alreadyHasRole) {
-        throw new Error(
-          `Failed to update member role: ${roleUpdateResponse.error}`,
-        );
-      }
-    }
-
-    // 🏛️ STEP 3: Handle club membership (regular flow continues)
-    if (!isClubMember) {
-      // Add user to club using atomic function
-      console.log("📞 Calling addMemberToClub atomic function...");
-      const addMemberToClubFn = httpsCallable(functions, "addMemberToClub");
-      const clubResult = await addMemberToClubFn({
-        clubId: invitationData.clubId,
-        memberData,
-      });
-
-      const clubResponse = clubResult.data as {
-        success: boolean;
-        error?: string;
-      };
-      if (!clubResponse.success) {
-        throw new Error(`Failed to add member to club: ${clubResponse.error}`);
-      }
-      console.log("✅ Member added to club successfully");
-    } else {
-      console.log("ℹ️ User already a club member, skipping club addition");
-    }
-
-    // 🏛️ STEP 2B: For youth invitations, add ALL guardians to club if not already members
-    if (
-      hasYouthData &&
-      memberData.guardiansContacts &&
-      memberData.guardiansContacts.length > 0
-    ) {
-      console.log(
-        `📞 Processing ${memberData.guardiansContacts.length} guardian(s) for club membership...`,
-      );
-
-      for (const guardian of memberData.guardiansContacts) {
-        console.log(`  → Checking guardian: ${guardian.guardianName}`);
-
-        // Check if this specific guardian is already in the club
-        const checkGuardianMembershipFn = httpsCallable(
-          functions,
-          "checkMembership",
-        );
-        const guardianMembershipResult = await checkGuardianMembershipFn({
-          userId: guardian.guardianUid,
-          clubId: invitationData.clubId,
-        });
-
-        const guardianMembershipData = guardianMembershipResult.data as {
-          success: boolean;
-          isClubMember: boolean;
-          error?: string;
-        };
-
-        const isThisGuardianInClub = guardianMembershipData.isClubMember;
-
-        if (!isThisGuardianInClub) {
-          console.log("📞 Adding guardian to club...");
-
-          const guardianMemberData = {
-            userId: guardian.guardianUid,
-            name: guardian.guardianName,
-            email: guardian.guardianEmail,
-            roles: ["guardian"],
-            joinedAt: new Date(),
-            photoURL:
-              "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
-            addedBy: invitationData.inviterUid,
-            needsGuardian: false,
-            guardiansContacts: [],
-          };
-
-          try {
-            const addMemberToClubFn = httpsCallable(
-              functions,
-              "addMemberToClub",
-            );
-            const guardianClubResult = await addMemberToClubFn({
-              clubId: invitationData.clubId,
-              memberData: guardianMemberData,
-            });
-
-            const guardianClubResponse = guardianClubResult.data as {
-              success: boolean;
-              error?: string;
-            };
-            if (guardianClubResponse.success) {
-              console.log("✅ Guardian added to club successfully");
-
-              // Update guardian's user profile to show they're in this club
-              console.log("📞 Calling updateUserClubInfo for guardian...");
-              const updateUserClubInfoFn = httpsCallable(
-                functions,
-                "updateUserClubInfo",
-              );
-              const guardianClubInfoResult = await updateUserClubInfoFn({
-                uid: guardian.guardianUid,
-                clubInfo,
-                role: "guardian",
-              });
-
-              const guardianClubInfoResponse = guardianClubInfoResult.data as {
-                success: boolean;
-                error?: string;
-              };
-              if (guardianClubInfoResponse.success) {
-                console.log("✅ Guardian club info updated successfully");
-              } else {
-                console.log(
-                  "⚠️ Failed to update guardian club info:",
-                  guardianClubInfoResponse.error,
-                );
-              }
-            } else {
-              console.log(
-                "⚠️ Failed to add guardian to club:",
-                guardianClubResponse.error,
-              );
-            }
-          } catch (guardianError) {
-            console.error("⚠️ Error adding guardian to club:", guardianError);
-            // Don't throw - guardian addition is supplementary
-          }
-        } else {
-          // Guardian already in club - add 'guardian' role to their existing entry
-          console.log(
-            `ℹ️ Guardian ${guardian.guardianName} already a club member, adding 'guardian' role...`,
-          );
-
-          try {
-            const updateClubMemberRoleFn = httpsCallable(
-              functions,
-              "updateClubMemberRole",
-            );
-            const roleResult = await updateClubMemberRoleFn({
-              clubId: invitationData.clubId,
-              userId: guardian.guardianUid,
-              operation: "add",
-              roleToAdd: "guardian",
-            });
-
-            const roleResponse = roleResult.data as {
-              success: boolean;
-              error?: string;
-            };
-            if (roleResponse.success) {
-              console.log("✅ Guardian role added successfully");
-            } else {
-              console.log(
-                "⚠️ Failed to add guardian role:",
-                roleResponse.error,
-              );
-            }
-          } catch (roleError) {
-            console.error("⚠️ Error adding guardian role:", roleError);
-            // Don't throw - guardian role addition is supplementary
-          }
-        }
-      }
-    }
-
-    // 🏛️ STEP 2C: Update user's (youth's) club info in their profile
-    if (!isClubMember) {
-      console.log("📞 Calling updateUserClubInfo atomic function...");
-      const updateUserClubInfoFn = httpsCallable(
-        functions,
-        "updateUserClubInfo",
-      );
-      const userClubResult = await updateUserClubInfoFn({
-        uid: userId,
-        clubInfo,
-        role: role,
-      });
-
-      const userClubResponse = userClubResult.data as {
-        success: boolean;
-        error?: string;
-      };
-      if (!userClubResponse.success) {
-        throw new Error(
-          `Failed to update user club info: ${userClubResponse.error}`,
-        );
-      }
-      console.log("✅ User club info updated successfully");
-    }
-
-    // 👥 STEP 4: Handle group membership
-    if (!isGroupMember) {
-      // Add user to group using atomic function
-      console.log("📞 Calling addMemberToGroup atomic function...");
-      const addMemberToGroupFn = httpsCallable(functions, "addMemberToGroup");
-      const groupResult = await addMemberToGroupFn({
-        clubId: invitationData.clubId,
-        groupId: invitationData.groupId,
-        memberData,
-      });
-
-      const groupResponse = groupResult.data as {
-        success: boolean;
-        error?: string;
-      };
-      if (!groupResponse.success) {
-        throw new Error(
-          `Failed to add member to group: ${groupResponse.error}`,
-        );
-      }
-      console.log("✅ Member added to group successfully");
-
-      // Update user's group info using atomic function
-      // For existing club members, also update club member list roles
-      console.log("📞 Calling updateUserGroupInfo atomic function...");
-      const updateUserGroupInfoFn = httpsCallable(
-        functions,
-        "updateUserGroupInfo",
-      );
-      const userGroupResult = await updateUserGroupInfoFn({
-        uid: userId,
-        clubId: invitationData.clubId,
-        groupInfo,
-        roles: [invitationData.role], // ✅ Use role from invitation
-        operation: "add",
-        updateClubMemberListRoles: isClubMember, // Update club member list if user already in club
-      });
-
-      const userGroupResponse = userGroupResult.data as {
-        success: boolean;
-        error?: string;
-      };
-      if (!userGroupResponse.success) {
-        throw new Error(
-          `Failed to update user group info: ${userGroupResponse.error}`,
-        );
-      }
-      console.log("✅ User group info updated successfully");
-
-      // 👶 For youth members, update all guardians' dependent access
-      if (
-        hasYouthData &&
-        memberData.guardiansContacts &&
-        memberData.guardiansContacts.length > 0
-      ) {
-        console.log(
-          "📞 Updating guardian dependent access for youth member...",
-        );
-        const updateGuardianDependentAccessFn = httpsCallable(
-          functions,
-          "updateGuardianDependentAccess",
-        );
-
-        // Update each guardian's dependents array with youth's updated clubAccess
-        for (const guardian of memberData.guardiansContacts) {
-          try {
-            const guardianAccessResult = await updateGuardianDependentAccessFn({
-              youthUid: userId,
-              guardianUid: guardian.guardianUid,
-            });
-
-            const guardianAccessResponse = guardianAccessResult.data as {
-              success: boolean;
-              error?: string;
-            };
-            if (guardianAccessResponse.success) {
-              console.log(
-                `✅ Updated dependent access in guardian ${guardian.guardianUid}'s profile`,
-              );
-            } else {
-              console.warn(
-                `⚠️ Failed to update dependent access for guardian ${guardian.guardianUid}:`,
-                guardianAccessResponse.error,
-              );
-            }
-          } catch (guardianError) {
-            console.error(
-              `⚠️ Error updating guardian ${guardian.guardianUid}'s dependent access:`,
-              guardianError,
-            );
-            // Don't throw - continue with invitation processing
-          }
-        }
-      }
-    } else {
-      console.log("ℹ️ User already a group member, skipping group addition");
-    }
-
-    // ✅ STEP 3: Mark invitation as accepted
-    console.log("📞 Calling markInvitationUsed to mark as accepted...");
-    const markInvitationUsedFn = httpsCallable(functions, "markInvitationUsed");
-    await markInvitationUsedFn({
-      invitationToken: invitationToken,
-      userId: userId,
-      status: "accepted",
-    });
-
-    // 🧹 Clean up the notification (for existing users who had in-app notification)
-    // For youth flows, the notification lives under the guardian's UID, not the youth's
-    const notificationUserId =
-      memberData.guardiansContacts && memberData.guardiansContacts.length > 0
-        ? memberData.guardiansContacts[0].guardianUid
-        : userId;
-    await cleanupInvitationNotification(notificationUserId, invitationToken);
-  },
-
-  /**
-   * 🔧 HELPER METHOD: Call atomic functions for existing youth
-   * - Used when youth already exists in system but being added to a new group
-   * - Checks if youth already in club before adding
-   * - Uses role accumulation instead of creating new member entries
-   */
-  async callAtomicFunctionsForExistingYouth(
-    invitationData: any,
-    memberData: any,
-    clubInfo: any,
-    groupInfo: any,
-    youthUserId: string,
-    guardianUserId: string,
-    invitationToken: string,
-  ) {
-    console.log("🔄 Processing existing youth - checking club membership");
-
-    // STEP 1: Check if youth already in club using checkMembership
-    const checkMembershipFn = httpsCallable(functions, "checkMembership");
-    const membershipResult = await checkMembershipFn({
-      userId: youthUserId,
-      clubId: invitationData.clubId,
-      groupId: invitationData.groupId,
-    });
-
-    const membershipData = membershipResult.data as {
-      success: boolean;
-      isClubMember: boolean;
-      isGroupMember: boolean;
-      currentRoles?: string[];
-      error?: string;
-    };
-
-    if (!membershipData.success) {
-      throw new Error(
-        `Failed to check youth membership: ${membershipData.error}`,
-      );
-    }
-
-    const youthInClub = membershipData.isClubMember;
-    const youthInGroup = membershipData.isGroupMember;
-
-    console.log(
-      `🔍 Youth membership status: InClub=${youthInClub}, InGroup=${youthInGroup}`,
-    );
-
-    if (youthInGroup) {
-      console.log("⚠️ Youth already in this group - skipping");
-      await cleanupInvitationNotification(guardianUserId, invitationToken);
-      return;
-    }
-
-    // STEP 2: Handle youth club membership
-    if (youthInClub) {
-      // PATH A: Youth already in club - use role accumulation
-      console.log("✅ Youth already in club - using role accumulation");
-
-      const updateClubMemberRoleFn = httpsCallable(
-        functions,
-        "updateClubMemberRole",
-      );
-      const roleResult = await updateClubMemberRoleFn({
-        clubId: invitationData.clubId,
-        userId: youthUserId,
-        operation: "add",
-        roleToAdd: "player-underage",
-      });
-
-      const roleResponse = roleResult.data as {
-        success: boolean;
-        error?: string;
-      };
-      if (!roleResponse.success) {
-        throw new Error(
-          `Failed to add player-underage role to youth: ${roleResponse.error}`,
-        );
-      }
-      console.log("✅ Player-underage role added to youth in club");
-    } else {
-      // PATH B: Youth not in club - add them
-      console.log("📞 Youth not in club - adding as new club member");
-
-      const addMemberToClubFn = httpsCallable(functions, "addMemberToClub");
-      const clubResult = await addMemberToClubFn({
-        clubId: invitationData.clubId,
-        memberData,
-      });
-
-      const clubResponse = clubResult.data as {
-        success: boolean;
-        error?: string;
-      };
-      if (!clubResponse.success) {
-        throw new Error(`Failed to add youth to club: ${clubResponse.error}`);
-      }
-      console.log("✅ Youth added to club successfully");
-
-      // Update youth's club info in their profile
-      console.log("📞 Updating youth club info...");
-      const updateUserClubInfoFn = httpsCallable(
-        functions,
-        "updateUserClubInfo",
-      );
-      const userClubResult = await updateUserClubInfoFn({
-        uid: youthUserId,
-        clubInfo,
-        role: "player-underage",
-      });
-
-      const userClubResponse = userClubResult.data as {
-        success: boolean;
-        error?: string;
-      };
-      if (!userClubResponse.success) {
-        throw new Error(
-          `Failed to update youth club info: ${userClubResponse.error}`,
-        );
-      }
-      console.log("✅ Youth club info updated successfully");
-    }
-
-    // STEP 3: Handle guardian club membership (always process guardian)
-    if (
-      memberData.guardiansContacts &&
-      memberData.guardiansContacts.length > 0
-    ) {
-      for (const guardian of memberData.guardiansContacts) {
-        console.log(`📞 Processing guardian: ${guardian.guardianName}`);
-
-        // Check if guardian already in club
-        const guardianMembershipResult = await checkMembershipFn({
-          userId: guardian.guardianUid,
-          clubId: invitationData.clubId,
-        });
-
-        const guardianMembershipData = guardianMembershipResult.data as {
-          success: boolean;
-          isClubMember: boolean;
-          error?: string;
-        };
-
-        const guardianInClub = guardianMembershipData.isClubMember;
-
-        if (guardianInClub) {
-          // Guardian already in club - add guardian role
-          console.log("✅ Guardian already in club - adding guardian role");
-
-          const updateClubMemberRoleFn = httpsCallable(
-            functions,
-            "updateClubMemberRole",
-          );
-          const guardianRoleResult = await updateClubMemberRoleFn({
-            clubId: invitationData.clubId,
-            userId: guardian.guardianUid,
-            operation: "add",
-            roleToAdd: "guardian",
-          });
-
-          const guardianRoleResponse = guardianRoleResult.data as {
-            success: boolean;
-            error?: string;
-          };
-          if (guardianRoleResponse.success) {
-            console.log("✅ Guardian role added successfully");
-          } else {
-            console.log(
-              "⚠️ Failed to add guardian role:",
-              guardianRoleResponse.error,
-            );
-          }
-        } else {
-          // Guardian not in club - add them
-          console.log("📞 Guardian not in club - adding as new member");
-
-          const guardianMemberData = {
-            userId: guardian.guardianUid,
-            name: guardian.guardianName,
-            email: guardian.guardianEmail,
-            roles: ["guardian"],
-            joinedAt: new Date(),
-            photoURL:
-              "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
-            addedBy: invitationData.inviterUid,
-            needsGuardian: false,
-            guardiansContacts: [],
-          };
-
-          try {
-            const addMemberToClubFn = httpsCallable(
-              functions,
-              "addMemberToClub",
-            );
-            const guardianClubResult = await addMemberToClubFn({
-              clubId: invitationData.clubId,
-              memberData: guardianMemberData,
-            });
-
-            const guardianClubResponse = guardianClubResult.data as {
-              success: boolean;
-              error?: string;
-            };
-            if (guardianClubResponse.success) {
-              console.log("✅ Guardian added to club successfully");
-
-              // Update guardian's club info
-              const updateUserClubInfoFn = httpsCallable(
-                functions,
-                "updateUserClubInfo",
-              );
-              const guardianClubInfoResult = await updateUserClubInfoFn({
-                uid: guardian.guardianUid,
-                clubInfo,
-                role: "guardian",
-              });
-
-              const guardianClubInfoResponse = guardianClubInfoResult.data as {
-                success: boolean;
-                error?: string;
-              };
-              if (guardianClubInfoResponse.success) {
-                console.log("✅ Guardian club info updated successfully");
-              }
-            }
-          } catch (guardianError) {
-            console.error("⚠️ Error adding guardian to club:", guardianError);
-          }
-        }
-      }
-    }
-
-    // STEP 4: Always add youth to group (creates new group member entry)
-    console.log("📞 Adding youth to group...");
-    const addMemberToGroupFn = httpsCallable(functions, "addMemberToGroup");
-    const groupResult = await addMemberToGroupFn({
-      clubId: invitationData.clubId,
-      groupId: invitationData.groupId,
-      memberData,
-    });
-
-    const groupResponse = groupResult.data as {
-      success: boolean;
-      error?: string;
-    };
-    if (!groupResponse.success) {
-      throw new Error(`Failed to add youth to group: ${groupResponse.error}`);
-    }
-    console.log("✅ Youth added to group successfully");
-
-    // STEP 5: Update youth's group info in profile
-    console.log("📞 Updating youth group info...");
-    const updateUserGroupInfoFn = httpsCallable(
-      functions,
-      "updateUserGroupInfo",
-    );
-    const userGroupResult = await updateUserGroupInfoFn({
-      uid: youthUserId,
-      clubId: invitationData.clubId,
-      groupInfo,
-      roles: ["player-underage"],
-      operation: "add",
-      updateClubMemberListRoles: false, // Skip - already added via updateClubMemberRole at line 1406
-    });
-
-    const userGroupResponse = userGroupResult.data as {
-      success: boolean;
-      error?: string;
-    };
-    if (!userGroupResponse.success) {
-      throw new Error(
-        `Failed to update youth group info: ${userGroupResponse.error}`,
-      );
-    }
-    console.log("✅ Youth group info updated successfully");
-
-    // STEP 6: Update guardian's dependent access
-    if (
-      memberData.guardiansContacts &&
-      memberData.guardiansContacts.length > 0
-    ) {
-      console.log("📞 Updating guardian dependent access...");
-      const updateGuardianDependentAccessFn = httpsCallable(
-        functions,
-        "updateGuardianDependentAccess",
-      );
-
-      for (const guardian of memberData.guardiansContacts) {
-        try {
-          const guardianAccessResult = await updateGuardianDependentAccessFn({
-            youthUid: youthUserId,
-            guardianUid: guardian.guardianUid,
-          });
-
-          const guardianAccessResponse = guardianAccessResult.data as {
-            success: boolean;
-            error?: string;
-          };
-          if (guardianAccessResponse.success) {
-            console.log(
-              `✅ Updated dependent access in guardian ${guardian.guardianUid}'s profile`,
-            );
-          }
-        } catch (guardianError) {
-          console.error(
-            `⚠️ Error updating guardian dependent access:`,
-            guardianError,
-          );
-        }
-      }
-    }
-
-    // STEP 7: Mark invitation as accepted
-    console.log("📞 Marking invitation as accepted...");
-    const markInvitationUsedFn = httpsCallable(functions, "markInvitationUsed");
-    await markInvitationUsedFn({
-      invitationToken: invitationToken,
-      userId: guardianUserId, // Guardian accepted the invitation
-      status: "accepted",
-    });
-
-    // STEP 8: Clean up notification
-    await cleanupInvitationNotification(guardianUserId, invitationToken);
-  },
-
-  /**
-   * 🔧 HELPER METHOD: Call atomic functions for Club Admin invitations
-   * - Used for club-admin invitations (club-level only, no group operations)
-   * - Handles both new and existing users
-   * - Only calls addMemberToClub and updateUserClubInfo
-   */
-  async callAtomicFunctionsForClubAdmin(
-    invitationData: any,
-    memberData: any,
-    userId: string,
-    invitationToken: string,
-    isNewUser: boolean,
-  ) {
-    console.log("🔐 Processing Club Admin invitation...");
-
-    // Prepare club-admin specific member data
-    const clubAdminMemberData = {
-      userId: userId,
-      name: memberData.name,
-      email: invitationData.email,
-      roles: ["club-admin"],
-      joinedAt: new Date(),
-      photoURL:
-        "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
-      addedBy: invitationData.inviterUid,
-      needsGuardian: false,
-      guardiansContacts: [],
-    };
-
-    // Prepare club info for user document
-    const clubInfo = {
-      clubId: invitationData.clubId,
-      clubName: invitationData.clubName,
-      role: "club-admin", // Permission level
-      joinedAt: new Date(),
-      lastModifiedAt: new Date(),
-    };
-
-    if (!isNewUser) {
-      // EXISTING USER: Check if already a club member
-      console.log("🔍 Checking existing club membership for existing user...");
-
-      const checkMembershipFn = httpsCallable(functions, "checkMembership");
-      const membershipResult = await checkMembershipFn({
-        userId: userId,
-        clubId: invitationData.clubId,
-      });
-
-      const membershipData = membershipResult.data as {
-        success: boolean;
-        isClubMember: boolean;
-        error?: string;
-      };
-
-      if (membershipData.isClubMember) {
-        // Already a club member - just update role to add club-admin
-        console.log("✅ User already in club - adding club-admin role");
-
-        const updateClubMemberRoleFn = httpsCallable(
-          functions,
-          "updateClubMemberRole",
-        );
-        const roleResult = await updateClubMemberRoleFn({
-          clubId: invitationData.clubId,
-          userId: userId,
-          operation: "add",
-          roleToAdd: "club-admin",
-        });
-
-        const roleResponse = roleResult.data as {
-          success: boolean;
-          error?: string;
-        };
-        if (!roleResponse.success) {
-          throw new Error(
-            `Failed to add club-admin role: ${roleResponse.error}`,
-          );
-        }
-        console.log("✅ Club-admin role added to existing member");
-
-        // Also update user's clubAccess[].role to 'club-admin'
-        console.log("📞 Updating user's club access role...");
-        const updateUserClubInfoFn = httpsCallable(
-          functions,
-          "updateUserClubInfo",
-        );
-        const userClubResult = await updateUserClubInfoFn({
-          uid: userId,
-          clubInfo,
-          role: "club-admin",
-        });
-
-        const userClubResponse = userClubResult.data as {
-          success: boolean;
-          error?: string;
-        };
-        if (!userClubResponse.success) {
-          console.warn(
-            `⚠️ Failed to update user club info: ${userClubResponse.error}`,
-          );
-        } else {
-          console.log("✅ User club access updated to club-admin");
-        }
-
-        // Mark invitation as used
-        console.log("📞 Marking invitation as accepted...");
-        const markInvitationUsedFn = httpsCallable(
-          functions,
-          "markInvitationUsed",
-        );
-        await markInvitationUsedFn({
-          invitationToken: invitationToken,
-          userId: userId,
-          status: "accepted",
-        });
-
-        // Clean up notification
-        await cleanupInvitationNotification(userId, invitationToken);
-
-        return;
-      }
-    }
-
-    // NEW USER or EXISTING USER NOT IN CLUB: Add to club as club-admin
-    console.log("📞 Adding user to club as club-admin...");
-    const addMemberToClubFn = httpsCallable(functions, "addMemberToClub");
-    const clubResult = await addMemberToClubFn({
-      clubId: invitationData.clubId,
-      memberData: clubAdminMemberData,
-    });
-
-    const clubResponse = clubResult.data as {
-      success: boolean;
-      error?: string;
-    };
-    if (!clubResponse.success) {
-      throw new Error(
-        `Failed to add club-admin to club: ${clubResponse.error}`,
-      );
-    }
-    console.log("✅ Club-admin added to club successfully");
-
-    // Update user's club info in their profile
-    console.log("📞 Updating user's club info...");
-    const updateUserClubInfoFn = httpsCallable(functions, "updateUserClubInfo");
-    const userClubResult = await updateUserClubInfoFn({
-      uid: userId,
-      clubInfo,
-      role: "club-admin",
-    });
-
-    const userClubResponse = userClubResult.data as {
-      success: boolean;
-      error?: string;
-    };
-    if (!userClubResponse.success) {
-      throw new Error(
-        `Failed to update user club info: ${userClubResponse.error}`,
-      );
-    }
-    console.log("✅ User club info updated successfully");
-
-    // Mark invitation as used
-    console.log("📞 Marking invitation as accepted...");
-    const markInvitationUsedFn = httpsCallable(functions, "markInvitationUsed");
-    await markInvitationUsedFn({
-      invitationToken: invitationToken,
-      userId: userId,
-      status: "accepted",
-    });
-
-    // Clean up notification
-    await cleanupInvitationNotification(userId, invitationToken);
   },
 }; // 🔚 END OF SERVICE OBJECT
 

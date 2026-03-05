@@ -266,49 +266,29 @@ export default function SignupScreen() {
           try {
             console.log("✅ Account created. Processing invitation...");
 
-            // YOUTH INVITATION: Create youth document first, then process invitation
+            // YOUTH INVITATION: Orchestration handles youth doc creation after claiming invitation
             if (
               invitationInfo?.invitationType === "youth_member" &&
               youthData
             ) {
-              console.log("👶 Creating youth member document...");
-
-              const createYouthFn = httpsCallable(
-                functions,
-                "createYouthMemberDocument",
-              );
-              const youthResult = await createYouthFn({
-                guardianUid: result.user.uid,
-                guardianEmail: result.user.email || email.trim(),
-                guardianName: fullName.trim(),
-                childName: youthData.childName,
-                dateOfBirth: youthData.dateOfBirth,
-                relationship: youthData.relationship,
-              });
-
-              const youthResponse = youthResult.data as any;
-              if (!youthResponse.success) {
-                throw new Error(
-                  youthResponse.error || "Failed to create youth member",
-                );
-              }
-
               console.log(
-                "✅ Youth member document created:",
-                youthResponse.youthUid,
+                "👶 Processing new youth invitation (orchestration will create youth doc)...",
               );
 
-              // Now process the invitation with the youth's userId and guardian info
               const invitationResult =
                 await addRegularMemberToGroupService.processInvitationAfterUserResponse(
                   invite, // invitationToken
-                  youthResponse.youthUid, // Use youth's userId, not guardian's
-                  "accept", // action
+                  result.user.uid, // guardian's userId (orchestration will create youth and override)
+                  "accept",
                   {
-                    // guardianInfo to avoid permission issues
                     guardianUid: result.user.uid,
                     guardianEmail: result.user.email || email.trim(),
                     guardianName: fullName.trim(),
+                    relationship: youthData.relationship,
+                  },
+                  {
+                    childName: youthData.childName,
+                    dateOfBirth: youthData.dateOfBirth,
                     relationship: youthData.relationship,
                   },
                 );

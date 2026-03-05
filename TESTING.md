@@ -6,6 +6,7 @@
 - [Test Infrastructure](#test-infrastructure)
 - [Test Cases Catalogue](#test-cases-catalogue)
 - [Coverage Gap Analysis](#coverage-gap-analysis)
+- [Level 1 — Backend E2E Integration Test Plan](#level-1--backend-e2e-integration-test-plan)
 - [Expansion Roadmap](#expansion-roadmap)
 
 ---
@@ -483,6 +484,511 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 8. **Cascade operations** — club deletion updating all member user docs
 9. **Frontend services** — no test coverage at all
 10. ~~**Pure logic utilities** — LOK validation, role validation, limits, personnummer format~~ ✅ Covered
+
+---
+
+## Level 1 — Backend E2E Integration Test Plan
+
+> **What is Level 1 testing?**
+> We call the real Cloud Functions against the Firebase Emulator in the same sequence
+> the app's orchestration service (`processInvitationAfterUserResponse`) would call them.
+> After each flow completes, we read Firestore documents and assert that every field was
+> correctly written/updated.
+>
+> This catches **all backend logic bugs** (the same class of bugs we've been fixing)
+> without needing any UI automation.
+
+### Shared Test Setup (beforeAll)
+
+Every suite starts from `clearAll()` and creates:
+
+- `adminUser` — club admin who creates clubs/groups (role: `club-admin`)
+- `testClub` — a club created by adminUser
+- `testGroup` — a group inside testClub ("Group A")
+
+Additional users/groups are created per test case as needed.
+
+---
+
+### Suite A: Add Member — New Users (No Clubnizer Account)
+
+**File:** `functions/test/invitation-add-new-users.test.ts`
+
+> **Flow replayed per test:**
+> `sendGroupInvitation` → `createFullTestUser` (simulates signup) → `addMemberToClub`
+> → `updateUserClubInfo` → `addMemberToGroup` → `updateUserGroupInfo` → `markInvitationUsed`
+
+#### TC-A1: New Player (adult)
+
+| Step | Action                                                                                            |
+| ---- | ------------------------------------------------------------------------------------------------- |
+| 1    | Call `sendGroupInvitation` with `role: "player"`, `emails: ["newplayer@test.com"]`                |
+| 2    | Create new user via `createFullTestUser({ email: "newplayer@test.com" })`                         |
+| 3    | Call `addMemberToClub` with `memberData: { userId, roles: ["player"], name, email }`              |
+| 4    | Call `updateUserClubInfo` with `{ uid, clubInfo, role: "player" }`                                |
+| 5    | Call `addMemberToGroup` with `memberData: { userId, roles: ["player"], name, email }`             |
+| 6    | Call `updateUserGroupInfo` with `{ uid, clubId, groupInfo, roles: ["player"], operation: "add" }` |
+| 7    | Call `markInvitationUsed` with `{ invitationToken, userId, status: "accepted" }`                  |
+
+| ✅ Document Checked                                  | Field(s) Asserted                                                              |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `invitations/{token}` (after step 1)                 | `status === "pending"`, `role === "player"`, `email` matches, `clubId` matches |
+| `clubs/{clubId}/allMembers/members`                  | `members[]` contains `{ userId, roles: ["player"], name, isActive: true }`     |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | `members[]` contains `{ userId, roles: ["player"], name, isActive: true }`     |
+| `users/{newUserUid}`                                 | `clubAccess[]` contains `{ clubId, role: "member" }`                           |
+| `users/{newUserUid}`                                 | `clubAccess[0].groupAccess[]` contains `{ groupId, roles: ["player"] }`        |
+| `invitations/{token}` (after step 7)                 | Document does NOT exist (deleted by `markInvitationUsed`)                      |
+
+#### TC-A2: New Coach
+
+Same flow as TC-A1 with `role: "coach"`.
+
+| ✅ Document Checked                                  | Field(s) Asserted                                                       |
+| ---------------------------------------------------- | ----------------------------------------------------------------------- |
+| `clubs/{clubId}/allMembers/members`                  | member entry has `roles: ["coach"]`                                     |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | member entry has `roles: ["coach"]`                                     |
+| `users/{uid}`                                        | `clubAccess[0].role === "member"`, `groupAccess[0].roles === ["coach"]` |
+
+#### TC-A3: New Admin (group admin)
+
+Same flow as TC-A1 with `role: "admin"`.
+
+| ✅ Document Checked                                  | Field(s) Asserted                                                       |
+| ---------------------------------------------------- | ----------------------------------------------------------------------- |
+| `clubs/{clubId}/allMembers/members`                  | member entry has `roles: ["admin"]`                                     |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | member entry has `roles: ["admin"]`                                     |
+| `users/{uid}`                                        | `clubAccess[0].role === "member"`, `groupAccess[0].roles === ["admin"]` |
+
+#### TC-A4: New Club Admin
+
+> Club admin flow has NO group operations — club level only.
+
+| Step | Action                                                                               |
+| ---- | ------------------------------------------------------------------------------------ |
+| 1    | Call `sendGroupInvitation` with `role: "club-admin"`, `invitationType: "club_admin"` |
+| 2    | Create new user via `createFullTestUser`                                             |
+| 3    | Call `addMemberToClub` with `memberData: { userId, roles: ["club-admin"] }`          |
+| 4    | Call `updateUserClubInfo` with `{ uid, clubInfo, role: "club-admin" }`               |
+| 5    | Call `markInvitationUsed`                                                            |
+
+| ✅ Document Checked                                  | Field(s) Asserted                                 |
+| ---------------------------------------------------- | ------------------------------------------------- |
+| `clubs/{clubId}/allMembers/members`                  | member entry has `roles: ["club-admin"]`          |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | Does NOT contain the club-admin user              |
+| `users/{uid}`                                        | `clubAccess[0].role === "club-admin"`             |
+| `users/{uid}`                                        | `clubAccess[0].groupAccess` is empty or undefined |
+
+#### TC-A5: New Youth (player-underage) — with guardian
+
+> Youth flow has additional steps: create youth doc, add guardian to club.
+
+| Step | Action                                                                                                                     |
+| ---- | -------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Create guardian user via `createFullTestUser({ email: "parent@test.com" })`                                                |
+| 2    | Call `sendGroupInvitation` with `role: "player-underage"`, `invitationType: "youth_member"`, `youthData`                   |
+| 3    | Call `createYouthMemberDocument` with `{ childName, dateOfBirth, guardianUid, guardianEmail, guardianName, relationship }` |
+| 4    | Call `addMemberToClub` for youth with `memberData: { userId: youthUid, roles: ["player-underage"], guardiansContacts }`    |
+| 5    | Call `addMemberToClub` for guardian with `memberData: { userId: guardianUid, roles: ["guardian"] }`                        |
+| 6    | Call `updateUserClubInfo` for guardian with `role: "guardian"`                                                             |
+| 7    | Call `updateUserClubInfo` for youth with `role: "player-underage"`                                                         |
+| 8    | Call `addMemberToGroup` for youth                                                                                          |
+| 9    | Call `updateUserGroupInfo` for youth with `roles: ["player-underage"]`                                                     |
+| 10   | Call `updateGuardianDependentAccess` with `{ youthUid, guardianUid }`                                                      |
+| 11   | Call `markInvitationUsed`                                                                                                  |
+
+| ✅ Document Checked                                  | Field(s) Asserted                                                                                     |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `users/{youthUid}`                                   | `isYouth === true`, `guardians[]` contains guardian info, `clubAccess[]` has club entry               |
+| `users/{youthUid}`                                   | `clubAccess[0].role === "member"`, `groupAccess[]` contains `{ groupId, roles: ["player-underage"] }` |
+| `users/{guardianUid}`                                | `dependents[]` contains `{ uid: youthUid, childName, dateOfBirth }`                                   |
+| `users/{guardianUid}`                                | `clubAccess[]` contains `{ clubId, role: "member" }` (NOT "guardian" — role is permission-level)      |
+| `clubs/{clubId}/allMembers/members`                  | Contains BOTH youth (`roles: ["player-underage"]`) AND guardian (`roles: ["guardian"]`)               |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | Contains youth with `roles: ["player-underage"]`                                                      |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | Does NOT contain guardian (guardians are club-level only)                                             |
+
+#### TC-A6: New Youth — deduplication check
+
+> If guardian already has a dependent with the same name + DOB, return existing youth UID.
+
+| Step | Action                                                                                                |
+| ---- | ----------------------------------------------------------------------------------------------------- |
+| 1    | Call `createYouthMemberDocument` with `{ childName: "Anna", dateOfBirth: "2012-03-15", guardianUid }` |
+| 2    | Call `createYouthMemberDocument` again with identical `childName` + `dateOfBirth` + `guardianUid`     |
+
+| ✅ Assertion                                                                           |
+| -------------------------------------------------------------------------------------- |
+| Both calls return the SAME `youthUid`                                                  |
+| `users/{guardianUid}` → `dependents[]` has exactly ONE entry for "Anna" / "2012-03-15" |
+
+---
+
+### Suite B: Add Member — Existing Users (Has Clubnizer Account)
+
+**File:** `functions/test/invitation-add-existing-users.test.ts`
+
+> **Flow replayed per test:**
+> `sendGroupInvitation` → `checkMembership` → conditional `addMemberToClub`/`updateUserClubInfo`
+> → conditional `addMemberToGroup`/`updateUserGroupInfo` → `markInvitationUsed`
+
+#### TC-B1: Existing Player (not in club)
+
+| Precondition | User exists in system but is NOT in testClub |
+| ------------ | -------------------------------------------- |
+
+| Step | Action                                                                                     |
+| ---- | ------------------------------------------------------------------------------------------ |
+| 1    | Call `sendGroupInvitation` for existing user's email, `role: "player"`                     |
+| 2    | Call `checkMembership` with `{ userId, clubId, groupId }`                                  |
+| 3    | Assert: `isClubMember === false`, `isGroupMember === false`                                |
+| 4    | Call `addMemberToClub` → `updateUserClubInfo` → `addMemberToGroup` → `updateUserGroupInfo` |
+| 5    | Call `markInvitationUsed`                                                                  |
+
+| ✅ Document Checked                                  | Field(s) Asserted                                                                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `clubs/{clubId}/allMembers/members`                  | Contains member with `roles: ["player"]`                                                                  |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | Contains member with `roles: ["player"]`                                                                  |
+| `users/{uid}`                                        | `clubAccess[]` has `{ clubId, role: "member" }`, `groupAccess[]` has group entry with `roles: ["player"]` |
+
+#### TC-B2: Existing Coach (not in club)
+
+Same as TC-B1 with `role: "coach"`. Same assertions with `["coach"]`. `clubAccess[0].role === "member"`.
+
+#### TC-B3: Existing Admin (not in club)
+
+Same as TC-B1 with `role: "admin"`. Same assertions with `["admin"]`. `clubAccess[0].role === "member"`.
+
+#### TC-B4: Existing Club Admin (not in club)
+
+| Step | Action                                                                               |
+| ---- | ------------------------------------------------------------------------------------ |
+| 1    | Call `sendGroupInvitation` with `role: "club-admin"`, `invitationType: "club_admin"` |
+| 2    | Call `checkMembership` → assert `isClubMember === false`                             |
+| 3    | Call `addMemberToClub` with `roles: ["club-admin"]`                                  |
+| 4    | Call `updateUserClubInfo` with `role: "club-admin"`                                  |
+| 5    | Call `markInvitationUsed`                                                            |
+
+| ✅ Document Checked                 | Field(s) Asserted                                                  |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `clubs/{clubId}/allMembers/members` | Contains `{ userId, roles: ["club-admin"] }`                       |
+| `users/{uid}`                       | `clubAccess[]` contains `{ clubId, role: "club-admin" }`           |
+| `users/{uid}`                       | `clubAccess[0].groupAccess` is empty (no group ops for club-admin) |
+
+#### TC-B5: Existing user — already in club, adding to NEW group
+
+| Precondition | User is already a club member (player in Group A) |
+| ------------ | ------------------------------------------------- |
+
+| Step | Action                                                                      |
+| ---- | --------------------------------------------------------------------------- |
+| 1    | Create a second group ("Group B")                                           |
+| 2    | Call `sendGroupInvitation` for Group B, `role: "player"`                    |
+| 3    | Call `checkMembership` → `isClubMember === true`, `isGroupMember === false` |
+| 4    | Skip `addMemberToClub` (already in club)                                    |
+| 5    | Call `addMemberToGroup` for Group B                                         |
+| 6    | Call `updateUserGroupInfo` with `updateClubMemberListRoles: true`           |
+| 7    | Call `markInvitationUsed`                                                   |
+
+| ✅ Document Checked                                   | Field(s) Asserted                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------- |
+| `clubs/{clubId}/allMembers/members`                   | Member entry unchanged, `roles` still contains `"player"`           |
+| `clubs/{clubId}/groups/{groupBId}/allMembers/members` | Contains `{ userId, roles: ["player"] }`                            |
+| `users/{uid}`                                         | `clubAccess[0].groupAccess[]` has TWO entries (Group A and Group B) |
+
+#### TC-B6: Existing user — already in group with different role (role accumulation)
+
+| Precondition | User is a player in Group A |
+| ------------ | --------------------------- |
+
+| Step | Action                                                                        |
+| ---- | ----------------------------------------------------------------------------- |
+| 1    | Call `sendGroupInvitation` for same group, `role: "coach"`                    |
+| 2    | Call `checkMembership` → `isGroupMember === true`, `currentRoles: ["player"]` |
+| 3    | Call `updateMemberRole` with `{ operation: "add", roleToAdd: "coach" }`       |
+| 4    | Call `markInvitationUsed`                                                     |
+
+| ✅ Document Checked                                  | Field(s) Asserted                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------- |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | Member has `roles: ["player", "coach"]` (accumulated)         |
+| `clubs/{clubId}/allMembers/members`                  | Member `roles` contains both `"player"` and `"coach"`         |
+| `users/{uid}`                                        | `groupAccess[0].roles` contains both `"player"` and `"coach"` |
+
+#### TC-B7: Existing Club Admin — already in club (role accumulation)
+
+| Precondition | User is already a player in the club |
+| ------------ | ------------------------------------ |
+
+| Step | Action                                                                               |
+| ---- | ------------------------------------------------------------------------------------ |
+| 1    | Call `sendGroupInvitation` with `role: "club-admin"`, `invitationType: "club_admin"` |
+| 2    | Call `checkMembership` → `isClubMember === true`                                     |
+| 3    | Call `updateClubMemberRole` with `{ operation: "add", roleToAdd: "club-admin" }`     |
+| 4    | Call `updateUserClubInfo` with `role: "club-admin"`                                  |
+| 5    | Call `markInvitationUsed`                                                            |
+
+| ✅ Document Checked                 | Field(s) Asserted                                          |
+| ----------------------------------- | ---------------------------------------------------------- |
+| `clubs/{clubId}/allMembers/members` | Member `roles` contains BOTH `"player"` AND `"club-admin"` |
+| `users/{uid}`                       | `clubAccess[0].role === "club-admin"` (upgraded)           |
+
+#### TC-B8: Existing Youth — adding to new group
+
+| Precondition | Youth already exists in club (from TC-A5), adding to Group B |
+| ------------ | ------------------------------------------------------------ |
+
+| Step | Action                                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------------------------ |
+| 1    | Create Group B                                                                                               |
+| 2    | Call `sendGroupInvitation` with `invitationType: "youth_member_existing"`, `existingYouthData: { youthUid }` |
+| 3    | Call `checkMembership` for youth → `isClubMember === true`, `isGroupMember === false`                        |
+| 4    | Call `updateClubMemberRole` for youth → add `"player-underage"` (accumulation)                               |
+| 5    | Call `addMemberToGroup` for youth in Group B                                                                 |
+| 6    | Call `updateUserGroupInfo` for youth                                                                         |
+| 7    | Call `updateGuardianDependentAccess`                                                                         |
+| 8    | Call `markInvitationUsed`                                                                                    |
+
+| ✅ Document Checked                                   | Field(s) Asserted                                                                           |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `clubs/{clubId}/groups/{groupBId}/allMembers/members` | Contains youth with `roles: ["player-underage"]`                                            |
+| `users/{youthUid}`                                    | `clubAccess[0].role === "member"`, `groupAccess[]` has entries for BOTH Group A and Group B |
+| `users/{guardianUid}`                                 | `dependents[].clubAccess` updated (via `updateGuardianDependentAccess`)                     |
+
+---
+
+### Suite C: Remove Member
+
+**File:** `functions/test/remove-member-flows.test.ts`
+
+> **Flow replayed per test:**
+> `removeMemberFromGroup` → `updateUserGroupInfo(operation: "remove")`
+> → (if last group) `removeMemberFromClub` → `updateUserClubRemoval`
+
+#### TC-C1: Remove player from group (still in other groups)
+
+| Precondition | Player is in Group A AND Group B of the same club |
+| ------------ | ------------------------------------------------- |
+
+| Step | Action                                                                                    |
+| ---- | ----------------------------------------------------------------------------------------- |
+| 1    | Call `removeMemberFromGroup` with `{ clubId, groupId: groupAId, userId }`                 |
+| 2    | Call `updateUserGroupInfo` with `{ uid, clubId, groupInfo: groupA, operation: "remove" }` |
+
+| ✅ Document Checked                                   | Field(s) Asserted                                                |
+| ----------------------------------------------------- | ---------------------------------------------------------------- |
+| `clubs/{clubId}/groups/{groupAId}/allMembers/members` | Does NOT contain user                                            |
+| `clubs/{clubId}/groups/{groupBId}/allMembers/members` | Still contains user (untouched)                                  |
+| `clubs/{clubId}/allMembers/members`                   | Still contains user (still in club via Group B)                  |
+| `users/{uid}`                                         | `clubAccess[0].groupAccess[]` has Group B only (Group A removed) |
+
+#### TC-C2: Remove player from group (last group → also remove from club)
+
+| Precondition | Player is in Group A only |
+| ------------ | ------------------------- |
+
+| Step | Action                                                          |
+| ---- | --------------------------------------------------------------- |
+| 1    | Call `removeMemberFromGroup` with `{ clubId, groupId, userId }` |
+| 2    | Call `updateUserGroupInfo` with `operation: "remove"`           |
+| 3    | Call `removeMemberFromClub` with `{ clubId, userId }`           |
+| 4    | Call `updateUserClubRemoval` with `{ uid, clubId }`             |
+
+| ✅ Document Checked                                  | Field(s) Asserted                                                        |
+| ---------------------------------------------------- | ------------------------------------------------------------------------ |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | Does NOT contain user                                                    |
+| `clubs/{clubId}/allMembers/members`                  | Does NOT contain user                                                    |
+| `users/{uid}`                                        | `clubAccess[]` does NOT contain active club entry (or `isActive: false`) |
+
+#### TC-C3: Remove coach from group
+
+Same as TC-C2 with `role: "coach"`. Same assertions.
+
+#### TC-C4: Remove admin from group
+
+Same as TC-C2 with `role: "admin"`. Same assertions.
+
+#### TC-C5: Remove player-underage (youth) from group + club
+
+| Precondition | Youth in Group A with guardian in club |
+| ------------ | -------------------------------------- |
+
+| Step | Action                                                                             |
+| ---- | ---------------------------------------------------------------------------------- |
+| 1    | Call `removeMemberFromGroup` with `{ clubId, groupId, userId: youthUid }`          |
+| 2    | Call `updateUserGroupInfo` for youth with `operation: "remove"`                    |
+| 3    | Call `removeMemberFromClub` for youth                                              |
+| 4    | Call `updateUserClubRemoval` for youth                                             |
+| 5    | Call `updateGuardianDependentClubRemoval` with `{ youthUid, guardianUid, clubId }` |
+| 6    | Call `checkAndMarkGuardianInactive` with `{ guardianUid, clubId }`                 |
+
+| ✅ Document Checked                                  | Field(s) Asserted                                         |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | Does NOT contain youth                                    |
+| `clubs/{clubId}/allMembers/members`                  | Does NOT contain youth                                    |
+| `users/{youthUid}`                                   | `clubAccess[]` does NOT have active club entry            |
+| `users/{guardianUid}`                                | `dependents[]` updated (youth's club removed)             |
+| `clubs/{clubId}/allMembers/members`                  | Guardian marked inactive (if no other dependents in club) |
+
+#### TC-C6: Remove one role from multi-role member (de-accumulation)
+
+| Precondition | User is both player AND coach in Group A |
+| ------------ | ---------------------------------------- |
+
+| Step | Action                                                                                 |
+| ---- | -------------------------------------------------------------------------------------- |
+| 1    | Call `removeMemberFromGroup` with `{ clubId, groupId, userId, roleToRemove: "coach" }` |
+
+| ✅ Document Checked                                  | Field(s) Asserted                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------ |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | Member still exists with `roles: ["player"]` (coach removed) |
+| `clubs/{clubId}/allMembers/members`                  | `roles` contains `"player"`, does NOT contain `"coach"`      |
+| `users/{uid}`                                        | `groupAccess[0].roles === ["player"]`                        |
+
+#### TC-C7: Remove club-admin role
+
+| Precondition | User has `roles: ["player", "club-admin"]` in club |
+| ------------ | -------------------------------------------------- |
+
+| Step | Action                                                                                                 |
+| ---- | ------------------------------------------------------------------------------------------------------ |
+| 1    | Call `updateClubMemberRole` with `{ clubId, userId, operation: "remove", roleToRemove: "club-admin" }` |
+
+| ✅ Document Checked                 | Field(s) Asserted                                   |
+| ----------------------------------- | --------------------------------------------------- |
+| `clubs/{clubId}/allMembers/members` | Member `roles` contains `"player"` only             |
+| `users/{uid}`                       | `clubAccess[0].role` downgraded from `"club-admin"` |
+
+---
+
+### Suite D: Subgroup Member Operations
+
+**File:** `functions/test/subgroup-member-flows.test.ts`
+
+#### TC-D1: Add member to subgroup
+
+| Precondition | Member is in the parent group |
+| ------------ | ----------------------------- |
+
+| Step | Action                                                                    |
+| ---- | ------------------------------------------------------------------------- |
+| 1    | Call `addMemberToSubGroup` with `{ clubId, groupId, subGroupId, userId }` |
+
+| ✅ Document Checked                             | Field(s) Asserted                                                          |
+| ----------------------------------------------- | -------------------------------------------------------------------------- |
+| `.../subgroups/{subgroupId}/allMembers/members` | Contains member with correct `userId`, `name`, `roles` (copied from group) |
+
+#### TC-D2: Remove member from subgroup
+
+| Step | Action                                                                         |
+| ---- | ------------------------------------------------------------------------------ |
+| 1    | Call `removeMemberFromSubGroup` with `{ clubId, groupId, subGroupId, userId }` |
+
+| ✅ Document Checked                             | Field(s) Asserted                                   |
+| ----------------------------------------------- | --------------------------------------------------- |
+| `.../subgroups/{subgroupId}/allMembers/members` | Does NOT contain member                             |
+| `.../groups/{groupId}/allMembers/members`       | Still contains member (group membership unaffected) |
+
+#### TC-D3: Add member to subgroup — not in parent group → error
+
+| Precondition | User is NOT in the parent group |
+| ------------ | ------------------------------- |
+
+| ✅ Assertion                                                            |
+| ----------------------------------------------------------------------- |
+| Function throws error (cannot add to subgroup without group membership) |
+
+---
+
+### Suite E: Club / Group / Subgroup CRUD
+
+**File:** `functions/test/crud-lifecycle.test.ts`
+
+> These extend the existing suite tests with deeper field-level assertions.
+
+#### TC-E1: Create club — verify all fields
+
+| ✅ Document Checked                 | Field(s) Asserted                                                                             |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| `clubs/{clubId}`                    | `name`, `description`, `location`, `isActive === true`, `createdBy`, `activeGroupCount === 0` |
+| `clubs/{clubId}/allMembers/members` | `members === []`, `memberCount === 0`                                                         |
+| `users/{adminUid}`                  | `activeClubsAsAdmin` incremented by 1                                                         |
+
+#### TC-E2: Create club — missing name → `invalid-argument`
+
+#### TC-E3: Delete club — cascades to groups + subgroups
+
+| ✅ Document Checked | Field(s) Asserted                                                     |
+| ------------------- | --------------------------------------------------------------------- |
+| `clubs/{clubId}`    | `isActive === false`, `deletionScheduledAt` ~30 days out, `deletedBy` |
+| `users/{adminUid}`  | `activeClubsAsAdmin` decremented                                      |
+| All groups          | `isActive === false` (cascade)                                        |
+| All subgroups       | `isActive === false` (cascade)                                        |
+
+#### TC-E4: Delete club — non-admin → `permission-denied`
+
+#### TC-E5: Create group — verify all fields
+
+| ✅ Document Checked               | Field(s) Asserted                              |
+| --------------------------------- | ---------------------------------------------- |
+| `clubs/{clubId}/groups/{groupId}` | `name`, `sport`, `clubId`, `isActive === true` |
+| `.../allMembers/members`          | `members === []`, `memberCount === 0`          |
+| `clubs/{clubId}`                  | `activeGroupCount` incremented                 |
+
+#### TC-E6: Delete group — cascades to subgroups
+
+| ✅ Document Checked               | Field(s) Asserted                               |
+| --------------------------------- | ----------------------------------------------- |
+| `clubs/{clubId}/groups/{groupId}` | `isActive === false`, `deletionScheduledAt` set |
+| `clubs/{clubId}`                  | `activeGroupCount` decremented                  |
+| All subgroups                     | `isActive === false` (cascade)                  |
+
+#### TC-E7: Delete group — non-admin → `permission-denied`
+
+#### TC-E8: Create subgroup
+
+| ✅ Document Checked               | Field(s) Asserted                              |
+| --------------------------------- | ---------------------------------------------- |
+| `.../subgroups/{subgroupId}`      | `name`, `isActive === true`, `groupId` matches |
+| `clubs/{clubId}/groups/{groupId}` | `subGroups[]` contains new subgroupId          |
+
+#### TC-E9: Edit subgroup name
+
+| ✅ Document Checked          | Field(s) Asserted           |
+| ---------------------------- | --------------------------- |
+| `.../subgroups/{subgroupId}` | `name` updated to new value |
+
+#### TC-E10: Delete subgroup (soft delete)
+
+| ✅ Document Checked          | Field(s) Asserted    |
+| ---------------------------- | -------------------- |
+| `.../subgroups/{subgroupId}` | `isActive === false` |
+
+#### TC-E11: Edit group name and description
+
+| ✅ Document Checked               | Field(s) Asserted                |
+| --------------------------------- | -------------------------------- |
+| `clubs/{clubId}/groups/{groupId}` | `name` and `description` updated |
+
+#### TC-E12: Edit group — non-admin → `permission-denied`
+
+---
+
+### Test Case Count Summary
+
+| Suite                          | File                                    | Cases  |
+| ------------------------------ | --------------------------------------- | ------ |
+| A. Add Member — New Users      | `invitation-add-new-users.test.ts`      | 6      |
+| B. Add Member — Existing Users | `invitation-add-existing-users.test.ts` | 8      |
+| C. Remove Member               | `remove-member-flows.test.ts`           | 7      |
+| D. Subgroup Members            | `subgroup-member-flows.test.ts`         | 3      |
+| E. CRUD Lifecycle              | `crud-lifecycle.test.ts`                | 12     |
+| **Total new**                  |                                         | **36** |
+
+### Implementation Priority
+
+| Priority | Suite             | Reason                                                                |
+| -------- | ----------------- | --------------------------------------------------------------------- |
+| **P0**   | Suite A + Suite B | Tests the invitation acceptance flow — where all recent bugs occurred |
+| **P1**   | Suite C           | Complex orchestration with cascade effects and guardian cleanup       |
+| **P2**   | Suite D + Suite E | Simpler operations, extend existing coverage                          |
 
 ---
 
