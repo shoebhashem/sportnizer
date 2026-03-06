@@ -1018,25 +1018,26 @@ export const addRegularMemberToGroupService = {
       return { success: true, message: "Invitation rejected" };
     }
 
-    // 3. For acceptance - CONDITIONAL LOGIC based on user type:
-    //    a. Detect user type from invitation.status:
-    //       - 'accepted_pending_signup' = NEW USER (no membership checks)
-    //       - 'pending' = EXISTING USER (check existing memberships)
+    // 3. For acceptance - CONDITIONAL LOGIC based on invitation type:
     //
-    //    b. NEW USER PATH (status='accepted_pending_signup'):
-    //       - Skip membership checks (brand new user)
-    //       - Call callAtomicFunctionsDirectly():
-    //         * addMemberToClub(clubId, memberData)
-    //         * addMemberToGroup(clubId, groupId, memberData)
-    //         * updateUserClubInfo(uid, clubInfo, role)
-    //         * updateUserGroupInfo(uid, clubId, groupInfo, roles)
-    //         * markInvitationUsed(token, userId, 'accepted')
+    //    a. GUARDIAN INVITATION (invitationType='guardian'):
+    //       - Calls addGuardianToYouth CF with guardianData from invitation
+    //       - Links guardian to youth member in all relevant docs
+    //       - Then calls finalizeInvitation() to mark invitation used
     //
-    //    c. EXISTING USER PATH (status='pending'):
-    //       - Check if already member (skip if true)
-    //       - Call callAtomicFunctionsWithMembershipChecks():
-    //         * Same atomic functions but with deduplication logic
-    //       - Mark notification as dismissed + actionTakenAt
+    //    b. CLUB-ADMIN INVITATION (invitationType='club_admin'):
+    //       - Calls addClubAdmin + addMemberToClub + updateUserClubInfo
+    //       - No group membership created (club-level only)
+    //
+    //    c. ALL OTHER ROLES (player, coach, admin, youth):
+    //       - Uses unified executeAtomicOperations() method
+    //       - Config flags determine behavior:
+    //         * needsYouthFlow: calls createYouthMemberDocument CF internally
+    //         * needsMembershipCheck: checks for existing memberships (existing users)
+    //       - Atomic operations: addMemberToClub, addMemberToGroup,
+    //         updateUserClubInfo, updateUserGroupInfo, markInvitationUsed
+    //       - Youth flow (player-underage) is now handled INSIDE this method
+    //         via createYouthMemberDocument CF (no separate call needed)
 
     // 4. Return success with group details
   },
@@ -2293,8 +2294,10 @@ functions/src/
 │   ├── deleteEvent.ts
 │   └── getEvent.ts
 ├── members/            # Member management operations
+│   ├── addGuardianToYouth.ts      # Links existing guardian user to existing youth member
 │   ├── addMemberToClub.ts
 │   ├── addMemberToGroup.ts
+│   ├── removeGuardianFromYouth.ts  # Unlinks guardian from youth member
 │   ├── removeMemberFromClub.ts
 │   ├── removeMemberFromGroup.ts
 │   ├── updateUserClubInfo.ts      # Updates user document club access
@@ -15568,100 +15571,127 @@ function onlyUpdatingAllowedFields() {
 
 ---
 
-### Guardian Management Features (Future)
+### Guardian Management Features (Implemented)
 
-#### **Guardian Dashboard**:
+The guardian management system allows club admins to add and remove guardians for existing youth players. Guardians are linked across multiple Firestore documents and can accept invitations via the standard invitation flow.
 
-- View all dependents
-- See each child's groups, events, activities
-- Respond to events on behalf of children
-- Update child profile information
-- View child's schedule and attendance
+#### **Overview**
 
-#### **Multiple Guardians** (Future Enhancement):
+- **Add Guardian**: Admin selects a youth player → enters guardian email(s) → sends guardian invitation → guardian accepts → `addGuardianToYouth` CF links them
+- **Remove Guardian**: Admin selects a youth player → selects guardian(s) to remove → `removeGuardianFromYouth` CF unlinks them
+
+#### **Cloud Functions**
+
+**`addGuardianToYouth`** (`functions/src/members/addGuardianToYouth.ts`):
+
+- **Purpose**: Links an existing guardian user to an existing youth member
+- **Auth**: Requires authenticated user
+- **Request**: `{ clubId, groupId, youthUid, guardianUid, guardianName, guardianEmail, relationship }`
+- **Operations** (12 steps):
+  1. Validate required fields and auth
+  2. Verify youth member exists in group
+  3. Check for duplicate guardian link
+  4. Add guardian to youth's `guardians[]` in user doc (`users/{youthUid}`)
+  5. Add to club member's `guardiansContacts[]` (`clubs/{clubId}/members/{youthUid}`)
+  6. Add to group member's `guardiansContacts[]` (`clubs/{clubId}/groups/{groupId}/members/allMembers`)
+  7. Add youth to guardian's `dependents[]` in user doc (`users/{guardianUid}`)
+  8. Handle guardian's club membership:
+     - Already in club → accumulate "guardian" role to existing `roles[]`
+     - Not in club → create new member doc with `roles: ["guardian"]` + call `updateUserClubInfo`
+     - Inactive → reactivate and add "guardian" role
+- **Error codes**: `unauthenticated`, `invalid-argument`, `not-found`, `already-exists`
+
+**`removeGuardianFromYouth`** (`functions/src/members/removeGuardianFromYouth.ts`):
+
+- **Purpose**: Unlinks a guardian from a youth member (reverse of add)
+- **Request**: `{ clubId, groupId, youthUid, guardianUid }`
+- **Operations** (7 steps):
+  1. Remove guardian from youth's `guardians[]` in user doc
+  2. Remove from club member's `guardiansContacts[]`
+  3. De-accumulate ONE "guardian" role from guardian's club `roles[]`
+  4. If `roles[]` becomes empty → mark `isActive: false` with 30-day grace period
+  5. Remove from group member's `guardiansContacts[]`
+  6. Remove youth from guardian's `dependents[]`
+  7. If guardian marked inactive → remove club from guardian's `clubAccess[]`
+- **Returns**: `{ success, guardianMarkedInactive, message }`
+
+#### **Invitation Flow**
+
+Guardian invitations use `invitationType: "guardian"` in the standard invitation pipeline:
+
+```
+Admin → group-settings → "Add Guardian" → remove-member (select mode, youth only)
+  → select youth player → add-adult-member (role: "guardian")
+  → enter guardian email(s) → inviteUsersToGroup({ invitationType: "guardian", guardianData: { youthUid, youthName } })
+  → sendGroupInvitation CF stores guardianData in invitation doc
+  → Guardian receives notification/email → accepts
+  → processInvitationAfterUserResponse detects isGuardianInvitation
+  → Calls addGuardianToYouth CF → finalizeInvitation
+```
+
+#### **Removal Flow**
+
+```
+Admin → group-settings → "Remove Guardian" → remove-member (select mode, youth only)
+  → select youth player → remove-guardian screen
+  → loads youth's guardiansContacts[] from group member data
+  → admin selects guardian(s) → confirmation modal
+  → calls removeGuardianFromYouth CF for each selected guardian
+  → results modal → navigate back
+```
+
+#### **Data Structures**
 
 ```typescript
+// Youth's user document (users/{youthUid})
 guardians: [
-  { guardianUid: "parent1", relationship: "mother", canManage: true },
-  { guardianUid: "parent2", relationship: "father", canManage: true },
+  {
+    guardianUid: string,
+    guardianName: string,
+    guardianEmail: string,
+    relationship: string,
+    addedAt: Timestamp,
+    canManage: true,
+  },
+];
+
+// Club/Group member docs (guardiansContacts[])
+guardiansContacts: [
+  {
+    guardianUid: string,
+    guardianName: string,
+    guardianEmail: string,
+    relationship: string,
+  },
+];
+
+// Guardian's user document (users/{guardianUid})
+dependents: [
+  {
+    uid: string,
+    childName: string,
+    dateOfBirth: string,
+    relationship: string,
+    addedAt: Timestamp,
+    clubAccess: [{ clubId, clubName }],
+  },
 ];
 ```
 
-#### **Age Transition** (Future Enhancement):
+#### **UI Screens**
 
-When youth turns 18:
+| Screen                     | Purpose                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `app/group-settings.tsx`   | "Add Guardian" and "Remove Guardian" options in expandable member management sections (club-admin only) |
+| `app/remove-member.tsx`    | `mode: "select"` with `removeType: "youth"` for single-select youth player picking                      |
+| `app/add-adult-member.tsx` | `role: "guardian"` sends guardian invitation with `guardianData`                                        |
+| `app/remove-guardian.tsx`  | Displays youth's guardians, multi-select removal with confirmation                                      |
 
-- Manual conversion to adult account
-- Remove guardian links
-- Transfer ownership to youth
-- Send notification to guardian
+#### **Future Enhancements**
 
-#### **Phase 1: Core Infrastructure** (Priority)
-
-- [ ] Create `createYouthMemberDocument` Firebase Function (Firestore only, NO Firebase Auth!)
-- [ ] Modify `sendGroupInvitation` to support `invitationType` and `youthData`
-- [ ] Add `youth_member_invitation` to NotificationType enum
-- [ ] Update invitation interfaces in `types/interfaces.ts`
-- [ ] Export `createYouthMemberDocument` in `functions/src/index.ts`
-- [ ] Create `createYouthAccount` Firebase Function
-- [ ] Modify `sendGroupInvitation` to support `invitationType` and `youthData`
-- [ ] Add `youth_member_invitation` to NotificationType enum
-- [ ] Update invitation interfaces in `types/interfaces.ts`
-
-#### **Phase 2: Frontend Integration**
-
-- [ ] Modify `app/signup.tsx` to handle youth invitations
-- [ ] Create `app/youth-invitation-accept.tsx` for existing guardian flow
-- [ ] Add youth member form to admin panel (add member screen)
-- [ ] Update notification display to show youth invitation type
-
-#### **Phase 3: Guardian Features**
-
-- [ ] Create `fetchAllUserGroups` service
-- [ ] Update Groups tab to show children's groups
-- [ ] Implement guardian dashboard
-- [ ] Add child profile management
-
-#### **Phase 4: Advanced Features** (Future)
-
-- [ ] Multiple guardians support
-- [ ] Age transition workflow
-- [ ] Guardian-specific notifications
-- [ ] Child activity history
-
----
-
-### Code Reusability Summary
-
-**Functions Extended (NOT new)**:
-**New Code Required** (~600 lines total):
-
-- 🆕 `createYouthMemberDocument.ts` (~80 lines - simpler, no Firebase Auth!)
-- 🆕 `app/youth-invitation-accept.tsx` (~120 lines)
-- 🆕 `fetchAllUserGroups.ts` (~80 lines)
-- 🆕 Modifications to `app/signup.tsx` (~100 lines)
-- 🆕 Modifications to `sendGroupInvitation.ts` (~50 lines)
-- 🆕 Guardian email template (~50 lines) - ALREADY EXISTS!
-- 🆕 Security rules (~50 lines)
-- 🆕 UI components (~70 lines)~80 lines)
-- 🆕 Modifications to `app/signup.tsx` (~100 lines)
-- 🆕 Modifications to `sendGroupInvitation.ts` (~50 lines)
-- 🆕 Guardian email template (~50 lines) - ALREADY EXISTS!
-- 🆕 Security rules (~50 lines)
-- 🆕 UI components (~70 lines)
-
-**Reusable Existing Code** (~2500+ lines):
-
-- ✅ Entire invitation orchestration system
-- ✅ Atomic membership functions (5 functions)
-- ✅ Notification system
-- ✅ Email templates (already have guardianInvitationTemplate!)
-- ✅ User document structure
-- ✅ Authentication flow
-
----
-
-_This child/youth member system extends the existing architecture with minimal new code while providing comprehensive guardian management capabilities. All changes maintain backward compatibility with existing member flows._
+- **Guardian Dashboard**: View all dependents, respond to events on behalf of children
+- **Age Transition**: When youth turns 18, convert to adult account and remove guardian links
+- **Guardian-specific notifications**: Event reminders, attendance summaries for dependents
 
 ---
 

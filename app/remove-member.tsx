@@ -72,10 +72,17 @@ export default function RemoveMemberScreen() {
     removalLevel,
     groupName,
     clubName,
+    mode, // "remove" (default) or "select" (single-select, navigate on confirm)
+    selectTarget, // Route to navigate to in "select" mode (e.g., "/add-adult-member" or "/remove-guardian")
+    selectAction, // Action type for the target screen (e.g., "add-guardian" or "remove-guardian")
+    role, // Role to forward to target screen (e.g., "guardian")
   } = useLocalSearchParams();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(["screens", "common"]);
+
+  // Determine screen mode
+  const isSelectMode = mode === "select";
 
   // Support both 'memberType' and 'removeType' parameters (backward compatibility)
   const actualMemberType = (memberType || removeType) as string;
@@ -171,21 +178,46 @@ export default function RemoveMemberScreen() {
   }, [filterMembers]);
 
   const handleMemberToggle = (member: GroupMemberData) => {
-    setSelectedMembers((prev) => {
-      const isAlreadySelected = prev.some((m) => m.userId === member.userId);
-      if (isAlreadySelected) {
-        // Remove from selection
-        return prev.filter((m) => m.userId !== member.userId);
-      } else {
-        // Add to selection
-        return [...prev, member];
-      }
-    });
+    if (isSelectMode) {
+      // Single-select mode: replace selection
+      setSelectedMembers((prev) => {
+        const isAlreadySelected = prev.some((m) => m.userId === member.userId);
+        return isAlreadySelected ? [] : [member];
+      });
+    } else {
+      // Multi-select mode: toggle selection
+      setSelectedMembers((prev) => {
+        const isAlreadySelected = prev.some((m) => m.userId === member.userId);
+        if (isAlreadySelected) {
+          return prev.filter((m) => m.userId !== member.userId);
+        } else {
+          return [...prev, member];
+        }
+      });
+    }
   };
 
   const handleContinue = () => {
     if (selectedMembers.length === 0) return;
-    setIsConfirmModalVisible(true);
+    if (isSelectMode) {
+      // Navigate to target screen with selected member data
+      const selected = selectedMembers[0];
+      router.push({
+        pathname: (selectTarget as string) || "/remove-guardian",
+        params: {
+          groupId: groupId as string,
+          clubId: clubId as string,
+          groupName: groupName as string,
+          clubName: clubName as string,
+          youthUid: selected.userId,
+          youthName: selected.name,
+          selectAction: selectAction as string,
+          ...(role ? { role: role as string } : {}),
+        },
+      });
+    } else {
+      setIsConfirmModalVisible(true);
+    }
   };
 
   const handleConfirmRemoval = async () => {
@@ -451,9 +483,13 @@ export default function RemoveMemberScreen() {
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.title}>
-            {t("screens:removeMember.removeType", {
-              memberType: getMemberTypeLabel(),
-            })}
+            {isSelectMode
+              ? t("screens:removeMember.selectYouthPlayer", {
+                  defaultValue: "Select Youth Player",
+                })
+              : t("screens:removeMember.removeType", {
+                  memberType: getMemberTypeLabel(),
+                })}
           </Text>
           <Text style={styles.subtitle}>
             {t("screens:removeMember.fromScope", {
@@ -491,9 +527,13 @@ export default function RemoveMemberScreen() {
 
       <View style={styles.content}>
         <Text style={styles.instructionText}>
-          {t("screens:removeMember.selectToRemove", {
-            memberType: getMemberTypeLabel().toLowerCase(),
-          })}
+          {isSelectMode
+            ? t("screens:removeMember.selectYouthInstruction", {
+                defaultValue: "Select a youth player to manage their guardians",
+              })
+            : t("screens:removeMember.selectToRemove", {
+                memberType: getMemberTypeLabel().toLowerCase(),
+              })}
         </Text>
 
         {filteredMembers.length > 0 ? (
@@ -546,9 +586,11 @@ export default function RemoveMemberScreen() {
               label={
                 removing
                   ? t("screens:removeMember.removing")
-                  : t("screens:removeMember.continueWithCount", {
-                      count: selectedMembers.length,
-                    })
+                  : isSelectMode
+                    ? t("common:select", { defaultValue: "Select" })
+                    : t("screens:removeMember.continueWithCount", {
+                        count: selectedMembers.length,
+                      })
               }
               onPress={handleContinue}
               theme="primary"

@@ -346,6 +346,33 @@ export default function GroupSettingsScreen() {
     } as any);
   };
 
+  const handleAddGuardian = () => {
+    router.push({
+      pathname: "/remove-member",
+      params: {
+        ...getMemberActionParams(),
+        removeType: "youth",
+        mode: "select",
+        selectTarget: "/add-adult-member",
+        selectAction: "add-guardian",
+        role: "guardian",
+      },
+    } as any);
+  };
+
+  const handleRemoveGuardian = () => {
+    router.push({
+      pathname: "/remove-member",
+      params: {
+        ...getMemberActionParams(),
+        removeType: "youth",
+        mode: "select",
+        selectTarget: "/remove-guardian",
+        selectAction: "remove-guardian",
+      },
+    } as any);
+  };
+
   const handleViewStatistics = () => {
     if (group && groupId && clubId) {
       const groupName = encodeURIComponent(group.name);
@@ -670,11 +697,27 @@ export default function GroupSettingsScreen() {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={[styles.subOptionItem, styles.subOptionItemLast]}
+                        style={styles.subOptionItem}
                         onPress={handleAddAdmin}
                       >
                         <Text style={styles.subOptionTitle}>
                           {t("screens:groupSettings.addAdmin")}
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.subOptionItem, styles.subOptionItemLast]}
+                        onPress={handleAddGuardian}
+                      >
+                        <Text style={styles.subOptionTitle}>
+                          {t("screens:groupSettings.addGuardian", {
+                            defaultValue: "Add Guardian",
+                          })}
                         </Text>
                         <Ionicons
                           name="chevron-forward"
@@ -773,13 +816,31 @@ export default function GroupSettingsScreen() {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={[styles.subOptionItem, styles.subOptionItemLast]}
+                        style={styles.subOptionItem}
                         onPress={handleRemoveAdmin}
                       >
                         <Text
                           style={[styles.subOptionTitle, styles.dangerText]}
                         >
                           {t("screens:groupSettings.removeAdmin")}
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color={theme.colors.error}
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.subOptionItem, styles.subOptionItemLast]}
+                        onPress={handleRemoveGuardian}
+                      >
+                        <Text
+                          style={[styles.subOptionTitle, styles.dangerText]}
+                        >
+                          {t("screens:groupSettings.removeGuardian", {
+                            defaultValue: "Remove Guardian",
+                          })}
                         </Text>
                         <Ionicons
                           name="chevron-forward"

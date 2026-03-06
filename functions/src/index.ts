@@ -52,11 +52,13 @@ export { updateEventResponse } from "./events/updateEventResponse";
 export { updateStatistics } from "./events/updateStatistics";
 
 // Member Management Functions (Atomic - Direct Member Operations)
+export { addGuardianToYouth } from "./members/addGuardianToYouth";
 export { addMemberToClub } from "./members/addMemberToClub";
 export { addMemberToGroup } from "./members/addMemberToGroup";
 export { addMemberToSubGroup } from "./members/addMemberToSubGroup";
 export { checkMembership } from "./members/checkMembership";
 export { createYouthMemberDocument } from "./members/createYouthMemberDocument";
+export { removeGuardianFromYouth } from "./members/removeGuardianFromYouth";
 export { removeMemberFromClub } from "./members/removeMemberFromClub";
 export { removeMemberFromGroup } from "./members/removeMemberFromGroup";
 export { removeMemberFromSubGroup } from "./members/removeMemberFromSubGroup";

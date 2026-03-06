@@ -23,14 +23,22 @@ export interface GroupData {
 }
 
 export interface GuardianContact {
-  userId: string;
-  name: string;
-  email: string;
+  guardianUid: string;
+  guardianName: string;
+  guardianEmail: string;
+  relationship?: string;
 }
 
 export interface GroupMemberData {
   userId: string;
-  roles: ("club-admin" | "admin" | "coach" | "player" | "player-underage" | "guardian")[]; // Updated role hierarchy
+  roles: (
+    | "club-admin"
+    | "admin"
+    | "coach"
+    | "player"
+    | "player-underage"
+    | "guardian"
+  )[]; // Updated role hierarchy
   joinedAt: any; // Firestore timestamp
   photoURL: string;
   name: string;
@@ -45,8 +53,6 @@ export interface AllMembersDocument {
   lastUpdated: any; // Firestore timestamp
   memberCount: number;
 }
-
-
 
 export interface GroupWithDetails {
   id: string;
@@ -75,7 +81,7 @@ export interface ClubWithGroups {
   isUserAdmin: boolean;
   isUserMember: boolean;
   joinedAt?: Date;
-    totalMembers: number;
+  totalMembers: number;
   groups: GroupWithDetails[];
 }
 
@@ -97,5 +103,5 @@ export interface CoachInvitation {
   groupName: string;
   invitedBy: string;
   invitedAt: Date;
-  status: 'pending' | 'accepted' | 'declined';
+  status: "pending" | "accepted" | "declined";
 }

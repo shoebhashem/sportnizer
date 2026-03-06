@@ -28,6 +28,7 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -84,6 +85,7 @@ export default function ManageClubScreen() {
     null,
   );
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchAllData = useCallback(async () => {
     if (!clubId || typeof clubId !== "string") return;
@@ -243,6 +245,19 @@ export default function ManageClubScreen() {
       setSelectedGroup(null);
     }
   };
+
+  // Pull-to-refresh: clear cache then re-fetch
+  const onRefresh = useCallback(async () => {
+    if (!clubId || typeof clubId !== "string") return;
+    setRefreshing(true);
+    // Invalidate cached data for this club
+    cache.remove(`clubData_${clubId}`);
+    cache.remove(`clubMembers_${clubId}`);
+    cache.remove(`clubGroups_${clubId}_true`);
+    cache.remove(`clubGroups_${clubId}_false`);
+    await fetchAllData();
+    setRefreshing(false);
+  }, [clubId, cache, fetchAllData]);
 
   // Removed useEffect double-fetch. Only useFocusEffect remains.
 
@@ -480,6 +495,14 @@ export default function ManageClubScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.accent}
+            colors={[theme.colors.accent]}
+          />
+        }
       >
         {/* Delete Mode Banner */}
         {isDeleteMode && (

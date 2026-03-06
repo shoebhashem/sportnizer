@@ -44,8 +44,20 @@ export interface GroupInvitationRequest {
     | "youth_member"
     | "youth_member_existing"
     | "regular"
-    | "club_admin"; // Type of invitation (optional, defaults to 'regular')
-  role?: "player" | "player-underage" | "coach" | "admin" | "club-admin"; // Role to assign (optional, defaults to 'player')
+    | "club_admin"
+    | "guardian"; // Type of invitation (optional, defaults to 'regular')
+  role?:
+    | "player"
+    | "player-underage"
+    | "coach"
+    | "admin"
+    | "club-admin"
+    | "guardian"; // Role to assign (optional, defaults to 'player')
+  guardianData?: {
+    // Guardian-specific data: which youth the guardian is being linked to
+    youthUid: string;
+    youthName: string;
+  };
   youthData?: {
     // Youth member specific data (optional, required for new youth invitations)
     childName: string; // Name of the child/youth member
@@ -282,6 +294,7 @@ export const addRegularMemberToGroupService = {
             youthData: request.youthData,
             existingYouthData: request.existingYouthData, // Pass existing youth data
             role: request.role || "player", // ✨ NEW: Pass role to invitation
+            guardianData: request.guardianData, // Pass guardian data for guardian invitations
           });
 
           // Extract the response and process results
@@ -726,8 +739,50 @@ export const addRegularMemberToGroupService = {
       // 🎯 STEP 4: CONDITIONAL LOGIC - Handle membership based on user type and invitation type
       const isNewUser = invitationData.status === "accepted_pending_signup";
       const isClubAdminInvitation = invitationType === "club_admin";
+      const isGuardianInvitation = invitationType === "guardian";
 
-      if (isClubAdminInvitation) {
+      if (isGuardianInvitation) {
+        // 👨‍👧 GUARDIAN PATH: Link guardian to existing youth via addGuardianToYouth CF
+        console.log(
+          "👨‍👧 Processing GUARDIAN invitation - calling addGuardianToYouth",
+        );
+
+        const guardianData = invitationData.guardianData;
+        if (!guardianData || !guardianData.youthUid) {
+          throw new Error(
+            "Guardian invitation missing guardianData with youthUid",
+          );
+        }
+
+        const addGuardianToYouthFn = httpsCallable(
+          functions,
+          "addGuardianToYouth",
+        );
+        const guardianResult = await addGuardianToYouthFn({
+          clubId: invitationData.clubId,
+          groupId: invitationData.groupId,
+          youthUid: guardianData.youthUid,
+          guardianUid: userId,
+          guardianName: displayName,
+          guardianEmail: invitationData.email,
+          relationship: "guardian", // Default relationship for invitation-based guardians
+        });
+
+        const guardianResponse = guardianResult.data as {
+          success: boolean;
+          error?: string;
+        };
+        if (!guardianResponse.success) {
+          throw new Error(
+            guardianResponse.error || "Failed to link guardian to youth",
+          );
+        }
+
+        console.log("✅ Guardian linked to youth via addGuardianToYouth");
+
+        // Finalize invitation (mark as used + cleanup notification)
+        await this.finalizeInvitation(invitationToken, userId, userId);
+      } else if (isClubAdminInvitation) {
         // 🔐 CLUB ADMIN PATH: Only add to club (no group operations)
         console.log("🔐 Processing CLUB ADMIN invitation - club-level only");
 

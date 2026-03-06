@@ -25,16 +25,17 @@
 
 ### Test Suites
 
-| Suite                 | File                                      | Tests | Domain                                    |
-| --------------------- | ----------------------------------------- | ----- | ----------------------------------------- |
-| Club Lifecycle        | `functions/test/clubs.test.ts`            | 10    | Create, get, update, delete + permissions |
-| Group Lifecycle       | `functions/test/groups.test.ts`           | 12    | CRUD + cascade delete to subgroups        |
-| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`        | 10    | CRUD + membership add/remove              |
-| Members & Fees        | `functions/test/members-and-fees.test.ts` | 14    | Member roles, club roles, fee CRUD        |
-| Events & Attendance   | `functions/test/events.test.ts`           | 23    | Event CRUD, RSVP, attendance, statistics  |
-| Auth & User Mgmt      | `functions/test/auth.test.ts`             | 18    | Account creation, profiles, verification  |
-| Invitation Flows      | `functions/test/invitations.test.ts`      | 19    | Send, validate, accept/reject, delete     |
-| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`  | 82    | Validation, roles, limits, LOK rules      |
+| Suite                 | File                                      | Tests | Domain                                                   |
+| --------------------- | ----------------------------------------- | ----- | -------------------------------------------------------- |
+| Club Lifecycle        | `functions/test/clubs.test.ts`            | 10    | Create, get, update, delete + permissions                |
+| Group Lifecycle       | `functions/test/groups.test.ts`           | 12    | CRUD + cascade delete to subgroups                       |
+| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`        | 10    | CRUD + membership add/remove                             |
+| Members & Fees        | `functions/test/members-and-fees.test.ts` | 14    | Member roles, club roles, fee CRUD                       |
+| Events & Attendance   | `functions/test/events.test.ts`           | 23    | Event CRUD, RSVP, attendance, statistics                 |
+| Auth & User Mgmt      | `functions/test/auth.test.ts`             | 18    | Account creation, profiles, verification                 |
+| Invitation Flows      | `functions/test/invitations.test.ts`      | 19    | Send, validate, accept/reject, delete                    |
+| Guardian Flows        | `functions/test/guardian-flows.test.ts`   | 14    | Add/remove guardian, role accumulation, subgroup cascade |
+| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`  | 82    | Validation, roles, limits, LOK rules                     |
 
 ---
 
@@ -971,6 +972,120 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 
 ---
 
+### Suite G: Guardian Management
+
+**File:** `functions/test/guardian-flows.test.ts`
+
+> Tests addGuardianToYouth and removeGuardianFromYouth Cloud Functions.
+
+#### TC-G1: Add guardian to youth (guardian NOT in club)
+
+| Step | Action                                                                                         |
+| ---- | ---------------------------------------------------------------------------------------------- |
+| 1    | Setup club + group + admin                                                                     |
+| 2    | Create guardian user and youth member via `createYouthMemberDocument`                          |
+| 3    | Create second guardian (not yet in club)                                                       |
+| 4    | Call `addGuardianToYouth` with `{ clubId, groupId, youthUid, guardianUid, guardianName, ... }` |
+
+| ✅ Document Checked                                  | Field(s) Asserted                                                             |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `users/{youthUid}`                                   | `guardians` array has 2 entries, includes guardian2 with correct relationship |
+| `clubs/{clubId}/allMembers/members`                  | Youth member `guardiansContacts` includes guardian2                           |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members` | Youth group member `guardiansContacts` includes guardian2                     |
+| `users/{guardian2Uid}`                               | `dependents` includes youth                                                   |
+| `clubs/{clubId}/allMembers/members`                  | Guardian2 has club membership with `roles: ["guardian"]`                      |
+| `users/{guardian2Uid}`                               | `clubAccess` includes entry with `clubId` and `role: "member"`                |
+
+#### TC-G2: Add guardian who is already in club (role accumulation)
+
+| ✅ Assertion                    | Expected                                  |
+| ------------------------------- | ----------------------------------------- |
+| Guardian2's club member `roles` | Contains both `"player"` and `"guardian"` |
+
+#### TC-G3: Prevent duplicate guardian → `already-exists`
+
+#### TC-G4: Remove guardian from youth (basic)
+
+| ✅ Document Checked   | Field(s) Asserted                                       |
+| --------------------- | ------------------------------------------------------- |
+| `users/{youthUid}`    | `guardians` no longer contains removed guardian         |
+| `users/{guardianUid}` | `dependents` no longer contains youth                   |
+| Club AllMembers       | Youth's `guardiansContacts` no longer contains guardian |
+| Group AllMembers      | Youth's `guardiansContacts` no longer contains guardian |
+
+#### TC-G5: Remove guardian (only role) → mark inactive
+
+| ✅ Assertion             | Expected             |
+| ------------------------ | -------------------- |
+| `guardianMarkedInactive` | `true`               |
+| Guardian club member     | `isActive === false` |
+
+#### TC-G6: Remove guardian role, keep player role
+
+| ✅ Assertion                    | Expected                                           |
+| ------------------------------- | -------------------------------------------------- |
+| `guardianMarkedInactive`        | `false`                                            |
+| Guardian club member `roles`    | Contains `"player"`, does NOT contain `"guardian"` |
+| Guardian club member `isActive` | Not false (still active)                           |
+
+#### TC-G7: addGuardianToYouth — missing fields → `invalid-argument`
+
+#### TC-G8: addGuardianToYouth — youth not found → `not-found`
+
+#### TC-G9: removeGuardianFromYouth — missing fields → `invalid-argument`
+
+#### TC-G10: Full add-then-remove roundtrip
+
+| ✅ Assertion | Expected                                           |
+| ------------ | -------------------------------------------------- |
+| After add    | Youth has 2 guardians                              |
+| After remove | Youth has 1 guardian (original), guardian2 removed |
+
+#### TC-G11: Add guardian — subgroup guardiansContacts cascade
+
+> Youth is in a subgroup. When a guardian is added, subgroup allMembers must also be updated.
+
+| Step | Action                                                                                |
+| ---- | ------------------------------------------------------------------------------------- |
+| 1    | Setup club + group, create youth + guardian, add youth to club and group              |
+| 2    | Create subgroup via `createSubGroup`, add youth to subgroup via `addMemberToSubGroup` |
+| 3    | Create second guardian, call `addGuardianToYouth`                                     |
+
+| ✅ Document Checked                                                         | Field(s) Asserted                                   |
+| --------------------------------------------------------------------------- | --------------------------------------------------- |
+| `clubs/{clubId}/groups/{groupId}/subgroups/{subGroupId}/allMembers/members` | Youth's `guardiansContacts` includes both guardians |
+
+#### TC-G12: Remove guardian — subgroup guardiansContacts cascade
+
+> Youth is in a subgroup. When a guardian is removed, subgroup allMembers must also be cleaned.
+
+| Step | Action                                                                                     |
+| ---- | ------------------------------------------------------------------------------------------ |
+| 1    | Setup club + group + subgroup with youth having one guardian in subgroup guardiansContacts |
+| 2    | Call `removeGuardianFromYouth`                                                             |
+
+| ✅ Document Checked                                                         | Field(s) Asserted                                               |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `clubs/{clubId}/groups/{groupId}/subgroups/{subGroupId}/allMembers/members` | Youth's `guardiansContacts` no longer contains removed guardian |
+
+#### TC-G13: Add guardian who is inactive in club → reactivation
+
+| Step | Action                                                                 |
+| ---- | ---------------------------------------------------------------------- |
+| 1    | Setup club + group + youth. Pre-seed guardian2 as inactive club member |
+| 2    | Call `addGuardianToYouth` for the inactive guardian2                   |
+
+| ✅ Document Checked                 | Field(s) Asserted                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| `clubs/{clubId}/allMembers/members` | Guardian2 `isActive === true`, `roles` includes `"guardian"`              |
+| `clubs/{clubId}/allMembers/members` | Guardian2 `inactiveSince` and `scheduledForDeletion` are `null` (cleared) |
+
+#### TC-G14: Remove guardian not linked to youth → `not-found`
+
+> Attempting to remove a guardian who is not in the youth's guardians array should return `not-found`.
+
+---
+
 ### Test Case Count Summary
 
 | Suite                          | File                                    | Cases  |
@@ -980,7 +1095,8 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | C. Remove Member               | `remove-member-flows.test.ts`           | 7      |
 | D. Subgroup Members            | `subgroup-member-flows.test.ts`         | 3      |
 | E. CRUD Lifecycle              | `crud-lifecycle.test.ts`                | 12     |
-| **Total new**                  |                                         | **36** |
+| G. Guardian Flows              | `guardian-flows.test.ts`                | 14     |
+| **Total new**                  |                                         | **50** |
 
 ### Implementation Priority
 

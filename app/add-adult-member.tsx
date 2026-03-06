@@ -42,18 +42,18 @@ import { StatusBar } from "expo-status-bar";
 import React, { useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 /**
  * Role Configuration
  * Defines UI text and labels for each supported role
  */
-type RoleType = "player" | "coach" | "admin" | "club-admin";
+type RoleType = "player" | "coach" | "admin" | "club-admin" | "guardian";
 
 interface RoleConfig {
   title: string;
@@ -101,13 +101,23 @@ const roleConfigs: Record<RoleType, RoleConfig> = {
     pluralLabel: "club administrators",
     icon: "shield-checkmark",
   },
+  guardian: {
+    title: "Add Guardian",
+    subtitle: "Invite a guardian for a youth player",
+    infoText:
+      "Enter email addresses to invite guardians for the selected youth player. Existing Clubnizer users will receive in-app notifications, while new users will get email invitations.",
+    roleLabel: "guardian",
+    pluralLabel: "guardians",
+    icon: "people-outline",
+  },
 };
 
 export default function AddAdultMemberScreen() {
   /**
    * NAVIGATION PARAMETERS
    */
-  const { groupId, groupName, clubId, clubName, role } = useLocalSearchParams();
+  const { groupId, groupName, clubId, clubName, role, youthUid, youthName } =
+    useLocalSearchParams();
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
   const navigation = useNavigation();
@@ -122,6 +132,7 @@ export default function AddAdultMemberScreen() {
     coach: "coachInfoText",
     admin: "adminInfoText",
     "club-admin": "clubAdminInfoText",
+    guardian: "guardianInfoText",
   };
 
   // Set dynamic native header title
@@ -131,6 +142,7 @@ export default function AddAdultMemberScreen() {
       coach: "addCoach",
       admin: "addAdmin",
       "club-admin": "addClubAdmin",
+      guardian: "addGuardian",
     };
     navigation.setOptions({
       title: t(`screens:addAdultMember.${titleKeys[memberRole]}`),
@@ -226,7 +238,7 @@ export default function AddAdultMemberScreen() {
     try {
       const result = await validateMemberForInvitation({
         email: trimmedEmail,
-        role: memberRole,
+        role: memberRole as any,
         clubId: clubId as string,
         ...(memberRole !== "club-admin" && {
           groupId: groupId as string,
@@ -333,7 +345,7 @@ export default function AddAdultMemberScreen() {
           try {
             const result = await validateMemberForInvitation({
               email,
-              role: memberRole,
+              role: memberRole as any,
               clubId: clubId as string,
               ...(memberRole !== "club-admin" && {
                 groupId: groupId as string,
@@ -446,6 +458,7 @@ export default function AddAdultMemberScreen() {
 
     try {
       const isClubAdminInvitation = memberRole === "club-admin";
+      const isGuardianInvitation = memberRole === "guardian";
       const result = await addRegularMemberToGroupService.inviteUsersToGroup({
         emails: validEmails,
         clubId: clubId as string,
@@ -461,8 +474,15 @@ export default function AddAdultMemberScreen() {
           user.displayName ||
           "A club administrator",
         inviterUid: user.uid,
-        role: memberRole,
+        role: memberRole as any,
         ...(isClubAdminInvitation && { invitationType: "club_admin" as const }),
+        ...(isGuardianInvitation && {
+          invitationType: "guardian" as const,
+          guardianData: {
+            youthUid: youthUid as string,
+            youthName: youthName as string,
+          },
+        }),
       });
 
       console.log("📧 Invitation workflow result:", result);
@@ -708,7 +728,12 @@ export default function AddAdultMemberScreen() {
           modalCancelText === t("common:done")
             ? () => {
                 hideModal();
-                router.back();
+                // Guardian flow: go back past remove-member to group-settings
+                if (memberRole === "guardian") {
+                  router.dismiss(2);
+                } else {
+                  router.back();
+                }
               }
             : hideModal
         }

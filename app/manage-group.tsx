@@ -18,6 +18,7 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -64,6 +65,7 @@ export default function ManageGroupScreen() {
     null,
   );
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchAllData = useCallback(async () => {
     if (
@@ -136,6 +138,22 @@ export default function ManageGroupScreen() {
       setLoading(false);
     }
   }, [groupId, clubId, user]);
+
+  // Pull-to-refresh: clear cache then re-fetch
+  const onRefresh = useCallback(async () => {
+    if (
+      !clubId ||
+      typeof clubId !== "string" ||
+      !groupId ||
+      typeof groupId !== "string"
+    )
+      return;
+    setRefreshing(true);
+    cache.remove(`groupData_${clubId}_${groupId}`);
+    cache.remove(`groupMembers_${clubId}_${groupId}`);
+    await fetchAllData();
+    setRefreshing(false);
+  }, [clubId, groupId, cache, fetchAllData]);
 
   // Removed useEffect double-fetch. Only useFocusEffect remains.
 
@@ -290,6 +308,14 @@ export default function ManageGroupScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.accent}
+            colors={[theme.colors.accent]}
+          />
+        }
       >
         <View style={styles.tabContainer}>
           <TouchableOpacity

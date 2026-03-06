@@ -13,6 +13,7 @@ import {
     emailTransporter,
     groupInvitationWithActionsTemplate,
     guardianInvitationTemplate,
+    guardianRoleInvitationTemplate,
 } from "../utils/email";
 import {
     validateArrayField,
@@ -36,6 +37,7 @@ export const sendGroupInvitation = onCall(
         invitationType,
         youthData,
         existingYouthData,
+        guardianData,
         role, // New: role to assign (coach or member)
       }: GroupInvitationRequest = request.data;
 
@@ -140,6 +142,7 @@ export const sendGroupInvitation = onCall(
             invitationType: invitationType || "regular",
             youthData: youthData || null,
             existingYouthData: existingYouthData || null,
+            guardianData: guardianData || null,
           };
 
           await db
@@ -164,6 +167,9 @@ export const sendGroupInvitation = onCall(
               ) {
                 notificationType = "youth_member_invitation";
                 notificationTitle = "New Child Invitation";
+              } else if (invitationType === "guardian") {
+                notificationType = "group_invitation";
+                notificationTitle = "Guardian Invitation";
               } else {
                 notificationType = "group_invitation";
                 notificationTitle = "Group Invitation";
@@ -177,6 +183,8 @@ export const sendGroupInvitation = onCall(
                 notificationMessage = `Add ${youthData?.childName || "child"} to ${groupName}`;
               } else if (invitationType === "youth_member_existing") {
                 notificationMessage = `Add ${existingYouthData?.youthName || "child"} to ${groupName}`;
+              } else if (invitationType === "guardian") {
+                notificationMessage = `${inviterName} invited you to become a guardian for ${guardianData?.youthName || "a youth player"} in ${clubName}`;
               } else {
                 // Get user-friendly role label
                 const roleLabel =
@@ -276,6 +284,21 @@ export const sendGroupInvitation = onCall(
                 emailSubject = `Your child ${childName} has been invited to ${groupName}`;
                 console.log(
                   `📧 Sending guardian invitation email for ${childName}`,
+                );
+              } else if (invitationType === "guardian") {
+                // Guardian role invitation - use dedicated guardian role template
+                const youthName = guardianData?.youthName || "a youth player";
+                emailHtml = guardianRoleInvitationTemplate(
+                  youthName,
+                  groupName || "",
+                  clubName,
+                  inviterName,
+                  acceptLink,
+                  rejectLink,
+                );
+                emailSubject = `You're invited to be a guardian for ${youthName} in ${groupName} at ${clubName} on Clubnizer`;
+                console.log(
+                  `📧 Sending guardian role invitation email for youth: ${youthName}`,
                 );
               } else {
                 // Regular invitation - use standard template

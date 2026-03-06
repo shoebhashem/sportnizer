@@ -112,10 +112,22 @@ export interface GroupInvitationRequest {
     | "regular"
     | "youth_member"
     | "youth_member_existing"
-    | "club_admin"; // Optional: Type of invitation
+    | "club_admin"
+    | "guardian"; // Optional: Type of invitation
   youthData?: YouthData; // Optional: Youth member data for NEW youth invitations
   existingYouthData?: ExistingYouthData; // Optional: Existing youth data for REUSE invitations
-  role?: "player" | "player-underage" | "coach" | "admin" | "club-admin"; // Optional: Role to assign (defaults to 'player')
+  guardianData?: {
+    // Guardian-specific data: which youth the guardian is being linked to
+    youthUid: string;
+    youthName: string;
+  };
+  role?:
+    | "player"
+    | "player-underage"
+    | "coach"
+    | "admin"
+    | "club-admin"
+    | "guardian"; // Optional: Role to assign (defaults to 'player')
 }
 
 export interface ProcessInvitationRequest {

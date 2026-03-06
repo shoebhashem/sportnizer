@@ -23,6 +23,7 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -46,6 +47,7 @@ export default function ManageSubgroupScreen() {
     null,
   );
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Check if user can manage subgroup (inherits from group permissions)
   const canManage =
@@ -134,6 +136,22 @@ export default function ManageSubgroupScreen() {
       setLoading(false);
     }
   }, [groupId, clubId, subgroupId, user]);
+
+  // Pull-to-refresh: clear cache then re-fetch
+  const onRefresh = useCallback(async () => {
+    if (
+      !clubId ||
+      typeof clubId !== "string" ||
+      !groupId ||
+      typeof groupId !== "string"
+    )
+      return;
+    setRefreshing(true);
+    cache.remove(`groupData_${clubId}_${groupId}`);
+    cache.remove(`groupMembers_${clubId}_${groupId}`);
+    await fetchData();
+    setRefreshing(false);
+  }, [clubId, groupId, cache, fetchData]);
 
   // Removed useEffect double-fetch. Only useFocusEffect remains.
 
@@ -229,6 +247,14 @@ export default function ManageSubgroupScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.accent}
+            colors={[theme.colors.accent]}
+          />
+        }
       >
         {/* Members Section */}
         <Text style={styles.sectionTitle}>

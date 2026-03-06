@@ -305,6 +305,51 @@ export const guardianInvitationTemplate = (
   `);
 
 // =======================================================
+// GUARDIAN ROLE INVITATION (Add Guardian to Existing Youth)
+// =======================================================
+export const guardianRoleInvitationTemplate = (
+  youthName: string,
+  groupName: string,
+  clubName: string,
+  inviterName: string,
+  acceptLink: string,
+  rejectLink: string,
+) =>
+  emailWrapper(`
+    ${emailHeader("Guardian Invitation")}
+
+    <div style="padding: 40px 30px;">
+      <h2 style="color:${BRAND.textDark}; margin-top:0;">
+        You've been invited as a guardian
+      </h2>
+
+      <p style="color:${BRAND.textLight}; font-size:16px; line-height:1.6;">
+        <strong>${inviterName}</strong> has invited you to become a guardian for
+        <strong style="color:${BRAND.accent};">${youthName}</strong> in the group
+        <strong>${groupName}</strong> at
+        <strong>${clubName}</strong> on Clubnizer.
+      </p>
+
+      <p style="color:${BRAND.textLight}; font-size:15px; line-height:1.6;">
+        As a guardian, you'll receive updates about ${youthName}'s activities,
+        events, and communications within the group. Accept the invitation to get started.
+      </p>
+
+      ${primaryButton("Accept Invitation", acceptLink)}
+
+      <div style="text-align:center; margin-top:15px;">
+        <a href="${rejectLink}" style="
+          color:${BRAND.error};
+          font-size:14px;
+          text-decoration:none;
+        ">
+          Decline Invitation
+        </a>
+      </div>
+    </div>
+  `);
+
+// =======================================================
 // EMAIL VERIFICATION
 // =======================================================
 export const emailVerificationTemplate = (

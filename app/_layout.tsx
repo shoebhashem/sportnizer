@@ -277,6 +277,18 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="remove-guardian"
+        options={{
+          headerShown: true,
+          title: t("screens.removeGuardian"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
         name="profile"
         options={{
           headerShown: true,

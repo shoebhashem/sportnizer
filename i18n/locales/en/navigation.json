@@ -29,6 +29,7 @@
     "addAdultMember": "Add Player",
     "addChildMember": "Add Youth Player",
     "removeMember": "Remove Member",
+    "removeGuardian": "Remove Guardian",
     "memberProfile": "Member Profile",
     "subscriptionSettings": "Subscription",
     "createNews": "Create News",
