@@ -120,7 +120,11 @@ export const addMemberToGroup = onCall(
             .collection("invitations")
             .where("userId", "==", targetUserId)
             .where("groupId", "==", groupId)
-            .where("status", "in", ["pending", "accepted_pending_signup"])
+            .where("status", "in", [
+              "pending",
+              "accepted_pending_signup",
+              "processing",
+            ])
             .limit(1)
             .get();
 
@@ -147,7 +151,11 @@ export const addMemberToGroup = onCall(
               .collection("invitations")
               .where("email", "==", targetUserEmail)
               .where("groupId", "==", groupId)
-              .where("status", "in", ["pending", "accepted_pending_signup"])
+              .where("status", "in", [
+                "pending",
+                "accepted_pending_signup",
+                "processing",
+              ])
               .limit(1)
               .get();
 
@@ -193,13 +201,17 @@ export const addMemberToGroup = onCall(
 
           let hasValidInvitation = false;
 
-          // Check by userId (pending or accepted_pending_signup)
+          // Check by userId (pending, accepted_pending_signup, or processing)
           const invitationByUserIdQuery = await admin
             .firestore()
             .collection("invitations")
             .where("userId", "==", targetUserId)
             .where("groupId", "==", groupId)
-            .where("status", "in", ["pending", "accepted_pending_signup"])
+            .where("status", "in", [
+              "pending",
+              "accepted_pending_signup",
+              "processing",
+            ])
             .limit(1)
             .get();
 
@@ -215,7 +227,11 @@ export const addMemberToGroup = onCall(
               .collection("invitations")
               .where("email", "==", targetUserEmail)
               .where("groupId", "==", groupId)
-              .where("status", "in", ["pending", "accepted_pending_signup"])
+              .where("status", "in", [
+                "pending",
+                "accepted_pending_signup",
+                "processing",
+              ])
               .limit(1)
               .get();
 
@@ -248,7 +264,11 @@ export const addMemberToGroup = onCall(
                 .collection("invitations")
                 .where("userId", "==", guardianUid)
                 .where("groupId", "==", groupId)
-                .where("status", "in", ["pending", "accepted_pending_signup"])
+                .where("status", "in", [
+                  "pending",
+                  "accepted_pending_signup",
+                  "processing",
+                ])
                 .limit(1)
                 .get();
 
@@ -267,7 +287,11 @@ export const addMemberToGroup = onCall(
                 .collection("invitations")
                 .where("email", "==", guardianEmail)
                 .where("groupId", "==", groupId)
-                .where("status", "in", ["pending", "accepted_pending_signup"])
+                .where("status", "in", [
+                  "pending",
+                  "accepted_pending_signup",
+                  "processing",
+                ])
                 .limit(1)
                 .get();
 

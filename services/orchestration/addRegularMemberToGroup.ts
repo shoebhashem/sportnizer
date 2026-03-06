@@ -379,11 +379,12 @@ export const addRegularMemberToGroupService = {
    * - Existing users ('pending'): Check existing memberships before adding
    *
    * 🔧 WHAT ATOMIC FUNCTIONS DOES IT CALL:
+   * - updateInvitation (claim): Atomically claims the invitation via Cloud Function (prevents double-processing)
    * - addMemberToClub: Adds user to the club's member list (with deduplication for existing users)
    * - addMemberToGroup: Adds user to the specific group's member list (with deduplication for existing users)
    * - updateUserClubInfo: Updates user's profile to show they're in this club (with deduplication for existing users)
    * - updateUserGroupInfo: Updates user's profile to show they're in this group (with deduplication for existing users)
-   * - markInvitationUsed: Marks the invitation as completed so it can't be used again
+   * - updateInvitation (delete): Deletes the invitation document so it can't be used again
    *
    * 📥 WHAT IT NEEDS (Parameters):
    * - invitationToken: The invitation ID (works for both email tokens and in-app invitation IDs)
@@ -417,85 +418,85 @@ export const addRegularMemberToGroupService = {
         action,
       });
 
-      // 💾 STEP 1: CLAIM invitation atomically via Firestore transaction
+      // 💾 STEP 1: CLAIM invitation atomically via Cloud Function
       // This prevents double-processing: two concurrent calls cannot both claim it
-      console.log("📝 Claiming invitation via atomic transaction...");
+      // Uses updateInvitation CF with "claim" action (Admin SDK, bypasses security rules)
+      console.log(
+        "📝 Claiming invitation via updateInvitation Cloud Function...",
+      );
 
       let invitationData: any;
       try {
-        const { getFirestore, doc, runTransaction } =
-          await import("firebase/firestore");
-        const db = getFirestore();
-
-        const invitationDocRef = doc(db, "invitations", invitationToken);
-
-        // Atomic read-then-update: only one caller can claim the invitation
-        invitationData = await runTransaction(db, async (transaction) => {
-          const invitationDocSnap = await transaction.get(invitationDocRef);
-
-          if (!invitationDocSnap.exists()) {
-            throw new Error("INVITATION_NOT_FOUND");
-          }
-
-          const data = invitationDocSnap.data();
-
-          // Already being processed by another call
-          if (data.status === "processing") {
-            throw new Error("INVITATION_ALREADY_PROCESSING");
-          }
-
-          // Verify invitation is in a valid state
-          const isNewUser = data.status === "accepted_pending_signup";
-          const isExistingUser = data.status === "pending";
-
-          if (!isNewUser && !isExistingUser) {
-            throw new Error(`INVALID_STATUS:${data.status}`);
-          }
-
-          // ✅ Atomically set status to "processing" so no other call can claim it
-          transaction.update(invitationDocRef, { status: "processing" });
-
-          // Return the original data with the original status preserved
-          return { ...data, _originalStatus: data.status };
+        const updateInvitationFn = httpsCallable(functions, "updateInvitation");
+        const claimResult = await updateInvitationFn({
+          invitationToken: invitationToken,
+          userId: userId,
+          action: "claim",
         });
 
-        // Restore the original status for downstream logic (isNewUser checks)
-        invitationData.status = invitationData._originalStatus;
-        delete invitationData._originalStatus;
+        const claimResponse = claimResult.data as {
+          success: boolean;
+          invitationData?: any;
+          error?: string;
+          errorCode?: string;
+        };
+
+        if (!claimResponse.success) {
+          const errorCode = claimResponse.errorCode || "";
+
+          if (errorCode === "INVITATION_NOT_FOUND") {
+            return {
+              success: false,
+              action: "error",
+              message: "Invalid or expired invitation",
+              error: "Invitation not found",
+            };
+          }
+          if (errorCode === "INVITATION_ALREADY_PROCESSING") {
+            return {
+              success: false,
+              action: "error",
+              message: "This invitation is already being processed",
+              error:
+                "Invitation is currently being processed by another request",
+            };
+          }
+          if (errorCode.startsWith("INVALID_STATUS:")) {
+            const status = errorCode.split(":")[1];
+            console.log(
+              `❌ Invitation status is ${status}, expected 'accepted_pending_signup' or 'pending'`,
+            );
+            return {
+              success: false,
+              action: "error",
+              message: "Invitation is not in the correct state for processing",
+              error: `Expected status 'accepted_pending_signup' or 'pending', got '${status}'`,
+            };
+          }
+          if (errorCode === "CALLER_MISMATCH") {
+            return {
+              success: false,
+              action: "error",
+              message: "This invitation was not sent to your account",
+              error: "Caller does not match the invitation recipient",
+            };
+          }
+
+          // Generic error
+          return {
+            success: false,
+            action: "error",
+            message: "Failed to retrieve invitation data",
+            error: claimResponse.error || "Unknown error",
+          };
+        }
+
+        invitationData = claimResponse.invitationData;
 
         console.log(
           `📋 Claimed invitation for group: ${invitationData.groupName} (Status: ${invitationData.status}, User Type: ${invitationData.status === "accepted_pending_signup" ? "New" : "Existing"})`,
         );
       } catch (claimError: any) {
-        const msg = claimError.message || "";
-        if (msg === "INVITATION_NOT_FOUND") {
-          return {
-            success: false,
-            action: "error",
-            message: "Invalid or expired invitation",
-            error: "Invitation not found",
-          };
-        }
-        if (msg === "INVITATION_ALREADY_PROCESSING") {
-          return {
-            success: false,
-            action: "error",
-            message: "This invitation is already being processed",
-            error: "Invitation is currently being processed by another request",
-          };
-        }
-        if (msg.startsWith("INVALID_STATUS:")) {
-          const status = msg.split(":")[1];
-          console.log(
-            `❌ Invitation status is ${status}, expected 'accepted_pending_signup' or 'pending'`,
-          );
-          return {
-            success: false,
-            action: "error",
-            message: "Invitation is not in the correct state for processing",
-            error: `Expected status 'accepted_pending_signup' or 'pending', got '${status}'`,
-          };
-        }
         console.error("❌ Error claiming invitation:", claimError);
         return {
           success: false,
@@ -512,16 +513,16 @@ export const addRegularMemberToGroupService = {
         );
 
         try {
-          // Mark invitation as rejected using atomic function
-          console.log("📞 Calling markInvitationUsed to mark as rejected...");
-          const markInvitationUsedFn = httpsCallable(
+          // Mark invitation as rejected using Cloud Function
+          console.log("📞 Calling updateInvitation to reject...");
+          const updateInvitationFn = httpsCallable(
             functions,
-            "markInvitationUsed",
+            "updateInvitation",
           );
-          await markInvitationUsedFn({
+          await updateInvitationFn({
             invitationToken: invitationToken,
             userId: userId,
-            status: "rejected",
+            action: "reject",
           });
 
           // 🧹 Clean up the notification (for existing users who had in-app notification)
@@ -1362,12 +1363,12 @@ export const addRegularMemberToGroupService = {
     acceptingUserId: string,
     notificationUserId: string,
   ) {
-    console.log("📞 Calling markInvitationUsed atomic function...");
-    const markInvitationUsedFn = httpsCallable(functions, "markInvitationUsed");
-    await markInvitationUsedFn({
+    console.log("📞 Calling updateInvitation to delete...");
+    const updateInvitationFn = httpsCallable(functions, "updateInvitation");
+    await updateInvitationFn({
       invitationToken: invitationToken,
       userId: acceptingUserId,
-      status: "accepted",
+      action: "delete",
     });
 
     // Delete the notification document

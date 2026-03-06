@@ -328,6 +328,15 @@ export const emailVerificationTemplate = (
         }
       </p>
 
+      ${
+        !isResend
+          ? `<p style="color:${BRAND.textLight}; font-size:14px; line-height:1.6; margin-top:20px; padding:16px; background-color:#f8f9fa; border-radius:8px;">
+              Clubnizer is actively being developed and improved every day. As an early user, your experience matters to us! If you encounter any issues or have ideas on how we can make Clubnizer better, we&rsquo;d love to hear from you at
+              <a href="mailto:feedback@clubnizer.com" style="color:${BRAND.accent}; text-decoration:none; font-weight:600;">feedback@clubnizer.com</a>.
+            </p>`
+          : ""
+      }
+
       ${primaryButton("Verify Your Email", verificationLink)}
     </div>
   `);

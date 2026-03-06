@@ -82,16 +82,20 @@ export { updateUserGroupRemoval } from "./users/updateUserGroupRemoval";
 // TODO: Add orchestration functions here when implemented
 
 // Invitation Functions (Atomic)
-export { markInvitationUsed } from "./invitations/markInvitationUsed";
 export { respondToEmailInvite } from "./invitations/respondToEmailInvite";
 export { sendGroupInvitation } from "./invitations/sendGroupInvitation";
+export {
+    markInvitationUsed,
+    updateInvitation
+} from "./invitations/updateInvitation";
 export { validateInvitationToken } from "./invitations/validateInvitationToken";
 
 // Notification Functions (Atomic)
 export { createNotification } from "./notifications/createNotification";
 
 // ✅ Legacy HTTP endpoint functions and unused helpers have been removed
-// Current invitation workflow uses: sendGroupInvitation, respondToEmailInvite, markInvitationUsed, validateInvitationToken
+// Current invitation workflow uses: sendGroupInvitation, respondToEmailInvite, updateInvitation, validateInvitationToken
+// markInvitationUsed is kept for backwards compatibility (delegates to updateInvitation "delete" action)
 
 // Utility Functions
 export { fixEmptyUserDocument } from "./utils/fixEmptyUserDocument";
@@ -135,15 +139,20 @@ export { getLegalConfig, recordLegalAcceptance } from "./legal/legalFunctions";
 
 // LOK-stöd / RF Integration Functions
 export {
-    getPersonnummerStatus, removePersonnummer, storePersonnummer
+    getPersonnummerStatus,
+    removePersonnummer,
+    storePersonnummer
 } from "./lok/encryptPersonnummer";
 export { generateKommunExport } from "./lok/kommunExport";
 export {
-    deleteLokReport, generateLokReport,
+    deleteLokReport,
+    generateLokReport,
     getLokReport,
     listLokReports
 } from "./lok/lokReportService";
 export {
-    checkRfApiStatus, submitLokReportToRf, updateClubRfSettings
+    checkRfApiStatus,
+    submitLokReportToRf,
+    updateClubRfSettings
 } from "./lok/rfApiService";
 
