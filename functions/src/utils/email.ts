@@ -118,15 +118,29 @@ const emailWrapper = (content: string) => `
 // =======================================================
 // EMAIL TRANSPORTER
 // =======================================================
-export const emailTransporter = nodemailer.createTransport({
-  host: config.email.host,
-  port: config.email.port,
-  secure: config.email.secure,
-  auth: {
-    user: config.email.user,
-    pass: config.email.password,
-  },
-});
+
+// In emulator mode, use a no-op transporter that logs instead of sending
+const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+
+export const emailTransporter = isEmulator
+  ? ({
+      sendMail: async (mailOptions: nodemailer.SendMailOptions) => {
+        console.log(
+          `[EMULATOR] Skipping email send to: ${mailOptions.to}, ` +
+            `subject: "${mailOptions.subject}"`,
+        );
+        return { messageId: "emulator-no-op" };
+      },
+    } as unknown as nodemailer.Transporter)
+  : nodemailer.createTransport({
+      host: config.email.host,
+      port: config.email.port,
+      secure: config.email.secure,
+      auth: {
+        user: config.email.user,
+        pass: config.email.password,
+      },
+    });
 
 // =======================================================
 // GROUP INVITATION
