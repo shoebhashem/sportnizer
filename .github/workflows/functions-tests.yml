@@ -92,10 +92,19 @@ jobs:
             console.log('');
 
             for (const suite of results.testResults) {
-              const failures = suite.testResults.filter(t => t.status === 'failed');
+              const tests = suite.testResults || [];
+              const failures = tests.filter(t => t.status === 'failed');
+              const suiteName = tests[0]?.ancestorTitles?.[0] || suite.name.split('/').pop();
+
+              if (suite.status === 'failed' && failures.length === 0) {
+                console.log('Suite: ' + suiteName + ' (crashed during setup)');
+                const msg = suite.message || 'Unknown error';
+                console.log('  ✗ ' + msg.split('\\n').slice(0, 6).join('\\n    '));
+                console.log('');
+                continue;
+              }
               if (failures.length === 0) continue;
 
-              const suiteName = suite.testResults[0]?.ancestorTitles?.[0] || suite.name.split('/').pop();
               console.log('Suite: ' + suiteName);
               for (const t of failures) {
                 const testName = t.ancestorTitles.slice(1).concat(t.title).join(' > ');
@@ -119,9 +128,16 @@ jobs:
             summary.push('| Suite | Test | Error |');
             summary.push('|-------|------|-------|');
             for (const suite of results.testResults) {
-              const failures = suite.testResults.filter(t => t.status === 'failed');
+              const tests = suite.testResults || [];
+              const failures = tests.filter(t => t.status === 'failed');
+              const suiteName = tests[0]?.ancestorTitles?.[0] || suite.name.split('/').pop();
+
+              if (suite.status === 'failed' && failures.length === 0) {
+                const msg = (suite.message || 'Crashed during setup').split('\\n')[0].substring(0, 120);
+                summary.push('| ' + suiteName + ' | _(suite crashed)_ | ' + msg.replace(/\|/g, '\\\\|') + ' |');
+                continue;
+              }
               if (failures.length === 0) continue;
-              const suiteName = suite.testResults[0]?.ancestorTitles?.[0] || suite.name.split('/').pop();
               for (const t of failures) {
                 const testName = t.ancestorTitles.slice(1).concat(t.title).join(' > ');
                 const errorLine = t.failureMessages[0]?.split('\\n').find(l => l.includes('Expected') || l.includes('Received') || l.includes('Error') || l.trim().length > 0) || 'See logs';
