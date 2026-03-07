@@ -1015,10 +1015,11 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 
 #### TC-G5: Remove guardian (only role) → mark inactive
 
-| ✅ Assertion             | Expected             |
-| ------------------------ | -------------------- |
-| `guardianMarkedInactive` | `true`               |
-| Guardian club member     | `isActive === false` |
+| ✅ Assertion             | Expected                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| `guardianMarkedInactive` | `true`                                                                                 |
+| Guardian club member     | `isActive === false`                                                                   |
+| Guardian `clubAccess`    | Entry exists with `isActive === false`, `inactiveSince` and `scheduledForDeletion` set |
 
 #### TC-G6: Remove guardian role, keep player role
 
@@ -1075,14 +1076,26 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | 1    | Setup club + group + youth. Pre-seed guardian2 as inactive club member |
 | 2    | Call `addGuardianToYouth` for the inactive guardian2                   |
 
-| ✅ Document Checked                 | Field(s) Asserted                                                         |
-| ----------------------------------- | ------------------------------------------------------------------------- |
-| `clubs/{clubId}/allMembers/members` | Guardian2 `isActive === true`, `roles` includes `"guardian"`              |
-| `clubs/{clubId}/allMembers/members` | Guardian2 `inactiveSince` and `scheduledForDeletion` are `null` (cleared) |
+| ✅ Document Checked                 | Field(s) Asserted                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `clubs/{clubId}/allMembers/members` | Guardian2 `isActive === true`, `roles` includes `"guardian"`                                      |
+| `clubs/{clubId}/allMembers/members` | Guardian2 `inactiveSince` and `scheduledForDeletion` are `null` (cleared)                         |
+| `users/{guardian2Uid}`              | `clubAccess` entry has `isActive === true`, `inactiveSince` and `scheduledForDeletion` are `null` |
 
 #### TC-G14: Remove guardian not linked to youth → `not-found`
 
 > Attempting to remove a guardian who is not in the youth's guardians array should return `not-found`.
+
+#### TC-G15: Full guardian add → remove → re-add roundtrip
+
+> End-to-end roundtrip verifying `clubAccess` consistency at every stage.
+> Catches the class of bug where removal deletes data that re-add cannot restore.
+
+| Phase  | Action                                           | `clubAccess` state                       | Club member state                      |
+| ------ | ------------------------------------------------ | ---------------------------------------- | -------------------------------------- |
+| Add    | `addGuardianToYouth` (new guardian, not in club) | Entry created, active                    | Added, `isActive: true`                |
+| Remove | `removeGuardianFromYouth` (only role)            | `isActive: false`, `inactiveSince` set   | `isActive: false`                      |
+| Re-add | `addGuardianToYouth` (reactivation)              | `isActive: true`, inactive fields `null` | `isActive: true`, roles `["guardian"]` |
 
 ---
 
@@ -1095,8 +1108,8 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | C. Remove Member               | `remove-member-flows.test.ts`           | 7      |
 | D. Subgroup Members            | `subgroup-member-flows.test.ts`         | 3      |
 | E. CRUD Lifecycle              | `crud-lifecycle.test.ts`                | 12     |
-| G. Guardian Flows              | `guardian-flows.test.ts`                | 14     |
-| **Total new**                  |                                         | **50** |
+| G. Guardian Flows              | `guardian-flows.test.ts`                | 15     |
+| **Total new**                  |                                         | **51** |
 
 ### Implementation Priority
 

@@ -280,10 +280,7 @@ export default function ProfileScreen() {
     setCurrentPhotoURL(newImageUrl);
     // Refresh user profile so the tab bar avatar also updates
     await refreshUserProfile();
-    showAlert(
-      "Success",
-      "Profile picture uploaded! It may take a moment to appear everywhere.",
-    );
+    showAlert(t("common:success"), t("screens:profile.profilePictureUploaded"));
   };
 
   // ----- Sign Out -----

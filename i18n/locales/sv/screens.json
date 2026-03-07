@@ -165,7 +165,7 @@
     "clubs": "Mina klubbar",
     "noClubs": "Inga klubbar ännu",
     "signOutConfirmation": "Är du säker på att du vill logga ut?",
-    "profilePictureUploaded": "Profilbilden laddades upp! Det kan ta en stund innan den visas överallt.",
+    "profilePictureUploaded": "Profilbilden laddades upp! Det kan ta en stund innan den visas överallt. Logga ut och in igen för att uppdatera snabbare.",
     "legal": "Juridisk information",
     "tapToChangePicture": "Tryck för att byta bild",
     "name": "Namn",

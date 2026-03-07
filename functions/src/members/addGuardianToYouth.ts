@@ -383,6 +383,49 @@ export const addGuardianToYouth = onCall(
           memberCount: members.filter((m: any) => m.isActive !== false).length,
         });
         console.log(`✅ Reactivated guardian in club with guardian role`);
+
+        // Also restore guardian's clubAccess entry on user doc
+        const guardianClubAccess = guardianData.clubAccess || [];
+        const existingClubAccessEntry = guardianClubAccess.find(
+          (ca: any) => ca.clubId === clubId,
+        );
+
+        if (existingClubAccessEntry) {
+          // Reactivate the inactive clubAccess entry
+          existingClubAccessEntry.isActive = true;
+          existingClubAccessEntry.inactiveSince = null;
+          existingClubAccessEntry.scheduledForDeletion = null;
+          existingClubAccessEntry.lastModifiedAt = new Date();
+
+          await guardianRef.update({
+            clubAccess: guardianClubAccess,
+            version: FieldValue.increment(1),
+            lastModified: FieldValue.serverTimestamp(),
+          });
+          console.log(`✅ Reactivated guardian's clubAccess entry`);
+        } else {
+          // Defensive fallback: entry missing entirely — create a fresh one
+          const youthClubEntry = (youthData.clubAccess || []).find(
+            (ca: any) => ca.clubId === clubId,
+          );
+          const guardianClubInfo = {
+            clubId,
+            clubName: youthClubEntry?.clubName || "",
+            role: "member",
+            joinedAt: new Date(),
+            lastModifiedAt: new Date(),
+            groupAccess: [],
+          };
+
+          await guardianRef.update({
+            clubAccess: FieldValue.arrayUnion(guardianClubInfo),
+            version: FieldValue.increment(1),
+            lastModified: FieldValue.serverTimestamp(),
+          });
+          console.log(
+            `✅ Created fresh clubAccess entry for guardian (fallback)`,
+          );
+        }
       }
 
       console.log(

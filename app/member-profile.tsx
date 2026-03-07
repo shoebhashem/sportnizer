@@ -146,10 +146,7 @@ export default function MemberProfileScreen() {
 
   const handleImageUploadSuccess = (newImageUrl: string) => {
     setCurrentPhotoURL(newImageUrl);
-    showAlert(
-      t("common:success"),
-      "Profile picture uploaded! It may take a moment to appear everywhere.",
-    );
+    showAlert(t("common:success"), t("screens:profile.profilePictureUploaded"));
   };
 
   if (loading) {

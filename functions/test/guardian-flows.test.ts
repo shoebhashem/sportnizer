@@ -614,7 +614,7 @@ describe("Suite G: Guardian Management Flows", () => {
       },
     });
 
-    // Seed guardian dependents
+    // Seed guardian dependents + clubAccess (so removeGuardianFromYouth can mark it inactive)
     await seedUserDocument(guardian.uid, {
       dependents: [
         {
@@ -624,6 +624,16 @@ describe("Suite G: Guardian Management Flows", () => {
           relationship: "parent",
           addedAt: new Date(),
           clubAccess: [{ clubId, clubName: "Test Club" }],
+        },
+      ],
+      clubAccess: [
+        {
+          clubId,
+          clubName: "Test Club",
+          role: "member",
+          joinedAt: new Date(),
+          lastModifiedAt: new Date(),
+          groupAccess: [],
         },
       ],
     });
@@ -647,10 +657,18 @@ describe("Suite G: Guardian Management Flows", () => {
     const guardianMember = (clubMembers?.members || []).find(
       (m: any) => m.userId === guardian.uid,
     );
-    // Either removed or marked inactive
-    if (guardianMember) {
-      expect(guardianMember.isActive).toBe(false);
-    }
+    expect(guardianMember).toBeDefined();
+    expect(guardianMember.isActive).toBe(false);
+
+    // VERIFY: Guardian's clubAccess entry is marked inactive (NOT deleted)
+    const guardianDoc = await getDocument(`users/${guardian.uid}`);
+    const clubAccessEntry = (guardianDoc?.clubAccess || []).find(
+      (ca: any) => ca.clubId === clubId,
+    );
+    expect(clubAccessEntry).toBeDefined();
+    expect(clubAccessEntry.isActive).toBe(false);
+    expect(clubAccessEntry.inactiveSince).toBeDefined();
+    expect(clubAccessEntry.scheduledForDeletion).toBeDefined();
   });
 
   // -----------------------------------------------------------------
@@ -1266,6 +1284,24 @@ describe("Suite G: Guardian Management Flows", () => {
         .length,
     });
 
+    // Also seed guardian2's user doc with an inactive clubAccess entry
+    // (matches what removeGuardianFromYouth now writes)
+    await seedUserDocument(guardian2.uid, {
+      clubAccess: [
+        {
+          clubId,
+          clubName: "Test Club",
+          role: "member",
+          joinedAt: new Date(),
+          lastModifiedAt: new Date(),
+          groupAccess: [],
+          isActive: false,
+          inactiveSince: new Date(),
+          scheduledForDeletion: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      ],
+    });
+
     // --- ACTION: Add guardian2 to youth (should reactivate) ---
     const result = await callFunction<{ success: boolean }>(
       "addGuardianToYouth",
@@ -1293,6 +1329,17 @@ describe("Suite G: Guardian Management Flows", () => {
     // inactiveSince and scheduledForDeletion should be cleared
     expect(g2ClubMember.inactiveSince).toBeNull();
     expect(g2ClubMember.scheduledForDeletion).toBeNull();
+
+    // VERIFY: Guardian2's clubAccess entry is also reactivated
+    const g2UserDoc = await getDocument(`users/${guardian2.uid}`);
+    expect(g2UserDoc).toBeDefined();
+    const g2ClubAccess = (g2UserDoc?.clubAccess || []).find(
+      (ca: any) => ca.clubId === clubId,
+    );
+    expect(g2ClubAccess).toBeDefined();
+    expect(g2ClubAccess.isActive).toBe(true);
+    expect(g2ClubAccess.inactiveSince).toBeNull();
+    expect(g2ClubAccess.scheduledForDeletion).toBeNull();
   });
 
   // -----------------------------------------------------------------
@@ -1350,5 +1397,159 @@ describe("Suite G: Guardian Management Flows", () => {
       },
       "not-found",
     );
+  });
+
+  // -----------------------------------------------------------------
+  // TC-G15: Full guardian roundtrip — add → remove → re-add
+  //         Verifies clubAccess consistency at every stage
+  // -----------------------------------------------------------------
+  it("TC-G15: should maintain clubAccess consistency through add/remove/re-add cycle", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    const guardian = await createFullTestUser({
+      email: `guardian_${Date.now()}@test.com`,
+      displayName: "Guardian Parent",
+    });
+
+    const youthUid = await setupYouthInClubAndGroup(
+      admin,
+      guardian,
+      clubId,
+      groupId,
+    );
+
+    // Seed youth with initial guardian + clubAccess (needed by addGuardianToYouth)
+    await seedUserDocument(youthUid, {
+      guardians: [
+        {
+          guardianUid: guardian.uid,
+          guardianName: "Guardian Parent",
+          guardianEmail: guardian.email,
+          relationship: "parent",
+          addedAt: new Date(),
+          canManage: true,
+        },
+      ],
+      clubAccess: [
+        {
+          clubId,
+          clubName: "Test Club",
+          role: "member",
+          joinedAt: new Date(),
+          lastModifiedAt: new Date(),
+          groupAccess: [{ groupId, roles: ["player-underage"] }],
+        },
+      ],
+    });
+
+    // Create second guardian (not in club)
+    const guardian2 = await createFullTestUser({
+      email: `guardian2_${Date.now()}@test.com`,
+      displayName: "Guardian Two",
+    });
+    await seedUserDocument(guardian2.uid, {
+      displayName: "Guardian Two",
+    });
+
+    // ========== PHASE 1: ADD guardian2 ==========
+    const addResult1 = await callFunction<{ success: boolean }>(
+      "addGuardianToYouth",
+      admin.idToken,
+      {
+        clubId,
+        groupId,
+        youthUid,
+        guardianUid: guardian2.uid,
+        guardianName: "Guardian Two",
+        guardianEmail: guardian2.email,
+        relationship: "uncle",
+      },
+    );
+    expect(addResult1.success).toBe(true);
+
+    // Verify: guardian2 has active clubAccess
+    const g2AfterAdd = await getDocument(`users/${guardian2.uid}`);
+    const caAfterAdd = (g2AfterAdd?.clubAccess || []).find(
+      (ca: any) => ca.clubId === clubId,
+    );
+    expect(caAfterAdd).toBeDefined();
+    // clubAccess should NOT have isActive === false
+    expect(caAfterAdd.isActive).not.toBe(false);
+
+    // Verify: guardian2 is active in club member list
+    const cm1 = await getDocument(`clubs/${clubId}/allMembers/members`);
+    const g2cm1 = (cm1?.members || []).find(
+      (m: any) => m.userId === guardian2.uid,
+    );
+    expect(g2cm1).toBeDefined();
+    expect(g2cm1.isActive).not.toBe(false);
+    expect(g2cm1.roles).toContain("guardian");
+
+    // ========== PHASE 2: REMOVE guardian2 ==========
+    const removeResult = await callFunction<{
+      success: boolean;
+      guardianMarkedInactive: boolean;
+    }>("removeGuardianFromYouth", admin.idToken, {
+      clubId,
+      groupId,
+      youthUid,
+      guardianUid: guardian2.uid,
+    });
+    expect(removeResult.success).toBe(true);
+    expect(removeResult.guardianMarkedInactive).toBe(true);
+
+    // Verify: guardian2 clubAccess is INACTIVE (not deleted)
+    const g2AfterRemove = await getDocument(`users/${guardian2.uid}`);
+    const caAfterRemove = (g2AfterRemove?.clubAccess || []).find(
+      (ca: any) => ca.clubId === clubId,
+    );
+    expect(caAfterRemove).toBeDefined(); // Entry still exists!
+    expect(caAfterRemove.isActive).toBe(false);
+    expect(caAfterRemove.inactiveSince).toBeDefined();
+
+    // Verify: guardian2 is inactive in club member list
+    const cm2 = await getDocument(`clubs/${clubId}/allMembers/members`);
+    const g2cm2 = (cm2?.members || []).find(
+      (m: any) => m.userId === guardian2.uid,
+    );
+    expect(g2cm2).toBeDefined();
+    expect(g2cm2.isActive).toBe(false);
+
+    // ========== PHASE 3: RE-ADD guardian2 ==========
+    const addResult2 = await callFunction<{ success: boolean }>(
+      "addGuardianToYouth",
+      admin.idToken,
+      {
+        clubId,
+        groupId,
+        youthUid,
+        guardianUid: guardian2.uid,
+        guardianName: "Guardian Two",
+        guardianEmail: guardian2.email,
+        relationship: "uncle",
+      },
+    );
+    expect(addResult2.success).toBe(true);
+
+    // Verify: guardian2 clubAccess is ACTIVE again
+    const g2AfterReAdd = await getDocument(`users/${guardian2.uid}`);
+    const caAfterReAdd = (g2AfterReAdd?.clubAccess || []).find(
+      (ca: any) => ca.clubId === clubId,
+    );
+    expect(caAfterReAdd).toBeDefined();
+    expect(caAfterReAdd.isActive).toBe(true);
+    expect(caAfterReAdd.inactiveSince).toBeNull();
+    expect(caAfterReAdd.scheduledForDeletion).toBeNull();
+
+    // Verify: guardian2 is active again in club member list
+    const cm3 = await getDocument(`clubs/${clubId}/allMembers/members`);
+    const g2cm3 = (cm3?.members || []).find(
+      (m: any) => m.userId === guardian2.uid,
+    );
+    expect(g2cm3).toBeDefined();
+    expect(g2cm3.isActive).toBe(true);
+    expect(g2cm3.roles).toContain("guardian");
+    expect(g2cm3.inactiveSince).toBeNull();
+    expect(g2cm3.scheduledForDeletion).toBeNull();
   });
 });

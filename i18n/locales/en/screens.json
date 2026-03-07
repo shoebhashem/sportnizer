@@ -161,7 +161,7 @@
     "clubs": "My Clubs",
     "noClubs": "No clubs yet",
     "signOutConfirmation": "Are you sure you want to sign out?",
-    "profilePictureUploaded": "Profile picture uploaded! It may take a moment to appear everywhere.",
+    "profilePictureUploaded": "Profile picture uploaded! It may take a moment to appear everywhere. Signing out and back in can help refresh it faster.",
     "legal": "Legal",
     "tapToChangePicture": "Tap to change picture",
     "name": "Name",

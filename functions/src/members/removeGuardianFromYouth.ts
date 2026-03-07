@@ -284,21 +284,29 @@ export const removeGuardianFromYouth = onCall(
           });
           console.log(`✅ Removed youth from guardian's dependents[]`);
 
-          // 9. If guardian was marked inactive in club, also update user doc
+          // 9. If guardian was marked inactive in club, mark clubAccess entry inactive too
+          //    (keep the entry so reactivation can restore it — consistent with inactive pattern)
           if (guardianMarkedInactive) {
-            // Remove the club from guardian's clubAccess
             const guardianClubAccess = guardianData.clubAccess || [];
-            const updatedClubAccess = guardianClubAccess.filter(
-              (ca: any) => ca.clubId !== clubId,
+            const clubEntry = guardianClubAccess.find(
+              (ca: any) => ca.clubId === clubId,
             );
 
+            if (clubEntry) {
+              clubEntry.isActive = false;
+              clubEntry.inactiveSince = new Date();
+              clubEntry.scheduledForDeletion = new Date(
+                Date.now() + 30 * 24 * 60 * 60 * 1000,
+              );
+            }
+
             await guardianRef.update({
-              clubAccess: updatedClubAccess,
+              clubAccess: guardianClubAccess,
               version: FieldValue.increment(1),
               lastModified: FieldValue.serverTimestamp(),
             });
             console.log(
-              `✅ Removed club from guardian's clubAccess (no more roles)`,
+              `✅ Marked clubAccess entry inactive for guardian (no more roles)`,
             );
           }
 
