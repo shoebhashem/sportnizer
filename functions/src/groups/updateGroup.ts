@@ -2,7 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
-import { isGroupAdminOrCoach } from "../utils/roleValidation";
+import { isGroupAdmin } from "../utils/roleValidation";
 import { validateRequiredFields } from "../utils/validation";
 
 export const updateGroup = onCall(
@@ -32,8 +32,8 @@ export const updateGroup = onCall(
         throw new HttpsError("not-found", "Group not found");
       }
 
-      // Check permission via user's clubAccess → groupAccess → roles
-      const hasPermission = await isGroupAdminOrCoach(
+      // Check permission: club-admin or group admin only (not coach)
+      const hasPermission = await isGroupAdmin(
         request.auth.uid,
         clubId,
         groupId,
@@ -41,7 +41,7 @@ export const updateGroup = onCall(
       if (!hasPermission) {
         throw new HttpsError(
           "permission-denied",
-          "Only group admins or coaches can update group details",
+          "Only club admins or group admins can update group details",
         );
       }
 
@@ -54,8 +54,11 @@ export const updateGroup = onCall(
       if (groupData.name) updateData.name = groupData.name.trim();
       if (groupData.description !== undefined)
         updateData.description = groupData.description;
+      if (groupData.sport !== undefined) updateData.sport = groupData.sport;
       if (groupData.ageRange !== undefined)
         updateData.ageRange = groupData.ageRange;
+      if (groupData.pictureUrl !== undefined)
+        updateData.pictureUrl = groupData.pictureUrl;
 
       await groupRef.update(updateData);
 

@@ -20,6 +20,7 @@ import EventCard from "../../components/EventCard";
 import InvitationModal from "../../components/InvitationModal";
 import PaymentCard from "../../components/PaymentCard";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDataCache } from "../../contexts/DataCacheContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useUser } from "../../contexts/UserContext";
 import { getCurrentUser } from "../../services/auth/authService";
@@ -56,6 +57,7 @@ export default function Index() {
   const { t } = useTranslation(["screens", "common"]);
   const { user } = useAuth();
   const { userProfile } = useUser();
+  const cache = useDataCache();
   const {
     events: contextEvents,
     refreshEvents,
@@ -157,7 +159,7 @@ export default function Index() {
       await Promise.all(
         userProfile.clubAccess.map(async (club) => {
           try {
-            const result = await clubService.getClub(club.clubId);
+            const result = await clubService.getClub(club.clubId, cache);
             if (result.success && result.data?.logoUrl) {
               logos[club.clubId] = result.data.logoUrl;
             } else {
@@ -174,7 +176,7 @@ export default function Index() {
     };
 
     fetchClubLogos();
-  }, [userProfile?.clubAccess]);
+  }, [userProfile?.clubAccess, cache]);
 
   const loadInvitations = useCallback(async () => {
     try {
@@ -649,7 +651,10 @@ export default function Index() {
   };
 
   const handleModalClose = () => {
-    setModal({ ...modal, visible: false });
+    setModal((prev) => ({ ...prev, visible: false }));
+    // Defensively ensure invitation modal stays closed after success/error modal dismissal
+    setIsInviteModalVisible(false);
+    setCurrentInvite(null);
   };
 
   // Handle invitation click from notification bell

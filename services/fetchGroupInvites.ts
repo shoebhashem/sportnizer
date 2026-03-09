@@ -98,7 +98,14 @@ export const fetchGroupInvites = async (
 
       // Only include pending invitations for existing users
       // Now includes youth invitations - guardians need to see and accept these via modal
-      if (inviteData.status === "pending") {
+      // Defence-in-depth: skip invitations where isExistingUser === false
+      // These are email-only invitations for users who haven't signed up yet.
+      // If a stale invitation from a pre-signup invite survives, this filter
+      // prevents it from showing as an in-app notification after the user signs up.
+      if (
+        inviteData.status === "pending" &&
+        inviteData.isExistingUser !== false
+      ) {
         allInvites.push({
           inviteId: doc.id, // Use document ID as invitation token
           groupId: inviteData.groupId,

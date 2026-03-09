@@ -23,6 +23,7 @@ export type NotificationType =
   | "youth_member_invitation"
   | "announcement"
   | "event"
+  | "news"
   | "poll"
   | "role_changed"
   | "member_joined"

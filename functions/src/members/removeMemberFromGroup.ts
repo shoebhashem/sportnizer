@@ -403,11 +403,15 @@ export const removeMemberFromGroup = onCall(
                             false;
                           guardianClubAccess[guardianClubIndex].inactiveSince =
                             new Date();
+                          guardianClubAccess[
+                            guardianClubIndex
+                          ].scheduledForDeletion = new Date(
+                            Date.now() + 30 * 24 * 60 * 60 * 1000,
+                          ); // 30 days
 
                           await guardianUserRef.update({
                             clubAccess: guardianClubAccess,
-                            lastModifiedAt:
-                              FieldValue.serverTimestamp(),
+                            lastModifiedAt: FieldValue.serverTimestamp(),
                           });
 
                           console.log(
@@ -551,8 +555,7 @@ export const removeMemberFromGroup = onCall(
                       await guardianRef.update({
                         dependents: dependents,
                         version: FieldValue.increment(1),
-                        lastModified:
-                          FieldValue.serverTimestamp(),
+                        lastModified: FieldValue.serverTimestamp(),
                       });
 
                       console.log(
@@ -626,11 +629,13 @@ export const removeMemberFromGroup = onCall(
                   if (clubIndex >= 0) {
                     clubAccess[clubIndex].isActive = false;
                     clubAccess[clubIndex].inactiveSince = new Date();
+                    clubAccess[clubIndex].scheduledForDeletion = new Date(
+                      Date.now() + 30 * 24 * 60 * 60 * 1000,
+                    ); // 30 days
 
                     await userRef.update({
                       clubAccess,
-                      lastModifiedAt:
-                        FieldValue.serverTimestamp(),
+                      lastModifiedAt: FieldValue.serverTimestamp(),
                     });
 
                     console.log(

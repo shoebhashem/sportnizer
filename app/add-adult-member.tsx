@@ -48,6 +48,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Role Configuration
@@ -78,7 +79,7 @@ const roleConfigs: Record<RoleType, RoleConfig> = {
     title: "Add Coach",
     subtitle: "Invite coaches to join",
     infoText:
-      "Invite coaches to join this group. Existing members will have their role updated, new users will receive coach invitations.",
+      "Enter email addresses to invite coaches. Existing Clubnizer users will receive in-app notifications, while new users will get email invitations.",
     roleLabel: "coach",
     pluralLabel: "coaches",
     icon: "people",
@@ -87,7 +88,7 @@ const roleConfigs: Record<RoleType, RoleConfig> = {
     title: "Add Admin",
     subtitle: "Invite admins to join",
     infoText:
-      "Invite administrators to manage this group. Admins can add/remove members, create events, and manage group settings.",
+      "Enter email addresses to invite admins. Existing Clubnizer users will receive in-app notifications, while new users will get email invitations.",
     roleLabel: "admin",
     pluralLabel: "admins",
     icon: "shield",
@@ -96,7 +97,7 @@ const roleConfigs: Record<RoleType, RoleConfig> = {
     title: "Add Club Admin",
     subtitle: "Invite club administrators",
     infoText:
-      "Invite administrators to manage this entire club. Club admins can manage all groups, create events, and control club settings.",
+      "Enter email addresses to invite club administrators. Existing Clubnizer users will receive in-app notifications, while new users will get email invitations.",
     roleLabel: "club administrator",
     pluralLabel: "club administrators",
     icon: "shield-checkmark",
@@ -126,6 +127,7 @@ export default function AddAdultMemberScreen() {
   const memberRole = (role as RoleType) || "player";
   const config = roleConfigs[memberRole];
   const { t } = useTranslation(["screens", "common"]);
+  const insets = useSafeAreaInsets();
 
   const infoTextKeys: Record<RoleType, string> = {
     player: "playerInfoText",
@@ -581,7 +583,7 @@ export default function AddAdultMemberScreen() {
    * MAIN RENDER FUNCTION
    */
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}

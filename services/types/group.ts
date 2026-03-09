@@ -18,6 +18,8 @@ export interface GroupData {
   createdBy: string;
   lastModifiedAt: any; // Firestore Timestamp
   version: number;
+  // Group picture
+  pictureUrl?: string; // URL of the group picture (uploaded via uploadGroupPicture CF)
   // Subscription limits
   maxMembers?: number; // Maximum members allowed in this group (default: 30)
 }

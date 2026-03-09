@@ -32,16 +32,18 @@ import { validateMemberForInvitation } from "@/services/validation/validateMembe
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import React, { useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function AddChildMemberScreen() {
   const { groupId, groupName, clubId, clubName } = useLocalSearchParams();
@@ -49,6 +51,7 @@ export default function AddChildMemberScreen() {
   const { userProfile } = useUserProfile();
   const navigation = useNavigation();
   const { t } = useTranslation(["screens", "common"]);
+  const insets = useSafeAreaInsets();
 
   // Set dynamic native header title
   useLayoutEffect(() => {
@@ -86,6 +89,10 @@ export default function AddChildMemberScreen() {
   const [modalOnConfirm, setModalOnConfirm] = useState<() => void>(
     () => () => {},
   );
+  const [modalOnCancel, setModalOnCancel] = useState<(() => void) | null>(null);
+
+  // Duplicate youth detection state
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
 
   // Debug logging
   React.useEffect(() => {
@@ -103,12 +110,14 @@ export default function AddChildMemberScreen() {
     confirmText = "OK",
     cancelText = "",
     onConfirm?: () => void,
+    onCancel?: () => void,
   ) => {
     setModalTitle(title);
     setModalMessage(message);
     setModalConfirmText(confirmText);
     setModalCancelText(cancelText);
     setModalOnConfirm(() => onConfirm || hideModal);
+    setModalOnCancel(onCancel ? () => onCancel : null);
     setModalVisible(true);
   };
 
@@ -281,6 +290,126 @@ export default function AddChildMemberScreen() {
     return true;
   };
 
+  /**
+   * Actually sends the invitation with the determined invitation type.
+   * Called directly or after duplicate detection confirmation.
+   */
+  const sendInvitation = async (
+    overrideInvitationType?: string,
+    overrideExistingYouthData?: { youthUid: string; youthName: string },
+  ) => {
+    setLoading(true);
+
+    try {
+      console.log("📤 Sending youth member invitation:", {
+        guardianEmail: guardianEmail.trim(),
+        childName: childName.trim(),
+        dateOfBirth,
+        relationship: relationship.trim(),
+        groupId,
+        clubId,
+        overrideInvitationType,
+      });
+
+      // Use the unified invitation service (same as regular member flow)
+      const { addRegularMemberToGroupService } =
+        await import("@/services/orchestration/addRegularMemberToGroup");
+
+      // Determine invitation type based on context
+      let invitationType: string;
+      if (overrideInvitationType) {
+        invitationType = overrideInvitationType;
+      } else if (selectedExistingYouth) {
+        invitationType = "youth_member_existing";
+      } else {
+        invitationType = "youth_member";
+      }
+
+      const invitationData: any = {
+        emails: [guardianEmail.trim().toLowerCase()],
+        clubId: clubId as string,
+        clubName: clubName as string,
+        groupId: groupId as string,
+        groupName: groupName as string,
+        inviterName:
+          userProfile?.displayName ||
+          user?.displayName ||
+          "A club administrator",
+        inviterUid: user!.uid,
+        invitationType: invitationType,
+        role: "player-underage",
+      };
+
+      // Add youth data based on type
+      if (overrideExistingYouthData) {
+        // Duplicate detection confirmed: use existing youth data
+        invitationData.existingYouthData = overrideExistingYouthData;
+      } else if (selectedExistingYouth) {
+        invitationData.existingYouthData = {
+          youthUid: selectedExistingYouth.youthUid,
+          youthName: selectedExistingYouth.youthName,
+        };
+      } else {
+        invitationData.youthData = {
+          childName: childName.trim(),
+          dateOfBirth: dateOfBirth,
+          relationship: relationship.trim(),
+        };
+      }
+
+      const result =
+        await addRegularMemberToGroupService.inviteUsersToGroup(invitationData);
+
+      console.log("📧 Youth invitation result:", result);
+
+      if (result.success && result.results && result.results.length > 0) {
+        const inviteResult = result.results[0];
+
+        if (inviteResult.success) {
+          const youthName =
+            overrideExistingYouthData?.youthName || childName.trim();
+          const isExisting = inviteResult.action === "in_app_notification";
+          const successMessage = isExisting
+            ? `✅ Guardian Notified!\n\nAn in-app notification has been sent to ${guardianEmail.trim()}.\n\nThey will be able to add ${youthName} to ${groupName} from their notifications.`
+            : `✅ Invitation Sent!\n\nAn email invitation has been sent to ${guardianEmail.trim()}.\n\nThey will receive instructions to add ${youthName} to ${groupName}.`;
+
+          showModal(
+            t("common:success"),
+            successMessage,
+            t("screens:addChildMember.sendAnother"),
+            t("common:done"),
+            () => {
+              // "Send Another" button - Reset form and hide modal
+              hideModal();
+              setGuardianEmail("");
+              setChildName("");
+              setDateOfBirth("");
+              setRelationship("Parent");
+            },
+          );
+        } else {
+          showModal(
+            t("common:error"),
+            inviteResult.error || "Failed to send invitation",
+          );
+        }
+      } else {
+        showModal(
+          t("common:error"),
+          result.error || "Failed to send invitation",
+        );
+      }
+    } catch (error: any) {
+      console.error("❌ Error sending youth member invitation:", error);
+      showModal(
+        t("common:error"),
+        error.message || "An unexpected error occurred. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSendInvitation = async () => {
     if (!validateForm()) return;
 
@@ -349,105 +478,98 @@ export default function AddChildMemberScreen() {
       }
     }
 
-    setLoading(true);
-
-    try {
-      console.log("📤 Sending youth member invitation:", {
-        guardianEmail: guardianEmail.trim(),
-        childName: childName.trim(),
-        dateOfBirth,
-        relationship: relationship.trim(),
-        groupId,
-        clubId,
-      });
-
-      // Use the unified invitation service (same as regular member flow)
-      const { addRegularMemberToGroupService } =
-        await import("@/services/orchestration/addRegularMemberToGroup");
-
-      // Determine invitation type based on whether youth is existing or new
-      const invitationType = selectedExistingYouth
-        ? "youth_member_existing"
-        : "youth_member";
-
-      const invitationData: any = {
-        emails: [guardianEmail.trim().toLowerCase()],
-        clubId: clubId as string,
-        clubName: clubName as string,
-        groupId: groupId as string,
-        groupName: groupName as string,
-        inviterName:
-          userProfile?.displayName ||
-          user?.displayName ||
-          "A club administrator",
-        inviterUid: user.uid,
-        invitationType: invitationType,
-        role: "player-underage",
-      };
-
-      // Add youth data based on type
-      if (selectedExistingYouth) {
-        invitationData.existingYouthData = {
-          youthUid: selectedExistingYouth.youthUid,
-          youthName: selectedExistingYouth.youthName,
-        };
-      } else {
-        invitationData.youthData = {
+    // 🔍 DUPLICATE YOUTH DETECTION: For new youth only (not existing youth selection)
+    if (!selectedExistingYouth && childName.trim() && dateOfBirth.trim()) {
+      setCheckingDuplicates(true);
+      try {
+        const functions = getFunctions(undefined, "europe-north1");
+        const checkExistingYouthFn = httpsCallable(
+          functions,
+          "checkExistingYouthByNameAndDob",
+        );
+        const checkResult = await checkExistingYouthFn({
           childName: childName.trim(),
-          dateOfBirth: dateOfBirth,
-          relationship: relationship.trim(),
+          dateOfBirth: dateOfBirth.trim(),
+          clubId: clubId as string,
+        });
+
+        const checkData = checkResult.data as {
+          success: boolean;
+          found: boolean;
+          youthUid?: string;
+          youthName?: string;
+          guardians?: { guardianName: string; guardianEmail: string }[];
+          currentGroups?: {
+            groupId: string;
+            groupName: string;
+            clubName: string;
+          }[];
         };
-      }
 
-      const result =
-        await addRegularMemberToGroupService.inviteUsersToGroup(invitationData);
+        if (checkData.success && checkData.found && checkData.youthUid) {
+          console.log(
+            "🔍 Duplicate youth detected:",
+            checkData.youthName,
+            "in groups:",
+            checkData.currentGroups,
+          );
 
-      console.log("📧 Youth invitation result:", result);
+          setCheckingDuplicates(false);
 
-      if (result.success && result.results && result.results.length > 0) {
-        const inviteResult = result.results[0];
+          // Build the confirmation message with group and guardian info
+          const groupNames =
+            checkData.currentGroups?.map((g) => g.groupName).join(", ") ||
+            t("common:unknown");
+          const guardianNames =
+            checkData.guardians?.map((g) => g.guardianName).join(", ") ||
+            t("common:unknown");
 
-        if (inviteResult.success) {
-          const isExisting = inviteResult.action === "in_app_notification";
-          const successMessage = isExisting
-            ? `✅ Guardian Notified!\n\nAn in-app notification has been sent to ${guardianEmail.trim()}.\n\nThey will be able to add ${childName.trim()} to ${groupName} from their notifications.`
-            : `✅ Invitation Sent!\n\nAn email invitation has been sent to ${guardianEmail.trim()}.\n\nThey will receive instructions to add ${childName.trim()} to ${groupName}.`;
+          const detectedYouthData = {
+            youthUid: checkData.youthUid,
+            youthName: checkData.youthName || childName.trim(),
+            guardians: checkData.guardians || [],
+            currentGroups: checkData.currentGroups || [],
+          };
 
+          // Show confirmation modal
           showModal(
-            t("common:success"),
-            successMessage,
-            t("screens:addChildMember.sendAnother"),
-            t("common:done"),
+            t("screens:addChildMember.existingYouthDetected"),
+            t("screens:addChildMember.existingYouthDetectedMessage", {
+              youthName: checkData.youthName || childName.trim(),
+              groupName: groupNames,
+              guardianName: guardianNames,
+            }),
+            t("screens:addChildMember.confirmSamePlayer"),
+            t("screens:addChildMember.notSamePlayer"),
+            // "Yes, same player" → send with youth_existing_new_guardian type
             () => {
-              // "Send Another" button - Reset form and hide modal
               hideModal();
-              setGuardianEmail("");
-              setChildName("");
-              setDateOfBirth("");
-              setRelationship("Parent");
+              sendInvitation("youth_existing_new_guardian", {
+                youthUid: detectedYouthData.youthUid,
+                youthName: detectedYouthData.youthName,
+              });
+            },
+            // "No, different player" → proceed with normal youth_member type
+            () => {
+              hideModal();
+              sendInvitation();
             },
           );
-        } else {
-          showModal(
-            t("common:error"),
-            inviteResult.error || "Failed to send invitation",
-          );
+          return;
         }
-      } else {
-        showModal(
-          t("common:error"),
-          result.error || "Failed to send invitation",
+      } catch (error) {
+        console.warn(
+          "⚠️ Duplicate check failed, proceeding with invitation:",
+          error,
         );
+        // Non-blocking: continue with invitation if check fails
+      } finally {
+        setCheckingDuplicates(false);
       }
-    } catch (error: any) {
-      console.error("❌ Error sending youth member invitation:", error);
-      showModal(
-        t("common:error"),
-        error.message || "An unexpected error occurred. Please try again.",
-      );
-    } finally {
-      setLoading(false);
     }
+
+    // No duplicate found or existing youth selected — send directly
+    await sendInvitation();
   };
 
   const handleCancel = () => {
@@ -461,7 +583,7 @@ export default function AddChildMemberScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -687,12 +809,14 @@ export default function AddChildMemberScreen() {
               label={
                 loading
                   ? t("screens:addChildMember.sendingInvitation")
-                  : t("screens:addChildMember.sendInvitation")
+                  : checkingDuplicates
+                    ? t("screens:addChildMember.checkingForDuplicates")
+                    : t("screens:addChildMember.sendInvitation")
               }
               onPress={handleSendInvitation}
               theme="primary"
-              disabled={loading}
-              loading={loading}
+              disabled={loading || checkingDuplicates}
+              loading={loading || checkingDuplicates}
             />
 
             <Button
@@ -714,12 +838,14 @@ export default function AddChildMemberScreen() {
         cancelText={modalCancelText}
         onConfirm={modalOnConfirm}
         onCancel={
-          modalCancelText === t("common:done")
-            ? () => {
-                hideModal();
-                router.back();
-              }
-            : hideModal
+          modalOnCancel
+            ? modalOnCancel
+            : modalCancelText === t("common:done")
+              ? () => {
+                  hideModal();
+                  router.back();
+                }
+              : hideModal
         }
         confirmButtonTheme="primary"
       />

@@ -43,7 +43,13 @@ const getGroupMembersFn = httpsCallable<
 >(functions, "getGroupMembers");
 
 const updateGuardianDependentAccessFn = httpsCallable<
-  { youthUid: string; guardianUid: string },
+  {
+    youthUid: string;
+    guardianUid: string;
+    clubId?: string;
+    groupId?: string;
+    operation?: string;
+  },
   { success: boolean; message?: string }
 >(functions, "updateGuardianDependentAccess");
 
@@ -153,6 +159,9 @@ export async function deleteGroupService(
               updateGuardianDependentAccessFn({
                 youthUid: youth.userId,
                 guardianUid: guardian.guardianUid,
+                clubId,
+                groupId,
+                operation: "removeGroup",
               }).catch((error) => {
                 console.error(
                   `[deleteGroupService] Failed to sync guardian ${guardian.guardianUid} for youth ${youth.userId}:`,

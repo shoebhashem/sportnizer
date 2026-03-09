@@ -13,7 +13,7 @@ import {
     createFullTestUser,
     getDocument,
     getFirestore,
-    seedUserDocument
+    seedUserDocument,
 } from "./helpers";
 
 /* ------------------------------------------------------------------ */
@@ -353,6 +353,16 @@ describe("Suite C: Remove Member Flows", () => {
       userId: player.uid,
     });
 
+    // Intermediate: verify soft-delete markers on clubAccess after group removal
+    const userDocAfterGroupRemoval = await getDocument(`users/${player.uid}`);
+    const clubAccessAfterGroupRemoval = (
+      userDocAfterGroupRemoval?.clubAccess || []
+    ).find((c: any) => c.clubId === clubId);
+    expect(clubAccessAfterGroupRemoval).toBeDefined();
+    expect(clubAccessAfterGroupRemoval.isActive).toBe(false);
+    expect(clubAccessAfterGroupRemoval.inactiveSince).toBeDefined();
+    expect(clubAccessAfterGroupRemoval.scheduledForDeletion).toBeDefined();
+
     // Remove from club entirely
     await callFunction("removeMemberFromClub", admin.idToken, {
       clubId,
@@ -366,7 +376,7 @@ describe("Suite C: Remove Member Flows", () => {
     });
 
     // --- VERIFY ---
-    // Group: player removed
+    // Group: player removed (no active entry)
     const groupMembers = await getDocument(
       `clubs/${clubId}/groups/${groupId}/allMembers/members`,
     );
@@ -374,6 +384,14 @@ describe("Suite C: Remove Member Flows", () => {
       (m: any) => m.userId === player.uid && m.isActive !== false,
     );
     expect(inGroup).toBeUndefined();
+
+    // Verify inactive group member entry has soft-delete markers
+    const inGroupInactive = (groupMembers?.members || []).find(
+      (m: any) => m.userId === player.uid && m.isActive === false,
+    );
+    expect(inGroupInactive).toBeDefined();
+    expect(inGroupInactive.scheduledForDeletion).toBeDefined();
+    expect(inGroupInactive.inactiveSince).toBeDefined();
 
     // Club: player removed
     const clubMembers = await getDocument(`clubs/${clubId}/allMembers/members`);
@@ -409,6 +427,17 @@ describe("Suite C: Remove Member Flows", () => {
       groupId,
       userId: coach.uid,
     });
+
+    // Intermediate: verify soft-delete markers on clubAccess after group removal
+    const coachDocAfterGroupRemoval = await getDocument(`users/${coach.uid}`);
+    const coachClubAccessAfterGroupRemoval = (
+      coachDocAfterGroupRemoval?.clubAccess || []
+    ).find((c: any) => c.clubId === clubId);
+    expect(coachClubAccessAfterGroupRemoval).toBeDefined();
+    expect(coachClubAccessAfterGroupRemoval.isActive).toBe(false);
+    expect(coachClubAccessAfterGroupRemoval.inactiveSince).toBeDefined();
+    expect(coachClubAccessAfterGroupRemoval.scheduledForDeletion).toBeDefined();
+
     await callFunction("removeMemberFromClub", admin.idToken, {
       clubId,
       userId: coach.uid,
@@ -426,6 +455,14 @@ describe("Suite C: Remove Member Flows", () => {
       (m: any) => m.userId === coach.uid && m.isActive !== false,
     );
     expect(inGroup).toBeUndefined();
+
+    // Verify inactive group member entry has soft-delete markers
+    const coachInGroupInactive = (groupMembers?.members || []).find(
+      (m: any) => m.userId === coach.uid && m.isActive === false,
+    );
+    expect(coachInGroupInactive).toBeDefined();
+    expect(coachInGroupInactive.scheduledForDeletion).toBeDefined();
+    expect(coachInGroupInactive.inactiveSince).toBeDefined();
 
     const clubMembers = await getDocument(`clubs/${clubId}/allMembers/members`);
     const inClub = (clubMembers?.members || []).find(
@@ -459,6 +496,19 @@ describe("Suite C: Remove Member Flows", () => {
       groupId,
       userId: groupAdmin.uid,
     });
+
+    // Intermediate: verify soft-delete markers on clubAccess after group removal
+    const adminDocAfterGroupRemoval = await getDocument(
+      `users/${groupAdmin.uid}`,
+    );
+    const adminClubAccessAfterGroupRemoval = (
+      adminDocAfterGroupRemoval?.clubAccess || []
+    ).find((c: any) => c.clubId === clubId);
+    expect(adminClubAccessAfterGroupRemoval).toBeDefined();
+    expect(adminClubAccessAfterGroupRemoval.isActive).toBe(false);
+    expect(adminClubAccessAfterGroupRemoval.inactiveSince).toBeDefined();
+    expect(adminClubAccessAfterGroupRemoval.scheduledForDeletion).toBeDefined();
+
     await callFunction("removeMemberFromClub", admin.idToken, {
       clubId,
       userId: groupAdmin.uid,
@@ -476,6 +526,14 @@ describe("Suite C: Remove Member Flows", () => {
       (m: any) => m.userId === groupAdmin.uid && m.isActive !== false,
     );
     expect(inGroup).toBeUndefined();
+
+    // Verify inactive group member entry has soft-delete markers
+    const adminInGroupInactive = (groupMembers?.members || []).find(
+      (m: any) => m.userId === groupAdmin.uid && m.isActive === false,
+    );
+    expect(adminInGroupInactive).toBeDefined();
+    expect(adminInGroupInactive.scheduledForDeletion).toBeDefined();
+    expect(adminInGroupInactive.inactiveSince).toBeDefined();
 
     const clubMembers = await getDocument(`clubs/${clubId}/allMembers/members`);
     const inClub = (clubMembers?.members || []).find(
@@ -618,6 +676,17 @@ describe("Suite C: Remove Member Flows", () => {
       groupId,
       userId: youthUid,
     });
+
+    // Intermediate: verify soft-delete markers on youth clubAccess
+    const youthDocAfterGroupRemoval = await getDocument(`users/${youthUid}`);
+    const youthClubAccessAfterGroupRemoval = (
+      youthDocAfterGroupRemoval?.clubAccess || []
+    ).find((c: any) => c.clubId === clubId);
+    expect(youthClubAccessAfterGroupRemoval).toBeDefined();
+    expect(youthClubAccessAfterGroupRemoval.isActive).toBe(false);
+    expect(youthClubAccessAfterGroupRemoval.inactiveSince).toBeDefined();
+    expect(youthClubAccessAfterGroupRemoval.scheduledForDeletion).toBeDefined();
+
     await callFunction("removeMemberFromClub", admin.idToken, {
       clubId,
       userId: youthUid,
@@ -638,7 +707,7 @@ describe("Suite C: Remove Member Flows", () => {
     });
 
     // --- VERIFY ---
-    // Group: youth removed
+    // Group: youth removed (no active entry)
     const groupMembers = await getDocument(
       `clubs/${clubId}/groups/${groupId}/allMembers/members`,
     );
@@ -646,6 +715,14 @@ describe("Suite C: Remove Member Flows", () => {
       (m: any) => m.userId === youthUid && m.isActive !== false,
     );
     expect(youthInGroup).toBeUndefined();
+
+    // Verify inactive group member entry has soft-delete markers
+    const youthInGroupInactive = (groupMembers?.members || []).find(
+      (m: any) => m.userId === youthUid && m.isActive === false,
+    );
+    expect(youthInGroupInactive).toBeDefined();
+    expect(youthInGroupInactive.scheduledForDeletion).toBeDefined();
+    expect(youthInGroupInactive.inactiveSince).toBeDefined();
 
     // Club: youth removed
     const clubMembers = await getDocument(`clubs/${clubId}/allMembers/members`);

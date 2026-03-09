@@ -169,6 +169,91 @@ describe("Invitation Flows", () => {
         "internal",
       );
     });
+
+    // ─── Stale / Duplicate Invitation Prevention ───────────
+
+    it("should supersede old pending invitations for same email+group+role", async () => {
+      const { admin, clubId, groupId } = await setupClubAndGroup();
+
+      // Send first invitation
+      const result1 = await callFunction("sendGroupInvitation", admin.idToken, {
+        emails: ["duplicate@test.com"],
+        clubId,
+        clubName: "Invite Club",
+        groupId,
+        groupName: "Invite Group",
+        inviterName: "Inviter Admin",
+      });
+
+      const token1 = result1.results[0].invitationToken;
+      expect(result1.success).toBe(true);
+
+      // Verify first invitation is pending
+      const inv1Before = await getDocument(`invitations/${token1}`);
+      expect(inv1Before!.status).toBe("pending");
+
+      // Send second invitation to the same email, group, and role
+      const result2 = await callFunction("sendGroupInvitation", admin.idToken, {
+        emails: ["duplicate@test.com"],
+        clubId,
+        clubName: "Invite Club",
+        groupId,
+        groupName: "Invite Group",
+        inviterName: "Inviter Admin",
+      });
+
+      const token2 = result2.results[0].invitationToken;
+      expect(result2.success).toBe(true);
+      expect(token2).not.toBe(token1);
+
+      // Assertion 1: Old invitation is superseded
+      const oldInv = await getDocument(`invitations/${token1}`);
+      expect(oldInv).toBeDefined();
+      expect(oldInv!.status).toBe("superseded");
+      expect(oldInv!.supersededReason).toBe("new_invitation_sent");
+
+      // Assertion 2: New invitation is pending
+      const newInv = await getDocument(`invitations/${token2}`);
+      expect(newInv).toBeDefined();
+      expect(newInv!.status).toBe("pending");
+    });
+
+    it("should NOT supersede invitations with a different role", async () => {
+      const { admin, clubId, groupId } = await setupClubAndGroup();
+
+      // Send player invitation
+      const result1 = await callFunction("sendGroupInvitation", admin.idToken, {
+        emails: ["multirole@test.com"],
+        clubId,
+        clubName: "Invite Club",
+        groupId,
+        groupName: "Invite Group",
+        inviterName: "Inviter Admin",
+        role: "player",
+      });
+
+      const tokenPlayer = result1.results[0].invitationToken;
+
+      // Send coach invitation to same email + group, different role
+      const result2 = await callFunction("sendGroupInvitation", admin.idToken, {
+        emails: ["multirole@test.com"],
+        clubId,
+        clubName: "Invite Club",
+        groupId,
+        groupName: "Invite Group",
+        inviterName: "Inviter Admin",
+        role: "coach",
+      });
+
+      const tokenCoach = result2.results[0].invitationToken;
+
+      // Assertion: BOTH invitations remain pending (different roles)
+      const inv1 = await getDocument(`invitations/${tokenPlayer}`);
+      expect(inv1!.status).toBe("pending");
+
+      const inv2 = await getDocument(`invitations/${tokenCoach}`);
+      expect(inv2!.status).toBe("pending");
+    });
   });
 
   // ─── validateInvitationToken ───────────────────────────────

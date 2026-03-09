@@ -15,8 +15,8 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 188                                                           |
-| **Test suites**  | 8                                                             |
+| **Total tests**  | 273                                                           |
+| **Test suites**  | 17                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
 | **Backend**      | Firebase Emulator Suite (Auth, Firestore, Functions, Storage) |
@@ -25,17 +25,20 @@
 
 ### Test Suites
 
-| Suite                 | File                                      | Tests | Domain                                                   |
-| --------------------- | ----------------------------------------- | ----- | -------------------------------------------------------- |
-| Club Lifecycle        | `functions/test/clubs.test.ts`            | 10    | Create, get, update, delete + permissions                |
-| Group Lifecycle       | `functions/test/groups.test.ts`           | 12    | CRUD + cascade delete to subgroups                       |
-| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`        | 10    | CRUD + membership add/remove                             |
-| Members & Fees        | `functions/test/members-and-fees.test.ts` | 14    | Member roles, club roles, fee CRUD                       |
-| Events & Attendance   | `functions/test/events.test.ts`           | 23    | Event CRUD, RSVP, attendance, statistics                 |
-| Auth & User Mgmt      | `functions/test/auth.test.ts`             | 18    | Account creation, profiles, verification                 |
-| Invitation Flows      | `functions/test/invitations.test.ts`      | 19    | Send, validate, accept/reject, delete                    |
-| Guardian Flows        | `functions/test/guardian-flows.test.ts`   | 14    | Add/remove guardian, role accumulation, subgroup cascade |
-| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`  | 82    | Validation, roles, limits, LOK rules                     |
+| Suite                 | File                                               | Tests | Domain                                                                  |
+| --------------------- | -------------------------------------------------- | ----- | ----------------------------------------------------------------------- |
+| Club Lifecycle        | `functions/test/clubs.test.ts`                     | 10    | Create, get, update, delete + permissions                               |
+| Group Lifecycle       | `functions/test/groups.test.ts`                    | 12    | CRUD + cascade delete to subgroups                                      |
+| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`                 | 10    | CRUD + membership add/remove                                            |
+| Members & Fees        | `functions/test/members-and-fees.test.ts`          | 14    | Member roles, club roles, fee CRUD                                      |
+| Events & Attendance   | `functions/test/events.test.ts`                    | 23    | Event CRUD, RSVP, attendance, statistics                                |
+| Auth & User Mgmt      | `functions/test/auth.test.ts`                      | 18    | Account creation, profiles, verification                                |
+| Invitation Flows      | `functions/test/invitations.test.ts`               | 21    | Send, validate, accept/reject, delete, dedup                            |
+| Guardian Flows        | `functions/test/guardian-flows.test.ts`            | 14    | Add/remove guardian, role accumulation, subgroup cascade                |
+| Picture Uploads       | `functions/test/upload-pictures.test.ts`           | 11    | Upload club/group/profile pics + Firestore propagation                  |
+| News & Notifications  | `functions/test/news-notifications.test.ts`        | 10    | News CRUD, permissions, recipient logic, youth→guardian, role filter    |
+| Notification Side-Fx  | `functions/test/notification-side-effects.test.ts` | 6     | Event/invitation/fee/callable notification docs + auth/not-found errors |
+| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`           | 82    | Validation, roles, limits, LOK rules                                    |
 
 ---
 
@@ -336,48 +339,51 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ---
 
-### 7. Invitation Flows (`invitations.test.ts`) — 19 tests
+### 7. Invitation Flows (`invitations.test.ts`) — 21 tests
 
-#### sendGroupInvitation (6 tests)
+#### sendGroupInvitation (8 tests)
 
-| #   | Test                                       | What it verifies                                    |
-| --- | ------------------------------------------ | --------------------------------------------------- |
-| 1   | should send invitation to a new user       | Invitation doc created with token, status `pending` |
-| 2   | should send invitation to an existing user | Existing auth user gets invitation                  |
-| 3   | should handle multiple email invitations   | Multiple emails → multiple invitation docs created  |
-| 4   | should reject empty email array            | Empty array → `internal` (catch-all wrapping)       |
-| 5   | should reject missing required fields      | Missing fields → `internal` (catch-all wrapping)    |
-| 6   | should reject unauthenticated invitation   | No auth → `internal` (catch-all wrapping)           |
+| #   | Test                                       | What it verifies                                                             |
+| --- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| 1   | should send invitation to a new user       | Invitation doc created with token, status `pending`                          |
+| 2   | should send invitation to an existing user | Existing auth user gets invitation                                           |
+| 3   | should handle multiple email invitations   | Multiple emails → multiple invitation docs created                           |
+| 4   | should reject empty email array            | Empty array → `internal` (catch-all wrapping)                                |
+| 5   | should reject missing required fields      | Missing fields → `internal` (catch-all wrapping)                             |
+| 6   | should reject unauthenticated invitation   | No auth → `internal` (catch-all wrapping)                                    |
+| 7   | should supersede old pending invitation    | Re-invite same email+group+role → old becomes `superseded`, new is `pending` |
+| 8   | should NOT supersede different-role invite | Same email+group, different role → both remain `pending`                     |
 
 > **Note:** `sendGroupInvitation` has a catch-all error handler that wraps ALL errors (including validation `HttpsError`) as `internal`.
+> **Note:** Test 7-8 verify the stale-invitation deduplication (Layer 1). A complementary client-side filter (Layer 2) in `fetchGroupInvites.ts` additionally skips invitations where `isExistingUser === false` to prevent stale pre-signup invitations from appearing as in-app notifications.
 
 #### validateInvitationToken (4 tests)
 
 | #   | Test                                       | What it verifies                                       |
 | --- | ------------------------------------------ | ------------------------------------------------------ |
-| 7   | should validate a fresh invitation token   | Returns valid invitation data with `pending` status    |
-| 8   | should handle nonexistent token gracefully | Invalid token → soft error (not-found or empty result) |
-| 9   | should detect already-used invitation      | Used invitation → appropriate status returned          |
-| 10  | should reject missing token parameter      | Missing token → `invalid-argument`                     |
+| 9   | should validate a fresh invitation token   | Returns valid invitation data with `pending` status    |
+| 10  | should handle nonexistent token gracefully | Invalid token → soft error (not-found or empty result) |
+| 11  | should detect already-used invitation      | Used invitation → appropriate status returned          |
+| 12  | should reject missing token parameter      | Missing token → `invalid-argument`                     |
 
 #### markInvitationUsed (3 tests)
 
 | #   | Test                                  | What it verifies                                 |
 | --- | ------------------------------------- | ------------------------------------------------ |
-| 11  | should delete the invitation document | Doc removed from Firestore (returns `undefined`) |
-| 12  | should reject missing required fields | Missing fields → `invalid-argument`              |
-| 13  | should reject unauthenticated request | No auth → error                                  |
+| 13  | should delete the invitation document | Doc removed from Firestore (returns `undefined`) |
+| 14  | should reject missing required fields | Missing fields → `invalid-argument`              |
+| 15  | should reject unauthenticated request | No auth → error                                  |
 
 #### respondToEmailInvite (6 tests)
 
 | #   | Test                                               | What it verifies                                             |
 | --- | -------------------------------------------------- | ------------------------------------------------------------ |
-| 14  | should reject an invitation                        | Status set to `rejected`                                     |
-| 15  | should accept invitation for existing user         | Accept flow executes (resilient assertion for preconditions) |
-| 16  | should create pending signup for non-existing user | Unauthenticated accept → pending signup flow triggered       |
-| 17  | should reject when token is missing                | Missing token → `invalid-argument`                           |
-| 18  | should reject invalid action                       | Invalid action string → `invalid-argument`                   |
-| 19  | should handle not-found invitation token           | Nonexistent token → `not-found`                              |
+| 16  | should reject an invitation                        | Status set to `rejected`                                     |
+| 17  | should accept invitation for existing user         | Accept flow executes (resilient assertion for preconditions) |
+| 18  | should create pending signup for non-existing user | Unauthenticated accept → pending signup flow triggered       |
+| 19  | should reject when token is missing                | Missing token → `invalid-argument`                           |
+| 20  | should reject invalid action                       | Invalid action string → `invalid-argument`                   |
+| 21  | should handle not-found invitation token           | Nonexistent token → `not-found`                              |
 
 > **Note:** `respondToGroupInvite` is NOT exported from `index.ts` (not a deployed function) — skipped in tests.
 
@@ -1099,6 +1105,170 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 
 ---
 
+### Suite P: Picture Upload & Firestore Verification
+
+**File:** `functions/test/upload-pictures.test.ts`
+
+> Tests upload of club logos, group pictures, and profile pictures.
+> Verifies that pictureUrl / logoUrl / photoURL fields are correctly persisted
+> in all concerned Firestore documents. Also tests the `onProfilePictureResized`
+> Storage trigger that propagates photoURL across user doc + all member lists.
+
+#### TC-P1: Club admin uploads logo; updateClub stores logoUrl in club doc
+
+| Step | Action                                                              |
+| ---- | ------------------------------------------------------------------- |
+| 1    | Setup admin + club + group + subgroup                               |
+| 2    | Call `uploadClubLogo` with base64 image → returns `logoUrl`         |
+| 3    | Call `updateClub` with returned `logoUrl` (mimics client-side flow) |
+
+| ✅ Document Checked | Field(s) Asserted                      |
+| ------------------- | -------------------------------------- |
+| `clubs/{clubId}`    | `logoUrl` matches the returned logoUrl |
+
+#### TC-P2: Non-admin gets permission denied on uploadClubLogo
+
+#### TC-P3: Invalid content type (text/plain) is rejected on uploadClubLogo
+
+#### TC-P4: Group admin uploads picture; pictureUrl stored in group doc
+
+| Step | Action                                                             |
+| ---- | ------------------------------------------------------------------ |
+| 1    | Setup admin + club + group                                         |
+| 2    | Call `uploadGroupPicture` with base64 image → returns `pictureUrl` |
+
+| ✅ Document Checked               | Field(s) Asserted                            |
+| --------------------------------- | -------------------------------------------- |
+| `clubs/{clubId}/groups/{groupId}` | `pictureUrl` matches the returned pictureUrl |
+
+#### TC-P5: Non-admin gets permission denied on uploadGroupPicture
+
+#### TC-P6: Invalid content type (application/pdf) is rejected on uploadGroupPicture
+
+#### TC-P7: Club admin uploads profile picture for member → success + returns photoURL
+
+#### TC-P8: Group coach uploads profile picture for group member → success
+
+#### TC-P9: Regular member gets permission denied on uploadProfilePictureForMember
+
+#### TC-P10: Target must be in group for non-club-admin (coach tries for outsider)
+
+#### TC-P11: onProfilePictureResized — photoURL propagated to all Firestore locations
+
+> Simulates the Firebase Resize Extension by uploading a file at the
+> `profilePictures/{uid}/customProfilePictures/profile_200x200.png` path,
+> triggering the `onProfilePictureResized` Storage trigger in the Functions emulator.
+
+| Step | Action                                                         |
+| ---- | -------------------------------------------------------------- |
+| 1    | Setup admin + club + group + subgroup                          |
+| 2    | Create member, add to club + group + subgroup member lists     |
+| 3    | Upload resized file to Storage emulator to trigger propagation |
+| 4    | Poll user doc until `photoURL` appears (up to 15s)             |
+
+| ✅ Document Checked                                                         | Field(s) Asserted                                        |
+| --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `users/{uid}`                                                               | `photoURL` contains expected Storage path                |
+| `clubs/{clubId}/allMembers/members`                                         | Member entry `photoURL` contains `profilePictures/{uid}` |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members`                        | Member entry `photoURL` contains `profilePictures/{uid}` |
+| `clubs/{clubId}/groups/{groupId}/subgroups/{subGroupId}/allMembers/members` | Member entry `photoURL` contains `profilePictures/{uid}` |
+
+---
+
+### Suite N: News Creation & Notification Verification
+
+**File:** `functions/test/news-notifications.test.ts`
+
+> Tests the `createNews` Cloud Function end-to-end: document creation, permissions (club-admin, group admin, group coach, regular player), field validation, role-filtered delivery, youth→guardian notification redirection, and creator-always-included logic.
+
+#### TC-N1: Club admin creates club-level news → document created with correct fields
+
+| Step | Action                                         |
+| ---- | ---------------------------------------------- |
+| 1    | Setup admin + player in club + group           |
+| 2    | Call `createNews` with club-level scope        |
+| 3    | Verify `clubs/{clubId}/news/{newsId}` document |
+
+| ✅ Document Checked            | Field(s) Asserted                                                                        |
+| ------------------------------ | ---------------------------------------------------------------------------------------- |
+| `clubs/{clubId}/news/{newsId}` | `title`, `description`, `targetScope.level`, `createdBy`, `isActive`, `recipientUserIds` |
+
+#### TC-N2: Club-level news sends notifications to all recipients
+
+| ✅ Document Checked                    | Field(s) Asserted                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `users/{playerUid}/notifications/{id}` | `type="news"`, `sourceId`, `clubId`, `read=false`, `dismissed=false`, `sourceCollection="news"` |
+| `users/{adminUid}/notifications/{id}`  | `type="news"`, `sourceId` present                                                               |
+
+#### TC-N3: Group admin creates group-level news → success with correct scope
+
+#### TC-N4: Group coach creates group-level news → success
+
+#### TC-N5: Regular player cannot create news → `permission-denied`
+
+#### TC-N6: Title exceeding 100 chars → `invalid-argument`
+
+#### TC-N7: Missing required fields → `invalid-argument`
+
+#### TC-N8: News with role filter → only matching roles receive notifications
+
+| ✅ Assertion            | Detail                                              |
+| ----------------------- | --------------------------------------------------- |
+| Coach gets notification | `type="news"`, `sourceId` matches newsId            |
+| Player does **not**     | No notification doc with `sourceId` matching newsId |
+
+#### TC-N9: Youth member's guardian receives the notification instead of youth
+
+| ✅ Assertion               | Detail                       |
+| -------------------------- | ---------------------------- |
+| Guardian gets notification | `type="news"`, `sourceId`    |
+| Youth does **not**         | No matching notification doc |
+
+#### TC-N10: Creator is always included in recipients
+
+| ✅ Assertion                        | Detail                                       |
+| ----------------------------------- | -------------------------------------------- |
+| `recipientUserIds` includes creator | Even though roleFilter excludes admin's role |
+| Admin gets notification             | `type="news"`, `sourceId` matches newsId     |
+
+---
+
+### Suite Q: Notification Side-Effects Across Cloud Functions
+
+**File:** `functions/test/notification-side-effects.test.ts`
+
+> Verifies that Cloud Functions which send notifications as a side-effect actually create correctly structured notification documents in `users/{uid}/notifications`. Covers `createEventV2`, `sendGroupInvitation`, `createMembershipFee`, and the `createNotification` callable.
+
+#### TC-Q1: createEventV2 creates notification with type "event" and sourceId
+
+| ✅ Document Checked                    | Field(s) Asserted                                                                                          |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `users/{playerUid}/notifications/{id}` | `type="event"`, `sourceId=eventId`, `sourceCollection="events"`, `read=false`, `dismissed=false`, `clubId` |
+
+#### TC-Q2: sendGroupInvitation creates notification with type "group_invitation" and invitationToken
+
+| ✅ Document Checked                     | Field(s) Asserted                                                                       |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| `users/{inviteeUid}/notifications/{id}` | `type="group_invitation"`, `invitationToken`, `clubId`, `read=false`, `dismissed=false` |
+
+#### TC-Q3: createMembershipFee creates notification with type "payment_request" and metadata
+
+| ✅ Document Checked                    | Field(s) Asserted                                                                                                                                                        |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `users/{playerUid}/notifications/{id}` | `type="payment_request"`, `sourceId=feeId`, `sourceCollection="membershipFees"`, `priority="high"`, `metadata.feeId`, `metadata.amount=50000`, `metadata.currency="sek"` |
+
+#### TC-Q4: createNotification callable creates doc with read:false and dismissed:false
+
+| ✅ Document Checked                    | Field(s) Asserted                                                                                    |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `users/{playerUid}/notifications/{id}` | `type="general"`, `title`, `message`, `read=false`, `dismissed=false`, `clubId`, `priority="normal"` |
+
+#### TC-Q5: createNotification without auth → `unauthenticated`
+
+#### TC-Q6: createNotification for non-existent user → `not-found`
+
+---
+
 ### Test Case Count Summary
 
 | Suite                          | File                                    | Cases  |
@@ -1109,7 +1279,10 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | D. Subgroup Members            | `subgroup-member-flows.test.ts`         | 3      |
 | E. CRUD Lifecycle              | `crud-lifecycle.test.ts`                | 12     |
 | G. Guardian Flows              | `guardian-flows.test.ts`                | 15     |
-| **Total new**                  |                                         | **51** |
+| N. News & Notifications        | `news-notifications.test.ts`            | 10     |
+| P. Picture Uploads             | `upload-pictures.test.ts`               | 11     |
+| Q. Notification Side-Effects   | `notification-side-effects.test.ts`     | 6      |
+| **Total new**                  |                                         | **78** |
 
 ### Implementation Priority
 
@@ -1139,7 +1312,7 @@ Emulator-based integration tests now cover 36 of ~100 functions (~36%).
 **Remaining (priority order):**
 
 1. LOK/RF integration (11 functions) — personnummer handling, LOK reports, RF API
-2. Legal & News (3 functions)
+2. Legal (2 functions) — News now covered by Suite N
 3. User doc management (5 functions) — club/group info updates, inactivity marking
 4. Cascade operations — deletion, reactivation side-effects
 5. Remaining gaps in covered domains (e.g., `getClubMembers`, `getGroupMembers`, recurring events)

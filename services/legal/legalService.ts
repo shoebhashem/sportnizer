@@ -89,7 +89,7 @@ export const getUserLegalAcceptance = async (
     };
   } catch (error) {
     console.error("Error fetching user legal acceptance:", error);
-    return null;
+    throw error;
   }
 };
 

@@ -1,25 +1,35 @@
 //import AdContainer from "@/components/AdContainer";
 import { theme } from "@/constants/theme";
+import { useDataCache } from "@/contexts/DataCacheContext";
 import { useUser } from "@/contexts/UserContext";
+import { groupService } from "@/services/group";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function GroupsScreen() {
   const { t } = useTranslation(["screens", "common"]);
   const { userProfile, isLoading, refreshUserProfile } = useUser();
+  const cache = useDataCache();
 
   // Extract clubs and groups from userProfile
   const clubs = userProfile?.clubAccess || [];
+
+  // Group pictures state
+  const [groupPictures, setGroupPictures] = useState<
+    Record<string, string | null>
+  >({});
 
   // Enhanced group type with membership context
   interface EnhancedGroup {
@@ -98,6 +108,46 @@ export default function GroupsScreen() {
     return allGroups;
   }, [userProfile?.clubAccess, userProfile?.dependents]);
 
+  // Fetch group pictures using cache
+  const fetchGroupPictures = useCallback(async () => {
+    if (userGroups.length === 0) return;
+
+    const pictures: Record<string, string | null> = {};
+
+    // Deduplicate group IDs (same group may appear for direct + dependent)
+    const uniqueGroups = new Map<string, { clubId: string; groupId: string }>();
+    for (const group of userGroups) {
+      if (!uniqueGroups.has(group.groupId)) {
+        uniqueGroups.set(group.groupId, {
+          clubId: group.clubId,
+          groupId: group.groupId,
+        });
+      }
+    }
+
+    await Promise.all(
+      Array.from(uniqueGroups.values()).map(async ({ clubId, groupId }) => {
+        try {
+          const result = await groupService.getGroup(clubId, groupId, cache);
+          if (result.success && result.data?.pictureUrl) {
+            pictures[groupId] = result.data.pictureUrl;
+          } else {
+            pictures[groupId] = null;
+          }
+        } catch (error) {
+          console.log(`Could not fetch picture for group ${groupId}:`, error);
+          pictures[groupId] = null;
+        }
+      }),
+    );
+
+    setGroupPictures(pictures);
+  }, [userGroups, cache]);
+
+  useEffect(() => {
+    fetchGroupPictures();
+  }, [fetchGroupPictures]);
+
   console.log("📱 GroupsScreen render - DETAILED DEBUG:", {
     isLoading,
     hasUserProfile: !!userProfile,
@@ -159,10 +209,24 @@ export default function GroupsScreen() {
     );
   };
 
+  // Determine if user can edit a specific group (club-admin or group admin)
+  const canEditGroup = (clubId: string, groupId: string): boolean => {
+    if (!userProfile?.clubAccess) return false;
+    const clubEntry = userProfile.clubAccess.find((c) => c.clubId === clubId);
+    if (!clubEntry) return false;
+    if (clubEntry.role === "club-admin") return true;
+    const groupEntry = clubEntry.groupAccess?.find(
+      (g) => g.groupId === groupId,
+    );
+    return groupEntry?.roles?.includes("admin") ?? false;
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>{t("screens:groups.loadingGroups")}</Text>
+        <Text style={styles.loadingText}>
+          {t("screens:groups.loadingGroups")}
+        </Text>
       </View>
     );
   }
@@ -199,6 +263,20 @@ export default function GroupsScreen() {
               }
             >
               <View style={styles.groupHeader}>
+                <View style={styles.groupIcon}>
+                  {groupPictures[group.groupId] ? (
+                    <Image
+                      source={{ uri: groupPictures[group.groupId]! }}
+                      style={styles.groupPictureImage}
+                    />
+                  ) : (
+                    <Ionicons
+                      name="people"
+                      size={24}
+                      color={theme.colors.secondary}
+                    />
+                  )}
+                </View>
                 <View style={styles.groupTitleContainer}>
                   <Text style={styles.groupName}>
                     {group.groupName || `Group ${group.groupId.slice(-4)}`}
@@ -217,6 +295,26 @@ export default function GroupsScreen() {
                     </View>
                   )}
                 </View>
+                {/* Info icon for all users */}
+                <TouchableOpacity
+                  style={styles.infoIconButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    const editMode = canEditGroup(group.clubId, group.groupId)
+                      ? "edit"
+                      : "view";
+                    router.push(
+                      `/group-info?clubId=${group.clubId}&groupId=${group.groupId}&mode=${editMode}`,
+                    );
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={22}
+                    color={theme.colors.textSecondary}
+                  />
+                </TouchableOpacity>
               </View>
               <Text style={styles.groupRole}>
                 Role: {group.roles.join(", ")}
@@ -258,6 +356,24 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: theme.spacing.sm,
+  },
+  groupIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: theme.spacing.sm,
+  },
+  groupPictureImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  infoIconButton: {
+    padding: theme.spacing.xs,
+    marginLeft: theme.spacing.xs,
   },
   groupTitleContainer: {
     flex: 1,

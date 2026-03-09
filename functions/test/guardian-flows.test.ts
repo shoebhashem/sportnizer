@@ -412,9 +412,9 @@ describe("Suite G: Guardian Management Flows", () => {
   });
 
   // -----------------------------------------------------------------
-  // TC-G3: Prevent duplicate guardian
+  // TC-G3: Idempotent guardian addition (same guardian, same group)
   // -----------------------------------------------------------------
-  it("TC-G3: should reject adding same guardian twice", async () => {
+  it("TC-G3: should succeed idempotently when adding same guardian to same group", async () => {
     const { admin, clubId, groupId } = await setupClubAndGroup();
 
     const guardian = await createFullTestUser({
@@ -429,7 +429,7 @@ describe("Suite G: Guardian Management Flows", () => {
       groupId,
     );
 
-    // Seed youth with guardian in guardians array
+    // Seed youth with guardian already in guardians array
     await seedUserDocument(youthUid, {
       guardians: [
         {
@@ -443,8 +443,8 @@ describe("Suite G: Guardian Management Flows", () => {
       ],
     });
 
-    // --- ACTION: Try adding same guardian again ---
-    await expectFunctionError(
+    // --- ACTION: Call addGuardianToYouth for same guardian + same group ---
+    const result = await callFunction<{ success: boolean }>(
       "addGuardianToYouth",
       admin.idToken,
       {
@@ -456,8 +456,15 @@ describe("Suite G: Guardian Management Flows", () => {
         guardianEmail: guardian.email,
         relationship: "parent",
       },
-      "already-exists",
     );
+
+    // Should succeed (idempotent, not throw)
+    expect(result.success).toBe(true);
+
+    // Youth should still have exactly 1 guardian (no duplicate)
+    const youthDoc = await getDocument(`users/${youthUid}`);
+    expect(youthDoc!.guardians.length).toBe(1);
+    expect(youthDoc!.guardians[0].guardianUid).toBe(guardian.uid);
   });
 
   // -----------------------------------------------------------------
@@ -1551,5 +1558,570 @@ describe("Suite G: Guardian Management Flows", () => {
     expect(g2cm3.roles).toContain("guardian");
     expect(g2cm3.inactiveSince).toBeNull();
     expect(g2cm3.scheduledForDeletion).toBeNull();
+  });
+
+  // -----------------------------------------------------------------
+  // TC-G16: checkExistingYouthByNameAndDob — finds existing youth
+  // -----------------------------------------------------------------
+  it("TC-G16: should detect existing youth by name and DOB", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    // Create guardian + youth
+    const guardian = await createFullTestUser({
+      email: `guardian_g16_${Date.now()}@test.com`,
+    });
+
+    const youthUid = await setupYouthInClubAndGroup(
+      admin,
+      guardian,
+      clubId,
+      groupId,
+    );
+
+    // Update youth's clubAccess so checkExistingYouthByNameAndDob can read group info
+    await seedUserDocument(youthUid, {
+      clubAccess: [
+        {
+          clubId,
+          clubName: "Test Club",
+          role: "member",
+          isActive: true,
+          joinedAt: new Date(),
+          groupAccess: [
+            {
+              groupId,
+              groupName: "Group A",
+              roles: ["player-underage"],
+              joinedAt: new Date(),
+              isActive: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    // Call checkExistingYouthByNameAndDob with matching name + DOB
+    const result = await callFunction(
+      "checkExistingYouthByNameAndDob",
+      admin.idToken,
+      {
+        childName: "Youth Player",
+        dateOfBirth: "2015-06-15",
+        clubId,
+      },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.found).toBe(true);
+    expect(result.youthUid).toBe(youthUid);
+    expect(result.youthName).toBe("Youth Player");
+    expect(result.guardians).toBeDefined();
+    expect(result.guardians.length).toBeGreaterThanOrEqual(1);
+    expect(result.guardians[0].guardianName).toBe("Guardian Parent");
+    expect(result.currentGroups).toBeDefined();
+    expect(result.currentGroups.length).toBeGreaterThanOrEqual(1);
+    expect(result.currentGroups[0].groupName).toBe("Group A");
+  });
+
+  // -----------------------------------------------------------------
+  // TC-G17: checkExistingYouthByNameAndDob — no match
+  // -----------------------------------------------------------------
+  it("TC-G17: should return found=false when no youth matches", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    // Create guardian + youth with different name
+    const guardian = await createFullTestUser({
+      email: `guardian_g17_${Date.now()}@test.com`,
+    });
+    await setupYouthInClubAndGroup(admin, guardian, clubId, groupId);
+
+    // Search with wrong name
+    const result = await callFunction(
+      "checkExistingYouthByNameAndDob",
+      admin.idToken,
+      {
+        childName: "Nonexistent Child",
+        dateOfBirth: "2015-06-15",
+        clubId,
+      },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.found).toBe(false);
+    expect(result.youthUid).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------
+  // TC-G18: checkExistingYouthByNameAndDob — case-insensitive match
+  // -----------------------------------------------------------------
+  it("TC-G18: should match youth name case-insensitively", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    const guardian = await createFullTestUser({
+      email: `guardian_g18_${Date.now()}@test.com`,
+    });
+    const youthUid = await setupYouthInClubAndGroup(
+      admin,
+      guardian,
+      clubId,
+      groupId,
+    );
+
+    // Search with different casing
+    const result = await callFunction(
+      "checkExistingYouthByNameAndDob",
+      admin.idToken,
+      {
+        childName: "youth player", // lowercase
+        dateOfBirth: "2015-06-15",
+        clubId,
+      },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.found).toBe(true);
+    expect(result.youthUid).toBe(youthUid);
+  });
+
+  // -----------------------------------------------------------------
+  // TC-G19: Full existing youth + new guardian flow (E2E)
+  // -----------------------------------------------------------------
+  it("TC-G19: should add existing youth to new group with new guardian via addGuardianToYouth", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    // Guardian 1 creates youth in Group A
+    const guardian1 = await createFullTestUser({
+      email: `guardian1_g19_${Date.now()}@test.com`,
+    });
+
+    const youthUid = await setupYouthInClubAndGroup(
+      admin,
+      guardian1,
+      clubId,
+      groupId,
+    );
+
+    // Seed youth's user doc with clubAccess for Group A
+    await seedUserDocument(youthUid, {
+      clubAccess: [
+        {
+          clubId,
+          clubName: "Test Club",
+          role: "member",
+          isActive: true,
+          joinedAt: new Date(),
+          groupAccess: [
+            {
+              groupId,
+              groupName: "Group A",
+              roles: ["player-underage"],
+              joinedAt: new Date(),
+              isActive: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    // Seed guardian1 in club as guardian
+    await callFunction("addMemberToClub", admin.idToken, {
+      clubId,
+      memberData: {
+        userId: guardian1.uid,
+        roles: ["guardian"],
+        name: "Guardian Parent",
+        email: guardian1.email,
+        addedBy: admin.uid,
+        joinedAt: new Date().toISOString(),
+        needsGuardian: false,
+        guardiansContacts: [],
+      },
+    });
+
+    // Update guardian1 dependents
+    await callFunction("updateGuardianDependentAccess", guardian1.idToken, {
+      youthUid,
+      guardianUid: guardian1.uid,
+    });
+
+    // Create Group B
+    const groupBResult = await callFunction<{ groupId: string }>(
+      "createGroup",
+      admin.idToken,
+      { clubId, groupData: { name: "Group B" } },
+    );
+    const groupBId = groupBResult.groupId;
+
+    // Create guardian 2 (new guardian for the same youth in Group B)
+    const guardian2 = await createFullTestUser({
+      email: `guardian2_g19_${Date.now()}@test.com`,
+    });
+
+    // === STEP 1: checkExistingYouthByNameAndDob detects the youth ===
+    const checkResult = await callFunction(
+      "checkExistingYouthByNameAndDob",
+      admin.idToken,
+      {
+        childName: "Youth Player",
+        dateOfBirth: "2015-06-15",
+        clubId,
+      },
+    );
+    expect(checkResult.found).toBe(true);
+    expect(checkResult.youthUid).toBe(youthUid);
+
+    // === STEP 2: Link guardian2 to existing youth for Group B ===
+    const addGuardianResult = await callFunction<{ success: boolean }>(
+      "addGuardianToYouth",
+      admin.idToken,
+      {
+        clubId,
+        groupId: groupBId,
+        youthUid,
+        guardianUid: guardian2.uid,
+        guardianName: "Guardian Two",
+        guardianEmail: guardian2.email,
+        relationship: "parent",
+      },
+    );
+    expect(addGuardianResult.success).toBe(true);
+
+    // === STEP 3: Accumulate role in club (youth already in club) ===
+    await callFunction("updateClubMemberRole", admin.idToken, {
+      clubId,
+      userId: youthUid,
+      operation: "add",
+      roleToAdd: "player-underage",
+    });
+
+    // === STEP 4: Add youth to Group B ===
+    await callFunction("addMemberToGroup", admin.idToken, {
+      clubId,
+      groupId: groupBId,
+      memberData: {
+        userId: youthUid,
+        roles: ["player-underage"],
+        name: "Youth Player",
+        needsGuardian: true,
+        guardiansContacts: [
+          {
+            guardianUid: guardian2.uid,
+            guardianName: "Guardian Two",
+            guardianEmail: guardian2.email,
+            relationship: "parent",
+          },
+        ],
+      },
+    });
+
+    // === STEP 5: Update youth's group info ===
+    // Note: updateClubMemberListRoles must be false because Step 3 already
+    // accumulated the player-underage role in the club member list.
+    await callFunction("updateUserGroupInfo", admin.idToken, {
+      uid: youthUid,
+      clubId,
+      groupInfo: {
+        groupId: groupBId,
+        groupName: "Group B",
+        joinedAt: new Date().toISOString(),
+      },
+      roles: ["player-underage"],
+      operation: "add",
+      updateClubMemberListRoles: false,
+    });
+
+    // === STEP 6: Update guardian2 dependent access (surgical — only Group B) ===
+    await callFunction("updateGuardianDependentAccess", guardian2.idToken, {
+      youthUid,
+      guardianUid: guardian2.uid,
+      clubId,
+      groupId: groupBId,
+      operation: "addGroup",
+    });
+
+    // ══════════════════════ ASSERTIONS ══════════════════════
+
+    // 1. Youth user doc — has TWO guardians
+    const youthDoc = await getDocument(`users/${youthUid}`);
+    expect(youthDoc).toBeDefined();
+    expect(youthDoc!.guardians.length).toBe(2);
+    const g1Entry = youthDoc!.guardians.find(
+      (g: any) => g.guardianUid === guardian1.uid,
+    );
+    const g2Entry = youthDoc!.guardians.find(
+      (g: any) => g.guardianUid === guardian2.uid,
+    );
+    expect(g1Entry).toBeDefined();
+    expect(g2Entry).toBeDefined();
+    expect(g2Entry.guardianName).toBe("Guardian Two");
+
+    // 2. Youth clubAccess — has Group A AND Group B
+    const youthClub = youthDoc!.clubAccess.find(
+      (c: any) => c.clubId === clubId,
+    );
+    expect(youthClub).toBeDefined();
+    expect(youthClub.groupAccess.length).toBe(2);
+    const groupAAccess = youthClub.groupAccess.find(
+      (g: any) => g.groupId === groupId,
+    );
+    const groupBAccess = youthClub.groupAccess.find(
+      (g: any) => g.groupId === groupBId,
+    );
+    expect(groupAAccess).toBeDefined();
+    expect(groupBAccess).toBeDefined();
+
+    // 3. Group B allMembers contains youth
+    const groupBMembers = await getDocument(
+      `clubs/${clubId}/groups/${groupBId}/allMembers/members`,
+    );
+    const youthInGroupB = (groupBMembers?.members || []).find(
+      (m: any) => m.userId === youthUid,
+    );
+    expect(youthInGroupB).toBeDefined();
+    expect(youthInGroupB.roles).toContain("player-underage");
+    expect(youthInGroupB.guardiansContacts.length).toBeGreaterThanOrEqual(1);
+
+    // 4. Group A allMembers still has youth (untouched)
+    const groupAMembers = await getDocument(
+      `clubs/${clubId}/groups/${groupId}/allMembers/members`,
+    );
+    const youthInGroupA = (groupAMembers?.members || []).find(
+      (m: any) => m.userId === youthUid,
+    );
+    expect(youthInGroupA).toBeDefined();
+
+    // 5. Guardian 2 has dependent entry for youth
+    const g2Doc = await getDocument(`users/${guardian2.uid}`);
+    expect(g2Doc).toBeDefined();
+    const g2Dependent = (g2Doc!.dependents || []).find(
+      (d: any) => d.uid === youthUid,
+    );
+    expect(g2Dependent).toBeDefined();
+    expect(g2Dependent.childName).toBe("Youth Player");
+
+    // 6. Guardian 1 is untouched — still has dependent
+    const g1Doc = await getDocument(`users/${guardian1.uid}`);
+    expect(g1Doc).toBeDefined();
+    const g1Dependent = (g1Doc!.dependents || []).find(
+      (d: any) => d.uid === youthUid,
+    );
+    expect(g1Dependent).toBeDefined();
+
+    // 7. Club allMembers — contains guardian2 with "guardian" role
+    const clubMembers = await getDocument(`clubs/${clubId}/allMembers/members`);
+    const g2ClubMember = (clubMembers?.members || []).find(
+      (m: any) => m.userId === guardian2.uid,
+    );
+    expect(g2ClubMember).toBeDefined();
+    expect(g2ClubMember.roles).toContain("guardian");
+
+    // 8. Youth should have exactly 2 player-underage roles in club (one per group)
+    const youthClubMember = (clubMembers?.members || []).find(
+      (m: any) => m.userId === youthUid,
+    );
+    expect(youthClubMember).toBeDefined();
+    expect(
+      youthClubMember.roles.filter((r: string) => r === "player-underage")
+        .length,
+    ).toBe(2);
+
+    // 9. Guardian2 should have exactly 1 guardian role in club (no duplicates)
+    expect(
+      g2ClubMember.roles.filter((r: string) => r === "guardian").length,
+    ).toBe(1);
+
+    // 10. Guardian 2's dependent clubAccess should ONLY contain Group B (surgical)
+    const g2DepClubAccess = g2Dependent.clubAccess || [];
+    const g2DepClub = g2DepClubAccess.find((c: any) => c.clubId === clubId);
+    expect(g2DepClub).toBeDefined();
+    expect(g2DepClub.groupAccess.length).toBe(1);
+    expect(g2DepClub.groupAccess[0].groupId).toBe(groupBId);
+
+    // 11. Guardian 1's dependent clubAccess should ONLY contain Group A (not Group B)
+    const g1DepClubAccess = g1Dependent.clubAccess || [];
+    const g1DepClub = g1DepClubAccess.find((c: any) => c.clubId === clubId);
+    expect(g1DepClub).toBeDefined();
+    expect(g1DepClub.groupAccess.length).toBe(1);
+    expect(g1DepClub.groupAccess[0].groupId).toBe(groupId);
+  });
+
+  // TC-G20: Add existing guardian to an additional group for the same youth
+  // -----------------------------------------------------------------
+  it("TC-G20: should extend existing guardian access to additional group (no duplicate links)", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    // Guardian creates youth in Group A
+    const guardian = await createFullTestUser({
+      email: `guardian_g20_${Date.now()}@test.com`,
+    });
+
+    const youthUid = await setupYouthInClubAndGroup(
+      admin,
+      guardian,
+      clubId,
+      groupId,
+    );
+
+    // Seed youth's user doc with clubAccess for Group A
+    await seedUserDocument(youthUid, {
+      clubAccess: [
+        {
+          clubId,
+          clubName: "Test Club",
+          role: "member",
+          isActive: true,
+          joinedAt: new Date(),
+          groupAccess: [
+            {
+              groupId,
+              groupName: "Group A",
+              roles: ["player-underage"],
+              joinedAt: new Date(),
+              isActive: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    // Add guardian to club
+    await callFunction("addMemberToClub", admin.idToken, {
+      clubId,
+      memberData: {
+        userId: guardian.uid,
+        roles: ["guardian"],
+        name: "Guardian Parent",
+        email: guardian.email,
+        addedBy: admin.uid,
+        joinedAt: new Date().toISOString(),
+        needsGuardian: false,
+        guardiansContacts: [],
+      },
+    });
+
+    // Sync guardian dependent access for Group A
+    await callFunction("updateGuardianDependentAccess", guardian.idToken, {
+      youthUid,
+      guardianUid: guardian.uid,
+      clubId,
+      groupId,
+      operation: "addGroup",
+    });
+
+    // Verify: guardian has 1 dependent with Group A only
+    const g1DocBefore = await getDocument(`users/${guardian.uid}`);
+    const depBefore = (g1DocBefore!.dependents || []).find(
+      (d: any) => d.uid === youthUid,
+    );
+    expect(depBefore).toBeDefined();
+    expect(depBefore.clubAccess[0].groupAccess.length).toBe(1);
+    expect(depBefore.clubAccess[0].groupAccess[0].groupId).toBe(groupId);
+
+    // Create Group B and add youth to it
+    const groupBResult = await callFunction<{ groupId: string }>(
+      "createGroup",
+      admin.idToken,
+      { clubId, groupData: { name: "Group B" } },
+    );
+    const groupBId = groupBResult.groupId;
+
+    // Add youth to Group B member list
+    await callFunction("addMemberToGroup", admin.idToken, {
+      clubId,
+      groupId: groupBId,
+      memberData: {
+        userId: youthUid,
+        roles: ["player-underage"],
+        name: "Youth Player",
+        needsGuardian: true,
+        guardiansContacts: [
+          {
+            guardianUid: guardian.uid,
+            guardianName: "Guardian Parent",
+            guardianEmail: guardian.email,
+            relationship: "parent",
+          },
+        ],
+      },
+    });
+
+    // Update youth's user doc with Group B in clubAccess
+    await callFunction("updateUserGroupInfo", admin.idToken, {
+      uid: youthUid,
+      clubId,
+      groupInfo: {
+        groupId: groupBId,
+        groupName: "Group B",
+        joinedAt: new Date().toISOString(),
+      },
+      roles: ["player-underage"],
+      operation: "add",
+      updateClubMemberListRoles: false,
+    });
+
+    // === KEY STEP: Call addGuardianToYouth for same guardian + new group ===
+    // This should NOT throw "already-exists" — it should extend access
+    const result = await callFunction<{ success: boolean; message?: string }>(
+      "addGuardianToYouth",
+      admin.idToken,
+      {
+        clubId,
+        groupId: groupBId,
+        youthUid,
+        guardianUid: guardian.uid,
+        guardianName: "Guardian Parent",
+        guardianEmail: guardian.email,
+        relationship: "parent",
+      },
+    );
+    expect(result.success).toBe(true);
+
+    // ══════════════════════ ASSERTIONS ══════════════════════
+
+    // 1. Youth guardians[] still has exactly 1 entry (no duplicate)
+    const youthDoc = await getDocument(`users/${youthUid}`);
+    expect(youthDoc!.guardians.length).toBe(1);
+    expect(youthDoc!.guardians[0].guardianUid).toBe(guardian.uid);
+
+    // 2. Club member guardiansContacts has exactly 1 entry (no duplicate)
+    const clubMembers = await getDocument(`clubs/${clubId}/allMembers/members`);
+    const youthClubMember = (clubMembers?.members || []).find(
+      (m: any) => m.userId === youthUid,
+    );
+    expect(youthClubMember.guardiansContacts.length).toBe(1);
+
+    // 3. Group B member entry has guardian in guardiansContacts
+    const groupBMembers = await getDocument(
+      `clubs/${clubId}/groups/${groupBId}/allMembers/members`,
+    );
+    const youthInGroupB = (groupBMembers?.members || []).find(
+      (m: any) => m.userId === youthUid,
+    );
+    expect(youthInGroupB).toBeDefined();
+    expect(
+      youthInGroupB.guardiansContacts.some(
+        (c: any) => c.guardianUid === guardian.uid,
+      ),
+    ).toBe(true);
+
+    // 4. Guardian has exactly 1 "guardian" role in club (no duplicate accumulation)
+    const guardianClubMember = (clubMembers?.members || []).find(
+      (m: any) => m.userId === guardian.uid,
+    );
+    expect(guardianClubMember).toBeDefined();
+    expect(
+      guardianClubMember.roles.filter((r: string) => r === "guardian").length,
+    ).toBe(1);
+
+    // 5. Guardian's dependent entry now has BOTH Group A and Group B
+    const gDoc = await getDocument(`users/${guardian.uid}`);
+    const dep = (gDoc!.dependents || []).find((d: any) => d.uid === youthUid);
+    expect(dep).toBeDefined();
+    const depClub = dep.clubAccess.find((c: any) => c.clubId === clubId);
+    expect(depClub).toBeDefined();
+    expect(depClub.groupAccess.length).toBe(2);
+    const depGroupIds = depClub.groupAccess.map((g: any) => g.groupId);
+    expect(depGroupIds).toContain(groupId); // Group A
+    expect(depGroupIds).toContain(groupBId); // Group B
   });
 });

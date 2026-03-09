@@ -227,6 +227,69 @@ export async function isClubAdmin(
 }
 
 /**
+ * Check if a user has admin role (not coach) for a specific group.
+ * Reads the user's document and checks `clubAccess[].groupAccess[].roles[]`
+ * for "admin" only. Also returns true if the user is a club-admin
+ * (club admins have implicit access to all groups).
+ *
+ * Use this for operations that require administrative authority
+ * (e.g., editing group info) but should NOT be available to coaches.
+ *
+ * @param userId - Firebase Auth UID of the user
+ * @param clubId - Club ID the group belongs to
+ * @param groupId - Group ID to check access for
+ * @returns true if the user is a group admin or club-admin
+ */
+export async function isGroupAdmin(
+  userId: string,
+  clubId: string,
+  groupId: string,
+): Promise<boolean> {
+  const db = admin.firestore();
+  const userDoc = await db.collection("users").doc(userId).get();
+
+  if (!userDoc.exists) {
+    return false;
+  }
+
+  const userData = userDoc.data();
+  const clubAccess = userData?.clubAccess;
+
+  if (!Array.isArray(clubAccess)) {
+    return false;
+  }
+
+  const clubEntry = clubAccess.find(
+    (entry: { clubId?: string }) => entry.clubId === clubId,
+  );
+
+  if (!clubEntry) {
+    return false;
+  }
+
+  // Club admins have implicit access to all groups
+  if (clubEntry.role === "club-admin") {
+    return true;
+  }
+
+  // Check group-level roles — admin only (not coach)
+  const groupAccess = clubEntry.groupAccess;
+  if (!Array.isArray(groupAccess)) {
+    return false;
+  }
+
+  const groupEntry = groupAccess.find(
+    (g: { groupId?: string }) => g.groupId === groupId,
+  );
+
+  if (!groupEntry || !Array.isArray(groupEntry.roles)) {
+    return false;
+  }
+
+  return groupEntry.roles.includes("admin");
+}
+
+/**
  * Check if a user has admin or coach role for a specific group.
  * Reads the user's document and checks `clubAccess[].groupAccess[].roles[]`
  * for "admin" or "coach". Also returns true if the user is a club-admin

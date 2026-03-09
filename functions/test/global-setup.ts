@@ -35,6 +35,7 @@ export default async function globalSetup() {
     await Promise.all([
       checkEmulator(8080, "Firestore"),
       checkEmulator(9099, "Auth"),
+      checkEmulator(9199, "Storage"),
     ]);
     console.log("\n✅ Firebase emulators detected — running tests\n");
   } catch (error) {

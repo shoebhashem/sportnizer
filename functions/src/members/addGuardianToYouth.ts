@@ -31,10 +31,14 @@ import { validateRequiredFields } from "../utils/validation";
  * @param guardianEmail - Guardian's email address
  * @param relationship - Relationship to youth ("parent" | "guardian" | "legal_guardian")
  *
+ * If the guardian is already linked to this youth (in a different group),
+ * the function skips steps that are already done and only performs the
+ * group-specific additions (guardiansContacts in group member doc,
+ * surgical addGroup on guardian's dependents, etc.).
+ *
  * @throws HttpsError('unauthenticated') - Caller not authenticated
  * @throws HttpsError('invalid-argument') - Missing required fields
  * @throws HttpsError('not-found') - Youth or guardian doc not found
- * @throws HttpsError('already-exists') - Guardian already linked to this youth
  */
 
 export interface AddGuardianToYouthRequest {
@@ -111,13 +115,12 @@ export const addGuardianToYouth = onCall(
 
       // 5. Check if guardian is already linked to this youth
       const existingGuardians = youthData.guardians || [];
-      const alreadyLinked = existingGuardians.some(
+      const guardianAlreadyLinked = existingGuardians.some(
         (g: any) => g.guardianUid === guardianUid,
       );
-      if (alreadyLinked) {
-        throw new HttpsError(
-          "already-exists",
-          `Guardian ${guardianName} is already linked to this youth member`,
+      if (guardianAlreadyLinked) {
+        console.log(
+          `ℹ️ Guardian ${guardianName} already linked to youth — extending access to group ${groupId}`,
         );
       }
 
@@ -141,13 +144,19 @@ export const addGuardianToYouth = onCall(
 
       // ===== UPDATE YOUTH'S DOCUMENTS =====
 
-      // 8. Update youth's user doc: add to guardians[]
-      await youthRef.update({
-        guardians: FieldValue.arrayUnion(guardianEntry),
-        version: FieldValue.increment(1),
-        lastModified: FieldValue.serverTimestamp(),
-      });
-      console.log(`✅ Updated youth user doc: added guardian to guardians[]`);
+      // 8. Update youth's user doc: add to guardians[] (skip if already linked)
+      if (!guardianAlreadyLinked) {
+        await youthRef.update({
+          guardians: FieldValue.arrayUnion(guardianEntry),
+          version: FieldValue.increment(1),
+          lastModified: FieldValue.serverTimestamp(),
+        });
+        console.log(`✅ Updated youth user doc: added guardian to guardians[]`);
+      } else {
+        console.log(
+          `ℹ️ Skipping youth user doc update — guardian already in guardians[]`,
+        );
+      }
 
       // 9. Update youth's club member entry: add to guardiansContacts[]
       const clubMembersRef = db
@@ -167,18 +176,28 @@ export const addGuardianToYouth = onCall(
 
         if (youthIndex !== -1) {
           const currentContacts = members[youthIndex].guardiansContacts || [];
-          currentContacts.push(guardianContact);
-          members[youthIndex].guardiansContacts = currentContacts;
-          members[youthIndex].lastModifiedAt = new Date();
-
-          await clubMembersRef.update({
-            members,
-            memberCount: members.filter((m: any) => m.isActive !== false)
-              .length,
-          });
-          console.log(
-            `✅ Updated club member doc: added guardian to guardiansContacts[]`,
+          const alreadyInClubContacts = currentContacts.some(
+            (c: any) => c.guardianUid === guardianUid,
           );
+
+          if (!alreadyInClubContacts) {
+            currentContacts.push(guardianContact);
+            members[youthIndex].guardiansContacts = currentContacts;
+            members[youthIndex].lastModifiedAt = new Date();
+
+            await clubMembersRef.update({
+              members,
+              memberCount: members.filter((m: any) => m.isActive !== false)
+                .length,
+            });
+            console.log(
+              `✅ Updated club member doc: added guardian to guardiansContacts[]`,
+            );
+          } else {
+            console.log(
+              `ℹ️ Guardian already in club-level guardiansContacts[] — skipping`,
+            );
+          }
         } else {
           console.warn(`⚠️ Youth ${youthUid} not found in club member list`);
         }
@@ -204,19 +223,29 @@ export const addGuardianToYouth = onCall(
         if (youthGroupIndex !== -1) {
           const currentGroupContacts =
             groupMembers[youthGroupIndex].guardiansContacts || [];
-          currentGroupContacts.push(guardianContact);
-          groupMembers[youthGroupIndex].guardiansContacts =
-            currentGroupContacts;
-          groupMembers[youthGroupIndex].lastModifiedAt = new Date();
-
-          await groupMembersRef.update({
-            members: groupMembers,
-            memberCount: groupMembers.filter((m: any) => m.isActive !== false)
-              .length,
-          });
-          console.log(
-            `✅ Updated group member doc: added guardian to guardiansContacts[]`,
+          const alreadyInGroupContacts = currentGroupContacts.some(
+            (c: any) => c.guardianUid === guardianUid,
           );
+
+          if (!alreadyInGroupContacts) {
+            currentGroupContacts.push(guardianContact);
+            groupMembers[youthGroupIndex].guardiansContacts =
+              currentGroupContacts;
+            groupMembers[youthGroupIndex].lastModifiedAt = new Date();
+
+            await groupMembersRef.update({
+              members: groupMembers,
+              memberCount: groupMembers.filter((m: any) => m.isActive !== false)
+                .length,
+            });
+            console.log(
+              `✅ Updated group member doc: added guardian to guardiansContacts[]`,
+            );
+          } else {
+            console.log(
+              `ℹ️ Guardian already in group-level guardiansContacts[] — skipping`,
+            );
+          }
         } else {
           console.warn(`⚠️ Youth ${youthUid} not found in group member list`);
         }
@@ -247,18 +276,24 @@ export const addGuardianToYouth = onCall(
             if (youthSubgroupIndex !== -1) {
               const currentSubgroupContacts =
                 subgroupMembers[youthSubgroupIndex].guardiansContacts || [];
-              currentSubgroupContacts.push(guardianContact);
-              subgroupMembers[youthSubgroupIndex].guardiansContacts =
-                currentSubgroupContacts;
-              subgroupMembers[youthSubgroupIndex].lastModifiedAt = new Date();
+              const alreadyInSubgroupContacts = currentSubgroupContacts.some(
+                (c: any) => c.guardianUid === guardianUid,
+              );
 
-              await subgroupMemberRef.update({
-                members: subgroupMembers,
-                memberCount: subgroupMembers.filter(
-                  (m: any) => m.isActive !== false,
-                ).length,
-              });
-              subgroupsUpdated++;
+              if (!alreadyInSubgroupContacts) {
+                currentSubgroupContacts.push(guardianContact);
+                subgroupMembers[youthSubgroupIndex].guardiansContacts =
+                  currentSubgroupContacts;
+                subgroupMembers[youthSubgroupIndex].lastModifiedAt = new Date();
+
+                await subgroupMemberRef.update({
+                  members: subgroupMembers,
+                  memberCount: subgroupMembers.filter(
+                    (m: any) => m.isActive !== false,
+                  ).length,
+                });
+                subgroupsUpdated++;
+              }
             }
           }
         }
@@ -277,14 +312,31 @@ export const addGuardianToYouth = onCall(
       );
 
       if (!alreadyDependent) {
-        const youthClubAccess = youthData.clubAccess || [];
+        // Build filtered clubAccess: only the club+group relevant to this guardian
+        const fullClubAccess = youthData.clubAccess || [];
+        const relevantClub = fullClubAccess.find(
+          (ca: any) => ca.clubId === clubId,
+        );
+        let filteredClubAccess: any[] = [];
+        if (relevantClub) {
+          const relevantGroup = (relevantClub.groupAccess || []).find(
+            (g: any) => g.groupId === groupId,
+          );
+          filteredClubAccess = [
+            {
+              ...relevantClub,
+              groupAccess: relevantGroup ? [relevantGroup] : [],
+            },
+          ];
+        }
+
         const dependentEntry = {
           uid: youthUid,
           childName: youthData.displayName || "Unknown",
           dateOfBirth: youthData.dateOfBirth || "",
           relationship,
           addedAt: new Date(),
-          clubAccess: youthClubAccess, // Sync current access
+          clubAccess: filteredClubAccess, // Only the relevant club+group for this guardian
         };
 
         await guardianRef.update({
@@ -296,9 +348,73 @@ export const addGuardianToYouth = onCall(
           `✅ Updated guardian user doc: added youth to dependents[]`,
         );
       } else {
+        // Youth already in dependents — surgically add this group to existing entry
         console.log(
-          `ℹ️ Youth ${youthUid} already in guardian's dependents[] (cross-linked from another context)`,
+          `ℹ️ Youth ${youthUid} already in guardian's dependents[] — surgically adding group ${groupId}`,
         );
+
+        // Perform surgical addGroup inline (same Firestore access, no need to call separate CF)
+        const depIndex = existingDependents.findIndex(
+          (d: any) => d.uid === youthUid,
+        );
+        const depClubAccess = existingDependents[depIndex].clubAccess || [];
+
+        // Read the target group from youth's clubAccess
+        const youthClubAccess = youthData.clubAccess || [];
+        const targetClub = youthClubAccess.find(
+          (ca: any) => ca.clubId === clubId,
+        );
+        const targetGroup = targetClub
+          ? (targetClub.groupAccess || []).find(
+              (g: any) => g.groupId === groupId,
+            )
+          : null;
+
+        if (targetClub && targetGroup) {
+          // Find or create the club entry in the guardian's dependent
+          let depClubIndex = depClubAccess.findIndex(
+            (ca: any) => ca.clubId === clubId,
+          );
+          if (depClubIndex === -1) {
+            depClubAccess.push({
+              clubId: targetClub.clubId,
+              clubName: targetClub.clubName,
+              role: targetClub.role || "member",
+              isActive: targetClub.isActive !== false,
+              joinedAt: targetClub.joinedAt,
+              lastModifiedAt: targetClub.lastModifiedAt || new Date(),
+              groupAccess: [],
+            });
+            depClubIndex = depClubAccess.length - 1;
+          }
+
+          // Find or add the group entry
+          const depGroupAccess = depClubAccess[depClubIndex].groupAccess || [];
+          const depGroupIndex = depGroupAccess.findIndex(
+            (g: any) => g.groupId === groupId,
+          );
+          if (depGroupIndex === -1) {
+            depGroupAccess.push(targetGroup);
+          } else {
+            depGroupAccess[depGroupIndex] = targetGroup;
+          }
+          depClubAccess[depClubIndex].groupAccess = depGroupAccess;
+
+          // Write updated dependents back
+          existingDependents[depIndex].clubAccess = depClubAccess;
+          await guardianRef.update({
+            dependents: existingDependents,
+            version: FieldValue.increment(1),
+            lastModified: FieldValue.serverTimestamp(),
+          });
+          console.log(
+            `✅ Surgically added group ${groupId} to guardian's dependent entry for youth ${youthUid}`,
+          );
+        } else {
+          console.warn(
+            `⚠️ Could not find group ${groupId} in youth's clubAccess — skipping dependent update`,
+          );
+        }
       }
 
       // 12. Handle guardian's club membership (reuses `members` from step 9)
@@ -307,18 +423,28 @@ export const addGuardianToYouth = onCall(
       );
 
       if (guardianClubEntry && guardianClubEntry.isActive !== false) {
-        // Guardian already in club — accumulate "guardian" role
-        console.log(
-          `ℹ️ Guardian already in club, accumulating guardian role...`,
+        // Guardian already in club — accumulate "guardian" role only if not already present
+        const hasGuardianRole = (guardianClubEntry.roles || []).includes(
+          "guardian",
         );
-        guardianClubEntry.roles.push("guardian");
-        guardianClubEntry.lastModifiedAt = new Date();
+        if (!hasGuardianRole) {
+          console.log(
+            `ℹ️ Guardian already in club, accumulating guardian role...`,
+          );
+          guardianClubEntry.roles.push("guardian");
+          guardianClubEntry.lastModifiedAt = new Date();
 
-        await clubMembersRef.update({
-          members,
-          memberCount: members.filter((m: any) => m.isActive !== false).length,
-        });
-        console.log(`✅ Accumulated guardian role in club member list`);
+          await clubMembersRef.update({
+            members,
+            memberCount: members.filter((m: any) => m.isActive !== false)
+              .length,
+          });
+          console.log(`✅ Accumulated guardian role in club member list`);
+        } else {
+          console.log(
+            `ℹ️ Guardian already has 'guardian' role in club — skipping accumulation`,
+          );
+        }
       } else if (!guardianClubEntry) {
         // Guardian not in club — add as new member with guardian role
         console.log(`📞 Adding guardian as new club member...`);
@@ -428,13 +554,14 @@ export const addGuardianToYouth = onCall(
         }
       }
 
-      console.log(
-        `✅ Successfully linked guardian ${guardianName} to youth ${youthUid}`,
-      );
+      const actionDesc = guardianAlreadyLinked
+        ? `Guardian ${guardianName} access extended to group ${groupId}`
+        : `Guardian ${guardianName} successfully linked to youth member`;
+      console.log(`✅ ${actionDesc}`);
 
       return {
         success: true,
-        message: `Guardian ${guardianName} successfully linked to youth member`,
+        message: actionDesc,
       };
     } catch (error) {
       console.error("Error in addGuardianToYouth:", error);

@@ -110,6 +110,36 @@ export const sendGroupInvitation = onCall(
             console.log(`📧 New user - will send email invitation`);
           }
 
+          // STEP 1b: Supersede any existing pending invitations for same email + group + role
+          // This prevents stale invitations from creating duplicate enrollments
+          const effectiveRole = isClubAdminInvitation
+            ? "club-admin"
+            : role || "player";
+          const effectiveGroupId = isClubAdminInvitation ? null : groupId;
+
+          const existingPendingQuery = await db
+            .collection("invitations")
+            .where("email", "==", normalizedEmail)
+            .where("groupId", "==", effectiveGroupId)
+            .where("role", "==", effectiveRole)
+            .where("status", "==", "pending")
+            .get();
+
+          if (!existingPendingQuery.empty) {
+            const batch = db.batch();
+            for (const doc of existingPendingQuery.docs) {
+              batch.update(doc.ref, {
+                status: "superseded",
+                supersededAt: FieldValue.serverTimestamp(),
+                supersededReason: "new_invitation_sent",
+              });
+            }
+            await batch.commit();
+            console.log(
+              `♻️ Superseded ${existingPendingQuery.size} old pending invitation(s) for ${normalizedEmail}`,
+            );
+          }
+
           // STEP 2: Generate invitation token
           const invitationToken = db.collection("invitations").doc().id;
 
@@ -163,7 +193,8 @@ export const sendGroupInvitation = onCall(
                 notificationTitle = "Club Admin Invitation";
               } else if (
                 invitationType === "youth_member" ||
-                invitationType === "youth_member_existing"
+                invitationType === "youth_member_existing" ||
+                invitationType === "youth_existing_new_guardian"
               ) {
                 notificationType = "youth_member_invitation";
                 notificationTitle = "New Child Invitation";
@@ -181,7 +212,10 @@ export const sendGroupInvitation = onCall(
                 notificationMessage = `${inviterName} invited you to become a Club Admin for ${clubName}`;
               } else if (invitationType === "youth_member") {
                 notificationMessage = `Add ${youthData?.childName || "child"} to ${groupName}`;
-              } else if (invitationType === "youth_member_existing") {
+              } else if (
+                invitationType === "youth_member_existing" ||
+                invitationType === "youth_existing_new_guardian"
+              ) {
                 notificationMessage = `Add ${existingYouthData?.youthName || "child"} to ${groupName}`;
               } else if (invitationType === "guardian") {
                 notificationMessage = `${inviterName} invited you to become a guardian for ${guardianData?.youthName || "a youth player"} in ${clubName}`;
@@ -224,7 +258,8 @@ export const sendGroupInvitation = onCall(
                       invitationType === "club_admin"
                         ? "club-admin"
                         : role || "player",
-                    ...(invitationType === "youth_member_existing" &&
+                    ...((invitationType === "youth_member_existing" ||
+                      invitationType === "youth_existing_new_guardian") &&
                       existingYouthData?.youthUid && {
                         existingYouthUid: existingYouthData.youthUid,
                       }),
@@ -267,7 +302,8 @@ export const sendGroupInvitation = onCall(
                 console.log(`📧 Sending club admin invitation email`);
               } else if (
                 (invitationType === "youth_member" ||
-                  invitationType === "youth_member_existing") &&
+                  invitationType === "youth_member_existing" ||
+                  invitationType === "youth_existing_new_guardian") &&
                 (youthData || existingYouthData)
               ) {
                 // Youth member invitation - use guardian template

@@ -112,6 +112,7 @@ export interface GroupInvitationRequest {
     | "regular"
     | "youth_member"
     | "youth_member_existing"
+    | "youth_existing_new_guardian"
     | "club_admin"
     | "guardian"; // Optional: Type of invitation
   youthData?: YouthData; // Optional: Youth member data for NEW youth invitations

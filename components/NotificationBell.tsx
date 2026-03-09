@@ -144,6 +144,20 @@ export default function NotificationBell({
         setModalVisible(false);
         break;
 
+      case "news":
+        // Navigate to news details
+        if (notification.sourceId && notification.clubId) {
+          router.push({
+            pathname: "/news-details" as any,
+            params: {
+              newsId: notification.sourceId,
+              clubId: notification.clubId,
+            },
+          });
+        }
+        setModalVisible(false);
+        break;
+
       case "payment_request":
         // Show payment confirmation modal
         setSelectedPaymentNotification(notification);
@@ -261,6 +275,8 @@ export default function NotificationBell({
         return "bullhorn";
       case "event":
         return "calendar";
+      case "news":
+        return "newspaper-o";
       case "poll":
         return "question-circle";
       case "role_changed":
@@ -379,14 +395,18 @@ export default function NotificationBell({
           >
             {/* Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t("components:notificationBell.notifications")}</Text>
+              <Text style={styles.modalTitle}>
+                {t("components:notificationBell.notifications")}
+              </Text>
               <View style={styles.headerActions}>
                 {unreadCount > 0 && (
                   <TouchableOpacity
                     onPress={handleMarkAllAsRead}
                     style={styles.markAllButton}
                   >
-                    <Text style={styles.markAllText}>{t("components:notificationBell.markAllRead")}</Text>
+                    <Text style={styles.markAllText}>
+                      {t("components:notificationBell.markAllRead")}
+                    </Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -414,7 +434,9 @@ export default function NotificationBell({
                   size={48}
                   color={theme.colors.textSecondary}
                 />
-                <Text style={styles.emptyText}>{t("components:notificationBell.noNotifications")}</Text>
+                <Text style={styles.emptyText}>
+                  {t("components:notificationBell.noNotifications")}
+                </Text>
               </View>
             ) : (
               <FlatList
@@ -441,7 +463,11 @@ export default function NotificationBell({
               )}${selectedPaymentNotification.groupName ? `\nGroup: ${selectedPaymentNotification.groupName}` : ""}`
             : ""
         }
-        confirmText={paymentLoading ? t("components:notificationBell.processing") : t("components:notificationBell.payNow")}
+        confirmText={
+          paymentLoading
+            ? t("components:notificationBell.processing")
+            : t("components:notificationBell.payNow")
+        }
         cancelText={t("components:notificationBell.later")}
         onConfirm={handlePayNow}
         onCancel={handlePayLater}

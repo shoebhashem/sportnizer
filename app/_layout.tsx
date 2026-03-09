@@ -128,6 +128,18 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="group-info"
+        options={{
+          headerShown: true,
+          title: t("screens.groupInfo"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.white,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
         name="manageteams"
         options={{
           headerShown: true,

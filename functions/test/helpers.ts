@@ -17,10 +17,12 @@ const PROJECT_ID = "sportnizer";
 const AUTH_EMULATOR = "127.0.0.1:9099";
 const FIRESTORE_EMULATOR = "127.0.0.1:8080";
 const FUNCTIONS_EMULATOR = "http://127.0.0.1:5001";
+const STORAGE_EMULATOR = "127.0.0.1:9199";
 
 // Set emulator env vars before anything imports firebase-admin
 process.env.FIRESTORE_EMULATOR_HOST = FIRESTORE_EMULATOR;
 process.env.FIREBASE_AUTH_EMULATOR_HOST = AUTH_EMULATOR;
+process.env.FIREBASE_STORAGE_EMULATOR_HOST = STORAGE_EMULATOR;
 process.env.GCLOUD_PROJECT = PROJECT_ID;
 
 // ─── Firebase Admin Singleton ─────────────────────────────────

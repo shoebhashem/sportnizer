@@ -43,7 +43,13 @@ const updateUserGroupDeletionFn = httpsCallable<
 >(functions, "updateUserGroupDeletion");
 
 const updateGuardianDependentAccessFn = httpsCallable<
-  { youthUid: string; guardianUid: string },
+  {
+    youthUid: string;
+    guardianUid: string;
+    clubId?: string;
+    groupId?: string;
+    operation?: string;
+  },
   { success: boolean; message?: string }
 >(functions, "updateGuardianDependentAccess");
 
@@ -148,6 +154,9 @@ export async function reactivateGroupService(
               updateGuardianDependentAccessFn({
                 youthUid: youth.userId,
                 guardianUid: guardian.guardianUid,
+                clubId,
+                groupId,
+                operation: "addGroup",
               }).catch((error) => {
                 console.error(
                   `[reactivateGroupService] Failed to sync guardian ${guardian.guardianUid} for youth ${youth.userId}:`,

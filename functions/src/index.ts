@@ -36,6 +36,7 @@ export { reactivateGroup } from "./groups/reactivateGroup";
 export { updateGroup } from "./groups/updateGroup";
 export { updateSubGroup } from "./groups/updateSubGroup";
 export { updateUserGroupDeletion } from "./groups/updateUserGroupDeletion";
+export { uploadGroupPicture } from "./groups/uploadGroupPicture";
 
 // Event Management Functions (Atomic)
 export { createEvent } from "./events/createEvent";
@@ -56,6 +57,7 @@ export { addGuardianToYouth } from "./members/addGuardianToYouth";
 export { addMemberToClub } from "./members/addMemberToClub";
 export { addMemberToGroup } from "./members/addMemberToGroup";
 export { addMemberToSubGroup } from "./members/addMemberToSubGroup";
+export { checkExistingYouthByNameAndDob } from "./members/checkExistingYouthByNameAndDob";
 export { checkMembership } from "./members/checkMembership";
 export { createYouthMemberDocument } from "./members/createYouthMemberDocument";
 export { removeGuardianFromYouth } from "./members/removeGuardianFromYouth";

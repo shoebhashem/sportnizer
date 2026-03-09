@@ -43,6 +43,7 @@ export interface GroupInvitationRequest {
   invitationType?:
     | "youth_member"
     | "youth_member_existing"
+    | "youth_existing_new_guardian"
     | "regular"
     | "club_admin"
     | "guardian"; // Type of invitation (optional, defaults to 'regular')
@@ -559,6 +560,8 @@ export const addRegularMemberToGroupService = {
 
       // 📋 STEP 2.5: For new youth invitations, create the youth document NOW
       // (after the invitation has been claimed, so no duplicate youth docs on retry)
+      // Preserve the original userId (guardian's UID) before it gets overridden by youth UID
+      const originalUserId = userId;
       let createdYouthUid: string | undefined;
       if (
         invitationData.invitationType === "youth_member" &&
@@ -609,7 +612,11 @@ export const addRegularMemberToGroupService = {
 
       // Check invitation type
       const invitationType = invitationData.invitationType || "regular";
-      const isExistingYouthFlow = invitationType === "youth_member_existing";
+      const isExistingYouthFlow =
+        invitationType === "youth_member_existing" ||
+        invitationType === "youth_existing_new_guardian";
+      const isNewGuardianForExistingYouth =
+        invitationType === "youth_existing_new_guardian";
 
       // Check if this is a youth role (requires youth-specific handling)
       const isYouthRole = role === "player-underage";
@@ -795,6 +802,101 @@ export const addRegularMemberToGroupService = {
           checkMembership: !isNewUser,
           includeGroupOps: false,
         });
+      } else if (isNewGuardianForExistingYouth) {
+        // 👶➕👨‍👧 EXISTING YOUTH + NEW GUARDIAN PATH:
+        // A different guardian's email was used to add an existing youth to a new group.
+        // First link the new guardian to the youth, then process group addition.
+        console.log(
+          "👶➕👨‍👧 Processing EXISTING YOUTH with NEW GUARDIAN - linking guardian first",
+        );
+
+        // Fetch the new guardian's display name (not fetched above because isYouthRole skips it)
+        let newGuardianName = guardianInfo?.guardianName || "Unknown Guardian";
+        let newGuardianEmail =
+          guardianInfo?.guardianEmail || invitationData.email;
+        if (!guardianInfo?.guardianName) {
+          try {
+            const { getFirestore, doc, getDoc } =
+              await import("firebase/firestore");
+            const db = getFirestore();
+            const guardianDocRef = doc(db, "users", userId);
+            const guardianDocSnap = await getDoc(guardianDocRef);
+            if (guardianDocSnap.exists()) {
+              const guardianData = guardianDocSnap.data();
+              newGuardianName = guardianData.displayName || newGuardianName;
+              newGuardianEmail = guardianData.email || newGuardianEmail;
+            }
+          } catch (e: any) {
+            console.warn(
+              "⚠️ Could not fetch guardian display name:",
+              e.message,
+            );
+          }
+        }
+
+        // Step 1: Link the new guardian to the existing youth via addGuardianToYouth
+        const addGuardianToYouthFn = httpsCallable(
+          functions,
+          "addGuardianToYouth",
+        );
+        const guardianLinkResult = await addGuardianToYouthFn({
+          clubId: invitationData.clubId,
+          groupId: invitationData.groupId,
+          youthUid: youthUserId,
+          guardianUid: userId,
+          guardianName: newGuardianName,
+          guardianEmail: newGuardianEmail,
+          relationship: guardianInfo?.relationship || "guardian",
+        });
+
+        const guardianLinkResponse = guardianLinkResult.data as {
+          success: boolean;
+          error?: string;
+        };
+        if (!guardianLinkResponse.success) {
+          throw new Error(
+            guardianLinkResponse.error ||
+              "Failed to link new guardian to existing youth",
+          );
+        }
+        console.log(
+          "✅ New guardian linked to existing youth via addGuardianToYouth",
+        );
+
+        // Step 1.5: Rebuild guardiansContacts so downstream operations work correctly.
+        // For NEW guardians (signup flow), guardianInfo is passed → guardiansContacts is built earlier.
+        // For EXISTING guardians (notification flow), guardianInfo is NOT passed → guardiansContacts is empty.
+        // We fix this here using the name/email we already fetched above.
+        if (
+          !memberData.guardiansContacts ||
+          memberData.guardiansContacts.length === 0
+        ) {
+          console.log(
+            "📋 Rebuilding guardiansContacts for existing guardian flow",
+          );
+          memberData.guardiansContacts = [
+            {
+              guardianUid: userId,
+              guardianName: newGuardianName,
+              guardianEmail: newGuardianEmail,
+              relationship: guardianInfo?.relationship || "guardian",
+            },
+          ];
+        }
+
+        // Step 2: Proceed with regular existing youth operations (club/group addition)
+        await this.executeAtomicOperations({
+          invitationData,
+          memberData,
+          clubInfo,
+          groupInfo,
+          userId: youthUserId,
+          invitationToken,
+          checkMembership: true,
+          includeGroupOps: true,
+          guardianUserId: userId,
+          skipGuardianProcessing: true, // addGuardianToYouth already handled guardian club membership
+        });
       } else if (isExistingYouthFlow) {
         // 🔄 EXISTING YOUTH PATH: Youth already exists, check if in club
         console.log(
@@ -825,6 +927,8 @@ export const addRegularMemberToGroupService = {
           invitationToken,
           checkMembership: false,
           includeGroupOps: true,
+          // For new youth: userId is now youthUid, but notification lives on guardian's account
+          guardianUserId: createdYouthUid ? originalUserId : undefined,
         });
       } else {
         // 👤 EXISTING USER PATH: Check memberships before adding
@@ -889,6 +993,7 @@ export const addRegularMemberToGroupService = {
    * @param config.checkMembership - Whether to check existing memberships first
    * @param config.includeGroupOps - Whether to include group-level operations
    * @param config.guardianUserId - Guardian UID for notification cleanup (youth flows)
+   * @param config.skipGuardianProcessing - Skip processGuardiansForClub (when addGuardianToYouth already handled it)
    */
   async executeAtomicOperations(config: {
     invitationData: any;
@@ -900,6 +1005,7 @@ export const addRegularMemberToGroupService = {
     checkMembership: boolean;
     includeGroupOps: boolean;
     guardianUserId?: string;
+    skipGuardianProcessing?: boolean;
   }) {
     const {
       invitationData,
@@ -911,6 +1017,7 @@ export const addRegularMemberToGroupService = {
       checkMembership,
       includeGroupOps,
       guardianUserId,
+      skipGuardianProcessing,
     } = config;
 
     const role = invitationData.role || "player";
@@ -1157,8 +1264,9 @@ export const addRegularMemberToGroupService = {
 
     // ─────────────────────────────────────────────────────────
     // STEP 4: Process guardians for youth roles
+    // Skip when addGuardianToYouth already handled guardian club membership
     // ─────────────────────────────────────────────────────────
-    if (isYouthRole && hasGuardians) {
+    if (isYouthRole && hasGuardians && !skipGuardianProcessing) {
       await this.processGuardiansForClub(
         invitationData,
         memberData.guardiansContacts,
@@ -1203,7 +1311,7 @@ export const addRegularMemberToGroupService = {
           groupInfo,
           roles: [role],
           operation: "add",
-          updateClubMemberListRoles: isClubMember, // Update club member list if user was already in club
+          updateClubMemberListRoles: isClubMember && !isYouthRole, // Update club member list if user was already in club (skip for youth — Step 2c already added the role)
         });
 
         const userGroupResponse = userGroupResult.data as {
@@ -1235,6 +1343,9 @@ export const addRegularMemberToGroupService = {
             const guardianAccessResult = await updateGuardianDependentAccessFn({
               youthUid: userId,
               guardianUid: guardian.guardianUid,
+              clubId: invitationData.clubId,
+              groupId: invitationData.groupId,
+              operation: "addGroup",
             });
 
             const guardianAccessResponse = guardianAccessResult.data as {

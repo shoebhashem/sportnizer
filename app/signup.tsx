@@ -55,6 +55,12 @@ export default function SignupScreen() {
     relationship: string;
   } | null>(null);
 
+  // Existing youth data for youth_existing_new_guardian flow
+  const [existingYouthData, setExistingYouthData] = useState<{
+    youthUid: string;
+    youthName: string;
+  } | null>(null);
+
   // Store the expected invitation email to enforce it during signup
   const [invitationEmail, setInvitationEmail] = useState<string | null>(null);
 
@@ -125,6 +131,18 @@ export default function SignupScreen() {
         if (invData.invitationType === "youth_member" && invData.youthData) {
           setYouthData(invData.youthData);
           console.log("👶 Youth invitation detected:", invData.youthData);
+        }
+
+        // If this is an existing youth + new guardian invitation, store existing youth data
+        if (
+          invData.invitationType === "youth_existing_new_guardian" &&
+          invData.existingYouthData
+        ) {
+          setExistingYouthData(invData.existingYouthData);
+          console.log(
+            "👶➕👨‍👧 Existing youth + new guardian invitation detected:",
+            invData.existingYouthData,
+          );
         }
       } else {
         // Fallback to generic info if validation fails
@@ -304,6 +322,48 @@ export default function SignupScreen() {
               setModalMessage(
                 t("screens:signup.success.welcomeYouthAdded", {
                   childName: youthData.childName,
+                  groupName: invitationInfo.groupName,
+                }),
+              );
+              setInvitationProcessed(true);
+              setSuccessModalVisible(true);
+            } else if (
+              invitationInfo?.invitationType ===
+                "youth_existing_new_guardian" &&
+              existingYouthData
+            ) {
+              // EXISTING YOUTH + NEW GUARDIAN: Guardian signs up to manage existing youth in a new group
+              console.log(
+                "👶➕👨‍👧 Processing existing youth + new guardian invitation...",
+              );
+
+              const invitationResult =
+                await addRegularMemberToGroupService.processInvitationAfterUserResponse(
+                  invite, // invitationToken
+                  result.user.uid, // new guardian's userId
+                  "accept",
+                  {
+                    guardianUid: result.user.uid,
+                    guardianEmail: result.user.email || email.trim(),
+                    guardianName: fullName.trim(),
+                    relationship: "guardian",
+                  },
+                  // No youthData — youth already exists
+                );
+
+              if (!invitationResult.success) {
+                throw new Error(
+                  invitationResult.error || "Failed to process invitation",
+                );
+              }
+
+              console.log(
+                "✅ Existing youth + new guardian invitation processed successfully!",
+              );
+
+              setModalMessage(
+                t("screens:signup.success.welcomeYouthAdded", {
+                  childName: existingYouthData.youthName,
                   groupName: invitationInfo.groupName,
                 }),
               );
