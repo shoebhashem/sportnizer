@@ -8,6 +8,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "build:web": "npx expo export --platform web",
+    "build:android": "echo 'Use EAS Build: npx eas build --platform android'",
+    "build:ios": "echo 'Use EAS Build: npx eas build --platform ios'",
+    "typecheck": "npx tsc --noEmit",
     "lint": "expo lint"
   },
   "dependencies": {

@@ -2,12 +2,12 @@ name: Cloud Functions Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, development]
     paths:
       - "functions/**"
       - ".github/workflows/functions-tests.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main, development]
     paths:
       - "functions/**"
       - ".github/workflows/functions-tests.yml"

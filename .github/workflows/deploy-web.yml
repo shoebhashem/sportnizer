@@ -1,0 +1,105 @@
+name: Deploy Web to Netlify
+
+on:
+  # Auto-deploy when pushing to main (only app code, not functions-only changes)
+  push:
+    branches: [main]
+    paths-ignore:
+      - "functions/**"
+      - "*.md"
+      - "docs/**"
+      - ".github/workflows/functions-tests.yml"
+
+  # Manual trigger with platform selector (for future Android/iOS expansion)
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Target platform to build and deploy"
+        required: true
+        default: "web"
+        type: choice
+        options:
+          - web
+          # - android  # Future: uncomment when EAS is set up
+          # - ios      # Future: uncomment when EAS is set up
+          # - all      # Future: uncomment when EAS is set up
+
+jobs:
+  deploy-web:
+    name: Build & Deploy Web
+    runs-on: ubuntu-latest
+    # Run if: auto-push (no inputs) OR manually selected web/all
+    if: >
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'web' ||
+      github.event.inputs.platform == 'all'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npx expo export --platform web
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: "./dist"
+          production-deploy: true
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 5
+
+  # ---------------------------------------------------------------
+  # Future: Android build via EAS
+  # ---------------------------------------------------------------
+  # deploy-android:
+  #   name: Build Android (EAS)
+  #   runs-on: ubuntu-latest
+  #   if: >
+  #     github.event.inputs.platform == 'android' ||
+  #     github.event.inputs.platform == 'all'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: "20"
+  #         cache: "npm"
+  #     - run: npm ci
+  #     - uses: expo/expo-github-action@v8
+  #       with:
+  #         eas-version: latest
+  #         token: ${{ secrets.EXPO_TOKEN }}
+  #     - run: eas build --platform android --non-interactive --profile production
+
+  # ---------------------------------------------------------------
+  # Future: iOS build via EAS
+  # ---------------------------------------------------------------
+  # deploy-ios:
+  #   name: Build iOS (EAS)
+  #   runs-on: ubuntu-latest
+  #   if: >
+  #     github.event.inputs.platform == 'ios' ||
+  #     github.event.inputs.platform == 'all'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: "20"
+  #         cache: "npm"
+  #     - run: npm ci
+  #     - uses: expo/expo-github-action@v8
+  #       with:
+  #         eas-version: latest
+  #         token: ${{ secrets.EXPO_TOKEN }}
+  #     - run: eas build --platform ios --non-interactive --profile production
