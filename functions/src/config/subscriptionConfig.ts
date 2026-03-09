@@ -66,28 +66,45 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, TierConfig> = {
 /**
  * Stripe Price IDs for each tier and currency
  *
- * NOTE: These are TEST MODE price IDs.
- * Replace with LIVE MODE price IDs before production deployment.
- *
- * To switch to live mode:
- * 1. Create the same products/prices in Stripe live mode
- * 2. Update these IDs with the live price IDs
- * 3. Update Firebase functions config with live Stripe keys
+ * To switch between test and live mode:
+ * 1. Comment out the active block and uncomment the other
+ * 2. Update Firebase secrets accordingly (see .secret.local for test keys)
  */
+
+// ---- LIVE MODE price IDs (created 2026-03-09) ----
+// Basic product: prod_U7FpZxAwiJ2qch (Clubnizer Basic)
+// Pro product:   prod_U7ImEkT7GDwXLP (Clubnizer Pro)
 export const STRIPE_PRICE_IDS = {
   basic: {
-    sek: "price_1T3yb5C7tKPlBo5y5fJVJQPM",
-    nok: "price_1T3zRGC7tKPlBo5yDn7VPVig",
-    dkk: "price_1T3zRGC7tKPlBo5yEjtlvf9o",
-    eur: "price_1T3zRGC7tKPlBo5y3y4wTkjF",
+    sek: "price_1T948lCAhuJjwfXTAAHz7QsY",
+    nok: "price_1T94A8CAhuJjwfXTdI92HWFO",
+    dkk: "price_1T94AhCAhuJjwfXTtDiIX8M0",
+    eur: "price_1T94B5CAhuJjwfXTPuvoDp6P",
   },
   pro: {
-    sek: "price_1T3yf2C7tKPlBo5yf859iboF",
-    eur: "price_1T3zZDC7tKPlBo5yEOQc2V7H",
-    nok: "price_1T3zZDC7tKPlBo5yhrJCPJ6W",
-    dkk: "price_1T3zZDC7tKPlBo5y6vuMWZf1",
+    sek: "price_1T94BoCAhuJjwfXTQkpXty4m",
+    nok: "price_1T94ByCAhuJjwfXTEtaOwPHa",
+    dkk: "price_1T94C6CAhuJjwfXTdv2vQ8lt",
+    eur: "price_1T94CKCAhuJjwfXTAvnDkA9K",
   },
 } as const;
+
+// ---- TEST MODE price IDs ----
+// To use: comment out the LIVE block above and uncomment this block
+// export const STRIPE_PRICE_IDS = {
+//   basic: {
+//     sek: "price_1T3yb5C7tKPlBo5y5fJVJQPM",
+//     nok: "price_1T3zRGC7tKPlBo5yDn7VPVig",
+//     dkk: "price_1T3zRGC7tKPlBo5yEjtlvf9o",
+//     eur: "price_1T3zRGC7tKPlBo5y3y4wTkjF",
+//   },
+//   pro: {
+//     sek: "price_1T3yf2C7tKPlBo5yf859iboF",
+//     eur: "price_1T3zZDC7tKPlBo5yEOQc2V7H",
+//     nok: "price_1T3zZDC7tKPlBo5yhrJCPJ6W",
+//     dkk: "price_1T3zZDC7tKPlBo5y6vuMWZf1",
+//   },
+// } as const;
 
 /**
  * Display prices for UI (in smallest currency unit: öre/cents)
