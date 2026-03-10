@@ -2,8 +2,16 @@
   command = "npx expo export --platform web"
   publish = "dist"
 
+# Serve static assets directly (fonts, images, JS, CSS)
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 # SPA redirect: send all routes to index.html for client-side routing
+# force = false ensures existing files are served before falling back
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false

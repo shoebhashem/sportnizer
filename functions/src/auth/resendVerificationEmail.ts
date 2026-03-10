@@ -10,6 +10,7 @@ import { validateRequiredFields } from "../utils/validation";
 export const resendVerificationEmail = onCall(
   {
     region: config.region,
+    secrets: ["SMTP_PASSWORD"],
   },
   async (request) => {
     try {

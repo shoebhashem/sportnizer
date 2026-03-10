@@ -14,6 +14,7 @@ import { validateRequiredFields } from "../utils/validation";
 export const createUserAccount = onCall(
   {
     region: config.region,
+    secrets: ["SMTP_PASSWORD"],
   },
   async (request): Promise<CreateUserAccountResponse> => {
     try {
@@ -85,9 +86,7 @@ export const createUserAccount = onCall(
         // Legal acceptance fields
         acceptedTermsVersion: legalAcceptance?.termsVersion || null,
         acceptedPrivacyVersion: legalAcceptance?.privacyVersion || null,
-        legalAcceptedAt: legalAcceptance
-          ? FieldValue.serverTimestamp()
-          : null,
+        legalAcceptedAt: legalAcceptance ? FieldValue.serverTimestamp() : null,
       };
 
       // Use batch write if legal acceptance is provided

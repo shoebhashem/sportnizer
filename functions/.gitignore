@@ -11,3 +11,5 @@ node_modules/
 
 # Environment variables
 .env
+functions/.env
+functions/.env.local

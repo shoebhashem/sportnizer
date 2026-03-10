@@ -30,7 +30,7 @@ import { validateRequiredFields } from "../utils/validation";
  * @throws HttpsError('not-found') - Club or group doesn't exist
  */
 export const createNews = onCall(
-  { region: config.region },
+  { region: config.region, secrets: ["SMTP_PASSWORD"] },
   async (request): Promise<CreateNewsResponse> => {
     try {
       // ============================================================================
