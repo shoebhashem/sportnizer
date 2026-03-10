@@ -132,7 +132,10 @@ export default function ProfilePictureUpload({
         // Self-upload
         result = await uploadOwnProfilePicture(userId, selectedImage);
       } else {
-        showAlert(t("components:profilePictureUpload.uploadFailed"), t("components:profilePictureUpload.missingUserInfo"));
+        showAlert(
+          t("components:profilePictureUpload.uploadFailed"),
+          t("components:profilePictureUpload.missingUserInfo"),
+        );
         return;
       }
 
@@ -143,12 +146,16 @@ export default function ProfilePictureUpload({
       } else {
         showAlert(
           t("components:profilePictureUpload.uploadFailed"),
-          result.error || t("components:profilePictureUpload.failedToUploadProfilePicture"),
+          result.error ||
+            t("components:profilePictureUpload.failedToUploadProfilePicture"),
         );
       }
     } catch (error) {
       console.error("Upload error:", error);
-      showAlert(t("components:profilePictureUpload.uploadFailed"), t("components:profilePictureUpload.unexpectedError"));
+      showAlert(
+        t("components:profilePictureUpload.uploadFailed"),
+        t("components:profilePictureUpload.unexpectedError"),
+      );
     } finally {
       setUploading(false);
     }
@@ -170,7 +177,9 @@ export default function ProfilePictureUpload({
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>
-              {isForMember ? t("components:profilePictureUpload.uploadMemberPhoto") : t("components:profilePictureUpload.uploadProfilePicture")}
+              {isForMember
+                ? t("components:profilePictureUpload.uploadMemberPhoto")
+                : t("components:profilePictureUpload.uploadProfilePicture")}
             </Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <FontAwesome
@@ -190,12 +199,12 @@ export default function ProfilePictureUpload({
                   currentImageUrl ||
                   "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
               }}
-              style={styles.previewImage}
-              defaultSource={require("@/assets/images/avatars/adult-default.png")}
             />
             {selectedImage && (
               <View style={styles.selectedImageOverlay}>
-                <Text style={styles.selectedImageText}>{t("components:profilePictureUpload.newImageSelected")}</Text>
+                <Text style={styles.selectedImageText}>
+                  {t("components:profilePictureUpload.newImageSelected")}
+                </Text>
               </View>
             )}
           </View>
@@ -220,7 +229,11 @@ export default function ProfilePictureUpload({
 
             {selectedImage && (
               <Button
-                label={uploading ? t("components:profilePictureUpload.uploading") : t("components:profilePictureUpload.uploadImage")}
+                label={
+                  uploading
+                    ? t("components:profilePictureUpload.uploading")
+                    : t("components:profilePictureUpload.uploadImage")
+                }
                 onPress={uploadImage}
                 disabled={uploading}
                 theme="primary"
