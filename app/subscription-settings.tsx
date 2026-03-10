@@ -4,35 +4,35 @@ import { theme } from "@/constants/theme";
 import { useUser } from "@/contexts/UserContext";
 import { clubService } from "@/services/club";
 import {
-    SUBSCRIPTION_TIERS,
-    subscriptionService,
-    SubscriptionStatusResult,
-    SupportedCurrency,
+  SUBSCRIPTION_TIERS,
+  subscriptionService,
+  SubscriptionStatusResult,
+  SupportedCurrency,
 } from "@/services/subscriptionService";
 import { ClubData } from "@/services/types/club";
 import { Ionicons } from "@expo/vector-icons";
 import {
-    router,
-    useFocusEffect,
-    useLocalSearchParams,
-    useNavigation,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -214,6 +214,14 @@ export default function SubscriptionSettingsScreen() {
     });
   };
 
+  // Calculate trial end date (6 months from now)
+  // Must be before the early return so hooks are called consistently every render
+  const trialEndDate = React.useMemo(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 6);
+    return formatDate(date);
+  }, []);
+
   if (loading) {
     return (
       <View style={[styles.container, { paddingBottom: insets.bottom }]}>
@@ -232,13 +240,6 @@ export default function SubscriptionSettingsScreen() {
   const isFreeTier = currentTier === "free";
   const isPaidTier = currentTier === "basic" || currentTier === "pro";
   const isEnterprise = currentTier === "enterprise";
-
-  // Calculate trial end date (6 months from now)
-  const trialEndDate = React.useMemo(() => {
-    const date = new Date();
-    date.setMonth(date.getMonth() + 6);
-    return formatDate(date);
-  }, []);
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
@@ -908,7 +909,7 @@ const styles = StyleSheet.create({
   trialBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ECFDF5",
+    backgroundColor: theme.colors.success + "18",
     borderRadius: 8,
     padding: 10,
     marginBottom: theme.spacing.md,
