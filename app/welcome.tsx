@@ -96,6 +96,10 @@ export default function WelcomeScreen() {
             icon="✓"
             text={t("screens:welcome.features.paymentsDesc")}
           />
+          <FeatureItem
+            icon="✓"
+            text={t("screens:welcome.features.attendanceDesc")}
+          />
         </View>
       </View>
     </SafeAreaView>

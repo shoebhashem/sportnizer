@@ -11,7 +11,9 @@
       "communication": "Kommunikation",
       "communicationDesc": "Bleibe mit deinem Team in Verbindung",
       "payments": "Zahlungen",
-      "paymentsDesc": "Verwalte Mitgliedsbeiträge mühelos"
+      "paymentsDesc": "Verwalte Mitgliedsbeiträge mühelos",
+      "attendance": "Anwesenheit",
+      "attendanceDesc": "Anwesenheit erfassen & Statistiken anzeigen"
     }
   },
   "login": {

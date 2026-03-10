@@ -11,7 +11,9 @@
       "communication": "Communication",
       "communicationDesc": "Stay connected with your team",
       "payments": "Payments",
-      "paymentsDesc": "Manage membership fees effortlessly"
+      "paymentsDesc": "Manage membership fees effortlessly",
+      "attendance": "Attendance",
+      "attendanceDesc": "Track attendance & view statistics"
     }
   },
   "login": {

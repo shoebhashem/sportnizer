@@ -11,7 +11,9 @@
       "communication": "Comunicación",
       "communicationDesc": "Mantente conectado con tu equipo",
       "payments": "Pagos",
-      "paymentsDesc": "Gestiona cuotas de membresía sin esfuerzo"
+      "paymentsDesc": "Gestiona cuotas de membresía sin esfuerzo",
+      "attendance": "Asistencia",
+      "attendanceDesc": "Registra asistencia y consulta estadísticas"
     }
   },
   "login": {

@@ -11,7 +11,9 @@
       "communication": "Kommunikation",
       "communicationDesc": "Hold kontakten med dit hold",
       "payments": "Betalinger",
-      "paymentsDesc": "Administrer kontingenter ubesværet"
+      "paymentsDesc": "Administrer kontingenter ubesværet",
+      "attendance": "Fremmøde",
+      "attendanceDesc": "Registrer fremmøde & se statistik"
     }
   },
   "login": {

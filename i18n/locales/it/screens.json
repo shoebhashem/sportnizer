@@ -11,7 +11,9 @@
       "communication": "Comunicazione",
       "communicationDesc": "Resta in contatto con la tua squadra",
       "payments": "Pagamenti",
-      "paymentsDesc": "Gestisci le quote associative senza sforzo"
+      "paymentsDesc": "Gestisci le quote associative senza sforzo",
+      "attendance": "Presenze",
+      "attendanceDesc": "Registra presenze e visualizza statistiche"
     }
   },
   "login": {

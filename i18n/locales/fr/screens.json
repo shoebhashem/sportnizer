@@ -11,7 +11,9 @@
       "communication": "Communication",
       "communicationDesc": "Restez connecté avec votre équipe",
       "payments": "Paiements",
-      "paymentsDesc": "Gérez les cotisations d'adhésion sans effort"
+      "paymentsDesc": "Gérez les cotisations d'adhésion sans effort",
+      "attendance": "Présence",
+      "attendanceDesc": "Suivez la présence & consultez les statistiques"
     }
   },
   "login": {

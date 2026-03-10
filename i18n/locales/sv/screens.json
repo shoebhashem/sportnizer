@@ -11,7 +11,9 @@
       "communication": "Kommunikation",
       "communicationDesc": "Håll kontakten med ditt lag",
       "payments": "Betalningar",
-      "paymentsDesc": "Hantera medlemsavgifter enkelt"
+      "paymentsDesc": "Hantera medlemsavgifter enkelt",
+      "attendance": "Närvaro",
+      "attendanceDesc": "Följ närvaro & visa statistik"
     }
   },
 

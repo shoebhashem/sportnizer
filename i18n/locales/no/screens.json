@@ -11,7 +11,9 @@
       "communication": "Kommunikasjon",
       "communicationDesc": "Hold kontakten med laget ditt",
       "payments": "Betalinger",
-      "paymentsDesc": "Håndter medlemsavgifter enkelt"
+      "paymentsDesc": "Håndter medlemsavgifter enkelt",
+      "attendance": "Oppmøte",
+      "attendanceDesc": "Registrer oppmøte & se statistikk"
     }
   },
   "login": {
