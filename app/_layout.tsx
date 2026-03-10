@@ -8,6 +8,7 @@ import { UserProvider } from "@/contexts/UserContext";
 import "@/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useNavigation } from "expo-router";
+import * as SystemUI from "expo-system-ui";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, TouchableOpacity } from "react-native";
@@ -61,6 +62,12 @@ function RootLayoutNav() {
     );
   };
 
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      SystemUI.setNavigationBarBackgroundColor(theme.colors.primary);
+    }
+  }, []);
+
   return (
     <Stack
       screenOptions={{
@@ -102,7 +109,6 @@ function RootLayoutNav() {
           headerShadowVisible: false,
         }}
       />
-      {/* ...existing code... */}
       <Stack.Screen
         name="manage-club"
         options={{
