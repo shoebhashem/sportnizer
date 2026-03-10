@@ -13,19 +13,25 @@ service firebase.storage {
 
     // ========================================================================
     // PROFILE PICTURES - Uploads + resized images by extension
-    // Upload path:  profilePictures/{userId}/profile.{ext}
-    // Resized path: profilePictures/{userId}/customProfilePictures/profile_200x200.png
+    // Upload path:  profilePictures/users/{userId}/profile.{ext}
+    // Resized path: profilePictures/users/{userId}/customProfilePictures/profile_200x200.png
+    // Club logos:   profilePictures/clubs/{clubId}/logo.jpg (uploaded via CF/Admin SDK)
+    // Group pics:   profilePictures/groups/{groupId}/logo.jpg (uploaded via CF/Admin SDK)
     // ========================================================================
-    match /profilePictures/{userId}/{allPaths=**} {
-      // Public read for originals and resized images
-      allow read: if true;
 
-      // Only the user themselves can upload their own profile picture
-      // (resize extension writes via Admin SDK, which bypasses rules)
+    // User profile pictures — users can upload their own
+    match /profilePictures/users/{userId}/{allPaths=**} {
+      allow read: if true;
       allow write: if request.auth != null &&
                    request.auth.uid == userId &&
                    request.resource.size < 5 * 1024 * 1024 &&
                    request.resource.contentType.matches('image/.*');
+    }
+
+    // Club logos and group pictures — public read, write only via Admin SDK (Cloud Functions)
+    match /profilePictures/{entityType}/{entityId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // Only Admin SDK (Cloud Functions) can write
     }
 
     // ========================================================================

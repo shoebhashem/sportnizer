@@ -17,11 +17,11 @@ import { onObjectFinalized } from "firebase-functions/v2/storage";
 
 /**
  * Extract userId from the resized image path.
- * Actual path from resize extension: profilePictures/{userId}/customProfilePictures/profile_200x200.png
+ * Actual path from resize extension: profilePictures/users/{userId}/customProfilePictures/profile_200x200.png
  */
 function extractUserIdFromPath(filePath: string): string | null {
   const match = filePath.match(
-    /^profilePictures\/([^/]+)\/customProfilePictures\/profile_200x200\./,
+    /^profilePictures\/users\/([^/]+)\/customProfilePictures\/profile_200x200\./,
   );
   return match ? match[1] : null;
 }
@@ -50,7 +50,7 @@ export const onProfilePictureResized = onObjectFinalized(
       return;
     }
 
-    // Only process files in customProfilePictures/profilePictures/
+    // Only process files in customProfilePictures/ under profilePictures/users/
     const userId = extractUserIdFromPath(filePath);
     if (!userId) {
       console.log(

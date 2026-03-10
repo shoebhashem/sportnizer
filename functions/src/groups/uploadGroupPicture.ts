@@ -17,6 +17,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { isGroupAdmin } from "../utils/roleValidation";
 import { validateRequiredFields } from "../utils/validation";
+import { waitForResizedImage } from "../utils/waitForResizedImage";
 
 interface UploadGroupPictureRequest {
   clubId: string;
@@ -103,6 +104,7 @@ export const uploadGroupPicture = onCall(
       await file.save(imageBuffer, {
         metadata: {
           contentType,
+          cacheControl: "no-cache, max-age=0",
         },
         public: true,
       });
@@ -111,10 +113,10 @@ export const uploadGroupPicture = onCall(
         `✅ Uploaded group picture for group ${groupId} (club ${clubId}) by ${callerId}`,
       );
 
-      // 8. Construct the predicted resized URL
+      // 8. Wait for the resized image to be created by the resize extension
       const bucketName = "sportnizer.firebasestorage.app";
-      const cacheBuster = Date.now();
-      const pictureUrl = `https://storage.googleapis.com/${bucketName}/profilePictures/groups/${groupId}/customProfilePictures/logo_200x200.png?t=${cacheBuster}`;
+      const resizedPath = `profilePictures/groups/${groupId}/customProfilePictures/logo_200x200.png`;
+      const pictureUrl = await waitForResizedImage(bucketName, resizedPath);
 
       // 9. Store the pictureUrl in the group document
       await groupRef.update({

@@ -8,6 +8,7 @@ import { UserProvider } from "@/contexts/UserContext";
 import "@/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useNavigation } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, TouchableOpacity } from "react-native";
@@ -29,6 +30,7 @@ export default function RootLayout() {
           <EventProvider>
             <NewsProvider>
               <AuthProvider>
+                <StatusBar style="light" />
                 <RootLayoutNav />
               </AuthProvider>
             </NewsProvider>

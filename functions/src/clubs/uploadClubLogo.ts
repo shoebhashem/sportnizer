@@ -15,6 +15,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { isClubAdmin } from "../utils/roleValidation";
 import { validateRequiredFields } from "../utils/validation";
+import { waitForResizedImage } from "../utils/waitForResizedImage";
 
 interface UploadClubLogoRequest {
   clubId: string;
@@ -94,17 +95,17 @@ export const uploadClubLogo = onCall(
       await file.save(imageBuffer, {
         metadata: {
           contentType,
+          cacheControl: "no-cache, max-age=0",
         },
         public: true,
       });
 
       console.log(`✅ Uploaded club logo for club ${clubId} by ${callerId}`);
 
-      // 8. Construct the predicted resized URL
-      //    Uses GCS public URL format (works because MAKE_PUBLIC=true on resize extension)
+      // 8. Wait for the resized image to be created by the resize extension
       const bucketName = "sportnizer.firebasestorage.app";
-      const cacheBuster = Date.now();
-      const logoUrl = `https://storage.googleapis.com/${bucketName}/profilePictures/clubs/${clubId}/customProfilePictures/logo_200x200.png?t=${cacheBuster}`;
+      const resizedPath = `profilePictures/clubs/${clubId}/customProfilePictures/logo_200x200.png`;
+      const logoUrl = await waitForResizedImage(bucketName, resizedPath);
 
       return {
         success: true,

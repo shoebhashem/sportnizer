@@ -8,7 +8,7 @@
  * - club-admin: Can upload for any member in their club
  * - admin/coach: Can upload for members in groups they manage
  *
- * The image is uploaded to profilePictures/{targetUserId}/profile.jpg via Admin SDK.
+ * The image is uploaded to profilePictures/users/{targetUserId}/profile.jpg via Admin SDK.
  * The resize extension then processes it, and onProfilePictureResized updates Firestore.
  */
 
@@ -17,6 +17,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { isClubAdmin } from "../utils/roleValidation";
 import { validateRequiredFields } from "../utils/validation";
+import { waitForResizedImage } from "../utils/waitForResizedImage";
 
 interface UploadForMemberRequest {
   targetUserId: string;
@@ -107,7 +108,7 @@ export const uploadProfilePictureForMember = onCall(
 
       // 6. Upload image to Storage via Admin SDK
       const bucket = admin.storage().bucket("sportnizer.firebasestorage.app");
-      const filePath = `profilePictures/${targetUserId}/profile.jpg`;
+      const filePath = `profilePictures/users/${targetUserId}/profile.jpg`;
       const file = bucket.file(filePath);
 
       const imageBuffer = Buffer.from(imageBase64, "base64");
@@ -115,6 +116,7 @@ export const uploadProfilePictureForMember = onCall(
       await file.save(imageBuffer, {
         metadata: {
           contentType,
+          cacheControl: "no-cache, max-age=0",
         },
         public: true,
       });
@@ -123,11 +125,10 @@ export const uploadProfilePictureForMember = onCall(
         `✅ Uploaded profile picture for ${targetUserId} by ${callerId}`,
       );
 
-      // 7. Construct the predicted resized URL
-      //    Uses GCS public URL format (works because MAKE_PUBLIC=true on resize extension)
+      // 7. Wait for the resized image to be created by the resize extension
       const bucketName = "sportnizer.firebasestorage.app";
-      const cacheBuster = Date.now();
-      const photoURL = `https://storage.googleapis.com/${bucketName}/profilePictures/${targetUserId}/customProfilePictures/profile_200x200.png?t=${cacheBuster}`;
+      const resizedPath = `profilePictures/users/${targetUserId}/customProfilePictures/profile_200x200.png`;
+      const photoURL = await waitForResizedImage(bucketName, resizedPath);
 
       return {
         success: true,

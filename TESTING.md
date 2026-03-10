@@ -1156,7 +1156,7 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 #### TC-P11: onProfilePictureResized — photoURL propagated to all Firestore locations
 
 > Simulates the Firebase Resize Extension by uploading a file at the
-> `profilePictures/{uid}/customProfilePictures/profile_200x200.png` path,
+> `profilePictures/users/{uid}/customProfilePictures/profile_200x200.png` path,
 > triggering the `onProfilePictureResized` Storage trigger in the Functions emulator.
 
 | Step | Action                                                         |
@@ -1166,12 +1166,12 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | 3    | Upload resized file to Storage emulator to trigger propagation |
 | 4    | Poll user doc until `photoURL` appears (up to 15s)             |
 
-| ✅ Document Checked                                                         | Field(s) Asserted                                        |
-| --------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `users/{uid}`                                                               | `photoURL` contains expected Storage path                |
-| `clubs/{clubId}/allMembers/members`                                         | Member entry `photoURL` contains `profilePictures/{uid}` |
-| `clubs/{clubId}/groups/{groupId}/allMembers/members`                        | Member entry `photoURL` contains `profilePictures/{uid}` |
-| `clubs/{clubId}/groups/{groupId}/subgroups/{subGroupId}/allMembers/members` | Member entry `photoURL` contains `profilePictures/{uid}` |
+| ✅ Document Checked                                                         | Field(s) Asserted                                              |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `users/{uid}`                                                               | `photoURL` contains expected Storage path                      |
+| `clubs/{clubId}/allMembers/members`                                         | Member entry `photoURL` contains `profilePictures/users/{uid}` |
+| `clubs/{clubId}/groups/{groupId}/allMembers/members`                        | Member entry `photoURL` contains `profilePictures/users/{uid}` |
+| `clubs/{clubId}/groups/{groupId}/subgroups/{subGroupId}/allMembers/members` | Member entry `photoURL` contains `profilePictures/users/{uid}` |
 
 ---
 

@@ -106,6 +106,7 @@ export { fixEmptyUserDocument } from "./utils/fixEmptyUserDocument";
 
 // Profile Picture Functions
 export { onProfilePictureResized } from "./profile/onProfilePictureResized";
+export { uploadOwnProfilePicture } from "./profile/uploadOwnProfilePicture";
 export { uploadProfilePictureForMember } from "./profile/uploadProfilePictureForMember";
 
 // Scheduled Functions

@@ -10,6 +10,8 @@
 
 import { httpsCallable } from "firebase/functions";
 
+import { compressImage } from "@/utils/imageCompression";
+
 import { functions } from "./core/firebase";
 
 export interface GroupPictureUploadResult {
@@ -32,8 +34,11 @@ export async function uploadGroupPicture(
   imageUri: string,
 ): Promise<GroupPictureUploadResult> {
   try {
-    // 1. Fetch the image and convert to base64 (Cloud Functions can't receive blobs)
-    const response = await fetch(imageUri);
+    // 1. Compress the image before upload
+    const compressedUri = await compressImage(imageUri);
+
+    // 2. Fetch the compressed image and convert to base64
+    const response = await fetch(compressedUri);
     const blob = await response.blob();
     const base64 = await blobToBase64(blob);
 

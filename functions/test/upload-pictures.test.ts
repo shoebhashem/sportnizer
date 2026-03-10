@@ -434,7 +434,7 @@ describe("Suite P: Picture Upload & Firestore Verification", () => {
 
       expect(result.success).toBe(true);
       expect(result.photoURL).toBeDefined();
-      expect(result.photoURL).toContain(`profilePictures/${member.uid}`);
+      expect(result.photoURL).toContain(`profilePictures/users/${member.uid}`);
     });
 
     it("TC-P8: Group coach uploads for group member → success", async () => {
@@ -615,7 +615,7 @@ describe("Suite P: Picture Upload & Firestore Verification", () => {
       // Simulate the Firebase Resize Extension completing:
       // upload a file at the exact path onProfilePictureResized monitors
       const bucket = getAdmin().storage().bucket(STORAGE_BUCKET);
-      const resizedPath = `profilePictures/${member.uid}/customProfilePictures/profile_200x200.png`;
+      const resizedPath = `profilePictures/users/${member.uid}/customProfilePictures/profile_200x200.png`;
       await bucket
         .file(resizedPath)
         .save(Buffer.from(TINY_IMAGE_BASE64, "base64"), {
@@ -634,7 +634,7 @@ describe("Suite P: Picture Upload & Firestore Verification", () => {
       const userDoc = await getDocument(`users/${member.uid}`);
       expect(userDoc!.photoURL).toBeDefined();
       expect(userDoc!.photoURL).toContain(
-        `profilePictures/${member.uid}/customProfilePictures/profile_200x200`,
+        `profilePictures/users/${member.uid}/customProfilePictures/profile_200x200`,
       );
 
       // ── 2. Verify club allMembers entry ──
@@ -646,7 +646,9 @@ describe("Suite P: Picture Upload & Firestore Verification", () => {
       );
       expect(clubEntry).toBeDefined();
       expect(clubEntry.photoURL).toBeDefined();
-      expect(clubEntry.photoURL).toContain(`profilePictures/${member.uid}`);
+      expect(clubEntry.photoURL).toContain(
+        `profilePictures/users/${member.uid}`,
+      );
 
       // ── 3. Verify group allMembers entry ──
       const groupMembers = await getDocument(
@@ -657,7 +659,9 @@ describe("Suite P: Picture Upload & Firestore Verification", () => {
       );
       expect(groupEntry).toBeDefined();
       expect(groupEntry.photoURL).toBeDefined();
-      expect(groupEntry.photoURL).toContain(`profilePictures/${member.uid}`);
+      expect(groupEntry.photoURL).toContain(
+        `profilePictures/users/${member.uid}`,
+      );
 
       // ── 4. Verify subgroup allMembers entry ──
       const subgroupMembers = await getDocument(
@@ -668,7 +672,9 @@ describe("Suite P: Picture Upload & Firestore Verification", () => {
       );
       expect(subgroupEntry).toBeDefined();
       expect(subgroupEntry.photoURL).toBeDefined();
-      expect(subgroupEntry.photoURL).toContain(`profilePictures/${member.uid}`);
+      expect(subgroupEntry.photoURL).toContain(
+        `profilePictures/users/${member.uid}`,
+      );
     });
   });
 });

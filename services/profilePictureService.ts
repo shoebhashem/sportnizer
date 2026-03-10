@@ -1,50 +1,59 @@
 /**
  * Profile Picture Service
  *
- * Handles uploading profile pictures to Firebase Storage.
- * - Self-upload: Direct upload to Storage → resize extension processes → Cloud Function updates Firestore
- * - Admin/coach upload for member: Calls Cloud Function which handles Storage upload + Firestore update
+ * Handles uploading profile pictures via Cloud Functions.
+ * - Self-upload: Calls uploadOwnProfilePicture Cloud Function
+ * - Admin/coach upload for member: Calls uploadProfilePictureForMember Cloud Function
  *
- * Upload path: profilePictures/{userId}/profile.jpg
- * Resized output: profilePictures/{userId}/customProfilePictures/profile_200x200.png (by resize extension)
+ * Upload path: profilePictures/users/{userId}/profile.jpg
+ * Resized output: profilePictures/users/{userId}/customProfilePictures/profile_200x200.png (by resize extension)
  */
 
 import { httpsCallable } from "firebase/functions";
-import { ref, uploadBytes } from "firebase/storage";
 
-import { functions, storage } from "./core/firebase";
+import { compressImage } from "@/utils/imageCompression";
+
+import { functions } from "./core/firebase";
 import type { ProfilePictureUploadResult } from "./types/user";
 
 /**
  * Upload the current user's own profile picture.
- * Uploads directly to Firebase Storage. The resize extension will process it,
- * then the onProfilePictureResized Cloud Function will update Firestore everywhere.
+ * Calls the uploadOwnProfilePicture Cloud Function which:
+ * 1. Uploads the image via Admin SDK (reliable, no retry-limit-exceeded)
+ * 2. Waits for the resize extension to process the image
+ * 3. Returns the confirmed resized URL
  */
 export async function uploadOwnProfilePicture(
   userId: string,
   imageUri: string,
 ): Promise<ProfilePictureUploadResult> {
   try {
-    // 1. Fetch the image as a blob
-    const response = await fetch(imageUri);
-    const blob = await response.blob();
+    // 1. Compress the image before upload
+    const compressedUri = await compressImage(imageUri);
 
-    // 2. Upload to profilePictures/{userId}/profile.jpg
-    const storageRef = ref(storage, `profilePictures/${userId}/profile.jpg`);
-    await uploadBytes(storageRef, blob, {
+    // 2. Fetch the compressed image and convert to base64
+    const response = await fetch(compressedUri);
+    const blob = await response.blob();
+    const base64 = await blobToBase64(blob);
+
+    // 3. Call the Cloud Function
+    const uploadFn = httpsCallable<
+      {
+        imageBase64: string;
+        contentType: string;
+      },
+      { success: boolean; photoURL?: string; error?: string }
+    >(functions, "uploadOwnProfilePicture");
+
+    const result = await uploadFn({
+      imageBase64: base64,
       contentType: "image/jpeg",
     });
 
-    // 3. Construct the predicted resized image URL
-    //    Extension outputs to: profilePictures/{userId}/customProfilePictures/profile_200x200.png
-    //    Uses GCS public URL format (works because MAKE_PUBLIC=true on resize extension)
-    const bucket = "sportnizer.firebasestorage.app";
-    const cacheBuster = Date.now();
-    const photoURL = `https://storage.googleapis.com/${bucket}/profilePictures/${userId}/customProfilePictures/profile_200x200.png?t=${cacheBuster}`;
-
     return {
-      success: true,
-      photoURL,
+      success: result.data.success,
+      photoURL: result.data.photoURL,
+      error: result.data.error,
     };
   } catch (error: any) {
     console.error("Error uploading profile picture:", error);
@@ -69,12 +78,15 @@ export async function uploadProfilePictureForMember(
   imageUri: string,
 ): Promise<ProfilePictureUploadResult> {
   try {
-    // 1. Fetch the image and convert to base64 (Cloud Functions can't receive blobs)
-    const response = await fetch(imageUri);
+    // 1. Compress the image before upload
+    const compressedUri = await compressImage(imageUri);
+
+    // 2. Fetch the compressed image and convert to base64
+    const response = await fetch(compressedUri);
     const blob = await response.blob();
     const base64 = await blobToBase64(blob);
 
-    // 2. Call the Cloud Function
+    // 3. Call the Cloud Function
     const uploadFn = httpsCallable<
       {
         targetUserId: string;
