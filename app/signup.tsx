@@ -535,13 +535,21 @@ export default function SignupScreen() {
               <>
                 <Text style={styles.subtitle}>
                   {youthData
-                    ? `You have been invited to add ${youthData.childName} to ${invitationInfo.groupName} by ${invitationInfo.inviterName}`
-                    : `You have been invited to join ${invitationInfo.groupName} by ${invitationInfo.inviterName}`}
+                    ? t("screens:signup.invitedToAddYouth", {
+                        childName: youthData.childName,
+                        groupName: invitationInfo.groupName,
+                        inviterName: invitationInfo.inviterName,
+                      })
+                    : t("screens:signup.invitedToJoinGroup", {
+                        groupName: invitationInfo.groupName,
+                        inviterName: invitationInfo.inviterName,
+                      })}
                 </Text>
                 {youthData && (
                   <Text style={styles.guardianNote}>
-                    Please create your own guardian account below to manage{" "}
-                    {youthData.childName}&apos;s participation.
+                    {t("screens:signup.guardianAccountNote", {
+                      childName: youthData.childName,
+                    })}
                   </Text>
                 )}
               </>

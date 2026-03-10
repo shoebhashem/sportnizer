@@ -52,6 +52,9 @@
   "signup": {
     "createAccount": "Crea account",
     "joinClubnizerToday": "Unisciti a Clubnizer oggi",
+    "invitedToAddYouth": "Sei stato invitato da {{inviterName}} ad aggiungere {{childName}} a {{groupName}}",
+    "invitedToJoinGroup": "Sei stato invitato da {{inviterName}} a unirti a {{groupName}}",
+    "guardianAccountNote": "Crea il tuo account tutore qui sotto per gestire la partecipazione di {{childName}}.",
     "fullNamePlaceholder": "Inserisci il tuo nome completo",
     "emailPlaceholder": "tua@email.com",
     "passwordPlaceholder": "Crea una password (min 6 caratteri)",
@@ -643,6 +646,7 @@
     "errorCheckingEmail": "Errore nella verifica dell'email"
   },
   "addChildMember": {
+    "subtitle": "Invita un bambino a unirsi a {{groupName}}. L'invito verrà inviato al suo tutore. Quest'ultimo gestirà tutte le comunicazioni e le risposte agli eventi per il bambino.",
     "addYouthPlayer": "Aggiungi giocatore giovanile",
     "guardianInformation": "Informazioni sul tutore",
     "guardianEmail": "Email del tutore *",

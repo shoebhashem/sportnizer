@@ -596,9 +596,9 @@ export default function AddChildMemberScreen() {
         >
           {/* Subtitle */}
           <Text style={styles.subtitle}>
-            Invite a child to join {groupName || "this group"}. The invitation
-            will be sent to their guardian. They will manage all communications
-            and event responses for the child.
+            {t("screens:addChildMember.subtitle", {
+              groupName: groupName || "this group",
+            })}
           </Text>
 
           {/* Form */}

@@ -52,6 +52,9 @@
   "signup": {
     "createAccount": "Konto erstellen",
     "joinClubnizerToday": "Treten Sie Clubnizer noch heute bei",
+    "invitedToAddYouth": "Sie wurden von {{inviterName}} eingeladen, {{childName}} zu {{groupName}} hinzuzufügen",
+    "invitedToJoinGroup": "Sie wurden von {{inviterName}} eingeladen, {{groupName}} beizutreten",
+    "guardianAccountNote": "Bitte erstellen Sie unten Ihr eigenes Erziehungsberechtigten-Konto, um die Teilnahme von {{childName}} zu verwalten.",
     "fullNamePlaceholder": "Vollständigen Namen eingeben",
     "emailPlaceholder": "ihre@email.com",
     "passwordPlaceholder": "Passwort erstellen (mind. 6 Zeichen)",
@@ -643,6 +646,7 @@
     "errorCheckingEmail": "Fehler bei der E-Mail-Überprüfung"
   },
   "addChildMember": {
+    "subtitle": "Laden Sie ein Kind ein, {{groupName}} beizutreten. Die Einladung wird an den Erziehungsberechtigten gesendet. Dieser verwaltet die gesamte Kommunikation und Veranstaltungsantworten für das Kind.",
     "addYouthPlayer": "Jugendspieler hinzufügen",
     "guardianInformation": "Informationen zum Erziehungsberechtigten",
     "guardianEmail": "E-Mail des Erziehungsberechtigten *",

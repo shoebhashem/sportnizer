@@ -5,7 +5,14 @@ import { useUser } from "@/contexts/UserContext";
 import { router } from "expo-router";
 import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function WelcomeScreen() {
@@ -36,72 +43,78 @@ export default function WelcomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Logo/Icon Section */}
-        <View style={styles.logoContainer}>
-          <Image
-            source={require("@/assets/images/clubnizer_logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.logoText}>Clubnizer</Text>
-        </View>
-
-        {/* Tagline */}
-        <View style={styles.taglineContainer}>
-          <Text style={styles.tagline}>{t("screens:welcome.tagline")}</Text>
-        </View>
-
-        {/* Main Action Button */}
-        <View style={styles.actionContainer}>
-          <Button
-            label={t("screens:welcome.getStarted")}
-            theme="primary"
-            onPress={handleCreateClub}
-          />
-          <Text style={styles.actionSubtext}>
-            {user
-              ? "Set up your organization and start managing teams"
-              : "Get started in minutes - no experience needed"}
-          </Text>
-        </View>
-
-        {/* Sign In Option */}
-        {!user && (
-          <View style={styles.signInContainer}>
-            <Text style={styles.signInText}>
-              {t("screens:welcome.alreadyHaveAccount")}
-            </Text>
-            <TouchableOpacity onPress={handleSignIn}>
-              <Text style={styles.signInLink}>{t("common:signIn")} →</Text>
-            </TouchableOpacity>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <View style={styles.content}>
+          {/* Logo/Icon Section */}
+          <View style={styles.logoContainer}>
+            <Image
+              source={require("@/assets/images/clubnizer_logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.logoText}>Clubnizer</Text>
           </View>
-        )}
 
-        {/* Features List (optional) */}
-        <View style={styles.featuresContainer}>
-          <FeatureItem
-            icon="✓"
-            text={t("screens:welcome.features.teamManagementDesc")}
-          />
-          <FeatureItem
-            icon="✓"
-            text={t("screens:welcome.features.eventSchedulingDesc")}
-          />
-          <FeatureItem
-            icon="✓"
-            text={t("screens:welcome.features.communicationDesc")}
-          />
-          <FeatureItem
-            icon="✓"
-            text={t("screens:welcome.features.paymentsDesc")}
-          />
-          <FeatureItem
-            icon="✓"
-            text={t("screens:welcome.features.attendanceDesc")}
-          />
+          {/* Tagline */}
+          <View style={styles.taglineContainer}>
+            <Text style={styles.tagline}>{t("screens:welcome.tagline")}</Text>
+          </View>
+
+          {/* Main Action Button */}
+          <View style={styles.actionContainer}>
+            <Button
+              label={t("screens:welcome.getStarted")}
+              theme="primary"
+              onPress={handleCreateClub}
+            />
+            <Text style={styles.actionSubtext}>
+              {user
+                ? "Set up your organization and start managing teams"
+                : "Get started in minutes - no experience needed"}
+            </Text>
+          </View>
+
+          {/* Sign In Option */}
+          {!user && (
+            <View style={styles.signInContainer}>
+              <Text style={styles.signInText}>
+                {t("screens:welcome.alreadyHaveAccount")}
+              </Text>
+              <TouchableOpacity onPress={handleSignIn}>
+                <Text style={styles.signInLink}>{t("common:signIn")} →</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Features List (optional) */}
+          <View style={styles.featuresContainer}>
+            <FeatureItem
+              icon="✓"
+              text={t("screens:welcome.features.teamManagementDesc")}
+            />
+            <FeatureItem
+              icon="✓"
+              text={t("screens:welcome.features.eventSchedulingDesc")}
+            />
+            <FeatureItem
+              icon="✓"
+              text={t("screens:welcome.features.communicationDesc")}
+            />
+            <FeatureItem
+              icon="✓"
+              text={t("screens:welcome.features.paymentsDesc")}
+            />
+            <FeatureItem
+              icon="✓"
+              text={t("screens:welcome.features.attendanceDesc")}
+            />
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -119,10 +132,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: theme.layout.containerPadding,
     justifyContent: "center",
     alignItems: "center",
+    paddingVertical: theme.spacing.lg,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   logoContainer: {
     alignItems: "center",

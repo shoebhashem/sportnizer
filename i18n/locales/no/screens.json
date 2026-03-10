@@ -52,6 +52,9 @@
   "signup": {
     "createAccount": "Opprett konto",
     "joinClubnizerToday": "Bli med i Clubnizer i dag",
+    "invitedToAddYouth": "Du har blitt invitert av {{inviterName}} til å legge til {{childName}} i {{groupName}}",
+    "invitedToJoinGroup": "Du har blitt invitert av {{inviterName}} til å bli med i {{groupName}}",
+    "guardianAccountNote": "Opprett din egen foresattkonto nedenfor for å administrere {{childName}}s deltakelse.",
     "fullNamePlaceholder": "Skriv inn fullt navn",
     "emailPlaceholder": "din@epost.no",
     "passwordPlaceholder": "Opprett et passord (min. 6 tegn)",
@@ -643,6 +646,7 @@
     "errorCheckingEmail": "Feil ved sjekking av e-post"
   },
   "addChildMember": {
+    "subtitle": "Inviter et barn til å bli med i {{groupName}}. Invitasjonen sendes til foresatte. De vil håndtere all kommunikasjon og hendelsessvar for barnet.",
     "addYouthPlayer": "Legg til ungdomsspiller",
     "guardianInformation": "Foresattinformasjon",
     "guardianEmail": "Foresattes e-post *",

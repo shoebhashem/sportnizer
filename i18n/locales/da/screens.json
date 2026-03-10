@@ -52,6 +52,9 @@
   "signup": {
     "createAccount": "Opret konto",
     "joinClubnizerToday": "Bliv en del af Clubnizer i dag",
+    "invitedToAddYouth": "Du er blevet inviteret af {{inviterName}} til at tilføje {{childName}} til {{groupName}}",
+    "invitedToJoinGroup": "Du er blevet inviteret af {{inviterName}} til at deltage i {{groupName}}",
+    "guardianAccountNote": "Opret din egen værgekonto nedenfor for at administrere {{childName}}s deltagelse.",
     "fullNamePlaceholder": "Indtast dit fulde navn",
     "emailPlaceholder": "din@email.com",
     "passwordPlaceholder": "Opret en adgangskode (min. 6 tegn)",
@@ -643,6 +646,7 @@
     "errorCheckingEmail": "Fejl ved tjek af e-mail"
   },
   "addChildMember": {
+    "subtitle": "Inviter et barn til at deltage i {{groupName}}. Invitationen sendes til deres værge. De vil håndtere al kommunikation og begivenhedssvar for barnet.",
     "addYouthPlayer": "Tilføj ungdomsspiller",
     "guardianInformation": "Værgeoplysninger",
     "guardianEmail": "Værgens e-mail *",

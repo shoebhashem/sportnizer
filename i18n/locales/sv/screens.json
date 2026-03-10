@@ -54,6 +54,9 @@
   "signup": {
     "createAccount": "Skapa konto",
     "joinClubnizerToday": "Gå med i Clubnizer idag",
+    "invitedToAddYouth": "Du har blivit inbjuden att lägga till {{childName}} i {{groupName}} av {{inviterName}}",
+    "invitedToJoinGroup": "Du har blivit inbjuden att gå med i {{groupName}} av {{inviterName}}",
+    "guardianAccountNote": "Skapa ditt eget vårdnadshavarkonto nedan för att hantera {{childName}}s deltagande.",
     "fullNamePlaceholder": "Ange ditt fullständiga namn",
     "emailPlaceholder": "din@epost.se",
     "passwordPlaceholder": "Skapa ett lösenord (minst 6 tecken)",
@@ -613,6 +616,7 @@
   },
 
   "addChildMember": {
+    "subtitle": "Bjud in ett barn att gå med i {{groupName}}. Inbjudan skickas till deras vårdnadshavare. De hanterar all kommunikation och eventhantering för barnet.",
     "addYouthPlayer": "Lägg till ungdomsspelare",
     "guardianInformation": "Vårdnadshavarens information",
     "guardianEmail": "Vårdnadshavarens e-post *",

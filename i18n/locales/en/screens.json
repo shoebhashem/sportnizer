@@ -52,6 +52,9 @@
   "signup": {
     "createAccount": "Create Account",
     "joinClubnizerToday": "Join Clubnizer today",
+    "invitedToAddYouth": "You have been invited to add {{childName}} to {{groupName}} by {{inviterName}}",
+    "invitedToJoinGroup": "You have been invited to join {{groupName}} by {{inviterName}}",
+    "guardianAccountNote": "Please create your own guardian account below to manage {{childName}}'s participation.",
     "fullNamePlaceholder": "Enter your full name",
     "emailPlaceholder": "your@email.com",
     "passwordPlaceholder": "Create a password (min 6 characters)",
@@ -643,6 +646,7 @@
     "errorCheckingEmail": "Error checking email"
   },
   "addChildMember": {
+    "subtitle": "Invite a child to join {{groupName}}. The invitation will be sent to their guardian. They will manage all communications and event responses for the child.",
     "addYouthPlayer": "Add Youth Player",
     "guardianInformation": "Guardian Information",
     "guardianEmail": "Guardian Email *",
