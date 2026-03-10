@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BottomSafeAreaContainer from "@/components/BottomSafeAreaContainer";
 
 export default function WelcomeScreen() {
   const { t } = useTranslation(["screens", "common"]);
@@ -115,6 +116,9 @@ export default function WelcomeScreen() {
           </View>
         </View>
       </ScrollView>
+      <BottomSafeAreaContainer enabled>
+        <View style={{ flex: 1, backgroundColor: theme.colors.primary }} />
+      </BottomSafeAreaContainer>
     </SafeAreaView>
   );
 }
