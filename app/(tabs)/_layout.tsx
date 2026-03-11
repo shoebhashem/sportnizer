@@ -9,11 +9,47 @@ import { signOutUser } from "@/services/auth/authService";
 import { legalService } from "@/services/legal/legalService";
 import { VersionCheckResult } from "@/services/types/legal";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, router, Tabs } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Platform, View } from "react-native";
+import {
+    ActivityIndicator,
+    Image,
+    Platform,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+// Header logo that navigates to the About screen
+function HeaderLeft() {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        marginLeft: 8,
+      }}
+    >
+      <TouchableOpacity
+        onPress={() => router.push("/about")}
+        style={{
+          padding: 4,
+          ...(Platform.OS === "web" ? { cursor: "pointer" as any } : {}),
+        }}
+        activeOpacity={0.7}
+        accessibilityLabel="About Clubnizer"
+        accessibilityRole="button"
+      >
+        <Image
+          source={require("@/assets/images/clubnizer_logo.png")}
+          style={{ width: 36, height: 36, borderRadius: 8 }}
+          resizeMode="contain"
+        />
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 // Header component with NotificationBell and UserAvatar
 function HeaderRight() {
@@ -185,21 +221,10 @@ export default function TabLayout() {
                     justifyContent: "center",
                   }
                 : undefined,
-            headerLeftContainerStyle:
-              Platform.OS !== "web"
-                ? {
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }
-                : undefined,
-            headerRightContainerStyle:
-              Platform.OS !== "web"
-                ? {
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }
-                : undefined,
+            headerLeftContainerStyle: undefined,
+            headerRightContainerStyle: undefined,
 
+            headerLeft: () => <HeaderLeft />,
             headerRight: () => <HeaderRight />,
             tabBarStyle: {
               backgroundColor: theme.colors.primary,
@@ -254,23 +279,6 @@ export default function TabLayout() {
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "people" : "people-outline"}
-                  color={color}
-                  size={24}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="about"
-            options={{
-              title: t("tabs.about"),
-              tabBarIcon: ({ color, focused }) => (
-                <Ionicons
-                  name={
-                    focused
-                      ? "information-circle"
-                      : "information-circle-outline"
-                  }
                   color={color}
                   size={24}
                 />

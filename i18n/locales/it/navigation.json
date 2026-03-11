@@ -46,6 +46,7 @@
     "paymentCancelled": "Pagamento annullato",
     "join": "Unisciti al gruppo",
     "invitationAccept": "Accetta invito",
-    "invitationReject": "Rifiuta invito"
+    "invitationReject": "Rifiuta invito",
+    "about": "Info"
   }
 }

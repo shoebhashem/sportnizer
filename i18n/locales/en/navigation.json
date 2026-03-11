@@ -46,6 +46,7 @@
     "paymentCancelled": "Payment Cancelled",
     "join": "Join Group",
     "invitationAccept": "Accept Invitation",
-    "invitationReject": "Decline Invitation"
+    "invitationReject": "Decline Invitation",
+    "about": "About"
   }
 }

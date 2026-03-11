@@ -46,6 +46,7 @@
     "paymentCancelled": "Betaling annulleret",
     "join": "Tilmeld gruppe",
     "invitationAccept": "Accepter invitation",
-    "invitationReject": "Afvis invitation"
+    "invitationReject": "Afvis invitation",
+    "about": "Om"
   }
 }

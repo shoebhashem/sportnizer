@@ -46,6 +46,7 @@
     "paymentCancelled": "Betalning avbruten",
     "join": "Gå med i grupp",
     "invitationAccept": "Acceptera inbjudan",
-    "invitationReject": "Avböj inbjudan"
+    "invitationReject": "Avböj inbjudan",
+    "about": "Om"
   }
 }
