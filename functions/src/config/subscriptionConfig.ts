@@ -2,10 +2,16 @@
  * Subscription Configuration
  *
  * This file contains all configuration for the Clubnizer subscription system.
- * Clubs subscribe to Clubnizer to access premium features and higher member limits.
+ *
+ * NOTE: Subscriptions are currently PARKED. The app is 100% free.
+ * All clubs get up to 1500 members. If a club needs more,
+ * they should contact support@clubnizer.com.
+ *
+ * The tier definitions and Stripe price IDs are preserved for potential
+ * future reactivation.
  *
  * IMPORTANT: This is separate from Stripe Connect (clubs receiving payments from members).
- * This handles: Clubs → Clubnizer payments (platform subscription)
+ * Stripe Connect (membership fees) remains fully active.
  *
  * @see ARCHITECTURE.md - "Usage Limits & Subscription System" section
  */
@@ -35,27 +41,29 @@ export interface TierConfig {
 export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, TierConfig> = {
   free: {
     name: "Free",
-    maxMembers: 50,
+    maxMembers: 1500,
     maxGroups: 99,
-    description: "Perfect for small teams and getting started",
+    description: "Free for all clubs — up to 1,500 members",
   },
+  // NOTE: The tiers below are PARKED. All clubs use the free tier.
+  // These are preserved for potential future reactivation.
   basic: {
     name: "Basic",
-    maxMembers: 500,
+    maxMembers: 1500,
     maxGroups: 99,
-    description: "For growing clubs with up to 500 members",
+    description: "(Parked) For growing clubs with up to 500 members",
   },
   pro: {
     name: "Pro",
-    maxMembers: 2000,
+    maxMembers: 1500,
     maxGroups: 99,
-    description: "For large clubs with up to 2000 members",
+    description: "(Parked) For large clubs with up to 2000 members",
   },
   enterprise: {
     name: "Enterprise",
     maxMembers: -1, // Unlimited
     maxGroups: -1, // Unlimited
-    description: "Custom solution for organizations with 2000+ members",
+    description: "Custom solution — contact support@clubnizer.com",
   },
 };
 
@@ -245,18 +253,18 @@ export function getMaxGroupsForTier(tier: SubscriptionTier): number {
 
 /**
  * Determine required tier based on member count
+ * NOTE: Subscriptions are parked. All clubs are "free" tier with 1500 limit.
  */
 export function getRequiredTierForMemberCount(
   memberCount: number,
 ): SubscriptionTier {
-  if (memberCount <= 50) return "free";
-  if (memberCount <= 500) return "basic";
-  if (memberCount <= 2000) return "pro";
+  if (memberCount <= 1500) return "free";
   return "enterprise";
 }
 
 /**
  * Check if a club can add more members based on their subscription
+ * NOTE: Subscriptions are parked. All clubs get 1500 members.
  */
 export function canAddMember(
   currentMemberCount: number,
@@ -270,11 +278,9 @@ export function canAddMember(
   }
 
   if (currentMemberCount >= maxMembers) {
-    const requiredTier = getRequiredTierForMemberCount(currentMemberCount + 1);
     return {
       allowed: false,
-      message: `Your club has reached its limit of ${maxMembers} members. Upgrade to ${SUBSCRIPTION_TIERS[requiredTier].name} to add more members.`,
-      upgradeRequired: requiredTier,
+      message: `Your club has reached its limit of ${maxMembers} members. Please contact support@clubnizer.com to request a higher limit.`,
     };
   }
 

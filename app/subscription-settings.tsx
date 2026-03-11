@@ -39,6 +39,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 type TierKey = "free" | "basic" | "pro" | "enterprise";
 
 export default function SubscriptionSettingsScreen() {
+  // NOTE: Subscriptions are PARKED. This screen is hidden (menu item commented
+  // out in club-settings.tsx). If someone navigates here directly, redirect back.
   const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const { clubId } = useLocalSearchParams();

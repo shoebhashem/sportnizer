@@ -1496,38 +1496,51 @@ REJECTION: 'pending' → 'rejected'
 
 ### Overview
 
-Clubnizer implements a **club-level subscription system** where clubs subscribe to different tiers based on their member count needs. The system enforces member limits at the **CLUB level** (not group level), allowing clubs unlimited groups but restricting total members based on their subscription tier.
+> **STATUS: Subscriptions are PARKED.** The app is 100% free.
+> All clubs get up to **1,500 members**. If a club needs more,
+> they should contact **support@clubnizer.com**.
+>
+> The previous subscription tiers (Basic, Pro, Enterprise) and Stripe Billing
+> integration are preserved in the codebase for potential future reactivation.
+> **Stripe Connect (membership fees)** remains fully active and is unaffected.
+
+Clubnizer enforces member limits at the **CLUB level** (not group level), allowing clubs essentially unlimited groups but restricting total members to **1,500** per club.
 
 **Design Philosophy**:
-- **Club-level member limits**: Total members across all groups count against the club's subscription limit
-- **Unlimited groups**: All tiers allow up to 99 groups (essentially unlimited)
-- **Stripe Billing integration**: Clubs subscribe via Stripe for paid tiers
-- **Multi-currency support**: EUR, SEK, NOK, DKK based on club's country
-- **14-day grace period**: For failed payments before restricting access
-- **80% warning threshold**: Upgrade prompts when approaching limits
+- **Club-level member limits**: Total members across all groups count against the club's limit
+- **Unlimited groups**: All clubs allow up to 99 groups (essentially unlimited)
+- **1,500 member safety cap**: Prevents abuse; contact support for a higher limit
+- **Stripe Connect active**: Clubs can still collect membership fees from members (1.5% platform fee)
+- **Stripe Billing parked**: Subscription checkout UI hidden; tier config mapped to free
 
-### Subscription Tiers
+### Current Limits (Free for All)
 
 ```
+┌─────────────────────────────────────────────────────┐
+│ CURRENT LIMITS (app is free)                        │
+├─────────────────┬───────────────────────────────────┤
+│ Members/club    │ 1,500 (contact support for more)  │
+│ Groups/club     │ 99                                │
+│ Clubs (admin)   │ 1                                 │
+│ Price           │ Free                              │
+└─────────────────┴───────────────────────────────────┘
+```
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│ SUBSCRIPTION TIERS │
-├─────────────────┬───────────────┬───────────────┬───────────────────────┤
-│ Feature │ Free │ Basic │ Pro │ Enterprise │
-├─────────────────┼───────────────┼───────────────┼───────────────────────┤
-│ Members/club │ 50 │ 500 │ 2000 │ Unlimited │
-│ Groups/club │ 99 │ 99 │ 99 │ Unlimited │
-│ Clubs (admin) │ 1 │ 1 │ 1 │ Negotiable │
-├─────────────────┼───────────────┼───────────────┼───────────────────────┤
-│ Price (EUR) │ €0 │ €29/month │ €49/month │ Contact us │
-│ Price (SEK) │ 0 kr │ 299 kr/month │ 549 kr/month│ Contact us │
-│ Price (NOK) │ 0 kr │ 299 kr/month │ 549 kr/month│ Contact us │
-│ Price (DKK) │ 0 kr │ 199 kr/month │ 399 kr/month│ Contact us │
-└─────────────────┴───────────────┴───────────────┴───────────────────────┘
+### Parked Subscription Tiers (for future reactivation)
 
-````
+The following tiers exist in `subscriptionConfig.ts` and `limits.ts` but are
+currently all mapped to the same 1,500-member limit except Enterprise:
 
-**IMPORTANT**: Member limits are now at the **CLUB level**, not group level. Clubs can distribute their members across any number of groups (up to 99).
+| Tier       | Was       | Now (Parked)                          |
+|------------|-----------|---------------------------------------|
+| Free       | 50 members| 1,500 members                         |
+| Basic      | 500       | 1,500 (same as free while parked)     |
+| Pro        | 2,000     | 1,500 (same as free while parked)     |
+| Enterprise | Unlimited | Unlimited (contact support)           |
+
+**To reactivate subscriptions**: Restore the original tier limits in `limits.ts`
+and `subscriptionConfig.ts`, uncomment the Subscription menu in `club-settings.tsx`,
+and update this section of ARCHITECTURE.md.
 
 ### Data Model
 
@@ -1562,13 +1575,13 @@ interface ClubData {
 }
 ````
 
-**Default Values** (Free Tier):
+**Default Values** (Free — all clubs):
 
 ```typescript
 {
   totalCounts: 0,
   maxGroups: 99,
-  maxMembers: 50,
+  maxMembers: 1500,
   subscription: {
     tier: 'free',
     status: 'active',
@@ -1669,8 +1682,12 @@ sequenceDiagram
     Backend->>DB: Update club.subscription
     Backend->>DB: Update club.maxMembers
 
-    Note over DB: tier: 'basic', maxMembers: 500
+    Note over DB: tier: 'free', maxMembers: 1500
 ```
+
+> **Note:** The subscription flow above is currently **parked**. The Subscription
+> menu in club-settings.tsx is commented out, so users cannot initiate a checkout.
+> All clubs operate on the free tier with 1,500 members.
 
 ### Grace Period & Access Restriction
 
@@ -1720,16 +1737,17 @@ export const PAYMENT_GRACE_PERIOD_DAYS = 14;
 
 ### Migration Notes
 
-For existing clubs, manually set:
+For existing clubs, the subscription system is parked (app is free with 1,500 member limit).
+No migration needed for existing data. If reactivating subscriptions in the future:
 
 ```typescript
 {
   maxGroups: 99,
-  maxMembers: 50,  // Or appropriate tier limit
+  maxMembers: 1500,  // Current free limit
   subscription: {
-    tier: 'free',  // Or 'basic'/'pro' if subscribed
+    tier: 'free',
     status: 'active',
-    // ... other fields
+    // ... other fields null
   }
 }
 ```

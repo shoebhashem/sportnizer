@@ -66,30 +66,32 @@ export interface SubscriptionStatusResult {
 }
 
 // Subscription tier configuration (mirrors backend)
+// NOTE: Subscriptions are PARKED. App is free with 1500 member limit.
 export const SUBSCRIPTION_TIERS = {
   free: {
     name: "Free",
-    maxMembers: 50,
+    maxMembers: 1500,
     maxGroups: 99,
-    description: "Perfect for small teams and getting started",
+    description: "Free for all clubs — up to 1,500 members",
   },
+  // Parked tiers — kept for future reactivation
   basic: {
     name: "Basic",
-    maxMembers: 500,
+    maxMembers: 1500,
     maxGroups: 99,
-    description: "For growing clubs with up to 500 members",
+    description: "(Parked) For growing clubs with up to 500 members",
   },
   pro: {
     name: "Pro",
-    maxMembers: 2000,
+    maxMembers: 1500,
     maxGroups: 99,
-    description: "For large clubs with up to 2000 members",
+    description: "(Parked) For large clubs with up to 2000 members",
   },
   enterprise: {
     name: "Enterprise",
     maxMembers: -1, // Unlimited
     maxGroups: -1, // Unlimited
-    description: "Custom solution for organizations with 2000+ members",
+    description: "Custom solution — contact support@clubnizer.com",
   },
 } as const;
 
@@ -328,11 +330,10 @@ export const subscriptionService = {
 
   /**
    * Get next tier recommendation based on current usage
+   * NOTE: Subscriptions are parked. All clubs are free tier with 1500 limit.
    */
   getRecommendedTier(currentMembers: number): SubscriptionTier {
-    if (currentMembers <= 50) return "free";
-    if (currentMembers <= 500) return "basic";
-    if (currentMembers <= 2000) return "pro";
+    if (currentMembers <= 1500) return "free";
     return "enterprise";
   },
 

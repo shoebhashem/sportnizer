@@ -407,8 +407,10 @@ export default function ClubSettingsScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Subscription Option - Only for Club Admin */}
-          {isClubAdmin && (
+          {/* Subscription Option - PARKED (app is free)
+             Kept for potential future reactivation.
+             To re-enable: uncomment this block and update limits.ts + subscriptionConfig.ts */}
+          {/* {isClubAdmin && (
             <TouchableOpacity
               style={styles.optionItem}
               onPress={() => {
@@ -441,7 +443,7 @@ export default function ClubSettingsScreen() {
                 color={theme.colors.textSecondary}
               />
             </TouchableOpacity>
-          )}
+          )} */}
 
           {/* Payment Settings Option - Only for Club Admin */}
           {isClubAdmin && (

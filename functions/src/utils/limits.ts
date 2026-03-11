@@ -32,49 +32,66 @@ export interface ResourceLimits {
 }
 
 /**
- * Free Tier - Default for all new clubs
- * Up to 50 members total in the club
+ * Free Tier - Default for all clubs
+ *
+ * NOTE: Subscriptions are currently PARKED. The app is 100% free.
+ * All clubs get up to 1500 members. If a club needs more,
+ * they should contact support@clubnizer.com.
+ *
+ * The previous subscription tiers (Basic/Pro/Enterprise) are preserved
+ * below as commented-out code for potential future reactivation.
  */
 export const DEFAULT_LIMITS: ResourceLimits = {
   maxClubsAsAdmin: 1, // Can only create/admin 1 club
   maxGroups: 99, // Essentially unlimited groups
-  maxMembers: 50, // Up to 50 members total in club (was 30 per group)
+  maxMembers: 1500, // Up to 1500 members total in club (contact support for more)
 };
 
-/**
- * Basic Tier - For growing clubs
- * Up to 500 members total in the club
- * Price: €29/month or 299 SEK/NOK or 199 DKK
- */
-export const BASIC_LIMITS: ResourceLimits = {
-  maxClubsAsAdmin: 1, // Still 1 club per user
-  maxGroups: 99, // Essentially unlimited groups
-  maxMembers: 500, // Up to 500 members total in club
-};
+// ==========================================================================
+// PARKED SUBSCRIPTION TIERS (app is currently free — kept for future use)
+// ==========================================================================
 
-/**
- * Pro Tier - For large clubs
- * Up to 2000 members total in the club
- * Price: €49/month or 549 SEK/NOK or 399 DKK
- */
-export const PRO_LIMITS: ResourceLimits = {
-  maxClubsAsAdmin: 1, // Still 1 club per user
-  maxGroups: 99, // Essentially unlimited groups
-  maxMembers: 2000, // Up to 2000 members total in club
-};
+// /**
+//  * Basic Tier - For growing clubs
+//  * Up to 500 members total in the club
+//  * Price: €29/month or 299 SEK/NOK or 199 DKK
+//  */
+// export const BASIC_LIMITS: ResourceLimits = {
+//   maxClubsAsAdmin: 1,
+//   maxGroups: 99,
+//   maxMembers: 500,
+// };
 
-/**
- * Enterprise Tier - For organizations with 2000+ members
- * Custom pricing, contact support@clubnizer.com
- */
+// /**
+//  * Pro Tier - For large clubs
+//  * Up to 2000 members total in the club
+//  * Price: €49/month or 549 SEK/NOK or 399 DKK
+//  */
+// export const PRO_LIMITS: ResourceLimits = {
+//   maxClubsAsAdmin: 1,
+//   maxGroups: 99,
+//   maxMembers: 2000,
+// };
+
+// /**
+//  * Enterprise Tier - For organizations with 2000+ members
+//  * Custom pricing, contact support@clubnizer.com
+//  */
+// export const ENTERPRISE_LIMITS: ResourceLimits = {
+//   maxClubsAsAdmin: -1,
+//   maxGroups: -1,
+//   maxMembers: -1,
+// };
+
+// Active aliases — all tiers map to DEFAULT_LIMITS while subscriptions are parked
+export const BASIC_LIMITS = DEFAULT_LIMITS;
+export const PRO_LIMITS = DEFAULT_LIMITS;
 export const ENTERPRISE_LIMITS: ResourceLimits = {
-  maxClubsAsAdmin: -1, // Unlimited clubs (negotiable)
-  maxGroups: -1, // Unlimited groups
-  maxMembers: -1, // Unlimited members
+  maxClubsAsAdmin: -1,
+  maxGroups: -1,
+  maxMembers: -1,
 };
-
-// Legacy alias for backward compatibility
-export const PREMIUM_LIMITS = BASIC_LIMITS;
+export const PREMIUM_LIMITS = DEFAULT_LIMITS;
 
 // ============================================================================
 // VALIDATION FUNCTIONS
@@ -241,17 +258,7 @@ export function checkClubMemberLimit(
 
   // Check if limit is reached
   if (clubTotalMembers >= maxMembers) {
-    let upgradeMessage: string;
-
-    if (tier === "free") {
-      upgradeMessage = `Your club has reached its limit of ${maxMembers} members. Upgrade to Basic (up to 500 members) to continue adding members.`;
-    } else if (tier === "basic") {
-      upgradeMessage = `Your club has reached its limit of ${maxMembers} members. Upgrade to Pro (up to 2000 members) to continue adding members.`;
-    } else if (tier === "pro") {
-      upgradeMessage = `Your club has reached its limit of ${maxMembers} members. Contact support@clubnizer.com for an Enterprise plan.`;
-    } else {
-      upgradeMessage = `Your club has reached its member limit. Contact support@clubnizer.com to upgrade.`;
-    }
+    const upgradeMessage = `Your club has reached its limit of ${maxMembers} members. Please contact support@clubnizer.com to request a higher limit.`;
 
     return {
       allowed: false,
@@ -325,20 +332,14 @@ export const LIMIT_ERROR_MESSAGES = {
    * @deprecated Use CLUB_MEMBER_LIMIT_REACHED instead for clarity
    */
   MEMBER_LIMIT_REACHED: (maxMembers: number) =>
-    `This club has reached its limit of ${maxMembers} members. Upgrade your subscription to add more members.`,
+    `This club has reached its limit of ${maxMembers} members. Please contact support@clubnizer.com to request a higher limit.`,
 
   /**
    * Club-level member limit reached (preferred)
+   * NOTE: Subscriptions are parked — all clubs use the same 1500-member limit.
    */
-  CLUB_MEMBER_LIMIT_REACHED: (maxMembers: number, tier: SubscriptionTier) => {
-    if (tier === "free") {
-      return `Your club has reached its Free tier limit of ${maxMembers} members. Upgrade to Basic to add up to 500 members.`;
-    } else if (tier === "basic") {
-      return `Your club has reached its Basic tier limit of ${maxMembers} members. Upgrade to Pro to add up to 2000 members.`;
-    } else if (tier === "pro") {
-      return `Your club has reached its Pro tier limit of ${maxMembers} members. Contact support@clubnizer.com for Enterprise pricing.`;
-    }
-    return `Your club has reached its member limit. Contact support@clubnizer.com to upgrade.`;
+  CLUB_MEMBER_LIMIT_REACHED: (maxMembers: number, _tier: SubscriptionTier) => {
+    return `Your club has reached its limit of ${maxMembers} members. Please contact support@clubnizer.com to request a higher limit.`;
   },
 
   REACTIVATION_BLOCKED: (resourceType: string, maxLimit: number) =>
@@ -412,16 +413,7 @@ export function getClubUpgradeWarning(
     return { shouldWarn: false, percentage, message: "" };
   }
 
-  let upgradeMessage: string;
-  if (tier === "free") {
-    upgradeMessage = `You're using ${percentage}% of your Free plan (${clubTotalMembers}/${maxMembers} members). Upgrade to Basic for up to 500 members.`;
-  } else if (tier === "basic") {
-    upgradeMessage = `You're using ${percentage}% of your Basic plan (${clubTotalMembers}/${maxMembers} members). Upgrade to Pro for up to 2000 members.`;
-  } else if (tier === "pro") {
-    upgradeMessage = `You're using ${percentage}% of your Pro plan (${clubTotalMembers}/${maxMembers} members). Contact us for Enterprise options.`;
-  } else {
-    upgradeMessage = `You're using ${percentage}% of your plan capacity.`;
-  }
+  const upgradeMessage = `You're using ${percentage}% of your club's capacity (${clubTotalMembers}/${maxMembers} members). Contact support@clubnizer.com if you need a higher limit.`;
 
   return { shouldWarn: true, percentage, message: upgradeMessage };
 }
