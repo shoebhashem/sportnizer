@@ -28,7 +28,7 @@ function HeaderLeft() {
       style={{
         flexDirection: "row",
         alignItems: "center",
-        marginLeft: 8,
+        marginLeft: 12,
       }}
     >
       <TouchableOpacity
@@ -59,7 +59,7 @@ function HeaderRight() {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        marginRight: 8,
+        marginRight: 12,
       }}
     >
       <NotificationBell iconSize={24} iconColor={theme.colors.white} />

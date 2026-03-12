@@ -106,6 +106,9 @@ export default function EventCard({
     return hoursUntilDeadline > 0 && hoursUntilDeadline < 24;
   };
 
+  // Check if event is cancelled
+  const isEventCancelled = event.status === "cancelled";
+
   // Status badge color
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -113,20 +116,53 @@ export default function EventCard({
         return "#4CAF50";
       case "declined":
         return "#F44336";
+      case "cancelled":
+        return "#B71C1C";
       default:
         return theme.colors.textSecondary;
     }
   };
 
+  // Display status: if event is cancelled, override individual response status
+  const displayStatus = isEventCancelled ? "cancelled" : responseStatus;
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={[styles.card, isEventCancelled && styles.cancelledCard]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {/* Cancelled Banner */}
+      {isEventCancelled && (
+        <View style={styles.cancelledBanner}>
+          <Ionicons name="close-circle" size={16} color="#fff" />
+          <Text style={styles.cancelledBannerText}>
+            {t("components:eventCard.cancelled")}
+          </Text>
+        </View>
+      )}
+
+      {/* Recurring Badge */}
+      {event.isRecurring && !isEventCancelled && (
+        <View style={styles.recurringBadge}>
+          <Ionicons name="repeat" size={14} color={theme.colors.secondary} />
+          <Text style={styles.recurringBadgeText}>
+            {t("components:eventCard.recurring")}
+          </Text>
+        </View>
+      )}
+
       {/* Header Row */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Ionicons
             name={eventTypeInfo.icon}
             size={24}
-            color={eventTypeInfo.color}
+            color={
+              isEventCancelled
+                ? theme.colors.textSecondary
+                : eventTypeInfo.color
+            }
           />
           <Text style={styles.title} numberOfLines={1}>
             {event.title}
@@ -158,7 +194,9 @@ export default function EventCard({
             size={16}
             color={theme.colors.secondary}
           />
-          <Text style={styles.recipientText}>{t("components:eventCard.forRecipient", { name: recipientName })}</Text>
+          <Text style={styles.recipientText}>
+            {t("components:eventCard.forRecipient", { name: recipientName })}
+          </Text>
         </View>
       )}
 
@@ -196,7 +234,9 @@ export default function EventCard({
               color={theme.colors.accent}
             />
             <Text style={[styles.infoText, { color: theme.colors.accent }]}>
-              {t("components:eventCard.gatherTime", { time: formatTime(event.gatheringTime) })}
+              {t("components:eventCard.gatherTime", {
+                time: formatTime(event.gatheringTime),
+              })}
             </Text>
           </View>
         ) : (
@@ -228,7 +268,9 @@ export default function EventCard({
                 color={theme.colors.secondary}
               />
               <Text style={styles.infoText}>
-                {t("components:eventCard.startTime", { time: formatTime(event.startTime) })}
+                {t("components:eventCard.startTime", {
+                  time: formatTime(event.startTime),
+                })}
                 {event.endTime &&
                   formatTime(event.endTime) &&
                   ` - ${formatTime(event.endTime)}`}
@@ -256,11 +298,13 @@ export default function EventCard({
         <View
           style={[
             styles.statusBadge,
-            { backgroundColor: getStatusColor(responseStatus) },
+            { backgroundColor: getStatusColor(displayStatus) },
           ]}
         >
           <Text style={styles.statusText}>
-            {responseStatus.charAt(0).toUpperCase() + responseStatus.slice(1)}
+            {isEventCancelled
+              ? t("components:eventCard.cancelled")
+              : displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
           </Text>
         </View>
       </View>
@@ -294,18 +338,24 @@ export default function EventCard({
           </View>
 
           <Text style={styles.summaryTotal}>
-            {t("components:eventCard.ofTotalInvited", { total: event.responseSummary.totalInvited })}
+            {t("components:eventCard.ofTotalInvited", {
+              total: event.responseSummary.totalInvited,
+            })}
           </Text>
         </View>
       )}
 
       {/* Deadline Warning */}
-      {isDeadlineApproaching() && responseStatus === "pending" && (
-        <View style={styles.deadlineWarning}>
-          <Ionicons name="warning-outline" size={14} color="#FF9800" />
-          <Text style={styles.deadlineText}>{t("components:eventCard.deadlineApproaching")}</Text>
-        </View>
-      )}
+      {!isEventCancelled &&
+        isDeadlineApproaching() &&
+        responseStatus === "pending" && (
+          <View style={styles.deadlineWarning}>
+            <Ionicons name="warning-outline" size={14} color="#FF9800" />
+            <Text style={styles.deadlineText}>
+              {t("components:eventCard.deadlineApproaching")}
+            </Text>
+          </View>
+        )}
     </TouchableOpacity>
   );
 }
@@ -322,6 +372,45 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  cancelledCard: {
+    opacity: 0.85,
+    borderWidth: 1,
+    borderColor: "#B71C1C",
+  },
+  cancelledBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#B71C1C",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    gap: 6,
+  },
+  cancelledBannerText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#fff",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  recurringBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(76, 175, 80, 0.12)",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginBottom: 8,
+    alignSelf: "flex-start",
+    gap: 5,
+  },
+  recurringBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: theme.colors.secondary,
   },
   header: {
     flexDirection: "row",

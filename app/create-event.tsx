@@ -23,6 +23,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useUser } from "../contexts/UserContext";
 import { eventCreationService } from "../services/event/createEvent";
 import { getEventDetails } from "../services/event/eventService";
+import { recurringEventService } from "../services/event/recurringEvent";
 import { fetchGroupMembers } from "../services/fetchGroupMembers";
 import { subgroupService } from "../services/subgroup";
 
@@ -196,6 +197,24 @@ export default function CreateEventScreen() {
     message: "",
     type: "error",
   });
+
+  // Recurring event state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringFrequency, setRecurringFrequency] = useState<
+    "weekly" | "biweekly" | "monthly"
+  >("weekly");
+  const [recurringEndType, setRecurringEndType] = useState<
+    "date" | "occurrences"
+  >("date");
+  const [recurringEndDate, setRecurringEndDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3); // Default: 3 months from now
+    return d;
+  });
+  const [recurringOccurrenceCount, setRecurringOccurrenceCount] =
+    useState<number>(10);
+  const [showRecurringEndDatePicker, setShowRecurringEndDatePicker] =
+    useState(false);
 
   // Load event data if in edit mode
   useEffect(() => {
@@ -589,22 +608,68 @@ export default function CreateEventScreen() {
       });
 
       // Call backend
-      const result = await eventCreationService.createEvent(request);
+      if (isRecurring) {
+        // Create recurring event series
+        const recurringRequest = {
+          ...request,
+          frequency: recurringFrequency,
+          endType: recurringEndType,
+          ...(recurringEndType === "date" && {
+            seriesEndDate: recurringEndDate.toISOString(),
+          }),
+          ...(recurringEndType === "occurrences" && {
+            occurrenceCount: recurringOccurrenceCount,
+          }),
+        };
 
-      if (!result.success) {
-        throw new Error(result.error || "Failed to create event");
+        console.log("📅 Creating recurring event:", {
+          frequency: recurringFrequency,
+          endType: recurringEndType,
+          ...(recurringEndType === "date" && {
+            seriesEndDate: recurringEndDate.toISOString(),
+          }),
+          ...(recurringEndType === "occurrences" && {
+            occurrenceCount: recurringOccurrenceCount,
+          }),
+        });
+
+        const result =
+          await recurringEventService.createRecurringEvent(recurringRequest);
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to create recurring event");
+        }
+
+        // Show success message
+        setModal({
+          visible: true,
+          title: t("screens:createEvent.eventCreated"),
+          message: t("screens:createEvent.recurringEventCreatedMessage", {
+            title: eventData.title,
+            count: result.totalOccurrences,
+            recipients: result.totalRecipients,
+          }),
+          type: "success",
+        });
+      } else {
+        // Create single event
+        const result = await eventCreationService.createEvent(request);
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to create event");
+        }
+
+        // Show success message
+        setModal({
+          visible: true,
+          title: t("screens:createEvent.eventCreated"),
+          message: t("screens:createEvent.eventCreatedMessage", {
+            title: eventData.title,
+            count: result.totalRecipients,
+          }),
+          type: "success",
+        });
       }
-
-      // Show success message
-      setModal({
-        visible: true,
-        title: t("screens:createEvent.eventCreated"),
-        message: t("screens:createEvent.eventCreatedMessage", {
-          title: eventData.title,
-          count: result.totalRecipients,
-        }),
-        type: "success",
-      });
     } catch (error) {
       console.error("Error creating event:", error);
       const errorMessage =
@@ -774,12 +839,17 @@ export default function CreateEventScreen() {
 
   const getButtonLabel = (): string => {
     if (isCreating) {
-      return isEditMode
-        ? t("screens:createEvent.savingChanges")
-        : t("screens:createEvent.creatingEvent");
+      if (isEditMode) return t("screens:createEvent.savingChanges");
+      if (isRecurring) return t("screens:createEvent.creatingRecurringEvent");
+      return t("screens:createEvent.creatingEvent");
     }
     if (isEditMode) {
       return t("screens:createEvent.saveChanges");
+    }
+    if (isRecurring) {
+      return t("screens:createEvent.createRecurringEvent", {
+        count: getEstimatedOccurrences(),
+      });
     }
     if (eventContext && eventContext.level !== "club" && memberCount > 0) {
       return t("screens:createEvent.createEventWithRecipients", {
@@ -822,6 +892,28 @@ export default function CreateEventScreen() {
     const hours = time.getHours().toString().padStart(2, "0");
     const minutes = time.getMinutes().toString().padStart(2, "0");
     return `${hours}:${minutes}`;
+  };
+
+  // Get day name from start date for recurring events
+  const getDayName = (date: Date): string => {
+    return date.toLocaleDateString(undefined, { weekday: "long" });
+  };
+
+  // Calculate estimated occurrence count for display
+  const getEstimatedOccurrences = (): number => {
+    if (recurringEndType === "occurrences") return recurringOccurrenceCount;
+    const startMs = eventData.startDate.getTime();
+    const endMs = recurringEndDate.getTime();
+    const diffMs = endMs - startMs;
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    switch (recurringFrequency) {
+      case "weekly":
+        return Math.max(1, Math.floor(diffDays / 7) + 1);
+      case "biweekly":
+        return Math.max(1, Math.floor(diffDays / 14) + 1);
+      case "monthly":
+        return Math.max(1, Math.floor(diffDays / 30) + 1);
+    }
   };
 
   // Check if group context is available (should always be true when navigating from manage-group)
@@ -2055,6 +2147,385 @@ export default function CreateEventScreen() {
                 )}
               </View>
             )}
+
+            {/* ============================================================ */}
+            {/* Recurring Event Section (Advanced mode, Create only) */}
+            {/* ============================================================ */}
+            {eventData.mode === "advanced" && !isEditMode && (
+              <View style={{ marginBottom: 20, marginTop: 4 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: theme.colors.text,
+                    marginBottom: 8,
+                  }}
+                >
+                  {t("screens:createEvent.recurringEvent")}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: theme.colors.textSecondary,
+                    marginBottom: 12,
+                  }}
+                >
+                  {t("screens:createEvent.recurringEventHint")}
+                </Text>
+
+                {/* Enable/Disable Recurring Toggle */}
+                <TouchableOpacity
+                  onPress={() => setIsRecurring(!isRecurring)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: theme.colors.inputBorder,
+                    backgroundColor: theme.colors.inputBackground,
+                    marginBottom: isRecurring ? 16 : 0,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 4,
+                      borderWidth: 2,
+                      borderColor: isRecurring
+                        ? theme.colors.secondary
+                        : theme.colors.inputBorder,
+                      backgroundColor: isRecurring
+                        ? theme.colors.secondary
+                        : "transparent",
+                      marginRight: 12,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {isRecurring && (
+                      <FontAwesome name="check" size={12} color="white" />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: theme.colors.text,
+                        fontSize: 16,
+                        fontWeight: "500",
+                      }}
+                    >
+                      {t("screens:createEvent.enableRecurring")}
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.colors.textSecondary,
+                        fontSize: 14,
+                        marginTop: 2,
+                      }}
+                    >
+                      {isRecurring
+                        ? t("screens:createEvent.recurringEnabled")
+                        : t("screens:createEvent.recurringDisabled")}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Recurring Options (shown when enabled) */}
+                {isRecurring && (
+                  <View>
+                    {/* Day derived from start date */}
+                    <View
+                      style={{
+                        backgroundColor: theme.colors.inputBackground,
+                        borderRadius: 8,
+                        padding: 12,
+                        borderWidth: 1,
+                        borderColor: theme.colors.inputBorder,
+                        marginBottom: 16,
+                        flexDirection: "row",
+                        alignItems: "center",
+                      }}
+                    >
+                      <FontAwesome
+                        name="calendar"
+                        size={16}
+                        color={theme.colors.secondary}
+                        style={{ marginRight: 10 }}
+                      />
+                      <Text style={{ color: theme.colors.text, fontSize: 15 }}>
+                        {t("screens:createEvent.recurringDay", {
+                          day: getDayName(eventData.startDate),
+                        })}
+                      </Text>
+                    </View>
+
+                    {/* Frequency Selector - Pill Toggle */}
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color: theme.colors.text,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {t("screens:createEvent.frequency")}
+                    </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        backgroundColor: theme.colors.inputBackground,
+                        borderRadius: 8,
+                        padding: 4,
+                        borderWidth: 1,
+                        borderColor: theme.colors.inputBorder,
+                        marginBottom: 16,
+                      }}
+                    >
+                      {(
+                        [
+                          {
+                            key: "weekly",
+                            label: t("screens:createEvent.weekly"),
+                          },
+                          {
+                            key: "biweekly",
+                            label: t("screens:createEvent.biweekly"),
+                          },
+                          {
+                            key: "monthly",
+                            label: t("screens:createEvent.monthly"),
+                          },
+                        ] as const
+                      ).map((freq) => (
+                        <TouchableOpacity
+                          key={freq.key}
+                          onPress={() => setRecurringFrequency(freq.key)}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 10,
+                            borderRadius: 6,
+                            backgroundColor:
+                              recurringFrequency === freq.key
+                                ? theme.colors.secondary
+                                : "transparent",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color:
+                                recurringFrequency === freq.key
+                                  ? "#1a1d21"
+                                  : theme.colors.textSecondary,
+                              fontWeight:
+                                recurringFrequency === freq.key
+                                  ? "600"
+                                  : "normal",
+                              fontSize: 14,
+                            }}
+                          >
+                            {freq.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {/* End Condition Selector - Pill Toggle */}
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color: theme.colors.text,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {t("screens:createEvent.endCondition")}
+                    </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        backgroundColor: theme.colors.inputBackground,
+                        borderRadius: 8,
+                        padding: 4,
+                        borderWidth: 1,
+                        borderColor: theme.colors.inputBorder,
+                        marginBottom: 16,
+                      }}
+                    >
+                      {(
+                        [
+                          {
+                            key: "date",
+                            label: t("screens:createEvent.endByDate"),
+                          },
+                          {
+                            key: "occurrences",
+                            label: t("screens:createEvent.endByCount"),
+                          },
+                        ] as const
+                      ).map((endOpt) => (
+                        <TouchableOpacity
+                          key={endOpt.key}
+                          onPress={() => setRecurringEndType(endOpt.key)}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 10,
+                            borderRadius: 6,
+                            backgroundColor:
+                              recurringEndType === endOpt.key
+                                ? theme.colors.secondary
+                                : "transparent",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color:
+                                recurringEndType === endOpt.key
+                                  ? "#1a1d21"
+                                  : theme.colors.textSecondary,
+                              fontWeight:
+                                recurringEndType === endOpt.key
+                                  ? "600"
+                                  : "normal",
+                              fontSize: 14,
+                            }}
+                          >
+                            {endOpt.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {/* End Date Picker */}
+                    {recurringEndType === "date" && (
+                      <View style={{ marginBottom: 12 }}>
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "500",
+                            color: theme.colors.text,
+                            marginBottom: 8,
+                          }}
+                        >
+                          {t("screens:createEvent.seriesEndDate")}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => setShowRecurringEndDatePicker(true)}
+                          style={{
+                            borderWidth: 1,
+                            borderColor: theme.colors.inputBorder,
+                            borderRadius: 8,
+                            padding: 12,
+                            backgroundColor: theme.colors.inputBackground,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <Text
+                            style={{ color: theme.colors.text, fontSize: 16 }}
+                          >
+                            {formatDate(recurringEndDate)}
+                          </Text>
+                          <FontAwesome
+                            name="calendar"
+                            size={16}
+                            color={theme.colors.textSecondary}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* Occurrence Count Input */}
+                    {recurringEndType === "occurrences" && (
+                      <View style={{ marginBottom: 12 }}>
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "500",
+                            color: theme.colors.text,
+                            marginBottom: 8,
+                          }}
+                        >
+                          {t("screens:createEvent.numberOfOccurrences")}
+                        </Text>
+                        <TextInput
+                          value={recurringOccurrenceCount.toString()}
+                          onChangeText={(text) => {
+                            const num = parseInt(text, 10);
+                            if (!isNaN(num) && num >= 2 && num <= 52) {
+                              setRecurringOccurrenceCount(num);
+                            } else if (text === "") {
+                              setRecurringOccurrenceCount(2);
+                            }
+                          }}
+                          keyboardType="number-pad"
+                          style={{
+                            borderWidth: 1,
+                            borderColor: theme.colors.inputBorder,
+                            borderRadius: 8,
+                            padding: 12,
+                            backgroundColor: theme.colors.inputBackground,
+                            color: theme.colors.text,
+                            fontSize: 16,
+                          }}
+                          placeholder="2-52"
+                          placeholderTextColor={theme.colors.textSecondary}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: theme.colors.textSecondary,
+                            marginTop: 4,
+                          }}
+                        >
+                          {t("screens:createEvent.occurrenceRange")}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Summary */}
+                    <View
+                      style={{
+                        backgroundColor: theme.colors.inputBackground,
+                        borderRadius: 8,
+                        padding: 12,
+                        borderWidth: 1,
+                        borderColor: theme.colors.secondary,
+                        flexDirection: "row",
+                        alignItems: "center",
+                      }}
+                    >
+                      <FontAwesome
+                        name="repeat"
+                        size={16}
+                        color={theme.colors.secondary}
+                        style={{ marginRight: 10 }}
+                      />
+                      <Text
+                        style={{
+                          color: theme.colors.text,
+                          fontSize: 14,
+                          flex: 1,
+                        }}
+                      >
+                        {t("screens:createEvent.recurringSummary", {
+                          count: getEstimatedOccurrences(),
+                          frequency: t(
+                            `screens:createEvent.${recurringFrequency}`,
+                          ).toLowerCase(),
+                          day: getDayName(eventData.startDate),
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       )}
@@ -2085,7 +2556,8 @@ export default function CreateEventScreen() {
           showEndDatePicker ||
           showEndTimePicker ||
           showResponseDeadlinePicker ||
-          showResponseDeadlineTimePicker) && (
+          showResponseDeadlineTimePicker ||
+          showRecurringEndDatePicker) && (
           <View
             style={{
               position: "absolute",
@@ -2271,6 +2743,19 @@ export default function CreateEventScreen() {
         }}
         onCancel={() => setShowResponseDeadlineTimePicker(false)}
         title={t("screens:createEvent.selectResponseDeadlineTime")}
+      />
+
+      {/* Recurring End Date Picker */}
+      <CustomDateTimePicker
+        mode="date"
+        isVisible={showRecurringEndDatePicker}
+        value={recurringEndDate}
+        onConfirm={(date: Date) => {
+          setRecurringEndDate(date);
+          setShowRecurringEndDatePicker(false);
+        }}
+        onCancel={() => setShowRecurringEndDatePicker(false)}
+        title={t("screens:createEvent.selectSeriesEndDate")}
       />
 
       {/* Role Filter Modal */}

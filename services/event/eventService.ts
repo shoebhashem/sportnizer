@@ -208,10 +208,16 @@ async function getEventsInRange(
             pending: eventData.invitedUserIds?.length || 0,
           },
           isActive: eventData.isActive !== false,
+          status: eventData.status || "scheduled",
           createdAt: eventData.createdAt,
           createdBy: eventData.createdBy || "",
           lastModifiedAt: eventData.lastModifiedAt,
           version: eventData.version || 1,
+
+          // Recurring event fields
+          isRecurring: eventData.isRecurring || false,
+          recurringEventId: eventData.recurringEventId || undefined,
+          occurrenceIndex: eventData.occurrenceIndex ?? undefined,
         });
       }
     }
@@ -301,6 +307,11 @@ export async function getEventDetails(
       completedAt: eventData.completedAt?.toDate?.() || undefined,
       completedBy: eventData.completedBy || undefined,
       completedByName: eventData.completedByName || undefined,
+
+      // Recurring event fields
+      isRecurring: eventData.isRecurring || false,
+      recurringEventId: eventData.recurringEventId || undefined,
+      occurrenceIndex: eventData.occurrenceIndex ?? undefined,
     };
   } catch (error) {
     console.error("Error fetching event details:", error);

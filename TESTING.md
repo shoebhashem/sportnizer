@@ -7,6 +7,7 @@
 - [Test Cases Catalogue](#test-cases-catalogue)
 - [Coverage Gap Analysis](#coverage-gap-analysis)
 - [Level 1 — Backend E2E Integration Test Plan](#level-1--backend-e2e-integration-test-plan)
+- [Manual / QA Test Cases — Event Cancellation & Recurring Events](#manual--qa-test-cases--event-cancellation--recurring-events)
 - [Expansion Roadmap](#expansion-roadmap)
 
 ---
@@ -15,8 +16,8 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 273                                                           |
-| **Test suites**  | 17                                                            |
+| **Total tests**  | 319                                                           |
+| **Test suites**  | 18                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
 | **Backend**      | Firebase Emulator Suite (Auth, Firestore, Functions, Storage) |
@@ -25,20 +26,21 @@
 
 ### Test Suites
 
-| Suite                 | File                                               | Tests | Domain                                                                  |
-| --------------------- | -------------------------------------------------- | ----- | ----------------------------------------------------------------------- |
-| Club Lifecycle        | `functions/test/clubs.test.ts`                     | 10    | Create, get, update, delete + permissions                               |
-| Group Lifecycle       | `functions/test/groups.test.ts`                    | 12    | CRUD + cascade delete to subgroups                                      |
-| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`                 | 10    | CRUD + membership add/remove                                            |
-| Members & Fees        | `functions/test/members-and-fees.test.ts`          | 14    | Member roles, club roles, fee CRUD                                      |
-| Events & Attendance   | `functions/test/events.test.ts`                    | 23    | Event CRUD, RSVP, attendance, statistics                                |
-| Auth & User Mgmt      | `functions/test/auth.test.ts`                      | 18    | Account creation, profiles, verification                                |
-| Invitation Flows      | `functions/test/invitations.test.ts`               | 21    | Send, validate, accept/reject, delete, dedup                            |
-| Guardian Flows        | `functions/test/guardian-flows.test.ts`            | 14    | Add/remove guardian, role accumulation, subgroup cascade                |
-| Picture Uploads       | `functions/test/upload-pictures.test.ts`           | 11    | Upload club/group/profile pics + Firestore propagation                  |
-| News & Notifications  | `functions/test/news-notifications.test.ts`        | 10    | News CRUD, permissions, recipient logic, youth→guardian, role filter    |
-| Notification Side-Fx  | `functions/test/notification-side-effects.test.ts` | 6     | Event/invitation/fee/callable notification docs + auth/not-found errors |
-| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`           | 82    | Validation, roles, limits, LOK rules                                    |
+| Suite                 | File                                                  | Tests | Domain                                                                  |
+| --------------------- | ----------------------------------------------------- | ----- | ----------------------------------------------------------------------- |
+| Club Lifecycle        | `functions/test/clubs.test.ts`                        | 10    | Create, get, update, delete + permissions                               |
+| Group Lifecycle       | `functions/test/groups.test.ts`                       | 12    | CRUD + cascade delete to subgroups                                      |
+| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`                    | 10    | CRUD + membership add/remove                                            |
+| Members & Fees        | `functions/test/members-and-fees.test.ts`             | 14    | Member roles, club roles, fee CRUD                                      |
+| Events & Attendance   | `functions/test/events.test.ts`                       | 23    | Event CRUD, RSVP, attendance, statistics                                |
+| Auth & User Mgmt      | `functions/test/auth.test.ts`                         | 18    | Account creation, profiles, verification                                |
+| Invitation Flows      | `functions/test/invitations.test.ts`                  | 21    | Send, validate, accept/reject, delete, dedup                            |
+| Guardian Flows        | `functions/test/guardian-flows.test.ts`               | 14    | Add/remove guardian, role accumulation, subgroup cascade                |
+| Picture Uploads       | `functions/test/upload-pictures.test.ts`              | 11    | Upload club/group/profile pics + Firestore propagation                  |
+| News & Notifications  | `functions/test/news-notifications.test.ts`           | 10    | News CRUD, permissions, recipient logic, youth→guardian, role filter    |
+| Notification Side-Fx  | `functions/test/notification-side-effects.test.ts`    | 6     | Event/invitation/fee/callable notification docs + auth/not-found errors |
+| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | 82    | Validation, roles, limits, LOK rules                                    |
+| Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)    |
 
 ---
 
@@ -297,6 +299,71 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ---
 
+### 5b. Event Cancellation & Recurring Events (`event-cancellation-recurring.test.ts`) — 46 tests
+
+#### cancelEvent (16 tests)
+
+| #   | Test                                                           | What it verifies                                                          |
+| --- | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1   | should cancel a single event                                   | status → `cancelled`, `cancelledBy` set, `cancelledCount` = 1             |
+| 2   | should cancel with a cancellation reason                       | `cancellationReason` stored on event doc                                  |
+| 3   | should reject cancelling an already cancelled event            | Already cancelled → `failed-precondition`                                 |
+| 4   | should reject cancelling a completed event                     | Completed → `failed-precondition`                                         |
+| 5   | should reject cancelling a non-existent event                  | Invalid eventId → `not-found`                                             |
+| 6   | should reject unauthenticated cancel request                   | No auth → `unauthenticated`                                               |
+| 7   | should reject cancel by a regular player                       | Player role → `permission-denied`                                         |
+| 8   | should allow group coach to cancel event                       | Coach cancels successfully, `cancelledBy` = coach UID                     |
+| 9   | should reject when missing required fields                     | Missing eventId → `invalid-argument`                                      |
+| 10  | should cancel a single recurring occurrence (scope=single)     | Only target occurrence cancelled; others remain `scheduled`               |
+| 11  | should cancel this and all future occurrences (scope=future)   | All future occurrences cancelled; earlier ones unchanged                  |
+| 12  | should skip individually modified occurrences in future scope  | Modified occurrence retains `scheduled` status during future cancellation |
+| 13  | should update master status when all cancelled from start      | Master doc `status` → `cancelled` when all occurrences cancelled          |
+| 14  | event should remain visible (isActive=true) after cancellation | `isActive` stays `true`, `status` is the source of truth                  |
+| 15  | non-recurring event should NOT have isRecurring in Firestore   | Standard event doc has no `isRecurring` / `recurringEventId`              |
+| 16  | cancelling recurring event without scope cancels only one      | Omitting scope/recurringEventId falls through to single-cancel path       |
+
+#### createRecurringEvent (16 tests)
+
+| #   | Test                                                         | What it verifies                                                     |
+| --- | ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| 17  | should create a weekly recurring event with 4 occurrences    | Master + 4 event docs created, correct return shape                  |
+| 18  | should create master document with correct fields            | Master has frequency, endType, occurrenceEventIds, targetScope, etc. |
+| 19  | should create each occurrence with correct recurring fields  | `isRecurring`, `recurringEventId`, `occurrenceIndex`, `isModified`   |
+| 20  | should create occurrences with correct date spacing (weekly) | Each occurrence ~7 days apart                                        |
+| 21  | should create biweekly recurring events                      | 3 occurrences ~14 days apart                                         |
+| 22  | should create monthly recurring events                       | 3 occurrences ~28-31 days apart                                      |
+| 23  | should include creator in invitedUserIds                     | Creator UID present in occurrence `invitedUserIds`                   |
+| 24  | should reject unauthenticated request                        | No auth → `unauthenticated`                                          |
+| 25  | should reject missing required fields                        | Missing fields → `invalid-argument`                                  |
+| 26  | should reject invalid occurrenceCount (< 2)                  | count = 1 → `invalid-argument`                                       |
+| 27  | should reject invalid occurrenceCount (> 52)                 | count = 100 → `invalid-argument`                                     |
+| 28  | should require seriesEndDate when endType is 'date'          | Missing seriesEndDate → `invalid-argument`                           |
+| 29  | should require occurrenceCount when endType is 'occurrences' | Missing occurrenceCount → `invalid-argument`                         |
+| 30  | should reject a regular player creating recurring events     | Player role → `permission-denied`                                    |
+| 31  | should allow a group coach to create recurring events        | Coach creates successfully                                           |
+| 32  | should create occurrences based on seriesEndDate             | `endType: "date"` generates correct number of occurrences            |
+
+#### editRecurringEvent (14 tests)
+
+| #   | Test                                                          | What it verifies                                            |
+| --- | ------------------------------------------------------------- | ----------------------------------------------------------- |
+| 33  | should edit a single occurrence and mark it as modified       | Title changed, `isModified: true`; others unchanged         |
+| 34  | should edit description of a single occurrence                | `description` updated, `isModified: true`                   |
+| 35  | should edit location of a single occurrence                   | `location` updated                                          |
+| 36  | should edit this and all future occurrences (scope=future)    | Future occurrences updated, past ones unchanged             |
+| 37  | should skip individually modified occurrences in future scope | Modified occurrence keeps its custom values                 |
+| 38  | should update master document when using future scope         | Master doc `title` and `location` updated                   |
+| 39  | should skip cancelled occurrences in future scope             | Cancelled occurrence keeps old title and `cancelled` status |
+| 40  | should reject invalid scope value                             | scope = `"all"` → `invalid-argument`                        |
+| 41  | should reject when event does not exist                       | Invalid eventId → `not-found`                               |
+| 42  | should reject when recurring master does not exist            | Fake master ID → `not-found`                                |
+| 43  | should reject missing required fields                         | Empty data → `invalid-argument`                             |
+| 44  | should reject unauthenticated request                         | No auth → `unauthenticated`                                 |
+| 45  | should reject edit by regular player                          | Player role → `permission-denied`                           |
+| 46  | should allow group coach to edit recurring events             | Coach edits successfully                                    |
+
+---
+
 ### 6. Auth & User Management (`auth.test.ts`) — 18 tests
 
 #### createUserAccount (6 tests)
@@ -448,25 +515,25 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ### Backend Cloud Functions — Current Coverage
 
-| Domain            | Functions | Tested                                                                                                                                                           | Coverage |
-| ----------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| **Clubs**         | 9         | 4 (`createClub`, `getClub`, `updateClub`, `deleteClub`)                                                                                                          | 44%      |
-| **Groups**        | 14        | 7 (`createGroup`, `getGroup`, `updateGroup`, `deleteGroup`, `createSubGroup`, `updateSubGroup`, `deleteSubGroup`)                                                | 50%      |
-| **Members**       | 16        | 8 (`addMemberToClub`, `addMemberToGroup`, `removeMemberFromClub`, `updateMemberRole`, `updateClubMemberRole`, `addMemberToSubGroup`, `removeMemberFromSubGroup`) | 50%      |
-| **Payments**      | 3         | 2 (`createMembershipFee`, `getMembershipFees`)                                                                                                                   | 67%      |
-| **Auth**          | 7         | 4 (`createUserAccount`, `getUserProfile`, `updateUserProfile`, `sendEmailVerification`)                                                                          | 57%      |
-| **Events**        | 10        | 7 (`createEventV2`, `getEvent`, `updateEvent`, `deleteEvent`, `updateEventResponse`, `recordAttendance`, `getStatistics`)                                        | 70%      |
-| **Invitations**   | 6         | 4 (`sendGroupInvitation`, `validateInvitationToken`, `markInvitationUsed`, `respondToEmailInvite`)                                                               | 67%      |
-| **Users**         | 5         | 0                                                                                                                                                                | 0%       |
-| **Notifications** | 1         | 0                                                                                                                                                                | 0%       |
-| **Stripe**        | 6         | 0                                                                                                                                                                | 0% ★     |
-| **Subscriptions** | 5         | 0                                                                                                                                                                | 0% ★     |
-| **News**          | 1         | 0                                                                                                                                                                | 0%       |
-| **Legal**         | 2         | 0                                                                                                                                                                | 0%       |
-| **LOK/RF**        | 11        | 0                                                                                                                                                                | 0%       |
-| **Profile**       | 2         | 0                                                                                                                                                                | 0%       |
-| **Scheduled**     | 2         | 0                                                                                                                                                                | 0%       |
-| **TOTAL**         | **~100**  | **36**                                                                                                                                                           | **~36%** |
+| Domain            | Functions | Tested                                                                                                                                                                                                                   | Coverage |
+| ----------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| **Clubs**         | 9         | 4 (`createClub`, `getClub`, `updateClub`, `deleteClub`)                                                                                                                                                                  | 44%      |
+| **Groups**        | 14        | 7 (`createGroup`, `getGroup`, `updateGroup`, `deleteGroup`, `createSubGroup`, `updateSubGroup`, `deleteSubGroup`)                                                                                                        | 50%      |
+| **Members**       | 16        | 8 (`addMemberToClub`, `addMemberToGroup`, `removeMemberFromClub`, `updateMemberRole`, `updateClubMemberRole`, `addMemberToSubGroup`, `removeMemberFromSubGroup`)                                                         | 50%      |
+| **Payments**      | 3         | 2 (`createMembershipFee`, `getMembershipFees`)                                                                                                                                                                           | 67%      |
+| **Auth**          | 7         | 4 (`createUserAccount`, `getUserProfile`, `updateUserProfile`, `sendEmailVerification`)                                                                                                                                  | 57%      |
+| **Events**        | 13        | 10 (`createEventV2`, `getEvent`, `updateEvent`, `deleteEvent`, `updateEventResponse`, `recordAttendance`, `getStatistics`, `cancelEvent`, `createRecurringEvent`, `editRecurringEvent`) — 46 automated integration tests | 77%      |
+| **Invitations**   | 6         | 4 (`sendGroupInvitation`, `validateInvitationToken`, `markInvitationUsed`, `respondToEmailInvite`)                                                                                                                       | 67%      |
+| **Users**         | 5         | 0                                                                                                                                                                                                                        | 0%       |
+| **Notifications** | 1         | 0                                                                                                                                                                                                                        | 0%       |
+| **Stripe**        | 6         | 0                                                                                                                                                                                                                        | 0% ★     |
+| **Subscriptions** | 5         | 0                                                                                                                                                                                                                        | 0% ★     |
+| **News**          | 1         | 0                                                                                                                                                                                                                        | 0%       |
+| **Legal**         | 2         | 0                                                                                                                                                                                                                        | 0%       |
+| **LOK/RF**        | 11        | 0                                                                                                                                                                                                                        | 0%       |
+| **Profile**       | 2         | 0                                                                                                                                                                                                                        | 0%       |
+| **Scheduled**     | 2         | 0                                                                                                                                                                                                                        | 0%       |
+| **TOTAL**         | **~100**  | **39**                                                                                                                                                                                                                   | **~39%** |
 
 ★ Stripe/Subscription functions require external Stripe API — need mocking strategy
 
@@ -1294,11 +1361,370 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 
 ---
 
+## Manual / QA Test Cases — Event Cancellation & Recurring Events
+
+> **Scope:** These are **manual / QA checklists** for verifying UI behaviour, visual styling, and end-to-end user flows that cannot be covered by backend integration tests alone. They are meant to be executed by a human tester in the running app.
+>
+> **Automated coverage:** The backend logic for these features (`cancelEvent`, `createRecurringEvent`, `editRecurringEvent`) is fully covered by **46 automated integration tests** in `functions/test/event-cancellation-recurring.test.ts` — see [section 5b](#5b-event-cancellation--recurring-events-event-cancellation-recurringtestts--46-tests) in the Test Cases Catalogue above.
+
+### Phase 1: Event Cancellation
+
+#### TC-C01: Cancel a Single Event (Happy Path)
+
+**Preconditions:** User is event creator or group admin/coach. Event status is "scheduled".
+**Steps:**
+
+1. Open event details for a scheduled event
+2. Tap the red X (close-circle) icon in the header
+3. Optionally enter a cancellation reason
+4. Tap "Cancel Event"
+   **Expected:**
+
+- Event status changes to "cancelled"
+- Cancelled banner appears on EventCard and event-details
+- All invitees receive `event_cancelled` notification
+- Edit icon disappears from header
+- Cancel icon disappears from header
+- Response section is hidden
+- Attendance recording section is hidden
+
+#### TC-C02: Cancel Event with Reason
+
+**Steps:** Same as TC-C01 but enter "Weather conditions" as reason
+**Expected:** Reason appears in the cancelled banner: "Reason: Weather conditions"
+
+#### TC-C03: Cancel Event without Reason
+
+**Steps:** Same as TC-C01 but leave reason blank
+**Expected:** Cancelled banner shows without reason line
+
+#### TC-C04: Cannot Cancel Already Cancelled Event
+
+**Preconditions:** Event is already cancelled
+**Expected:** Cancel icon not visible in header (canShowCancel is false)
+
+#### TC-C05: Cannot Cancel Completed Event
+
+**Preconditions:** Event status is "completed"
+**Expected:** Cancel icon not visible in header
+
+#### TC-C06: Permission — Creator Can Cancel
+
+**Preconditions:** Logged in as event creator
+**Expected:** Cancel icon visible and functional
+
+#### TC-C07: Permission — Club Admin Can Cancel
+
+**Preconditions:** Logged in as club admin (not creator)
+**Expected:** Cancel icon visible and functional
+
+#### TC-C08: Permission — Group Admin/Coach Can Cancel
+
+**Preconditions:** Logged in as group admin or coach (not creator)
+**Expected:** Cancel icon visible and functional
+
+#### TC-C09: Permission — Regular Member Cannot Cancel
+
+**Preconditions:** Logged in as regular member/player
+**Expected:** Cancel icon not visible
+
+#### TC-C10: Cancelled Event Styling on EventCard
+
+**Expected:**
+
+- Card has reduced opacity (0.85) and red border
+- Red "CANCELLED" banner shows at top
+- Event type icon is dimmed
+- Status text shows "Cancelled" instead of user's response
+- Deadline approaching warning is hidden
+
+---
+
+### Phase 2: Recurring Events
+
+#### Create Recurring Event
+
+#### TC-R01: Create Weekly Recurring Event (End by Date)
+
+**Preconditions:** User is on create-event screen, Advanced mode
+**Steps:**
+
+1. Fill in event details (title, type, time, location)
+2. Check "Make this a recurring event"
+3. Verify frequency defaults to "Weekly"
+4. Verify end condition defaults to "By Date"
+5. Verify "Every [Day]" label matches start date day
+6. Set series end date to 2 months from now
+7. Verify summary shows estimated occurrence count
+8. Tap "Create Series (N events)"
+   **Expected:**
+
+- RecurringEventMaster created at `/clubs/{clubId}/recurringEvents/{id}`
+- N individual EventDocuments created at `/clubs/{clubId}/events/`
+- Each occurrence has: `isRecurring: true`, `recurringEventId`, `occurrenceIndex`, `isModified: false`
+- Occurrences are spaced exactly 7 days apart
+- First notification sent to all invitees
+- Success modal shows occurrence count and recipient count
+
+#### TC-R02: Create Bi-weekly Recurring Event (End by Count)
+
+**Steps:**
+
+1. Fill event details, enable recurring
+2. Select "Bi-weekly" frequency
+3. Select "After Count" end condition
+4. Enter 10 occurrences
+5. Create
+   **Expected:**
+
+- 10 occurrences created, each spaced 14 days apart
+- Summary shows "10 occurrences, bi-weekly on [Day]"
+
+#### TC-R03: Create Monthly Recurring Event
+
+**Steps:**
+
+1. Set start date to 15th of current month
+2. Enable recurring, select "Monthly"
+3. Set end condition
+   **Expected:**
+
+- Occurrences fall on 15th of each subsequent month
+- Master document has `dayOfMonth: 15`
+
+#### TC-R04: Occurrence Count Validation
+
+**Steps:** Try entering 0, 1, 53, -1, "abc"
+**Expected:**
+
+- Values outside 2-52 range are rejected
+- Only valid integers accepted
+
+#### TC-R05: Recurring Section Only in Advanced Mode
+
+**Steps:** Toggle between Simple and Advanced mode
+**Expected:**
+
+- Recurring section is not visible in Simple mode
+- Recurring section is visible in Advanced mode
+
+#### TC-R06: Recurring Section Not in Edit Mode
+
+**Preconditions:** Navigate to create-event in edit mode
+**Expected:** Recurring section is not visible
+
+#### TC-R07: Day Name Updates with Start Date
+
+**Steps:**
+
+1. Enable recurring
+2. Change start date from Monday to Wednesday
+   **Expected:** "Every [Day]" label updates from "Every Monday" to "Every Wednesday"
+
+#### TC-R08: Summary Updates Dynamically
+
+**Steps:** Change frequency, end type, end date, occurrence count
+**Expected:** Summary text updates in real-time
+
+---
+
+#### EventCard & Event Details — Recurring Badge
+
+#### TC-R09: Recurring Badge on EventCard
+
+**Preconditions:** Event has `isRecurring: true`
+**Expected:**
+
+- Green recurring badge with repeat icon shows below card top
+- Badge text shows localized "Recurring"
+- Badge does NOT show on cancelled recurring events
+
+#### TC-R10: Recurring Badge on Event Details
+
+**Preconditions:** View details of a recurring event
+**Expected:**
+
+- Green recurring badge shows with "Recurring Event (#N)" where N is occurrence number
+- If occurrence is modified, "(modified)" shows next to badge
+
+---
+
+#### Cancel Recurring Event
+
+#### TC-R11: Cancel Single Occurrence
+
+**Preconditions:** View a recurring event occurrence
+**Steps:**
+
+1. Tap cancel icon in header
+2. Scope modal appears: "This occurrence only" / "All future occurrences"
+3. Select "This occurrence only"
+4. Cancel confirmation modal appears
+5. Optionally enter reason
+6. Confirm cancel
+   **Expected:**
+
+- Only this single occurrence is cancelled
+- Other occurrences remain scheduled
+- Master document status remains "active"
+- Notification sent to invitees of this occurrence
+
+#### TC-R12: Cancel All Future Occurrences
+
+**Steps:**
+
+1. Tap cancel icon on occurrence #3 (of 10)
+2. Select "All future occurrences"
+3. Confirm cancel
+   **Expected:**
+
+- Occurrences #3-10 are cancelled (8 events)
+- Occurrences #1-2 remain unchanged
+- Individually modified future occurrences are SKIPPED (remain as-is)
+- If all occurrences end up cancelled/completed, master status → "cancelled"
+- Notification sent to all unique users across cancelled occurrences
+
+#### TC-R13: Cancel Future — Skips Modified Occurrences
+
+**Preconditions:** Occurrence #5 was previously edited (isModified: true)
+**Steps:** Cancel all future from occurrence #3
+**Expected:** Occurrences #3,4,6,7,...,10 are cancelled. Occurrence #5 is NOT cancelled (skipped because modified).
+
+#### TC-R14: Cancel Scope Modal Not Shown for Single Events
+
+**Preconditions:** Single (non-recurring) event
+**Steps:** Tap cancel icon
+**Expected:** Goes directly to cancel confirmation modal (no scope selection)
+
+---
+
+#### Edit Recurring Event
+
+#### TC-R15: Edit Single Occurrence
+
+**Steps:**
+
+1. Tap edit icon on a recurring event
+2. Scope modal appears
+3. Select "This occurrence only"
+4. Edit screen opens with event data pre-filled
+5. Change title and save
+   **Expected:**
+
+- Only this occurrence's title is updated
+- `isModified` is set to `true` on this occurrence
+- Master document unchanged
+- Other occurrences unchanged
+
+#### TC-R16: Edit All Future Occurrences
+
+**Steps:**
+
+1. Tap edit on occurrence #4
+2. Select "All future occurrences"
+3. Change location and time
+   **Expected:**
+
+- Occurrences #4-end are updated with new location and time
+- Time changes: only time-of-day is updated (date stays)
+- Individually modified occurrences are SKIPPED
+- Master template is updated with new values
+- Past occurrences (#1-3) are unchanged
+
+#### TC-R17: Edit Scope Modal Not Shown for Single Events
+
+**Preconditions:** Single event
+**Steps:** Tap edit icon
+**Expected:** Goes directly to edit screen (no scope selection)
+
+---
+
+#### Notifications
+
+#### TC-R18: Recurring Event Creation Notification
+
+**Expected:**
+
+- Single notification sent mentioning "Recurring Event" with frequency and occurrence count
+- Links to first occurrence
+
+#### TC-R19: Cancel Future Notifications
+
+**Expected:**
+
+- Notification message mentions scope: "and N future occurrence(s)"
+- All unique affected users receive notification
+
+---
+
+#### Edge Cases
+
+#### TC-R20: Create Event — Network Error During Recurring Creation
+
+**Steps:** Trigger network error during creation
+**Expected:**
+
+- No partial data written (batch is atomic)
+- Error message shown
+- Button re-enabled
+
+#### TC-R21: Very Long Series (52 occurrences)
+
+**Steps:** Create weekly event with 52 occurrences
+**Expected:**
+
+- All 52 created within batch limit (53 writes total including master)
+- Performance acceptable
+
+#### TC-R22: Monthly Event on 31st
+
+**Steps:** Start monthly event on Jan 31
+**Expected:**
+
+- February occurrence falls on Feb 28/29
+- March occurrence on March 31
+- April occurrence on April 30 (JavaScript Date handles month overflow)
+
+#### TC-R23: Cancel Last Remaining Occurrence
+
+**Preconditions:** All but one occurrence are cancelled
+**Steps:** Cancel the last active occurrence
+**Expected:** Master status changes to "cancelled"
+
+#### TC-R24: i18n — All Locales Render
+
+**Steps:** Switch language to each of the 8 locales
+**Expected:**
+
+- All recurring event labels render without missing key warnings
+- Frequency pills show translated text
+- Scope modal options show in correct language
+- Badge text is translated
+
+---
+
+#### Manual / QA Test Case Summary
+
+> These are **manual checklists** — not automated. For the 46 automated integration tests, see [section 5b](#5b-event-cancellation--recurring-events-event-cancellation-recurringtestts--46-tests).
+
+| Area                       | Cases  | IDs             | Type   |
+| -------------------------- | ------ | --------------- | ------ |
+| Event Cancellation         | 10     | TC-C01 – TC-C10 | Manual |
+| Recurring — Create         | 8      | TC-R01 – TC-R08 | Manual |
+| Recurring — Badges         | 2      | TC-R09 – TC-R10 | Manual |
+| Recurring — Cancel (scope) | 4      | TC-R11 – TC-R14 | Manual |
+| Recurring — Edit (scope)   | 3      | TC-R15 – TC-R17 | Manual |
+| Recurring — Notifications  | 2      | TC-R18 – TC-R19 | Manual |
+| Recurring — Edge Cases     | 5      | TC-R20 – TC-R24 | Manual |
+| **Total**                  | **34** |                 |        |
+
+---
+
 ## Expansion Roadmap
 
 ### Layer 1: Backend Cloud Functions (Partially Complete ✅)
 
-Emulator-based integration tests now cover 36 of ~100 functions (~36%).
+Emulator-based integration tests now cover 39 of ~100 functions (~39%).
 
 **Completed:**
 
@@ -1306,7 +1732,7 @@ Emulator-based integration tests now cover 36 of ~100 functions (~36%).
 - ✅ Groups & Subgroups (7/14 functions)
 - ✅ Members & Fees (10/19 functions)
 - ✅ Auth & user management (4/7 functions)
-- ✅ Events & attendance (7/10 functions)
+- ✅ Events & attendance (10/13 functions)
 - ✅ Invitations (4/6 functions)
 
 **Remaining (priority order):**
@@ -1315,7 +1741,8 @@ Emulator-based integration tests now cover 36 of ~100 functions (~36%).
 2. Legal (2 functions) — News now covered by Suite N
 3. User doc management (5 functions) — club/group info updates, inactivity marking
 4. Cascade operations — deletion, reactivation side-effects
-5. Remaining gaps in covered domains (e.g., `getClubMembers`, `getGroupMembers`, recurring events)
+5. Remaining gaps in covered domains (e.g., `getClubMembers`, `getGroupMembers`)
+6. ✅ `cancelEvent`, `createRecurringEvent`, `editRecurringEvent` — 46 automated integration tests in `event-cancellation-recurring.test.ts`; additional manual/QA UI checklists documented in [Manual / QA Test Cases](#manual--qa-test-cases--event-cancellation--recurring-events)
 
 ### Layer 2: Pure Logic Unit Tests (Partially Complete ✅)
 

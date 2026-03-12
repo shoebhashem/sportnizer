@@ -72,7 +72,9 @@
     "gatherTime": "Oppmøte: {{time}}",
     "startTime": "Start: {{time}}",
     "ofTotalInvited": "av {{total}} inviterte",
-    "deadlineApproaching": "Frist nærmer seg"
+    "deadlineApproaching": "Frist nærmer seg",
+    "cancelled": "Avlyst",
+    "recurring": "Gjentakende"
   },
 
   "newsCard": {

@@ -72,7 +72,9 @@
     "gatherTime": "Ritrovo: {{time}}",
     "startTime": "Inizio: {{time}}",
     "ofTotalInvited": "di {{total}} invitati",
-    "deadlineApproaching": "Scadenza in avvicinamento"
+    "deadlineApproaching": "Scadenza in avvicinamento",
+    "cancelled": "Annullato",
+    "recurring": "Ricorrente"
   },
 
   "newsCard": {

@@ -5,14 +5,14 @@ import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    Image,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -27,10 +27,10 @@ import { getCurrentUser } from "../../services/auth/authService";
 import { clubService } from "../../services/club";
 import { fetchDependentProfiles } from "../../services/fetchDependentProfiles";
 import {
-    acceptGroupInvite,
-    fetchGroupInvites,
-    GroupInviteInfo,
-    rejectGroupInvite,
+  acceptGroupInvite,
+  fetchGroupInvites,
+  GroupInviteInfo,
+  rejectGroupInvite,
 } from "../../services/fetchGroupInvites";
 import { paymentService, PendingPayment } from "../../services/paymentService";
 import { NewsFlowItem } from "../../services/types";
@@ -1002,7 +1002,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: theme.layout.containerPadding,
   },
   loadingContainer: {
     flex: 1,

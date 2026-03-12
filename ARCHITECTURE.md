@@ -17,6 +17,7 @@
 - [Usage Limits & Subscription System](#usage-limits--subscription-system)
 - [Group & Club Deletion Architecture](#️-group--club-deletion-architecture)
 - [Event Management & Attendance Statistics](#-event-management--attendance-statistics)
+- [Event Cancellation & Recurring Events](#-event-cancellation--recurring-events)
 - [LOK-stöd & RF Integration (Swedish Clubs)](#-lok-stöd--rf-integration-swedish-clubs)
 - [News System](#-news-system)
 - [Data Model Conventions](#data-model-conventions)
@@ -1516,15 +1517,17 @@ Clubnizer enforces member limits at the **CLUB level** (not group level), allowi
 ### Current Limits (Free for All)
 
 ```
+
 ┌─────────────────────────────────────────────────────┐
-│ CURRENT LIMITS (app is free)                        │
+│ CURRENT LIMITS (app is free) │
 ├─────────────────┬───────────────────────────────────┤
-│ Members/club    │ 1,500 (contact support for more)  │
-│ Groups/club     │ 99                                │
-│ Clubs (admin)   │ 1                                 │
-│ Price           │ Free                              │
+│ Members/club │ 1,500 (contact support for more) │
+│ Groups/club │ 99 │
+│ Clubs (admin) │ 1 │
+│ Price │ Free │
 └─────────────────┴───────────────────────────────────┘
-```
+
+````
 
 ### Parked Subscription Tiers (for future reactivation)
 
@@ -8951,7 +8954,16 @@ interface EventDocument {
   // Event status
   status: "scheduled" | "completed" | "cancelled";
   cancellationReason?: string; // If status is 'cancelled'
+  cancelledAt?: Timestamp; // When cancelled
+  cancelledBy?: string; // userId who cancelled
+  cancelledByName?: string; // Display name of who cancelled
   isActive: boolean; // For soft delete pattern (default: true)
+
+  // Recurring event fields (only present if isRecurring is true)
+  isRecurring?: boolean; // true if part of a recurring series
+  recurringEventId?: string; // Links to /clubs/{clubId}/recurringEvents/{id}
+  occurrenceIndex?: number; // 0-based index in the series
+  isModified?: boolean; // true if this occurrence was individually edited
 }
 ```
 
@@ -11170,6 +11182,254 @@ _This event management architecture provides a comprehensive, scalable solution 
 
 ---
 
+## 🚫 Event Cancellation & Recurring Events
+
+### Overview
+
+Two major extensions to the Event Management system:
+
+1. **Event Cancellation** — Cancel individual events with optional reason, notify all invitees, and display cancellation status across the app.
+2. **Recurring Events** — Create a series of pre-generated event occurrences (weekly, bi-weekly, or monthly) from a single form submission, with scope-aware editing and cancellation.
+
+---
+
+### Event Cancellation
+
+#### Cancellation Flow
+
+```
+1. Admin/Coach/Creator: Opens event-details screen
+2. UI: Shows red cancel icon (✕) in header — only if:
+   - Event status is "scheduled" (not completed or already cancelled)
+   - User is event creator, club-admin, or group admin/coach
+3. User: Taps cancel icon
+4. UI: Shows CancelEventModal with optional reason text input
+5. User: Optionally enters reason, taps "Cancel Event"
+6. Service: Calls cancelEvent Cloud Function
+7. Backend (cancelEvent):
+   a. Validate auth + permissions (creator, club-admin, or group admin/coach)
+   b. Validate event exists and is not already cancelled/completed
+   c. Update event document:
+      - status: "cancelled"
+      - cancelledAt: serverTimestamp()
+      - cancelledBy: userId
+      - cancelledByName: display name
+      - cancellationReason: text (if provided)
+   d. Send "event_cancelled" notification to all invitedUserIds
+   e. Return success
+8. UI: Refreshes event details, shows cancelled banner
+```
+
+#### Cancellation Fields (added to EventDocument)
+
+```typescript
+cancelledAt?: Timestamp;       // When event was cancelled
+cancelledBy?: string;          // userId who cancelled
+cancelledByName?: string;      // Display name
+cancellationReason?: string;   // Optional reason text
+```
+
+#### UI Behaviour After Cancellation
+
+- **EventCard**: Red border, reduced opacity (0.85), red "CANCELLED" banner, dimmed icon
+- **Event Details**: Red cancelled banner with reason (if provided), no edit icon, no cancel icon, response section hidden, attendance section hidden
+- **Notifications**: All `invitedUserIds` receive `event_cancelled` notification
+
+#### Cloud Function: `cancelEvent`
+
+**File**: `functions/src/events/cancelEvent.ts`
+
+**Parameters**:
+
+```typescript
+{
+  eventId: string;
+  clubId: string;
+  reason?: string;           // Optional cancellation reason
+  cancelledByName: string;
+  // Recurring event support (optional):
+  recurringEventId?: string; // If cancelling a recurring occurrence
+  scope?: "single" | "future"; // "single" = this only, "future" = this + all future
+}
+```
+
+**Permission**: Event creator, club-admin, or group admin/coach.
+
+---
+
+### Recurring Events
+
+#### Design Decisions
+
+| Decision               | Choice                                            | Rationale                                                                                                                           |
+| ---------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Storage approach**   | Pre-generated occurrences (Approach A)            | Each occurrence is a full EventDocument — works with existing queries, listeners, response tracking, and statistics without changes |
+| **Master document**    | Separate `recurringEvents` collection             | Stores template + recurrence rule; links to individual occurrences                                                                  |
+| **Frequencies**        | Weekly (default), bi-weekly, monthly              | Covers all common sports scheduling patterns                                                                                        |
+| **End conditions**     | By date (default) or by occurrence count (2-52)   | Safety limit of 52 prevents runaway writes                                                                                          |
+| **Scope modals**       | "This occurrence only" / "All future occurrences" | Standard calendar app UX for edit and cancel                                                                                        |
+| **Modified flag**      | `isModified: boolean` on each occurrence          | "All future" operations skip individually-modified occurrences                                                                      |
+| **Weekday derivation** | Auto-derived from start date                      | No separate weekday picker needed                                                                                                   |
+| **Batch writes**       | Firestore batch (max 500 ops)                     | Max 52 occurrences + 1 master = 53 writes, well within limit                                                                        |
+
+#### Data Model
+
+**RecurringEventMaster** — stored at `/clubs/{clubId}/recurringEvents/{recurringEventId}`:
+
+```typescript
+interface RecurringEventMaster {
+  recurringEventId: string;
+  status: "active" | "cancelled" | "completed";
+
+  // Event template (fields copied to each occurrence)
+  template: {
+    title: string;
+    description?: string;
+    eventType: "training" | "match" | "meeting" | "other";
+    location?: string;
+    capacityLimit?: number;
+  };
+
+  // Time of day (applied to each occurrence's date)
+  timeOfDay: string; // HH:mm format
+
+  // Recurrence rule
+  recurrenceRule: {
+    frequency: "weekly" | "biweekly" | "monthly";
+    dayOfWeek: number; // 0=Sunday ... 6=Saturday
+    dayOfMonth?: number; // For monthly (e.g. 15)
+  };
+
+  // End condition
+  endCondition: {
+    type: "date" | "occurrences";
+    endDate?: Timestamp;
+    maxOccurrences?: number; // 2-52
+  };
+
+  // Scope & targeting
+  targetScope: TargetScope;
+  roleFilter?: string[] | null;
+  responseDeadlineOffsetHours?: number;
+
+  // Generated occurrences
+  occurrenceEventIds: string[]; // Ordered array of event IDs
+  totalOccurrences: number;
+
+  // Metadata
+  createdBy: string;
+  createdByName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+**Recurring fields on EventDocument** (existing events collection):
+
+```typescript
+// Added to each occurrence in /clubs/{clubId}/events/{eventId}
+isRecurring?: boolean;        // true
+recurringEventId?: string;    // Links back to master
+occurrenceIndex?: number;     // 0-based (e.g. 0, 1, 2, ... 51)
+isModified?: boolean;         // true if individually edited (default: false)
+```
+
+#### Date Generation Algorithm
+
+The `generateOccurrenceDates()` helper creates dates based on frequency:
+
+```typescript
+// Weekly: +7 days per occurrence
+// Bi-weekly: +14 days per occurrence
+// Monthly: +1 month (handles 31st → Feb 28, etc.)
+// Safety limit: MAX_OCCURRENCES = 52
+// End conditions: stop when date > endDate OR count >= maxOccurrences
+```
+
+#### Cloud Functions
+
+**1. `createRecurringEvent`** (`functions/src/events/createRecurringEvent.ts`)
+
+Creates a complete recurring series atomically:
+
+1. Validate auth, required fields, and recurrence parameters
+2. Validate permissions (club/group/subgroup level, same as `createEventV2`)
+3. Resolve recipients (members → filter by role → inject creator → resolve youth→guardian)
+4. Generate occurrence dates using `generateOccurrenceDates()`
+5. Batch write: master document + all occurrence EventDocuments
+6. Send notification for first occurrence
+7. Return `{ recurringEventId, totalOccurrences, recipientCount }`
+
+**Timeout**: 120 seconds (batch writes for up to 52 occurrences)
+
+**2. `editRecurringEvent`** (`functions/src/events/editRecurringEvent.ts`)
+
+Edits one or more occurrences with scope control:
+
+- **`scope: "single"`**: Updates only the specified occurrence, sets `isModified: true`
+- **`scope: "future"`**: Updates all future non-cancelled, non-modified occurrences from the given occurrence onward. Time-of-day changes are applied relative to each occurrence's date (preserving the day-of-week pattern). Also updates the master template.
+
+**3. `cancelEvent` (updated)** (`functions/src/events/cancelEvent.ts`)
+
+Extended with optional `recurringEventId` and `scope` parameters:
+
+- **Without recurring params**: Works as before (single event cancellation)
+- **`scope: "single"`**: Cancels just one occurrence
+- **`scope: "future"`**: Batch-cancels all future non-modified occurrences. If all occurrences end up cancelled or completed, master status changes to "cancelled". Deduplicated notifications sent to all affected users.
+
+#### UI Implementation
+
+**Create Event Screen** (`app/create-event.tsx`):
+
+- Recurring section appears in Advanced mode, new events only (not edit mode)
+- Toggle: "Make this a recurring event" checkbox
+- Frequency: Pill toggle (Weekly / Bi-weekly / Monthly) — same style as event type filter
+- End condition: Pill toggle (By Date / After Count)
+- Date picker or numeric input based on end condition
+- Summary: "Repeats weekly on [Day], [N] occurrences"
+- Button label: "Create Series (N events)" when recurring
+
+**Event Details Screen** (`app/event-details.tsx`):
+
+- **Recurring badge**: Green badge with repeat icon — "Recurring Event (#N)" with optional "(modified)"
+- **Cancel scope modal**: Two-option card selection — "This occurrence only" / "All future occurrences"
+- **Edit scope modal**: Same two-option pattern — navigates to edit form with `editScope` and `recurringEventId` params
+
+**EventCard** (`components/EventCard.tsx`):
+
+- Green recurring badge with repeat icon + localized "Recurring" text
+- Hidden on cancelled events
+
+#### Client Services
+
+**`services/event/recurringEvent.ts`**:
+
+```typescript
+recurringEventService.createRecurringEvent(request) → { recurringEventId, totalOccurrences, recipientCount }
+recurringEventService.editRecurringEvent(request)   → { success, updatedCount }
+```
+
+**`services/event/cancelEvent.ts`** (updated):
+
+```typescript
+// Added optional fields:
+interface CancelEventRequest {
+  // ... existing fields
+  recurringEventId?: string;
+  scope?: "single" | "future";
+}
+```
+
+#### i18n Keys
+
+All recurring event labels added to 8 locales (da, de, en, es, fr, it, no, sv):
+
+- `screens.json` → `createEvent` section (22 keys: toggle, frequency, end condition, summary, button labels)
+- `screens.json` → `eventDetails` section (14 keys: scope modals, recurring badge)
+- `components.json` → `eventCard` section (1 key: recurring badge)
+
+---
+
 ## 🇸🇪 LOK-stöd & RF Integration (Swedish Clubs)
 
 ### Overview
@@ -11927,17 +12187,18 @@ Body:
 | 7   | `clubs/{clubId}/groups/{groupId}/subgroups/{subgroupId}`                    | Subcollection   | Subgroups within a group                                  |
 | 8   | `clubs/{clubId}/groups/{groupId}/subgroups/{subgroupId}/allMembers/members` | Single document | Subgroup member list                                      |
 | 9   | `clubs/{clubId}/groups/{groupId}/statistics/{year}`                         | Subcollection   | Yearly attendance stats                                   |
-| 10  | `clubs/{clubId}/events/{eventId}`                                           | Subcollection   | Events scoped to a club                                   |
-| 11  | `clubs/{clubId}/news/{newsId}`                                              | Subcollection   | News articles scoped to a club                            |
-| 12  | `invitations/{invitationToken}`                                             | Top-level       | Invitation source of truth                                |
-| 13  | `membershipFees/{feeId}`                                                    | Top-level       | Membership fee definitions                                |
-| 14  | `payments/{paymentId}`                                                      | Top-level       | Payment records                                           |
-| 15  | `stripeEvents/{eventId}`                                                    | Top-level       | Stripe webhook idempotency                                |
-| 16  | `emailVerifications/{verificationToken}`                                    | Top-level       | Email verification tokens                                 |
-| 17  | `legal_acceptances/{acceptanceId}`                                          | Top-level       | Legal acceptance audit trail                              |
-| 18  | `config/legal`                                                              | Single document | Legal document version config                             |
-| 19  | `guardianInvitations/{invitationId}`                                        | Top-level       | Guardian invitations (rules defined, not yet implemented) |
-| 20  | `lokReports/{reportId}`                                                     | Top-level       | LOK-stöd report snapshots for RF (Swedish clubs)          |
+| 10  | `clubs/{clubId}/events/{eventId}`                                           | Subcollection   | Events scoped to a club (incl. recurring occurrences)     |
+| 11  | `clubs/{clubId}/recurringEvents/{recurringEventId}`                         | Subcollection   | Recurring event master templates                          |
+| 12  | `clubs/{clubId}/news/{newsId}`                                              | Subcollection   | News articles scoped to a club                            |
+| 13  | `invitations/{invitationToken}`                                             | Top-level       | Invitation source of truth                                |
+| 14  | `membershipFees/{feeId}`                                                    | Top-level       | Membership fee definitions                                |
+| 15  | `payments/{paymentId}`                                                      | Top-level       | Payment records                                           |
+| 16  | `stripeEvents/{eventId}`                                                    | Top-level       | Stripe webhook idempotency                                |
+| 17  | `emailVerifications/{verificationToken}`                                    | Top-level       | Email verification tokens                                 |
+| 18  | `legal_acceptances/{acceptanceId}`                                          | Top-level       | Legal acceptance audit trail                              |
+| 19  | `config/legal`                                                              | Single document | Legal document version config                             |
+| 20  | `guardianInvitations/{invitationId}`                                        | Top-level       | Guardian invitations (rules defined, not yet implemented) |
+| 21  | `lokReports/{reportId}`                                                     | Top-level       | LOK-stöd report snapshots for RF (Swedish clubs)          |
 
 ### Complete Hierarchy Diagram
 
@@ -12203,6 +12464,14 @@ Firestore Root
 │   │   ├── completedAt?: Timestamp                             # When attendance was recorded
 │   │   ├── completedBy?: string
 │   │   ├── completedByName?: string
+│   │   ├── cancelledAt?: Timestamp                             # When event was cancelled
+│   │   ├── cancelledBy?: string                                # userId who cancelled
+│   │   ├── cancelledByName?: string
+│   │   ├── cancellationReason?: string                         # Optional reason text
+│   │   ├── isRecurring?: boolean                               # true if part of a recurring series
+│   │   ├── recurringEventId?: string                           # Links to recurringEvents/{id}
+│   │   ├── occurrenceIndex?: number                            # 0-based index in the series
+│   │   ├── isModified?: boolean                                # true if individually edited
 │   │   └── lok?: {                                             # LOK reporting metadata (Swedish clubs)
 │   │       ├── eligible: boolean                               # Is this a LOK-eligible activity?
 │   │       ├── durationMinutes?: number                        # Calculated activity duration
@@ -12210,6 +12479,37 @@ Firestore Root
 │   │       ├── reportingPeriod?: string                        # e.g. "2026-H1" or "2026-H2"
 │   │       └── reportId?: string                               # Reference to lokReports/{id}
 │   │       }
+│   │
+│   ├── /recurringEvents/{recurringEventId}                      # ── Subcollection ──
+│   │   ├── recurringEventId: string
+│   │   ├── status: "active" | "cancelled" | "completed"        # Master series status
+│   │   ├── template: {                                         # Event template (fields copied to each occurrence)
+│   │   │   ├── title: string
+│   │   │   ├── description?: string
+│   │   │   ├── eventType: string
+│   │   │   ├── location?: string
+│   │   │   └── capacityLimit?: number
+│   │   │   }
+│   │   ├── timeOfDay: string                                   # HH:mm format
+│   │   ├── recurrenceRule: {
+│   │   │   ├── frequency: "weekly" | "biweekly" | "monthly"
+│   │   │   ├── dayOfWeek: number                               # 0=Sunday ... 6=Saturday
+│   │   │   └── dayOfMonth?: number                             # For monthly (e.g. 15)
+│   │   │   }
+│   │   ├── endCondition: {
+│   │   │   ├── type: "date" | "occurrences"
+│   │   │   ├── endDate?: Timestamp                             # If type="date"
+│   │   │   └── maxOccurrences?: number                         # If type="occurrences" (2-52)
+│   │   │   }
+│   │   ├── targetScope: { level, clubId, clubName, groupId?, groupName?, subgroupId?, subgroupName? }
+│   │   ├── roleFilter?: string[] | null
+│   │   ├── responseDeadlineOffsetHours?: number                # Hours before event start
+│   │   ├── occurrenceEventIds: string[]                        # Ordered list of generated event IDs
+│   │   ├── totalOccurrences: number
+│   │   ├── createdBy: string
+│   │   ├── createdByName: string
+│   │   ├── createdAt: Timestamp
+│   │   └── updatedAt: Timestamp
 │   │
 │   ├── /news/{newsId}                                          # ── Subcollection ──
 │   │   ├── newsId: string

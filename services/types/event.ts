@@ -1,5 +1,3 @@
-import type { RecipientSelection } from "./common";
-
 // Event response structure
 export interface EventResponse {
   userId: string;
@@ -73,6 +71,9 @@ export interface EventData {
 
   isActive?: boolean;
   status?: "scheduled" | "completed" | "cancelled"; // Event status
+  cancellationReason?: string; // If status is 'cancelled'
+  cancelledAt?: Date; // When event was cancelled
+  cancelledBy?: string; // User ID who cancelled the event
   createdAt: Date; // Changed from any to Date
   createdBy: string;
   lastModifiedAt?: Date; // Changed from any to Date
@@ -95,120 +96,60 @@ export interface EventData {
     reportingPeriod?: string; // e.g. "2026-H1" or "2026-H2"
     reportId?: string; // Reference to lokReports/{id}
   };
+
+  // Recurring event fields
+  isRecurring?: boolean; // True if part of a recurring series
+  recurringEventId?: string; // ID of the master recurring event
+  occurrenceIndex?: number; // 0-based index within the series
+  isModified?: boolean; // True if individually modified (won't be affected by series edits)
 }
+
+// ============================================================================
+// Recurring Event Types
+// ============================================================================
+
+export type RecurrenceFrequency = "weekly" | "biweekly" | "monthly";
+export type RecurrenceEndType = "date" | "occurrences";
 
 export interface RecurringSettings {
-  frequency: "daily" | "weekly" | "monthly";
-  daysOfWeek?: number[]; // 0 = Sunday, 1 = Monday, etc.
-  endType: "never" | "after" | "on";
-  endAfter?: number; // Number of occurrences
-  endOn?: Date; // End date
+  frequency: RecurrenceFrequency;
+  endType: RecurrenceEndType;
+  seriesEndDate?: Date; // If endType is "date"
+  occurrenceCount?: number; // If endType is "occurrences"
 }
 
-export interface RecurringEventData {
-  title: string;
-  description: string;
-  startTime: Date;
-  endTime: Date;
-  location: string;
-  type: "practice" | "game" | "meeting" | "other";
-  visibility: "public" | "members-only";
-  clubId: string;
-  groupId: string;
-  createdBy: string;
-
-  // Recurring specific fields
-  isRecurring: true;
-  frequency: "daily" | "weekly" | "monthly";
-  daysOfWeek?: number[]; // For weekly recurrence
-  endType: "never" | "after" | "on";
-  endAfter?: number; // Number of occurrences
-  endOn?: Date; // End date
-
-  // Recipients
-  recipients: RecipientSelection;
-}
-
-export interface RecurringEventMaster {
+export interface RecurringEventMasterClient {
   id: string;
-  title: string;
-  description: string;
-  location: string;
-  type: "practice" | "game" | "meeting" | "other";
-  visibility: "public" | "members-only";
   clubId: string;
-  groupId: string;
+  title: string;
+  description?: string | null;
+  eventType: "training" | "match" | "meeting" | "other";
+  location?: string | null;
+
+  // Time template
+  startTimeOfDay: string; // HH:mm
+  endTimeOfDay: string; // HH:mm
+  gatheringTimeOfDay?: string | null;
+  durationMinutes: number;
+
+  // Recurrence rule
+  frequency: RecurrenceFrequency;
+  dayOfWeek: number; // 0-6
+  dayOfMonth?: number;
+
+  // End condition
+  endType: RecurrenceEndType;
+  endDate?: Date;
+  occurrenceCount?: number;
+
+  // Generated occurrences
+  occurrenceEventIds: string[];
+  totalOccurrences: number;
+
+  // Metadata
   createdBy: string;
-  createdAt: any;
-
-  // Recurring settings
-  frequency: "daily" | "weekly" | "monthly";
-  daysOfWeek?: number[];
-  startTime: string; // Time as string (HH:mm)
-  endTime: string;
-  duration: number; // Duration in minutes
-
-  // End conditions
-  endType: "never" | "after" | "on";
-  endAfter?: number;
-  endOn?: Date;
-
-  // Status
+  createdByName: string;
+  createdAt: Date;
   isActive: boolean;
-
-  // Recipients
-  recipients: RecipientSelection;
-}
-
-export interface Event {
-  id: string;
-  title: string;
-  description: string;
-  startTime: Date;
-  endTime: Date;
-  gatheringTime?: Date;
-  location: string;
-  type: "practice" | "game" | "meeting" | "other";
-  visibility: "public" | "members-only";
-  clubId: string;
-  groupId: string;
-  createdBy: string;
-  createdAt: any;
-  isActive: boolean;
-
-  // Capacity management
-  capacity?: {
-    enabled: boolean;
-    maxAttendees?: number;
-  };
-
-  // Recurring event reference
-  isRecurring: boolean;
-  recurringEventId?: string; // Reference to RecurringEventMaster
-
-  // Attendees
-  attendees?: {
-    [userId: string]: {
-      status: "invited" | "accepted" | "declined" | "maybe";
-      respondedAt?: Date;
-    };
-  };
-}
-
-export interface HomeEvent {
-  id: string;
-  title: string;
-  description: string;
-  startTime: Date;
-  endTime: Date;
-  location: string;
-  type: "practice" | "game" | "meeting" | "other";
-  clubName: string;
-  groupName: string;
-  clubId: string;
-  groupId: string;
-  isRecurring: boolean;
-  recurringEventId?: string;
-  canEdit: boolean;
-  attendanceStatus?: "invited" | "accepted" | "declined" | "maybe";
+  status: "active" | "cancelled";
 }

@@ -39,8 +39,11 @@ export { updateUserGroupDeletion } from "./groups/updateUserGroupDeletion";
 export { uploadGroupPicture } from "./groups/uploadGroupPicture";
 
 // Event Management Functions (Atomic)
+export { cancelEvent } from "./events/cancelEvent";
 export { createEvent } from "./events/createEvent";
+export { createRecurringEvent } from "./events/createRecurringEvent";
 export { deleteEvent } from "./events/deleteEvent";
+export { editRecurringEvent } from "./events/editRecurringEvent";
 export { getEvent } from "./events/getEvent";
 export { updateEvent } from "./events/updateEvent";
 

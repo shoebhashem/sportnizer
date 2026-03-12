@@ -72,7 +72,9 @@
     "gatherTime": "Gather: {{time}}",
     "startTime": "Start: {{time}}",
     "ofTotalInvited": "of {{total}} invited",
-    "deadlineApproaching": "Deadline approaching"
+    "deadlineApproaching": "Deadline approaching",
+    "cancelled": "Cancelled",
+    "recurring": "Recurring"
   },
 
   "newsCard": {

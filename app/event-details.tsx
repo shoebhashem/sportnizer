@@ -9,6 +9,7 @@ import {
     recordEventAttendance,
     type AttendanceRecord,
 } from "@/services/event/attendanceService";
+import { eventCancellationService } from "@/services/event/cancelEvent";
 import {
     getEventDetails,
     updateEventResponse,
@@ -28,6 +29,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
@@ -85,6 +87,18 @@ export default function EventDetailsScreen() {
   );
   const [submittingAttendance, setSubmittingAttendance] = useState(false);
 
+  // Cancel event state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // Recurring event scope modals
+  const [showCancelScopeModal, setShowCancelScopeModal] = useState(false);
+  const [showEditScopeModal, setShowEditScopeModal] = useState(false);
+  const [recurringScope, setRecurringScope] = useState<"single" | "future">(
+    "single",
+  );
+
   useEffect(() => {
     loadEventDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,32 +133,59 @@ export default function EventDetailsScreen() {
       }
     }
 
+    // Determine which header actions to show
+    const canShowEdit = showEdit && event.status !== "cancelled";
+    const canShowCancel =
+      showEdit && event.status !== "cancelled" && event.status !== "completed";
+
     navigation.setOptions({
       headerRight: () =>
-        showEdit ? (
-          <TouchableOpacity
-            onPress={() => {
-              if (!event) return;
-              router.push({
-                pathname: "/create-event",
-                params: {
-                  eventId: event.id,
-                  clubId: event.clubId,
-                  clubName: event.clubName,
-                  groupId: event.groupId || undefined,
-                  groupName: event.groupName || undefined,
-                  mode: "edit",
-                },
-              } as any);
-            }}
-            style={{ marginRight: 8, padding: 8 }}
-          >
-            <Ionicons
-              name="create-outline"
-              size={24}
-              color={theme.colors.white}
-            />
-          </TouchableOpacity>
+        canShowCancel || canShowEdit ? (
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {canShowCancel && (
+              <TouchableOpacity
+                onPress={() => {
+                  if (event?.isRecurring) {
+                    setShowCancelScopeModal(true);
+                  } else {
+                    setShowCancelModal(true);
+                  }
+                }}
+                style={{ padding: 8 }}
+              >
+                <Ionicons name="close-circle" size={24} color="#EF5350" />
+              </TouchableOpacity>
+            )}
+            {canShowEdit && (
+              <TouchableOpacity
+                onPress={() => {
+                  if (!event) return;
+                  if (event.isRecurring) {
+                    setShowEditScopeModal(true);
+                  } else {
+                    router.push({
+                      pathname: "/create-event",
+                      params: {
+                        eventId: event.id,
+                        clubId: event.clubId,
+                        clubName: event.clubName,
+                        groupId: event.groupId || undefined,
+                        groupName: event.groupName || undefined,
+                        mode: "edit",
+                      },
+                    } as any);
+                  }
+                }}
+                style={{ marginRight: 8, padding: 8 }}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={24}
+                  color={theme.colors.white}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
         ) : null,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -513,6 +554,64 @@ export default function EventDetailsScreen() {
     return false;
   };
 
+  // Check if event can be cancelled
+  // Handle event cancellation
+  const handleCancelEvent = async () => {
+    if (!event || !user) return;
+
+    setIsCancelling(true);
+    try {
+      const cancelRequest: any = {
+        clubId: event.clubId,
+        eventId: event.id,
+        cancellationReason: cancellationReason.trim() || undefined,
+      };
+
+      // Add recurring parameters if this is a recurring event
+      if (event.isRecurring && event.recurringEventId) {
+        cancelRequest.recurringEventId = event.recurringEventId;
+        cancelRequest.scope = recurringScope;
+      }
+
+      const result = await eventCancellationService.cancelEvent(cancelRequest);
+
+      if (result.success) {
+        setShowCancelModal(false);
+        setCancellationReason("");
+
+        // Reload event to show cancelled state
+        await loadEventDetails();
+
+        setConfirmModal({
+          visible: true,
+          title: t("screens:eventDetails.eventCancelled"),
+          message: t("screens:eventDetails.eventCancelledMessage"),
+          onConfirm: () => {
+            setConfirmModal({ ...confirmModal, visible: false });
+          },
+        });
+      } else {
+        setConfirmModal({
+          visible: true,
+          title: t("common:error"),
+          message:
+            result.error || t("screens:eventDetails.failedToCancelEvent"),
+          onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+        });
+      }
+    } catch (error: any) {
+      console.error("Error cancelling event:", error);
+      setConfirmModal({
+        visible: true,
+        title: t("common:error"),
+        message: error.message || t("screens:eventDetails.failedToCancelEvent"),
+        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+      });
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   const handleStartRecording = () => {
     if (!event) return;
 
@@ -705,6 +804,64 @@ export default function EventDetailsScreen() {
           )}
         </View>
 
+        {/* Cancelled Banner */}
+        {event.status === "cancelled" && (
+          <View style={styles.cancelledEventBanner}>
+            <Ionicons name="close-circle" size={24} color="#fff" />
+            <View style={styles.cancelledEventBannerContent}>
+              <Text style={styles.cancelledEventBannerTitle}>
+                {t("screens:eventDetails.eventIsCancelled")}
+              </Text>
+              {event.cancellationReason && (
+                <Text style={styles.cancelledEventBannerReason}>
+                  {t("screens:eventDetails.reason")}: {event.cancellationReason}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Recurring Event Badge */}
+        {event.isRecurring && (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "rgba(76, 175, 80, 0.15)",
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              marginHorizontal: 16,
+              marginTop: 8,
+            }}
+          >
+            <Ionicons name="repeat" size={18} color={theme.colors.secondary} />
+            <Text
+              style={{
+                color: theme.colors.secondary,
+                fontSize: 14,
+                fontWeight: "500",
+                marginLeft: 8,
+              }}
+            >
+              {t("screens:eventDetails.recurringEvent")}
+              {event.occurrenceIndex !== undefined &&
+                ` (#${event.occurrenceIndex + 1})`}
+            </Text>
+            {event.isModified && (
+              <Text
+                style={{
+                  color: theme.colors.textSecondary,
+                  fontSize: 12,
+                  marginLeft: 8,
+                }}
+              >
+                ({t("screens:eventDetails.modified")})
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* Event Info */}
         <View style={styles.section}>
           <View style={styles.infoRow}>
@@ -875,8 +1032,8 @@ export default function EventDetailsScreen() {
           </View>
         </View>
 
-        {/* User Response Section - Only show if user is in responses array */}
-        {!isPastEvent && userResponse && (
+        {/* User Response Section - Only show if user is in responses array and event is not cancelled */}
+        {!isPastEvent && userResponse && event.status !== "cancelled" && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               {isCurrentUserInvitee
@@ -1092,7 +1249,8 @@ export default function EventDetailsScreen() {
         {/* Record Attendance Button (for admins/coaches) */}
         {canRecordAttendance() &&
           !isRecordingAttendance &&
-          event.status !== "completed" && (
+          event.status !== "completed" &&
+          event.status !== "cancelled" && (
             <View style={styles.section}>
               <TouchableOpacity
                 style={styles.recordAttendanceButton}
@@ -1634,6 +1792,368 @@ export default function EventDetailsScreen() {
                 </Text>
               </View>
               <Text style={styles.descriptionText}>{event?.description}</Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Scope Modal (for recurring events) */}
+      <Modal
+        visible={showCancelScopeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCancelScopeModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.primary,
+              borderRadius: 16,
+              padding: 24,
+              width: "100%",
+              maxWidth: 400,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: theme.colors.text,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              {t("screens:eventDetails.cancelScope")}
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: theme.colors.textSecondary,
+                textAlign: "center",
+                marginBottom: 20,
+              }}
+            >
+              {t("screens:eventDetails.cancelScopeDescription")}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setRecurringScope("single");
+                setShowCancelScopeModal(false);
+                setShowCancelModal(true);
+              }}
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: theme.colors.inputBorder,
+                backgroundColor: theme.colors.inputBackground,
+                marginBottom: 12,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.text,
+                }}
+              >
+                {t("screens:eventDetails.thisOccurrenceOnly")}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.textSecondary,
+                  marginTop: 4,
+                }}
+              >
+                {t("screens:eventDetails.thisOccurrenceOnlyHint")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setRecurringScope("future");
+                setShowCancelScopeModal(false);
+                setShowCancelModal(true);
+              }}
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: "#EF5350",
+                backgroundColor: "rgba(239, 83, 80, 0.1)",
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{ fontSize: 16, fontWeight: "600", color: "#EF5350" }}
+              >
+                {t("screens:eventDetails.allFutureOccurrences")}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.textSecondary,
+                  marginTop: 4,
+                }}
+              >
+                {t("screens:eventDetails.allFutureOccurrencesHint")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowCancelScopeModal(false)}
+              style={{
+                padding: 12,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>
+                {t("common:cancel")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Scope Modal (for recurring events) */}
+      <Modal
+        visible={showEditScopeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditScopeModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.primary,
+              borderRadius: 16,
+              padding: 24,
+              width: "100%",
+              maxWidth: 400,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: theme.colors.text,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              {t("screens:eventDetails.editScope")}
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: theme.colors.textSecondary,
+                textAlign: "center",
+                marginBottom: 20,
+              }}
+            >
+              {t("screens:eventDetails.editScopeDescription")}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowEditScopeModal(false);
+                if (!event) return;
+                router.push({
+                  pathname: "/create-event",
+                  params: {
+                    eventId: event.id,
+                    clubId: event.clubId,
+                    clubName: event.clubName,
+                    groupId: event.groupId || undefined,
+                    groupName: event.groupName || undefined,
+                    mode: "edit",
+                    editScope: "single",
+                    recurringEventId: event.recurringEventId || undefined,
+                  },
+                } as any);
+              }}
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: theme.colors.inputBorder,
+                backgroundColor: theme.colors.inputBackground,
+                marginBottom: 12,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.text,
+                }}
+              >
+                {t("screens:eventDetails.editThisOnly")}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.textSecondary,
+                  marginTop: 4,
+                }}
+              >
+                {t("screens:eventDetails.editThisOnlyHint")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowEditScopeModal(false);
+                if (!event) return;
+                router.push({
+                  pathname: "/create-event",
+                  params: {
+                    eventId: event.id,
+                    clubId: event.clubId,
+                    clubName: event.clubName,
+                    groupId: event.groupId || undefined,
+                    groupName: event.groupName || undefined,
+                    mode: "edit",
+                    editScope: "future",
+                    recurringEventId: event.recurringEventId || undefined,
+                  },
+                } as any);
+              }}
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: theme.colors.secondary,
+                backgroundColor: "rgba(76, 175, 80, 0.1)",
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.secondary,
+                }}
+              >
+                {t("screens:eventDetails.editAllFuture")}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.textSecondary,
+                  marginTop: 4,
+                }}
+              >
+                {t("screens:eventDetails.editAllFutureHint")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowEditScopeModal(false)}
+              style={{
+                padding: 12,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>
+                {t("common:cancel")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Event Modal */}
+      <Modal
+        visible={showCancelModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isCancelling) {
+            setShowCancelModal(false);
+            setCancellationReason("");
+          }
+        }}
+      >
+        <View style={styles.cancelModalOverlay}>
+          <View style={styles.cancelModalContainer}>
+            <View style={styles.cancelModalHeader}>
+              <Ionicons name="warning" size={32} color="#B71C1C" />
+              <Text style={styles.cancelModalTitle}>
+                {t("screens:eventDetails.cancelEventConfirmTitle")}
+              </Text>
+            </View>
+
+            <Text style={styles.cancelModalMessage}>
+              {t("screens:eventDetails.cancelEventConfirmMessage", {
+                title: event?.title,
+              })}
+            </Text>
+
+            <Text style={styles.cancelModalReasonLabel}>
+              {t("screens:eventDetails.cancellationReasonLabel")}
+            </Text>
+            <TextInput
+              style={styles.cancelModalReasonInput}
+              placeholder={t(
+                "screens:eventDetails.cancellationReasonPlaceholder",
+              )}
+              placeholderTextColor={theme.colors.textSecondary}
+              value={cancellationReason}
+              onChangeText={setCancellationReason}
+              multiline
+              numberOfLines={3}
+              maxLength={200}
+            />
+
+            <View style={styles.cancelModalActions}>
+              <TouchableOpacity
+                style={styles.cancelModalKeepButton}
+                onPress={() => {
+                  setShowCancelModal(false);
+                  setCancellationReason("");
+                }}
+                disabled={isCancelling}
+              >
+                <Text style={styles.cancelModalKeepButtonText}>
+                  {t("screens:eventDetails.keepEvent")}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.cancelModalConfirmButton,
+                  isCancelling && { opacity: 0.5 },
+                ]}
+                onPress={handleCancelEvent}
+                disabled={isCancelling}
+              >
+                {isCancelling ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.cancelModalConfirmButtonText}>
+                    {t("screens:eventDetails.confirmCancelEvent")}
+                  </Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -2314,5 +2834,115 @@ const styles = StyleSheet.create({
   attendanceBadgeText: {
     fontSize: theme.typography.fontSize.small,
     fontWeight: theme.typography.fontWeight.semibold,
+  },
+  // Cancel Event Styles
+  cancelledEventBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#B71C1C",
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.medium,
+    gap: theme.spacing.sm,
+  },
+  cancelledEventBannerContent: {
+    flex: 1,
+  },
+  cancelledEventBannerTitle: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: "#fff",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  cancelledEventBannerReason: {
+    fontSize: theme.typography.fontSize.small,
+    color: "rgba(255, 255, 255, 0.85)",
+    marginTop: 2,
+  },
+  cancelModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: theme.spacing.lg,
+  },
+  cancelModalContainer: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.lg,
+    width: "100%",
+    maxWidth: 400,
+  },
+  cancelModalHeader: {
+    alignItems: "center",
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  cancelModalTitle: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
+    textAlign: "center",
+  },
+  cancelModalMessage: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+    marginBottom: theme.spacing.lg,
+    lineHeight: 22,
+  },
+  cancelModalReasonLabel: {
+    fontSize: theme.typography.fontSize.small,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  cancelModalReasonInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    backgroundColor: theme.colors.inputBackground,
+    minHeight: 80,
+    textAlignVertical: "top",
+    marginBottom: theme.spacing.lg,
+  },
+  cancelModalActions: {
+    flexDirection: "row",
+    gap: theme.spacing.md,
+  },
+  cancelModalKeepButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+  },
+  cancelModalKeepButtonText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.text,
+  },
+  cancelModalConfirmButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: "#B71C1C",
+  },
+  cancelModalConfirmButtonText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: "#fff",
   },
 });

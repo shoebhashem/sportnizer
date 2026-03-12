@@ -651,12 +651,20 @@ export interface EventDocument {
   // Event status
   status: "scheduled" | "completed" | "cancelled";
   cancellationReason?: string; // If status is 'cancelled'
+  cancelledAt?: any; // Timestamp - when event was cancelled
+  cancelledBy?: string; // userId of who cancelled the event
   isActive?: boolean; // Whether the event is active (for soft delete pattern)
 
   // Completion metadata (added when event is marked as completed)
   completedAt?: any; // Timestamp - when event was completed
   completedBy?: string; // userId of who completed the event
   completedByName?: string; // Display name of who completed the event
+
+  // Recurring event fields
+  isRecurring?: boolean; // True if this event is part of a recurring series
+  recurringEventId?: string; // ID of the master recurring event document
+  occurrenceIndex?: number; // 0-based index within the series (0 = first occurrence)
+  isModified?: boolean; // True if this occurrence was individually modified (won't be affected by series edits)
 
   // Version tracking (for future notification system)
   version?: number; // Incremented on each update, used to trigger notifications
@@ -759,6 +767,164 @@ export interface CreateEventResponse {
   totalRecipients?: number;
   message?: string;
   error?: string;
+}
+
+// ============================================================================
+// Recurring Events
+// ============================================================================
+
+// Master document stored at /clubs/{clubId}/recurringEvents/{recurringEventId}
+export interface RecurringEventMaster {
+  recurringEventId: string;
+  clubId: string;
+
+  // Template data (used to generate occurrences)
+  title: string;
+  description?: string | null;
+  eventType: "training" | "match" | "meeting" | "other";
+  location?:
+    | string
+    | {
+        name: string;
+        address?: string;
+        coordinates?: { lat: number; lng: number };
+      }
+    | null;
+
+  // Time template (time-of-day, not specific dates)
+  startTimeOfDay: string; // HH:mm format (e.g., "18:00")
+  endTimeOfDay: string; // HH:mm format (e.g., "19:30")
+  gatheringTimeOfDay?: string | null; // HH:mm format (optional)
+  durationMinutes: number; // Duration in minutes
+
+  // Recurrence rule
+  frequency: "weekly" | "biweekly" | "monthly";
+  dayOfWeek: number; // 0 = Sunday, 1 = Monday, ... 6 = Saturday (auto-derived from first occurrence)
+  dayOfMonth?: number; // For monthly: which day of month (1-31)
+
+  // End condition
+  endType: "date" | "occurrences";
+  endDate?: any; // Timestamp - if endType is "date"
+  occurrenceCount?: number; // If endType is "occurrences"
+
+  // Targeting (same as single events)
+  targetScope: {
+    level: "club" | "group" | "subgroup";
+    clubId: string;
+    clubName: string;
+    groupId?: string;
+    groupName?: string;
+    subgroupId?: string;
+    subgroupName?: string;
+  };
+  roleFilter?:
+    | (
+        | "player"
+        | "player-underage"
+        | "coach"
+        | "admin"
+        | "guardian"
+        | "club-admin"
+      )[]
+    | null;
+  capacityLimit?: number | null;
+  responseDeadlineOffset?: number | null; // Hours before event start for response deadline (e.g., 24 = 1 day before)
+
+  // Generated occurrence IDs (for quick lookup)
+  occurrenceEventIds: string[];
+  totalOccurrences: number;
+
+  // Metadata
+  createdBy: string;
+  createdByName: string;
+  createdAt: any; // Timestamp
+  updatedAt: any; // Timestamp
+  isActive: boolean;
+  status: "active" | "cancelled"; // Series-level status
+}
+
+// Request to create a recurring event series
+export interface CreateRecurringEventRequest {
+  clubId: string;
+  clubName: string;
+  title: string;
+  description?: string;
+  eventType: "training" | "match" | "meeting" | "other";
+  location: string;
+
+  // Timing for the first occurrence
+  startDate: string; // ISO string - date of first occurrence
+  startTime: string; // ISO string - full timestamp with time
+  endDate: string; // ISO string - date
+  endTime: string; // ISO string - full timestamp with time
+  gatheringTime?: string; // ISO string (optional)
+
+  // Recurrence settings
+  frequency: "weekly" | "biweekly" | "monthly";
+  endType: "date" | "occurrences";
+  seriesEndDate?: string; // ISO string - when the series ends (if endType is "date")
+  occurrenceCount?: number; // How many occurrences (if endType is "occurrences")
+
+  // Targeting (same as single events)
+  targetScope: {
+    level: "club" | "group" | "subgroup";
+    groupId?: string;
+    groupName?: string;
+    subgroupId?: string;
+    subgroupName?: string;
+  };
+  roleFilter?: (
+    | "player"
+    | "player-underage"
+    | "coach"
+    | "admin"
+    | "guardian"
+    | "club-admin"
+  )[];
+  capacityLimit?: number;
+  responseDeadline?: string; // ISO string - for first occurrence; offset calculated from this
+
+  // Creator info
+  createdBy: string;
+  createdByName: string;
+}
+
+export interface CreateRecurringEventResponse {
+  success: boolean;
+  recurringEventId?: string;
+  occurrenceEventIds?: string[];
+  totalOccurrences?: number;
+  totalRecipients?: number;
+  message?: string;
+  error?: string;
+}
+
+// Request to edit recurring event(s)
+export interface EditRecurringEventRequest {
+  clubId: string;
+  eventId: string; // The specific occurrence being edited
+  recurringEventId: string; // The master recurring event ID
+  scope: "single" | "future"; // "single" = this occurrence only, "future" = this and all future
+
+  // Updated fields (only include what changed)
+  title?: string;
+  description?: string;
+  eventType?: "training" | "match" | "meeting" | "other";
+  location?: string;
+  startTime?: string; // ISO string
+  endTime?: string; // ISO string
+  gatheringTime?: string | null; // ISO string or null to remove
+  capacityLimit?: number | null;
+  responseDeadline?: string | null; // ISO string or null to remove
+}
+
+// Request to cancel recurring event(s)
+export interface CancelRecurringEventRequest {
+  clubId: string;
+  eventId: string; // The specific occurrence
+  recurringEventId: string; // The master recurring event ID
+  scope: "single" | "future"; // "single" = this occurrence only, "future" = this and all future
+  cancellationReason?: string;
 }
 
 // Update event response request
