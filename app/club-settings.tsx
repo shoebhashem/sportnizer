@@ -14,7 +14,6 @@ import {
   useFocusEffect,
   useLocalSearchParams,
   useNavigation,
-  usePathname,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
@@ -35,8 +34,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-console.log(usePathname());
 
 export default function ClubSettingsScreen() {
   const insets = useSafeAreaInsets();
