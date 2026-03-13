@@ -32,6 +32,22 @@ export default function AboutScreen() {
           {t("screens:about.builtFromExperienceParagraph3")}
         </Text>
 
+        <Text style={styles.paragraph}>
+          {t("screens:about.builtFromExperienceParagraph4")}
+        </Text>
+
+        <Text style={styles.paragraph}>
+          {t("screens:about.builtFromExperienceParagraph5")}
+        </Text>
+
+        <Text style={styles.paragraph}>
+          {t("screens:about.builtFromExperienceParagraph6")}
+        </Text>
+
+        <Text style={styles.paragraph}>
+          {t("screens:about.builtFromExperienceParagraph7")}
+        </Text>
+
         <Text style={styles.sectionTitle}>
           {t("screens:about.continuouslyImprovingTitle")}
         </Text>

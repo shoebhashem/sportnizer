@@ -10,30 +10,33 @@ import { paymentService } from "@/services/paymentService";
 import { ClubData } from "@/services/types/club";
 import { Ionicons } from "@expo/vector-icons";
 import {
-    router,
-    useFocusEffect,
-    useLocalSearchParams,
-    useNavigation,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
+  usePathname,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+console.log(usePathname());
 
 export default function ClubSettingsScreen() {
   const insets = useSafeAreaInsets();
