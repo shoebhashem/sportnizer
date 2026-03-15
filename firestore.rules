@@ -80,7 +80,8 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              (
                isClubAdmin(clubId) ||
-               groupId in getUserData().memberOfGroups
+               groupId in getUserData().memberOfGroups ||
+               groupId in getUserData().guardianOfGroups
              );
     }
 

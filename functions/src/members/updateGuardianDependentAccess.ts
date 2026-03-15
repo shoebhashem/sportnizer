@@ -3,6 +3,11 @@ import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FunctionResponse } from "../types/interfaces";
 import { config } from "../utils/config";
+import {
+    addGuardianOfGroupField,
+    collectDependentGroupIds,
+    removeGuardianOfGroupField,
+} from "../utils/flatArrayHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
 /**
@@ -218,11 +223,38 @@ export const updateGuardianDependentAccess = onCall(
       }
 
       // Write updated dependents back to guardian document
-      await guardianRef.update({
+      // Also update guardianOfGroups flat array for addGroup/removeGroup operations
+      const updatePayload: Record<string, any> = {
         dependents: dependents,
         version: FieldValue.increment(1),
         lastModified: FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (operation === "addGroup" && groupId) {
+        // Add groupId to guardianOfGroups (arrayUnion is idempotent — no duplicates)
+        Object.assign(updatePayload, addGuardianOfGroupField(groupId));
+        console.log(
+          `📝 Adding group ${groupId} to guardian's guardianOfGroups`,
+        );
+      } else if (operation === "removeGroup" && groupId) {
+        // Only remove from guardianOfGroups if no other dependent is in this group
+        const remainingGroupIds = collectDependentGroupIds(
+          dependents,
+          /* excludeYouthUid */ undefined, // dependents is already updated
+        );
+        if (!remainingGroupIds.has(groupId)) {
+          Object.assign(updatePayload, removeGuardianOfGroupField(groupId));
+          console.log(
+            `📝 Removing group ${groupId} from guardian's guardianOfGroups (no other dependent in this group)`,
+          );
+        } else {
+          console.log(
+            `ℹ️ Keeping group ${groupId} in guardian's guardianOfGroups (another dependent is in this group)`,
+          );
+        }
+      }
+
+      await guardianRef.update(updatePayload);
 
       console.log(
         `Successfully updated dependent access for youth ${youthUid} in guardian ${guardianUid}'s profile`,

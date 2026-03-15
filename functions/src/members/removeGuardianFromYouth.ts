@@ -2,7 +2,11 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
-import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
+import {
+    collectDependentGroupIds,
+    flatArrayFieldsFromClubAccess,
+    removeGuardianOfGroupField,
+} from "../utils/flatArrayHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
 /**
@@ -278,12 +282,43 @@ export const removeGuardianFromYouth = onCall(
             (d: any) => d.uid !== youthUid,
           );
 
+          // Determine which groupIds are safe to remove from guardianOfGroups
+          // (only remove groups where no other dependent remains)
+          const remainingGroupIds = collectDependentGroupIds(updatedDependents);
+
+          // Collect this youth's groupIds from the dependent entry being removed
+          const removedDependent = existingDependents.find(
+            (d: any) => d.uid === youthUid,
+          );
+          const youthGroupIds: string[] = [];
+          for (const ca of removedDependent?.clubAccess || []) {
+            if (ca.isActive === false) continue;
+            for (const ga of ca.groupAccess || []) {
+              if (ga.isActive === false) continue;
+              if (ga.groupId && !remainingGroupIds.has(ga.groupId)) {
+                youthGroupIds.push(ga.groupId);
+              }
+            }
+          }
+
+          // Build guardianOfGroups removal fields (only for groups unique to this youth)
+          const guardianOfGroupsUpdate: Record<string, any> = {};
+          for (const gId of youthGroupIds) {
+            Object.assign(
+              guardianOfGroupsUpdate,
+              removeGuardianOfGroupField(gId),
+            );
+          }
+
           await guardianRef.update({
             dependents: updatedDependents,
+            ...guardianOfGroupsUpdate,
             version: FieldValue.increment(1),
             lastModified: FieldValue.serverTimestamp(),
           });
-          console.log(`✅ Removed youth from guardian's dependents[]`);
+          console.log(
+            `✅ Removed youth from guardian's dependents[] and ${youthGroupIds.length} groupId(s) from guardianOfGroups`,
+          );
 
           // 9. If guardian was marked inactive in club, mark clubAccess entry inactive too
           //    (keep the entry so reactivation can restore it — consistent with inactive pattern)

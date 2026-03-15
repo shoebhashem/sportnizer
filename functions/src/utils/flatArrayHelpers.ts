@@ -184,20 +184,45 @@ export function removeGroupFields(groupId: string) {
 /**
  * Returns FieldValue operations to ADD a guardian group entry.
  * Used when linking a guardian to a youth's group.
+ * Only writes guardianOfGroups — guardians are NOT added to memberOfGroups
+ * (they access groups via the guardianOfGroups check in security rules).
  */
 export function addGuardianOfGroupField(groupId: string) {
   return {
     guardianOfGroups: FieldValue.arrayUnion(groupId),
-    memberOfGroups: FieldValue.arrayUnion(groupId),
   };
 }
 
 /**
  * Returns FieldValue operations to REMOVE a guardian group entry.
+ * Only removes from guardianOfGroups.
  */
 export function removeGuardianOfGroupField(groupId: string) {
   return {
     guardianOfGroups: FieldValue.arrayRemove(groupId),
-    memberOfGroups: FieldValue.arrayRemove(groupId),
   };
+}
+
+/**
+ * Collects all unique groupIds across all dependents' clubAccess.
+ * Used when removing a guardian or youth to determine which groupIds
+ * are safe to remove from guardianOfGroups (i.e., not needed by other dependents).
+ */
+export function collectDependentGroupIds(
+  dependents: any[],
+  excludeYouthUid?: string,
+): Set<string> {
+  const groupIds = new Set<string>();
+  for (const dep of dependents) {
+    if (excludeYouthUid && dep.uid === excludeYouthUid) continue;
+    const clubAccess = dep.clubAccess || [];
+    for (const ca of clubAccess) {
+      if (ca.isActive === false) continue;
+      for (const ga of ca.groupAccess || []) {
+        if (ga.isActive === false) continue;
+        groupIds.add(ga.groupId);
+      }
+    }
+  }
+  return groupIds;
 }

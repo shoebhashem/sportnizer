@@ -337,15 +337,15 @@ describe("limits.ts", () => {
   describe("tier constants", () => {
     it("DEFAULT (free) tier", () => {
       expect(DEFAULT_LIMITS.maxClubsAsAdmin).toBe(1);
-      expect(DEFAULT_LIMITS.maxMembers).toBe(50);
+      expect(DEFAULT_LIMITS.maxMembers).toBe(1500); // subscriptions parked — all tiers = 1500
     });
 
-    it("BASIC tier", () => {
-      expect(BASIC_LIMITS.maxMembers).toBe(500);
+    it("BASIC tier (aliased to DEFAULT while subscriptions are parked)", () => {
+      expect(BASIC_LIMITS.maxMembers).toBe(1500);
     });
 
-    it("PRO tier", () => {
-      expect(PRO_LIMITS.maxMembers).toBe(2000);
+    it("PRO tier (aliased to DEFAULT while subscriptions are parked)", () => {
+      expect(PRO_LIMITS.maxMembers).toBe(1500);
     });
 
     it("ENTERPRISE tier is unlimited (-1)", () => {
@@ -402,16 +402,20 @@ describe("limits.ts", () => {
       expect(result.allowed).toBe(true);
     });
 
-    it("should block 50 on free tier", () => {
+    it("should allow 50 on free tier (limit is 1500 while subscriptions parked)", () => {
       const result = checkClubMemberLimit(50, "free");
-      expect(result.allowed).toBe(false);
-      expect(result.message).toContain("Upgrade to Basic");
+      expect(result.allowed).toBe(true);
     });
 
-    it("should block 500 on basic tier", () => {
+    it("should allow 500 on basic tier (limit is 1500 while subscriptions parked)", () => {
       const result = checkClubMemberLimit(500, "basic");
+      expect(result.allowed).toBe(true);
+    });
+
+    it("should block at 1500 on free tier", () => {
+      const result = checkClubMemberLimit(1500, "free");
       expect(result.allowed).toBe(false);
-      expect(result.message).toContain("Upgrade to Pro");
+      expect(result.message).toContain("1500 members");
     });
 
     it("should allow unlimited on enterprise", () => {

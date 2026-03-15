@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
+import { addGuardianOfGroupField } from "../utils/flatArrayHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
 /**
@@ -339,13 +340,27 @@ export const addGuardianToYouth = onCall(
           clubAccess: filteredClubAccess, // Only the relevant club+group for this guardian
         };
 
+        // Collect all groupIds from the youth's active clubAccess to populate guardianOfGroups
+        const youthGroupIds: string[] = [];
+        for (const ca of fullClubAccess) {
+          if (ca.isActive === false) continue;
+          for (const ga of ca.groupAccess || []) {
+            if (ga.isActive === false) continue;
+            if (ga.groupId) youthGroupIds.push(ga.groupId);
+          }
+        }
+
         await guardianRef.update({
           dependents: FieldValue.arrayUnion(dependentEntry),
+          // Add all youth's groupIds to guardian's guardianOfGroups (arrayUnion is idempotent)
+          ...(youthGroupIds.length > 0
+            ? { guardianOfGroups: FieldValue.arrayUnion(...youthGroupIds) }
+            : {}),
           version: FieldValue.increment(1),
           lastModified: FieldValue.serverTimestamp(),
         });
         console.log(
-          `✅ Updated guardian user doc: added youth to dependents[]`,
+          `✅ Updated guardian user doc: added youth to dependents[] and ${youthGroupIds.length} groupId(s) to guardianOfGroups`,
         );
       } else {
         // Youth already in dependents — surgically add this group to existing entry
@@ -400,10 +415,12 @@ export const addGuardianToYouth = onCall(
           }
           depClubAccess[depClubIndex].groupAccess = depGroupAccess;
 
-          // Write updated dependents back
+          // Write updated dependents back + add groupId to guardianOfGroups
           existingDependents[depIndex].clubAccess = depClubAccess;
           await guardianRef.update({
             dependents: existingDependents,
+            // Add this groupId to guardianOfGroups (arrayUnion is idempotent — no duplicates)
+            ...addGuardianOfGroupField(groupId),
             version: FieldValue.increment(1),
             lastModified: FieldValue.serverTimestamp(),
           });

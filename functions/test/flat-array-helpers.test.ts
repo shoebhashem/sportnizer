@@ -12,10 +12,13 @@
  */
 
 import {
+    addGuardianOfGroupField,
     buildFlatArraysFromClubAccess,
+    collectDependentGroupIds,
     emptyFlatArrays,
     flatArrayFieldsFromClubAccess,
     FlatRoleArrays,
+    removeGuardianOfGroupField,
 } from "../src/utils/flatArrayHelpers";
 
 // ─── Test Fixtures ───────────────────────────────────────────
@@ -371,5 +374,383 @@ describe("FlatRoleArrays type shape", () => {
     expect(result).toHaveProperty("coachOfGroups");
     expect(result).toHaveProperty("memberOfGroups");
     expect(result).toHaveProperty("guardianOfGroups");
+  });
+});
+
+// ─── collectDependentGroupIds ────────────────────────────────
+
+describe("collectDependentGroupIds", () => {
+  it("returns empty set for empty dependents", () => {
+    const result = collectDependentGroupIds([]);
+    expect(result.size).toBe(0);
+  });
+
+  it("returns empty set for undefined/null input cast as array", () => {
+    const result = collectDependentGroupIds([] as any);
+    expect(result.size).toBe(0);
+  });
+
+  it("collects groupIds from a single dependent", () => {
+    const dependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [
+              { groupId: "g1", isActive: true },
+              { groupId: "g2", isActive: true },
+            ],
+          },
+        ],
+      },
+    ];
+    const result = collectDependentGroupIds(dependents);
+    expect(result).toEqual(new Set(["g1", "g2"]));
+  });
+
+  it("collects groupIds from multiple dependents", () => {
+    const dependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g1", isActive: true }],
+          },
+        ],
+      },
+      {
+        uid: "youth2",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g2", isActive: true }],
+          },
+        ],
+      },
+    ];
+    const result = collectDependentGroupIds(dependents);
+    expect(result).toEqual(new Set(["g1", "g2"]));
+  });
+
+  it("deduplicates groupIds when two dependents are in the same group", () => {
+    const dependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g1", isActive: true }],
+          },
+        ],
+      },
+      {
+        uid: "youth2",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g1", isActive: true }],
+          },
+        ],
+      },
+    ];
+    const result = collectDependentGroupIds(dependents);
+    expect(result).toEqual(new Set(["g1"]));
+    expect(result.size).toBe(1);
+  });
+
+  it("excludes a specific youth when excludeYouthUid is provided", () => {
+    const dependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g1", isActive: true }],
+          },
+        ],
+      },
+      {
+        uid: "youth2",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g2", isActive: true }],
+          },
+        ],
+      },
+    ];
+    const result = collectDependentGroupIds(dependents, "youth1");
+    expect(result).toEqual(new Set(["g2"]));
+  });
+
+  it("skips inactive clubs", () => {
+    const dependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: false,
+            groupAccess: [{ groupId: "g1", isActive: true }],
+          },
+        ],
+      },
+    ];
+    const result = collectDependentGroupIds(dependents);
+    expect(result.size).toBe(0);
+  });
+
+  it("skips inactive groups", () => {
+    const dependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [
+              { groupId: "g1", isActive: false },
+              { groupId: "g2", isActive: true },
+            ],
+          },
+        ],
+      },
+    ];
+    const result = collectDependentGroupIds(dependents);
+    expect(result).toEqual(new Set(["g2"]));
+  });
+
+  it("handles dependents with missing clubAccess", () => {
+    const dependents = [
+      { uid: "youth1" },
+      {
+        uid: "youth2",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g1", isActive: true }],
+          },
+        ],
+      },
+    ];
+    const result = collectDependentGroupIds(dependents);
+    expect(result).toEqual(new Set(["g1"]));
+  });
+
+  it("handles dependents with missing groupAccess in club", () => {
+    const dependents = [
+      {
+        uid: "youth1",
+        clubAccess: [{ clubId: "c1", isActive: true }],
+      },
+    ];
+    const result = collectDependentGroupIds(dependents);
+    expect(result.size).toBe(0);
+  });
+
+  it("handles multiple clubs across dependents", () => {
+    const dependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g1", isActive: true }],
+          },
+          {
+            clubId: "c2",
+            isActive: true,
+            groupAccess: [{ groupId: "g3", isActive: true }],
+          },
+        ],
+      },
+    ];
+    const result = collectDependentGroupIds(dependents);
+    expect(result).toEqual(new Set(["g1", "g3"]));
+  });
+});
+
+// ─── Guardian safe-remove scenario (integration logic) ──────
+
+describe("guardian safe-remove logic", () => {
+  it("identifies groupIds safe to remove when youth is unlinked", () => {
+    // Guardian has 2 dependents: youth1 in g1+g2, youth2 in g2+g3
+    // When youth1 is removed, only g1 is safe to remove (g2 is shared)
+    const allDependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [
+              { groupId: "g1", isActive: true },
+              { groupId: "g2", isActive: true },
+            ],
+          },
+        ],
+      },
+      {
+        uid: "youth2",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [
+              { groupId: "g2", isActive: true },
+              { groupId: "g3", isActive: true },
+            ],
+          },
+        ],
+      },
+    ];
+
+    // After removing youth1, only youth2's groups remain
+    const updatedDependents = allDependents.filter((d) => d.uid !== "youth1");
+    const remainingGroupIds = collectDependentGroupIds(updatedDependents);
+
+    // Youth1's groups
+    const youth1Groups = ["g1", "g2"];
+    const safeToRemove = youth1Groups.filter(
+      (gId) => !remainingGroupIds.has(gId),
+    );
+
+    expect(safeToRemove).toEqual(["g1"]); // g2 is shared with youth2
+    expect(remainingGroupIds.has("g2")).toBe(true);
+    expect(remainingGroupIds.has("g3")).toBe(true);
+  });
+
+  it("removes all groupIds when the last dependent is unlinked", () => {
+    const allDependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [
+              { groupId: "g1", isActive: true },
+              { groupId: "g2", isActive: true },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const updatedDependents = allDependents.filter((d) => d.uid !== "youth1");
+    const remainingGroupIds = collectDependentGroupIds(updatedDependents);
+
+    const youth1Groups = ["g1", "g2"];
+    const safeToRemove = youth1Groups.filter(
+      (gId) => !remainingGroupIds.has(gId),
+    );
+
+    expect(safeToRemove).toEqual(["g1", "g2"]);
+    expect(remainingGroupIds.size).toBe(0);
+  });
+
+  it("removes nothing when all groups are shared with other dependents", () => {
+    const allDependents = [
+      {
+        uid: "youth1",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g1", isActive: true }],
+          },
+        ],
+      },
+      {
+        uid: "youth2",
+        clubAccess: [
+          {
+            clubId: "c1",
+            isActive: true,
+            groupAccess: [{ groupId: "g1", isActive: true }],
+          },
+        ],
+      },
+    ];
+
+    const updatedDependents = allDependents.filter((d) => d.uid !== "youth1");
+    const remainingGroupIds = collectDependentGroupIds(updatedDependents);
+
+    const youth1Groups = ["g1"];
+    const safeToRemove = youth1Groups.filter(
+      (gId) => !remainingGroupIds.has(gId),
+    );
+
+    expect(safeToRemove).toEqual([]); // g1 is shared with youth2
+  });
+});
+
+// ─── addGuardianOfGroupField ─────────────────────────────────
+
+describe("addGuardianOfGroupField", () => {
+  it("returns an object with guardianOfGroups key", () => {
+    const result = addGuardianOfGroupField("g1");
+    expect(result).toHaveProperty("guardianOfGroups");
+  });
+
+  it("does NOT return memberOfGroups (guardians are separate)", () => {
+    const result = addGuardianOfGroupField("g1");
+    expect(result).not.toHaveProperty("memberOfGroups");
+    expect(result).not.toHaveProperty("adminOfGroups");
+    expect(result).not.toHaveProperty("coachOfGroups");
+    expect(result).not.toHaveProperty("adminOfClubs");
+    expect(result).not.toHaveProperty("memberOfClubs");
+  });
+
+  it("returns only guardianOfGroups as the sole key", () => {
+    const result = addGuardianOfGroupField("g1");
+    expect(Object.keys(result)).toEqual(["guardianOfGroups"]);
+  });
+
+  it("guardianOfGroups value is a FieldValue sentinel (arrayUnion)", () => {
+    const result = addGuardianOfGroupField("g1");
+    // FieldValue sentinels are objects with isEqual method
+    expect(result.guardianOfGroups).toBeDefined();
+    expect(typeof result.guardianOfGroups).toBe("object");
+  });
+});
+
+// ─── removeGuardianOfGroupField ──────────────────────────────
+
+describe("removeGuardianOfGroupField", () => {
+  it("returns an object with guardianOfGroups key", () => {
+    const result = removeGuardianOfGroupField("g1");
+    expect(result).toHaveProperty("guardianOfGroups");
+  });
+
+  it("does NOT return memberOfGroups (guardians are separate)", () => {
+    const result = removeGuardianOfGroupField("g1");
+    expect(result).not.toHaveProperty("memberOfGroups");
+    expect(result).not.toHaveProperty("adminOfGroups");
+    expect(result).not.toHaveProperty("coachOfGroups");
+    expect(result).not.toHaveProperty("adminOfClubs");
+    expect(result).not.toHaveProperty("memberOfClubs");
+  });
+
+  it("returns only guardianOfGroups as the sole key", () => {
+    const result = removeGuardianOfGroupField("g1");
+    expect(Object.keys(result)).toEqual(["guardianOfGroups"]);
+  });
+
+  it("guardianOfGroups value is a FieldValue sentinel (arrayRemove)", () => {
+    const result = removeGuardianOfGroupField("g1");
+    expect(result.guardianOfGroups).toBeDefined();
+    expect(typeof result.guardianOfGroups).toBe("object");
   });
 });

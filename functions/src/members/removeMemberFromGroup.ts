@@ -6,7 +6,11 @@ import {
     RemoveMemberFromGroupResponse,
 } from "../types/interfaces";
 import { config } from "../utils/config";
-import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
+import {
+    collectDependentGroupIds,
+    flatArrayFieldsFromClubAccess,
+    removeGuardianOfGroupField,
+} from "../utils/flatArrayHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
 export const removeMemberFromGroup = onCall(
@@ -557,8 +561,24 @@ export const removeMemberFromGroup = onCall(
                         clubAccess: updatedClubAccess,
                       };
 
+                      // Determine if this groupId should be removed from guardianOfGroups
+                      // Only remove if no other dependent is in the same group
+                      const remainingGroupIds =
+                        collectDependentGroupIds(dependents);
+                      const guardianOfGroupsUpdate: Record<string, any> = {};
+                      if (!remainingGroupIds.has(groupId)) {
+                        Object.assign(
+                          guardianOfGroupsUpdate,
+                          removeGuardianOfGroupField(groupId),
+                        );
+                        console.log(
+                          `    📝 Removing group ${groupId} from guardian's guardianOfGroups`,
+                        );
+                      }
+
                       await guardianRef.update({
                         dependents: dependents,
+                        ...guardianOfGroupsUpdate,
                         version: FieldValue.increment(1),
                         lastModified: FieldValue.serverTimestamp(),
                       });

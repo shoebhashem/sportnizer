@@ -107,27 +107,67 @@ export function GroupDataProvider({ children }: { children: ReactNode }) {
   const sgMemberUnsubs = useRef<Map<string, () => void>>(new Map());
 
   // Stable dependency key — only changes when the set of groups changes.
-  const groupAccessKey = (userProfile?.clubAccess || [])
-    .filter((ca) => ca.isActive !== false)
-    .flatMap((ca) =>
-      (ca.groupAccess || [])
-        .filter((ga) => ga.isActive !== false)
-        .map((ga) => `${ca.clubId}:${ga.groupId}`),
-    )
-    .sort()
-    .join(",");
+  // Includes both direct groups (from clubAccess) and dependent groups
+  // (from dependents[].clubAccess) so guardians also get real-time listeners.
+  const groupAccessKey = (() => {
+    const keys = new Set<string>();
+
+    // Direct groups
+    for (const ca of userProfile?.clubAccess || []) {
+      if (ca.isActive === false) continue;
+      for (const ga of ca.groupAccess || []) {
+        if (ga.isActive === false) continue;
+        keys.add(`${ca.clubId}:${ga.groupId}`);
+      }
+    }
+
+    // Dependent groups (guardian access)
+    for (const dep of userProfile?.dependents || []) {
+      for (const ca of dep.clubAccess || []) {
+        if (ca.isActive === false) continue;
+        for (const ga of ca.groupAccess || []) {
+          if (ga.isActive === false) continue;
+          keys.add(`${ca.clubId}:${ga.groupId}`);
+        }
+      }
+    }
+
+    return [...keys].sort().join(",");
+  })();
 
   // Track pending first-snapshots
   const pendingRef = useRef(0);
 
   useEffect(() => {
-    // Build list of groups to listen on
+    // Build list of groups to listen on (direct + dependent/guardian groups)
     const entries: { clubId: string; groupId: string }[] = [];
+    const seen = new Set<string>();
+
+    // Direct groups
     for (const ca of userProfile?.clubAccess || []) {
       if (ca.isActive === false) continue;
       for (const ga of ca.groupAccess || []) {
         if (ga.isActive === false) continue;
-        entries.push({ clubId: ca.clubId, groupId: ga.groupId });
+        const k = `${ca.clubId}:${ga.groupId}`;
+        if (!seen.has(k)) {
+          seen.add(k);
+          entries.push({ clubId: ca.clubId, groupId: ga.groupId });
+        }
+      }
+    }
+
+    // Dependent groups (guardian access)
+    for (const dep of userProfile?.dependents || []) {
+      for (const ca of dep.clubAccess || []) {
+        if (ca.isActive === false) continue;
+        for (const ga of ca.groupAccess || []) {
+          if (ga.isActive === false) continue;
+          const k = `${ca.clubId}:${ga.groupId}`;
+          if (!seen.has(k)) {
+            seen.add(k);
+            entries.push({ clubId: ca.clubId, groupId: ga.groupId });
+          }
+        }
       }
     }
 

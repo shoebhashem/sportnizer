@@ -15,7 +15,10 @@
 
 import * as admin from "firebase-admin";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { buildFlatArraysFromClubAccess } from "./flatArrayHelpers";
+import {
+    buildFlatArraysFromClubAccess,
+    collectDependentGroupIds,
+} from "./flatArrayHelpers";
 
 // Ensure admin is initialised (idempotent)
 if (!admin.apps.length) {
@@ -65,6 +68,19 @@ export async function backfillFlatArrays(): Promise<{
         const data = doc.data();
         const clubAccess = data?.clubAccess || [];
         const flat = buildFlatArraysFromClubAccess(clubAccess);
+
+        // Also compute guardianOfGroups from dependents[] for guardian users
+        // This supplements the clubAccess-derived guardianOfGroups with
+        // groups accessed via the dependent relationship.
+        const dependents = data?.dependents || [];
+        if (dependents.length > 0) {
+          const depGroupIds = collectDependentGroupIds(dependents);
+          for (const gId of depGroupIds) {
+            if (!flat.guardianOfGroups.includes(gId)) {
+              flat.guardianOfGroups.push(gId);
+            }
+          }
+        }
 
         // Only update if at least one flat array differs or is missing
         const needsUpdate =
