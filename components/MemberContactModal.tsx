@@ -2,10 +2,12 @@
  * MemberContactModal - Display member contact details in a modal
  * Follows profile.tsx UI styling for consistency
  * For youth members, displays guardian contact information
+ * Guardians can upload photos for their children and edit their own contact info
  */
 
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
 import {
     GetMemberContactDetailsResponse,
     GuardianContactDetails,
@@ -13,6 +15,7 @@ import {
     memberService,
 } from "@/services/member";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { httpsCallable } from "firebase/functions";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -22,20 +25,24 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
+import { functions } from "../services/core/firebase";
+import ProfilePictureUpload from "./ProfilePictureUpload";
 
 interface MemberContactModalProps {
   visible: boolean;
   onClose: () => void;
   userId: string;
   clubId: string;
-  groupId?: string; // Optional - if not provided, club-level access (club-admin only)
-  // Optional: Pre-fill with basic data while loading full details
+  groupId?: string;
   initialName?: string;
   initialPhotoURL?: string;
   isYouth?: boolean;
+  /** True when the current user is the guardian of this member */
+  isGuardianViewing?: boolean;
 }
 
 export default function MemberContactModal({
@@ -47,12 +54,22 @@ export default function MemberContactModal({
   initialName,
   initialPhotoURL,
   isYouth = false,
+  isGuardianViewing = false,
 }: MemberContactModalProps) {
   const { t } = useTranslation(["components", "common"]);
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState<MemberContactDetails | null>(null);
   const [guardians, setGuardians] = useState<GuardianContactDetails[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Photo upload state (for guardians)
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+
+  // Guardian contact editing state
+  const [editingGuardianContact, setEditingGuardianContact] = useState(false);
+  const [editPhone, setEditPhone] = useState("");
+  const [savingContact, setSavingContact] = useState(false);
 
   useEffect(() => {
     if (visible && userId) {
@@ -83,11 +100,65 @@ export default function MemberContactModal({
     }
   };
 
+  const handlePhotoUploadSuccess = (newImageUrl: string) => {
+    // Update the member state with the new photo URL
+    if (member) {
+      setMember({ ...member, photoURL: newImageUrl });
+    }
+    setShowPhotoUpload(false);
+  };
+
+  // Find the current user's guardian entry and start editing
+  const startEditingOwnContact = () => {
+    const myEntry = guardians.find((g) => g.guardianUid === user?.uid);
+    if (myEntry) {
+      setEditPhone(myEntry.phoneNumber || "");
+      setEditingGuardianContact(true);
+    }
+  };
+
+  const cancelEditingContact = () => {
+    setEditingGuardianContact(false);
+    setEditPhone("");
+  };
+
+  const saveGuardianContact = async () => {
+    if (!user?.uid) return;
+    setSavingContact(true);
+    try {
+      const updateFn = httpsCallable(functions, "updateGuardianContactInfo");
+      const result = await updateFn({
+        youthUid: userId,
+        phoneNumber: editPhone.trim() || null,
+      });
+      const data = result.data as { success: boolean; error?: string };
+      if (data.success) {
+        // Update local state
+        setGuardians((prev) =>
+          prev.map((g) =>
+            g.guardianUid === user.uid
+              ? { ...g, phoneNumber: editPhone.trim() || null }
+              : g,
+          ),
+        );
+        setEditingGuardianContact(false);
+      } else {
+        setError(data.error || "Failed to update contact info");
+      }
+    } catch (err: any) {
+      console.error("Error saving guardian contact:", err);
+      setError(err.message || "Failed to update contact info");
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
   const formatDateOfBirth = (dateStr: string | null): string => {
     if (!dateStr) return t("components:memberContactModal.notAvailable");
     try {
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return t("components:memberContactModal.notAvailable");
+      if (isNaN(date.getTime()))
+        return t("components:memberContactModal.notAvailable");
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
@@ -123,32 +194,98 @@ export default function MemberContactModal({
     </View>
   );
 
-  const renderGuardianCard = (guardian: GuardianContactDetails) => (
-    <View key={guardian.guardianUid} style={styles.guardianCard}>
-      <View style={styles.guardianHeader}>
-        <Text style={styles.guardianName}>{guardian.displayName}</Text>
-        <View style={styles.relationshipBadge}>
-          <Text style={styles.relationshipText}>{guardian.relationship}</Text>
+  const renderGuardianCard = (guardian: GuardianContactDetails) => {
+    const isOwnEntry = isGuardianViewing && guardian.guardianUid === user?.uid;
+
+    // If editing own contact info, show editable fields
+    if (isOwnEntry && editingGuardianContact) {
+      return (
+        <View key={guardian.guardianUid} style={styles.guardianCard}>
+          <View style={styles.guardianHeader}>
+            <Text style={styles.guardianName}>{guardian.displayName}</Text>
+            <View style={styles.relationshipBadge}>
+              <Text style={styles.relationshipText}>
+                {guardian.relationship}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.editFieldContainer}>
+            <Text style={styles.editFieldLabel}>Phone</Text>
+            <TextInput
+              style={styles.editFieldInput}
+              value={editPhone}
+              onChangeText={setEditPhone}
+              placeholder="Phone number"
+              placeholderTextColor={theme.colors.textSecondary}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.editButtonRow}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={cancelEditingContact}
+              disabled={savingContact}
+            >
+              <Text style={styles.cancelButtonText}>{t("common:cancel")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={saveGuardianContact}
+              disabled={savingContact}
+            >
+              {savingContact ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <Text style={styles.saveButtonText}>{t("common:save")}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
+      );
+    }
+
+    return (
+      <View key={guardian.guardianUid} style={styles.guardianCard}>
+        <View style={styles.guardianHeader}>
+          <Text style={styles.guardianName}>{guardian.displayName}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={styles.relationshipBadge}>
+              <Text style={styles.relationshipText}>
+                {guardian.relationship}
+              </Text>
+            </View>
+            {isOwnEntry && (
+              <TouchableOpacity onPress={startEditingOwnContact}>
+                <Ionicons
+                  name="pencil"
+                  size={18}
+                  color={theme.colors.secondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {renderFieldRow(
+          <FontAwesome
+            name="envelope"
+            size={14}
+            color={theme.colors.secondary}
+          />,
+          "Email",
+          guardian.email,
+        )}
+
+        {renderFieldRow(
+          <FontAwesome name="phone" size={16} color={theme.colors.secondary} />,
+          "Phone",
+          guardian.phoneNumber,
+        )}
       </View>
-
-      {renderFieldRow(
-        <FontAwesome
-          name="envelope"
-          size={14}
-          color={theme.colors.secondary}
-        />,
-        "Email",
-        guardian.email,
-      )}
-
-      {renderFieldRow(
-        <FontAwesome name="phone" size={16} color={theme.colors.secondary} />,
-        "Phone",
-        guardian.phoneNumber,
-      )}
-    </View>
-  );
+    );
+  };
 
   return (
     <Modal
@@ -161,7 +298,9 @@ export default function MemberContactModal({
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>{t("components:memberContactModal.contactDetails")}</Text>
+            <Text style={styles.headerTitle}>
+              {t("components:memberContactModal.contactDetails")}
+            </Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={theme.colors.white} />
             </TouchableOpacity>
@@ -178,7 +317,9 @@ export default function MemberContactModal({
                   size="large"
                   color={theme.colors.secondary}
                 />
-                <Text style={styles.loadingText}>{t("components:memberContactModal.loadingDetails")}</Text>
+                <Text style={styles.loadingText}>
+                  {t("components:memberContactModal.loadingDetails")}
+                </Text>
               </View>
             ) : error ? (
               <View style={styles.errorContainer}>
@@ -193,31 +334,50 @@ export default function MemberContactModal({
               <>
                 {/* Avatar Section */}
                 <View style={styles.avatarSection}>
-                  {member.photoURL ||
-                  initialPhotoURL ||
-                  getDefaultProfilePicture(member.isYouth) ? (
-                    <Image
-                      source={{
-                        uri:
-                          member.photoURL ||
-                          initialPhotoURL ||
-                          getDefaultProfilePicture(member.isYouth),
-                      }}
-                      style={styles.avatarImage}
-                    />
-                  ) : (
-                    <View style={styles.avatarPlaceholder}>
-                      <Text style={styles.avatarInitials}>
-                        {getInitials(member.displayName || initialName || "?")}
-                      </Text>
-                    </View>
-                  )}
+                  <View>
+                    {member.photoURL ||
+                    initialPhotoURL ||
+                    getDefaultProfilePicture(member.isYouth) ? (
+                      <Image
+                        source={{
+                          uri:
+                            member.photoURL ||
+                            initialPhotoURL ||
+                            getDefaultProfilePicture(member.isYouth),
+                        }}
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <View style={styles.avatarPlaceholder}>
+                        <Text style={styles.avatarInitials}>
+                          {getInitials(
+                            member.displayName || initialName || "?",
+                          )}
+                        </Text>
+                      </View>
+                    )}
+                    {/* Camera icon overlay for guardians */}
+                    {isGuardianViewing && (
+                      <TouchableOpacity
+                        style={styles.cameraOverlay}
+                        onPress={() => setShowPhotoUpload(true)}
+                      >
+                        <Ionicons
+                          name="camera"
+                          size={16}
+                          color={theme.colors.white}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                   <Text style={styles.memberName}>
                     {member.displayName || initialName}
                   </Text>
                   {member.isYouth && (
                     <View style={styles.youthBadge}>
-                      <Text style={styles.youthBadgeText}>{t("components:memberContactModal.youthPlayer")}</Text>
+                      <Text style={styles.youthBadgeText}>
+                        {t("components:memberContactModal.youthPlayer")}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -263,7 +423,9 @@ export default function MemberContactModal({
                 {/* Guardian Section - Only for youth */}
                 {member.isYouth && guardians.length > 0 && (
                   <View style={styles.guardiansSection}>
-                    <Text style={styles.sectionTitle}>{t("components:memberContactModal.guardianContacts")}</Text>
+                    <Text style={styles.sectionTitle}>
+                      {t("components:memberContactModal.guardianContacts")}
+                    </Text>
                     {guardians.map((guardian) => renderGuardianCard(guardian))}
                   </View>
                 )}
@@ -286,6 +448,20 @@ export default function MemberContactModal({
           </ScrollView>
         </View>
       </View>
+
+      {/* Profile Picture Upload Modal (for guardians) */}
+      {isGuardianViewing && (
+        <ProfilePictureUpload
+          visible={showPhotoUpload}
+          onClose={() => setShowPhotoUpload(false)}
+          onSuccess={handlePhotoUploadSuccess}
+          currentImageUrl={member?.photoURL || initialPhotoURL}
+          targetUserId={userId}
+          clubId={clubId}
+          groupId={groupId}
+          isForMember={true}
+        />
+      )}
     </Modal>
   );
 }
@@ -486,5 +662,74 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: theme.colors.textSecondary,
     fontSize: 14,
+  },
+  // Camera overlay on avatar for guardians
+  cameraOverlay: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: theme.colors.secondary,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+  },
+  // Edit field styles for guardian contact editing
+  editFieldContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+  },
+  editFieldLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  editFieldInput: {
+    fontSize: 16,
+    color: theme.colors.text,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  editButtonRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    padding: 12,
+    gap: 10,
+  },
+  cancelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  cancelButtonText: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  saveButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: theme.colors.secondary,
+    minWidth: 70,
+    alignItems: "center",
+  },
+  saveButtonText: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

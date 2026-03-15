@@ -68,6 +68,14 @@ export default function ManageGroupScreen() {
     [userProfile, clubId, groupId],
   );
 
+  // Check if user is a guardian of a specific member
+  const isGuardianOf = useMemo(() => {
+    const dependentUids = new Set(
+      (userProfile?.dependents || []).map((d) => d.uid),
+    );
+    return (memberId: string) => dependentUids.has(memberId);
+  }, [userProfile?.dependents]);
+
   const loading = !group && !contextMembers.length;
 
   const [activeTab, setActiveTab] = useState<"members" | "subgroups">(
@@ -118,13 +126,14 @@ export default function ManageGroupScreen() {
   };
 
   const handleMemberPress = (member: GroupMemberData) => {
-    if (canManage) {
+    if (canManage || isGuardianOf(member.userId)) {
       setSelectedMember(member);
       setShowMemberModal(true);
     }
   };
 
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
+    const canTap = canManage || isGuardianOf(item.userId);
     const content = (
       <>
         <Image
@@ -139,7 +148,7 @@ export default function ManageGroupScreen() {
             {item.roles.join(", ")} {item.needsGuardian && "(Child/Youth)"}
           </Text>
         </View>
-        {canManage && (
+        {canTap && (
           <Ionicons
             name="chevron-forward"
             size={20}
@@ -149,7 +158,7 @@ export default function ManageGroupScreen() {
       </>
     );
 
-    if (canManage) {
+    if (canTap) {
       return (
         <TouchableOpacity
           style={styles.memberItem}
@@ -329,6 +338,7 @@ export default function ManageGroupScreen() {
           initialName={selectedMember.name}
           initialPhotoURL={selectedMember.photoURL}
           isYouth={selectedMember.needsGuardian}
+          isGuardianViewing={isGuardianOf(selectedMember.userId)}
         />
       )}
     </View>

@@ -75,6 +75,7 @@ export { checkAndMarkGuardianInactive } from "./members/checkAndMarkGuardianInac
 export { checkGuardianDependentStatus } from "./members/checkGuardianDependentStatus";
 export { getMemberContactDetails } from "./members/getMemberContactDetails";
 export { getMemberGroupMemberships } from "./members/getMemberGroupMemberships";
+export { updateGuardianContactInfo } from "./members/updateGuardianContactInfo";
 export { updateGuardianDependentClubRemoval } from "./members/updateGuardianDependentClubRemoval";
 
 // User Document Update Functions (Atomic)

@@ -84,25 +84,34 @@ export const uploadProfilePictureForMember = onCall(
         );
 
         if (!hasGroupManageAccess) {
-          throw new HttpsError(
-            "permission-denied",
-            "You do not have permission to upload a profile picture for this member. " +
-              "You must be a club admin, or an admin/coach in the member's group.",
-          );
-        }
+          // Check if caller is the guardian of the target user
+          const isGuardian = await checkIsGuardianOf(callerId, targetUserId);
 
-        // Verify the target user is actually in this group
-        const isTargetInGroup = await checkMemberInGroup(
-          targetUserId,
-          clubId,
-          groupId,
-        );
+          if (!isGuardian) {
+            throw new HttpsError(
+              "permission-denied",
+              "You do not have permission to upload a profile picture for this member. " +
+                "You must be a club admin, an admin/coach in the member's group, or the member's guardian.",
+            );
+          }
 
-        if (!isTargetInGroup) {
-          throw new HttpsError(
-            "permission-denied",
-            "The target member is not in a group you manage.",
+          console.log(
+            `✅ Guardian ${callerId} uploading profile picture for dependent ${targetUserId}`,
           );
+        } else {
+          // Verify the target user is actually in this group (for admin/coach path only)
+          const isTargetInGroup = await checkMemberInGroup(
+            targetUserId,
+            clubId,
+            groupId,
+          );
+
+          if (!isTargetInGroup) {
+            throw new HttpsError(
+              "permission-denied",
+              "The target member is not in a group you manage.",
+            );
+          }
         }
       }
 
@@ -192,4 +201,20 @@ async function checkMemberInGroup(
   return members.some(
     (m: any) => m.userId === targetUserId && m.isActive !== false,
   );
+}
+
+/**
+ * Check if caller is the guardian of a target user.
+ * Looks at the caller's dependents[] array on their user doc.
+ */
+async function checkIsGuardianOf(
+  callerId: string,
+  targetUserId: string,
+): Promise<boolean> {
+  const db = admin.firestore();
+  const callerDoc = await db.collection("users").doc(callerId).get();
+  if (!callerDoc.exists) return false;
+
+  const dependents: any[] = callerDoc.data()?.dependents || [];
+  return dependents.some((dep: any) => dep.uid === targetUserId);
 }

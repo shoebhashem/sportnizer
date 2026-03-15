@@ -100,6 +100,20 @@ export const getMemberContactDetails = onCall(
         }
       }
 
+      // Check if caller is the guardian of this member
+      if (!hasPermission) {
+        const callerDependents: any[] = callerData?.dependents || [];
+        const isGuardianOfTarget = callerDependents.some(
+          (dep: any) => dep.uid === userId,
+        );
+        if (isGuardianOfTarget) {
+          hasPermission = true;
+          console.log(
+            `[getMemberContactDetails] Caller is guardian of target member`,
+          );
+        }
+      }
+
       // If no groupId provided, only club-admin can access
       if (!groupId && !hasPermission) {
         throw new HttpsError(
