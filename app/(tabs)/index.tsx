@@ -20,11 +20,10 @@ import EventCard from "../../components/EventCard";
 import InvitationModal from "../../components/InvitationModal";
 import PaymentCard from "../../components/PaymentCard";
 import { useAuth } from "../../contexts/AuthContext";
-import { useDataCache } from "../../contexts/DataCacheContext";
+import { useClubData } from "../../contexts/ClubDataContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useUser } from "../../contexts/UserContext";
 import { getCurrentUser } from "../../services/auth/authService";
-import { clubService } from "../../services/club";
 import { fetchDependentProfiles } from "../../services/fetchDependentProfiles";
 import {
   acceptGroupInvite,
@@ -57,7 +56,6 @@ export default function Index() {
   const { t } = useTranslation(["screens", "common"]);
   const { user } = useAuth();
   const { userProfile } = useUser();
-  const cache = useDataCache();
   const {
     events: contextEvents,
     refreshEvents,
@@ -104,8 +102,18 @@ export default function Index() {
     setAlertModal({ visible: false, title: "", message: "" });
   };
 
-  // Club logos state
-  const [clubLogos, setClubLogos] = useState<Record<string, string | null>>({});
+  // Club logos derived from ClubDataContext (real-time listener data)
+  const { clubs: clubDataMap } = useClubData();
+  const clubLogos = useMemo(() => {
+    const logos: Record<string, string | null> = {};
+    if (userProfile?.clubAccess) {
+      for (const ca of userProfile.clubAccess) {
+        const clubData = clubDataMap.get(ca.clubId);
+        logos[ca.clubId] = clubData?.logoUrl || null;
+      }
+    }
+    return logos;
+  }, [userProfile?.clubAccess, clubDataMap]);
 
   // Load pending payments
   const loadPendingPayments = useCallback(async () => {
@@ -148,35 +156,7 @@ export default function Index() {
   }, [user?.uid, loadPendingPayments]);
 
   // Load club logos when userProfile changes
-  useEffect(() => {
-    const fetchClubLogos = async () => {
-      if (!userProfile?.clubAccess || userProfile.clubAccess.length === 0) {
-        return;
-      }
-
-      const logos: Record<string, string | null> = {};
-
-      await Promise.all(
-        userProfile.clubAccess.map(async (club) => {
-          try {
-            const result = await clubService.getClub(club.clubId, cache);
-            if (result.success && result.data?.logoUrl) {
-              logos[club.clubId] = result.data.logoUrl;
-            } else {
-              logos[club.clubId] = null;
-            }
-          } catch (error) {
-            console.log(`Could not fetch logo for club ${club.clubId}:`, error);
-            logos[club.clubId] = null;
-          }
-        }),
-      );
-
-      setClubLogos(logos);
-    };
-
-    fetchClubLogos();
-  }, [userProfile?.clubAccess, cache]);
+  // Club logos now come from ClubDataContext — no manual fetch needed.
 
   const loadInvitations = useCallback(async () => {
     try {

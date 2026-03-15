@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { deductRolesFromClubMemberList } from "../members/helpers/deductRolesFromClubMemberList";
 import { markUserInactiveInClub } from "../members/helpers/markUserInactiveInClub";
+import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
 
 /**
  * Permanently deletes a group and all its data
@@ -158,7 +159,10 @@ export async function permanentlyDeleteGroup(
               return club;
             });
 
-            await userRef.update({ clubAccess: updatedClubAccess });
+            await userRef.update({
+              clubAccess: updatedClubAccess,
+              ...flatArrayFieldsFromClubAccess(updatedClubAccess),
+            });
             console.log(`✓ Removed group from user ${userId}`);
           }
         } catch (error) {

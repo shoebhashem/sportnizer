@@ -149,6 +149,13 @@ export const createYouthMemberDocument = onCall(
         clubAccess: [], // Empty array - youth joins clubs later
         groupsCreated: 0,
         version: 1,
+        // Flat role arrays for Firestore security rules
+        adminOfClubs: [],
+        memberOfClubs: [],
+        adminOfGroups: [],
+        coachOfGroups: [],
+        memberOfGroups: [],
+        guardianOfGroups: [],
 
         // NO email field - youth members don't have email/auth
         // NO emailVerified - not applicable

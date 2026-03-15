@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { flatArrayFieldsFromClubAccess } from "../../utils/flatArrayHelpers";
 
 /**
  * Marks a user as inactive in a specific club
@@ -68,6 +69,7 @@ export async function markUserInactiveInClub(params: {
     // Update user document
     await userRef.update({
       clubAccess,
+      ...flatArrayFieldsFromClubAccess(clubAccess),
       lastModifiedAt: FieldValue.serverTimestamp(),
     });
 

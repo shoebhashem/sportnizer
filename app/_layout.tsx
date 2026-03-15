@@ -1,7 +1,9 @@
 import { theme } from "@/constants/theme";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ClubDataProvider } from "@/contexts/ClubDataContext";
 import { DataCacheProvider } from "@/contexts/DataCacheContext";
 import { EventProvider } from "@/contexts/EventContext";
+import { GroupDataProvider } from "@/contexts/GroupDataContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { NewsProvider } from "@/contexts/NewsContext";
 import { UserProvider } from "@/contexts/UserContext";
@@ -27,14 +29,18 @@ export default function RootLayout() {
     <LanguageProvider>
       <DataCacheProvider>
         <UserProvider>
-          <EventProvider>
-            <NewsProvider>
-              <AuthProvider>
-                <StatusBar style="light" />
-                <RootLayoutNav />
-              </AuthProvider>
-            </NewsProvider>
-          </EventProvider>
+          <ClubDataProvider>
+            <GroupDataProvider>
+              <EventProvider>
+                <NewsProvider>
+                  <AuthProvider>
+                    <StatusBar style="light" />
+                    <RootLayoutNav />
+                  </AuthProvider>
+                </NewsProvider>
+              </EventProvider>
+            </GroupDataProvider>
+          </ClubDataProvider>
         </UserProvider>
       </DataCacheProvider>
     </LanguageProvider>

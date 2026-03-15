@@ -29,6 +29,8 @@
 import Button from "@/components/Button";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGroupData } from "@/contexts/GroupDataContext";
+import { GroupMemberData } from "@/services/types/group";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -48,20 +50,10 @@ import {
     SafeAreaView,
     useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { fetchGroupMembers } from "../services/fetchGroupMembers";
 import { removeMemberFromClubService } from "../services/orchestration/removeMemberFromClub";
 import { removeMemberFromGroupService } from "../services/orchestration/removeMemberFromGroup";
 
 type RemovalLevel = "club" | "group";
-
-interface GroupMemberData {
-  userId: string;
-  name: string;
-  email: string;
-  roles: string[];
-  needsGuardian?: boolean;
-  photoURL?: string;
-}
 
 export default function RemoveMemberScreen() {
   const {
@@ -80,6 +72,7 @@ export default function RemoveMemberScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(["screens", "common"]);
+  const { getGroupMembers } = useGroupData();
 
   // Determine screen mode
   const isSelectMode = mode === "select";
@@ -101,6 +94,12 @@ export default function RemoveMemberScreen() {
   }>({ success: 0, failed: 0, errors: [] });
   const [showResultModal, setShowResultModal] = useState(false);
 
+  // Get members from real-time context
+  const contextGroupMembers = getGroupMembers(
+    clubId as string,
+    groupId as string,
+  );
+
   const fetchMembers = useCallback(async () => {
     if (
       !groupId ||
@@ -113,46 +112,40 @@ export default function RemoveMemberScreen() {
 
     try {
       setLoading(true);
-      const result = await fetchGroupMembers(clubId, groupId);
 
-      if (result.success && result.members) {
-        console.log("📋 All fetched members:", result.members.length);
-        console.log("📋 Member type filter:", actualMemberType);
-        console.log(
-          "📋 First member data:",
-          JSON.stringify(result.members[0], null, 2),
-        );
+      console.log("📋 All context members:", contextGroupMembers.length);
+      console.log("📋 Member type filter:", actualMemberType);
 
-        // Filter by member type
-        const filtered = result.members.filter((m: GroupMemberData) => {
-          if (actualMemberType === "player") {
-            return m.roles.includes("player");
-          } else if (actualMemberType === "youth") {
-            return m.roles.includes("player-underage") || m.needsGuardian;
-          } else if (actualMemberType === "coach") {
-            return m.roles.includes("coach");
-          } else if (actualMemberType === "admin") {
-            return m.roles.includes("admin") || m.roles.includes("club-admin");
-          }
-          return false;
-        });
+      // Filter by member type
+      const filtered = contextGroupMembers.filter((m: GroupMemberData) => {
+        if (actualMemberType === "player") {
+          return m.roles.includes("player");
+        } else if (actualMemberType === "youth") {
+          return m.roles.includes("player-underage") || m.needsGuardian;
+        } else if (actualMemberType === "coach") {
+          return m.roles.includes("coach");
+        } else if (actualMemberType === "admin") {
+          return m.roles.includes("admin") || m.roles.includes("club-admin");
+        }
+        return false;
+      });
 
-        console.log("📋 Filtered members:", filtered.length);
-        console.log(
-          "📋 Filtered member data:",
-          JSON.stringify(filtered, null, 2),
-        );
+      console.log("📋 Filtered members:", filtered.length);
 
-        setMembers(filtered);
-      } else {
-        console.error("Failed to fetch members:", result.error);
-      }
+      setMembers(filtered);
     } catch (error) {
       console.error("Error fetching members:", error);
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, memberType, user?.uid]);
+  }, [
+    groupId,
+    clubId,
+    memberType,
+    user?.uid,
+    contextGroupMembers,
+    actualMemberType,
+  ]);
 
   useEffect(() => {
     fetchMembers();

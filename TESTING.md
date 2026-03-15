@@ -16,8 +16,8 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 319                                                           |
-| **Test suites**  | 18                                                            |
+| **Total tests**  | 388                                                           |
+| **Test suites**  | 20                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
 | **Backend**      | Firebase Emulator Suite (Auth, Firestore, Functions, Storage) |
@@ -40,6 +40,8 @@
 | News & Notifications  | `functions/test/news-notifications.test.ts`           | 10    | News CRUD, permissions, recipient logic, youth→guardian, role filter    |
 | Notification Side-Fx  | `functions/test/notification-side-effects.test.ts`    | 6     | Event/invitation/fee/callable notification docs + auth/not-found errors |
 | Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | 82    | Validation, roles, limits, LOK rules                                    |
+| Permission Helpers    | `functions/test/permission-helpers.test.ts`           | 45    | permissionHelpers: isClubAdmin, canManageGroup, getHighestRole, etc.    |
+| Flat Array Helpers    | `functions/test/flat-array-helpers.test.ts`           | 24    | buildFlatArraysFromClubAccess, emptyFlatArrays, inactive filtering      |
 | Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)    |
 
 ---
@@ -511,6 +513,154 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ---
 
+### 9. Permission Helpers (`permission-helpers.test.ts`) — 45 tests
+
+> Pure synchronous tests for `utils/permissionHelpers.ts`. Zero Firebase dependency — runs instantly.
+> Tests the entire permission layer that replaced async `permissionService` calls across all app screens.
+
+#### isClubAdmin (6 tests)
+
+| #   | Test                                             | What it verifies                                              |
+| --- | ------------------------------------------------ | ------------------------------------------------------------- |
+| 1   | should return false for null userProfile         | Null-safe: `null` profile → `false`                           |
+| 2   | should return false for undefined userProfile    | Null-safe: `undefined` profile → `false`                      |
+| 3   | should return false when user has no clubAccess  | Empty `clubAccess: []` → `false`                              |
+| 4   | should return false for wrong clubId             | User is admin of club-A, querying club-B → `false`            |
+| 5   | should return true for matching club-admin       | User has `role: "club-admin"` for the queried clubId → `true` |
+| 6   | should return false for inactive club membership | `isActive: false` on clubAccess entry → `false`               |
+
+#### canManageClub (2 tests)
+
+| #   | Test                                        | What it verifies                             |
+| --- | ------------------------------------------- | -------------------------------------------- |
+| 7   | should delegate to isClubAdmin (true case)  | Club-admin profile → `true` (alias behavior) |
+| 8   | should delegate to isClubAdmin (false case) | Regular member → `false` (alias behavior)    |
+
+#### getUserClubRole (4 tests)
+
+| #   | Test                                      | What it verifies                  |
+| --- | ----------------------------------------- | --------------------------------- |
+| 9   | should return null for null profile       | `null` → `null`                   |
+| 10  | should return null for non-member         | User not in club → `null`         |
+| 11  | should return "club-admin" for admin      | Admin membership → `"club-admin"` |
+| 12  | should return "member" for regular member | Regular membership → `"member"`   |
+
+#### getGroupRoles (5 tests)
+
+| #   | Test                                           | What it verifies                                |
+| --- | ---------------------------------------------- | ----------------------------------------------- |
+| 13  | should return [] for null profile              | `null` → `[]`                                   |
+| 14  | should return [] when no group access          | User in club but no `groupAccess` → `[]`        |
+| 15  | should return [] for wrong groupId             | User in group-A, querying group-B → `[]`        |
+| 16  | should return roles for matching group         | User with `["player", "coach"]` → array matches |
+| 17  | should return [] for inactive group membership | `isActive: false` on groupAccess → `[]`         |
+
+#### canManageGroup (6 tests)
+
+| #   | Test                                       | What it verifies                              |
+| --- | ------------------------------------------ | --------------------------------------------- |
+| 18  | should return true for club-admin (bypass) | Club-admin can manage any group in their club |
+| 19  | should return true for group admin         | Has `"admin"` role in group → `true`          |
+| 20  | should return true for group coach         | Has `"coach"` role in group → `true`          |
+| 21  | should return false for player             | Has `"player"` role only → `false`            |
+| 22  | should return false for player-underage    | Has `"player-underage"` only → `false`        |
+| 23  | should return false for null profile       | `null` → `false`                              |
+
+#### isGroupMember (4 tests)
+
+| #   | Test                                            | What it verifies                  |
+| --- | ----------------------------------------------- | --------------------------------- |
+| 24  | should return true when user has roles in group | Any role present → `true`         |
+| 25  | should return false when not in group           | No matching groupAccess → `false` |
+| 26  | should return false for null profile            | `null` → `false`                  |
+| 27  | should return false for inactive group          | `isActive: false` → `false`       |
+
+#### getHighestRole (8 tests)
+
+| #   | Test                                          | What it verifies                         |
+| --- | --------------------------------------------- | ---------------------------------------- |
+| 28  | should return null for null profile           | `null` → `null`                          |
+| 29  | should return null for non-member             | Not in club → `null`                     |
+| 30  | should return "club-admin" for club-admin     | Club-level admin → `"club-admin"`        |
+| 31  | should return "admin" for group admin         | Group admin (not club-admin) → `"admin"` |
+| 32  | should return "coach" when highest is coach   | Coach without admin → `"coach"`          |
+| 33  | should return "player" when highest is player | Player only → `"player"`                 |
+| 34  | should return "player-underage" for youth     | Youth roles only → `"player-underage"`   |
+| 35  | should return "member" when no group roles    | In club but no group access → `"member"` |
+
+#### getActiveClubIds (4 tests)
+
+| #   | Test                                       | What it verifies                              |
+| --- | ------------------------------------------ | --------------------------------------------- |
+| 36  | should return [] for null profile          | `null` → `[]`                                 |
+| 37  | should return [] for empty clubAccess      | `clubAccess: []` → `[]`                       |
+| 38  | should return active club IDs only         | Filters out `isActive: false` entries         |
+| 39  | should return all club IDs when all active | Multiple clubs, all active → all IDs returned |
+
+#### getActiveGroups (6 tests)
+
+| #   | Test                                                 | What it verifies                                   |
+| --- | ---------------------------------------------------- | -------------------------------------------------- |
+| 40  | should return [] for null profile                    | `null` → `[]`                                      |
+| 41  | should return [] for non-member of club              | Wrong clubId → `[]`                                |
+| 42  | should return [] when no groupAccess                 | Club member with no groups → `[]`                  |
+| 43  | should return active groups only                     | Filters out `isActive: false` groups               |
+| 44  | should return all groups when all active             | Multiple groups → all returned with correct fields |
+| 45  | should return objects with groupId, groupName, roles | Shape matches `{ groupId, groupName, roles }`      |
+
+---
+
+### 10. Flat Array Helpers (`flat-array-helpers.test.ts`) — 24 tests
+
+> Pure synchronous tests for `src/utils/flatArrayHelpers.ts`. Zero Firebase dependency — runs instantly.
+> Tests the builder that derives six flat role arrays from `clubAccess[]` for Firestore security rules.
+
+#### buildFlatArraysFromClubAccess (20 tests)
+
+| #   | Test                                          | What it verifies                                                   |
+| --- | --------------------------------------------- | ------------------------------------------------------------------ |
+| 1   | returns empty arrays for undefined input      | `undefined` → 6 empty arrays                                       |
+| 2   | returns empty arrays for null input           | `null` → 6 empty arrays                                            |
+| 3   | returns empty arrays for empty array input    | `[]` → 6 empty arrays                                              |
+| 4   | returns empty arrays for non-array input      | `"string"` → 6 empty arrays                                        |
+| 5   | detects club-admin role                       | `role: "club-admin"` → `adminOfClubs` contains clubId              |
+| 6   | detects member role                           | `role: "member"` → `memberOfClubs` contains clubId                 |
+| 7   | detects admin group role                      | Group roles `["admin"]` → `adminOfGroups` + `memberOfGroups`       |
+| 8   | detects coach group role                      | Group roles `["coach"]` → `coachOfGroups` + `memberOfGroups`       |
+| 9   | detects guardian group role                   | Group roles `["guardian"]` → `guardianOfGroups` + `memberOfGroups` |
+| 10  | detects player role in memberOfGroups only    | `["player"]` → only `memberOfGroups` (not admin/coach/guardian)    |
+| 11  | handles multiple roles in one group           | `["admin", "coach"]` → both arrays populated                       |
+| 12  | skips inactive clubs                          | `isActive: false` → all arrays empty                               |
+| 13  | skips inactive groups within active clubs     | Active club + inactive group → group excluded                      |
+| 14  | treats missing isActive as active             | No `isActive` field → treated as active                            |
+| 15  | handles multiple clubs and groups             | 2 clubs × N groups → correct union across all                      |
+| 16  | handles club with no group access             | `groupAccess: []` → club-level arrays only                         |
+| 17  | handles club with undefined groupAccess       | Missing `groupAccess` → no crash, club-level only                  |
+| 18  | handles group with empty roles array          | `roles: []` → group not in `memberOfGroups`                        |
+| 19  | handles group with undefined roles            | Missing `roles` → no crash                                         |
+| 20  | correctly filters complex mixed-state profile | Active+inactive clubs/groups → only active entries included        |
+
+#### flatArrayFieldsFromClubAccess (1 test)
+
+| #   | Test                                                  | What it verifies               |
+| --- | ----------------------------------------------------- | ------------------------------ |
+| 21  | produces same result as buildFlatArraysFromClubAccess | Alias returns identical output |
+
+#### emptyFlatArrays (2 tests)
+
+| #   | Test                                                 | What it verifies                       |
+| --- | ---------------------------------------------------- | -------------------------------------- |
+| 22  | returns object with all six empty arrays             | Shape: 6 keys, all `[]`                |
+| 23  | returns a new object each time (no shared reference) | Mutation safety: independent instances |
+
+#### FlatRoleArrays type shape (1 test)
+
+| #   | Test                                                | What it verifies              |
+| --- | --------------------------------------------------- | ----------------------------- |
+| 24  | buildFlatArraysFromClubAccess returns correct shape | Has all 6 expected properties |
+
+---
+
 ## Coverage Gap Analysis
 
 ### Backend Cloud Functions — Current Coverage
@@ -539,12 +689,14 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ### Pure Logic Utility Coverage
 
-| Module              | Functions Tested | Coverage |
-| ------------------- | ---------------- | -------- |
-| `validation.ts`     | 8 / 8            | 100%     |
-| `roleValidation.ts` | 8 / 8            | 100%     |
-| `limits.ts`         | 8 / 8            | 100%     |
-| `lokValidation.ts`  | 4 / 4            | 100%     |
+| Module                 | Functions Tested | Coverage |
+| ---------------------- | ---------------- | -------- |
+| `validation.ts`        | 8 / 8            | 100%     |
+| `roleValidation.ts`    | 8 / 8            | 100%     |
+| `limits.ts`            | 8 / 8            | 100%     |
+| `lokValidation.ts`     | 4 / 4            | 100%     |
+| `permissionHelpers.ts` | 9 / 9            | 100%     |
+| `flatArrayHelpers.ts`  | 3 / 3            | 100%     |
 
 ### What's NOT Tested
 
@@ -556,7 +708,7 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 6. **News** — creation with notifications
 7. **User doc management** — club info updates, group info updates, inactivity marking
 8. **Cascade operations** — club deletion updating all member user docs
-9. **Frontend services** — no test coverage at all
+9. **Frontend permission logic** — ✅ `permissionHelpers.ts` fully covered (45 tests). Context providers (UserContext, ClubDataContext, GroupDataContext) are integration/runtime code tied to Firestore listeners — not unit-testable without full emulator or mock setup.
 10. ~~**Pure logic utilities** — LOK validation, role validation, limits, personnummer format~~ ✅ Covered
 
 ---
@@ -1746,7 +1898,7 @@ Emulator-based integration tests now cover 39 of ~100 functions (~39%).
 
 ### Layer 2: Pure Logic Unit Tests (Partially Complete ✅)
 
-Fast, no-emulator tests for pure functions. 82 tests running in <1s.
+Fast, no-emulator tests for pure functions. 127 tests running in <1s.
 
 **Completed:**
 
@@ -1754,6 +1906,7 @@ Fast, no-emulator tests for pure functions. 82 tests running in <1s.
 - ✅ `functions/src/utils/roleValidation.ts` — all 8 exported functions (16 tests)
 - ✅ `functions/src/utils/limits.ts` — all 8 exported functions (20 tests)
 - ✅ `functions/src/lok/lokValidation.ts` — all 4 exported functions (22 tests)
+- ✅ `utils/permissionHelpers.ts` — all 9 exported functions (45 tests) — covers real-time listener permission layer
 
 **Remaining candidates:**
 
@@ -1763,13 +1916,17 @@ Fast, no-emulator tests for pure functions. 82 tests running in <1s.
 - `services/statistics/statisticsService.ts` — filter/sort helpers
 - `services/constants/index.ts` — constant integrity
 
-### Layer 3: Frontend Service Tests (New — Possible)
+### Layer 3: Frontend Service Tests (Partially Complete)
 
-**What's testable:** Services that are thin Cloud Function wrappers can't be meaningfully unit-tested without mocking everything. However:
+**Completed:**
 
+- ✅ **permissionHelpers.ts** — Pure synchronous permission checks fully unit-tested (45 tests). Replaced async `permissionService` which was untestable without mocking.
+
+**What's testable now that screens use real-time listeners:**
+
+- **Context providers** (UserContext, ClubDataContext, GroupDataContext) are React contexts wrapping Firestore `onSnapshot` — integration-testing them requires either React Testing Library with mocked Firestore, or full emulator-based rendering. Not yet implemented.
 - **Orchestration services** (multi-step workflows) could verify call sequencing with mocked Cloud Functions
 - **Pure helper functions** within services can be extracted and unit-tested
-- **Permissions logic** caching and role resolution logic
 
 ### Layer 4: Security Rules Tests (Future)
 

@@ -3,6 +3,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { permanentlyDeleteClub } from "../clubs/permanentlyDeleteClub";
 import { permanentlyDeleteGroup } from "../groups/permanentlyDeleteGroup";
+import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
 
 /**
  * Scheduled function that runs weekly to cleanup expired soft-deleted entities
@@ -95,13 +96,13 @@ export const cleanupDeletedEntities = onSchedule(
 
                 const updateData: any = {
                   clubAccess: updatedClubAccess,
+                  ...flatArrayFieldsFromClubAccess(updatedClubAccess),
                   version: FieldValue.increment(1),
                 };
 
                 if (!hasActiveGroups && userData?.isActive !== false) {
                   updateData.isActive = false;
-                  updateData.inactiveSince =
-                    FieldValue.serverTimestamp();
+                  updateData.inactiveSince = FieldValue.serverTimestamp();
                   console.log(
                     `Marking user ${userId} as inactive (no active groups)`,
                   );
@@ -166,6 +167,7 @@ export const cleanupDeletedEntities = onSchedule(
 
                 const updateData: any = {
                   clubAccess: updatedClubAccess,
+                  ...flatArrayFieldsFromClubAccess(updatedClubAccess),
                   version: FieldValue.increment(1),
                 };
 
@@ -175,8 +177,7 @@ export const cleanupDeletedEntities = onSchedule(
                   userData?.isActive !== false
                 ) {
                   updateData.isActive = false;
-                  updateData.inactiveSince =
-                    FieldValue.serverTimestamp();
+                  updateData.inactiveSince = FieldValue.serverTimestamp();
                   console.log(`Marking user ${userId} as inactive (no clubs)`);
                 }
 
@@ -325,6 +326,7 @@ export const cleanupDeletedEntities = onSchedule(
 
                     const updateData: any = {
                       clubAccess: updatedClubAccess,
+                      ...flatArrayFieldsFromClubAccess(updatedClubAccess),
                       version: FieldValue.increment(1),
                     };
 
@@ -345,8 +347,7 @@ export const cleanupDeletedEntities = onSchedule(
                         userData?.isActive !== false
                       ) {
                         updateData.isActive = false;
-                        updateData.inactiveSince =
-                          FieldValue.serverTimestamp();
+                        updateData.inactiveSince = FieldValue.serverTimestamp();
                         updateData.scheduledForDeletion = new Date(
                           Date.now() + 60 * 24 * 60 * 60 * 1000,
                         ); // 60 days

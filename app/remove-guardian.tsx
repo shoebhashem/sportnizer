@@ -18,6 +18,7 @@ import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGroupData } from "@/contexts/GroupDataContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { httpsCallable } from "firebase/functions";
@@ -40,7 +41,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { functions } from "../services/core/firebase";
-import { fetchGroupMembers } from "../services/fetchGroupMembers";
 import { GuardianContact } from "../services/types/group";
 
 export default function RemoveGuardianScreen() {
@@ -50,6 +50,7 @@ export default function RemoveGuardianScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(["screens", "common"]);
+  const { getGroupMembers } = useGroupData();
 
   // Set dynamic native header subtitle with youth name
   useLayoutEffect(() => {
@@ -75,6 +76,12 @@ export default function RemoveGuardianScreen() {
   const [showResultModal, setShowResultModal] = useState(false);
   const [showLastGuardianWarning, setShowLastGuardianWarning] = useState(false);
 
+  // Get members from real-time context
+  const contextGroupMembers = getGroupMembers(
+    clubId as string,
+    groupId as string,
+  );
+
   const fetchGuardians = useCallback(async () => {
     if (
       !groupId ||
@@ -88,29 +95,24 @@ export default function RemoveGuardianScreen() {
 
     try {
       setLoading(true);
-      const result = await fetchGroupMembers(clubId, groupId);
 
-      if (result.success && result.members) {
-        // Find the youth member and read guardiansContacts
-        const youthMember = result.members.find(
-          (m: any) => m.userId === youthUid,
-        );
+      // Find the youth member from context and read guardiansContacts
+      const youthMember = contextGroupMembers.find(
+        (m: any) => m.userId === youthUid,
+      );
 
-        if (youthMember && youthMember.guardiansContacts) {
-          setGuardians(youthMember.guardiansContacts);
-        } else {
-          console.warn("Youth member not found or has no guardiansContacts");
-          setGuardians([]);
-        }
+      if (youthMember && youthMember.guardiansContacts) {
+        setGuardians(youthMember.guardiansContacts);
       } else {
-        console.error("Failed to fetch members:", result.error);
+        console.warn("Youth member not found or has no guardiansContacts");
+        setGuardians([]);
       }
     } catch (error) {
       console.error("Error fetching guardians:", error);
     } finally {
       setLoading(false);
     }
-  }, [groupId, clubId, youthUid]);
+  }, [groupId, clubId, youthUid, contextGroupMembers]);
 
   useEffect(() => {
     fetchGuardians();

@@ -105,6 +105,7 @@ export { createNotification } from "./notifications/createNotification";
 // markInvitationUsed is kept for backwards compatibility (delegates to updateInvitation "delete" action)
 
 // Utility Functions
+export { backfillFlatArraysCallable as backfillFlatArrays } from "./utils/backfillFlatArrays";
 export { fixEmptyUserDocument } from "./utils/fixEmptyUserDocument";
 
 // Profile Picture Functions

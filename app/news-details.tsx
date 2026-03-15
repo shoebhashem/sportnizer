@@ -20,6 +20,7 @@ import {
     markNewsAsRead,
     News,
 } from "@/services/news";
+import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
@@ -77,31 +78,15 @@ export default function NewsDetailsScreen() {
   // Check if user can edit this news
   const canEdit = () => {
     if (!news || !userProfile || !user) return false;
-
-    // Creator can always edit
     if (news.createdBy === user.uid) return true;
-
-    const clubAccess = userProfile.clubAccess?.find(
-      (ca) => ca.clubId === news.targetScope.clubId,
-    );
-
-    // Club admin can edit
-    if (clubAccess?.role === "club-admin") return true;
-
-    // Group admin/coach can edit group/subgroup news
-    if (news.targetScope.groupId && clubAccess?.groupAccess) {
-      const groupAccess = clubAccess.groupAccess.find(
-        (ga) => ga.groupId === news.targetScope.groupId,
+    if (news.targetScope.groupId) {
+      return canManageGroup(
+        userProfile,
+        news.targetScope.clubId,
+        news.targetScope.groupId,
       );
-      if (
-        groupAccess?.roles.includes("admin") ||
-        groupAccess?.roles.includes("coach")
-      ) {
-        return true;
-      }
     }
-
-    return false;
+    return isClubAdmin(userProfile, news.targetScope.clubId);
   };
 
   // Set dynamic header with edit button
@@ -209,7 +194,10 @@ export default function NewsDetailsScreen() {
       router.back();
     } catch (error) {
       console.error("Error deleting news:", error);
-      setErrorModal({ visible: true, message: t("screens:newsDetails.failedToDeleteNews") });
+      setErrorModal({
+        visible: true,
+        message: t("screens:newsDetails.failedToDeleteNews"),
+      });
     }
   };
 
@@ -254,7 +242,9 @@ export default function NewsDetailsScreen() {
       >
         <StatusBar style="light" />
         <ActivityIndicator size="large" color={theme.colors.secondary} />
-        <Text style={styles.loadingText}>{t("screens:newsDetails.loadingNews")}</Text>
+        <Text style={styles.loadingText}>
+          {t("screens:newsDetails.loadingNews")}
+        </Text>
       </View>
     );
   }
@@ -275,7 +265,9 @@ export default function NewsDetailsScreen() {
           size={64}
           color={theme.colors.textSecondary}
         />
-        <Text style={styles.notFoundText}>{t("screens:newsDetails.newsNotFound")}</Text>
+        <Text style={styles.notFoundText}>
+          {t("screens:newsDetails.newsNotFound")}
+        </Text>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
@@ -398,7 +390,9 @@ export default function NewsDetailsScreen() {
           <View style={styles.emailBadge}>
             <Ionicons name="mail" size={14} color={theme.colors.secondary} />
             <Text style={styles.emailBadgeText}>
-              {t("screens:newsDetails.sentViaEmail", { count: news.emailDelivery.sentCount || 0 })}
+              {t("screens:newsDetails.sentViaEmail", {
+                count: news.emailDelivery.sentCount || 0,
+              })}
             </Text>
           </View>
         )}
@@ -417,7 +411,9 @@ export default function NewsDetailsScreen() {
               color={theme.colors.textSecondary}
             />
             <Text style={styles.statText}>
-              {t("screens:newsDetails.recipientCount", { count: news.recipientUserIds?.length || 0 })}
+              {t("screens:newsDetails.recipientCount", {
+                count: news.recipientUserIds?.length || 0,
+              })}
             </Text>
           </View>
 
@@ -428,7 +424,9 @@ export default function NewsDetailsScreen() {
                 size={18}
                 color={theme.colors.textSecondary}
               />
-              <Text style={styles.statText}>{t("screens:newsDetails.readCount", { count: news.readCount })}</Text>
+              <Text style={styles.statText}>
+                {t("screens:newsDetails.readCount", { count: news.readCount })}
+              </Text>
             </View>
           )}
         </View>

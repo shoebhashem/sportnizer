@@ -15,6 +15,7 @@ import {
     updateEventResponse,
 } from "@/services/event/eventService";
 import type { EventData } from "@/services/types/event";
+import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
@@ -113,25 +114,12 @@ export default function EventDetailsScreen() {
       return;
     }
 
-    // Check if user can edit (inline logic to avoid dependency issues)
-    let showEdit = false;
-    if (event.createdBy === user?.uid) {
-      showEdit = true;
-    } else {
-      const clubAccess = userProfile.clubAccess?.find(
-        (ca) => ca.clubId === event.clubId,
-      );
-      if (clubAccess?.role === "club-admin") {
-        showEdit = true;
-      } else if (event.groupId && clubAccess?.groupAccess) {
-        const groupAccess = clubAccess.groupAccess.find(
-          (ga) => ga.groupId === event.groupId,
-        );
-        if (groupAccess?.roles.includes("coach")) {
-          showEdit = true;
-        }
-      }
-    }
+    // Check if user can edit using permission helpers
+    const showEdit =
+      event.createdBy === user?.uid ||
+      (event.groupId
+        ? canManageGroup(userProfile, event.clubId, event.groupId)
+        : isClubAdmin(userProfile, event.clubId));
 
     // Determine which header actions to show
     const canShowEdit = showEdit && event.status !== "cancelled";
@@ -408,39 +396,10 @@ export default function EventDetailsScreen() {
 
   const canEditEvent = () => {
     if (!event || !userProfile) return false;
-
-    // Check if user is event creator
     if (event.createdBy === user?.uid) return true;
-
-    // Check if user is admin or coach in the club
-    const clubAccess = userProfile.clubAccess?.find(
-      (ca) => ca.clubId === event.clubId,
-    );
-
-    if (!clubAccess) return false;
-
-    // Check club-level role (club-admin)
-    if (clubAccess.role === "club-admin") {
-      return true;
-    }
-
-    // Check group-level roles (admin or coach)
-    if (event.groupId && clubAccess.groupAccess) {
-      const groupAccess = clubAccess.groupAccess.find(
-        (ga) => ga.groupId === event.groupId,
-      );
-
-      if (
-        groupAccess?.roles?.some(
-          (role: string) =>
-            role.toLowerCase() === "admin" || role.toLowerCase() === "coach",
-        )
-      ) {
-        return true;
-      }
-    }
-
-    return false;
+    if (event.groupId)
+      return canManageGroup(userProfile, event.clubId, event.groupId);
+    return isClubAdmin(userProfile, event.clubId);
   };
 
   const isEventFull = () => {
@@ -451,35 +410,9 @@ export default function EventDetailsScreen() {
 
   const canRespondAfterDeadline = () => {
     if (!event || !userProfile) return false;
-
-    const clubAccess = userProfile.clubAccess?.find(
-      (ca) => ca.clubId === event.clubId,
-    );
-
-    if (!clubAccess) return false;
-
-    // Club-admin can always respond after deadline
-    if (clubAccess.role === "club-admin") {
-      return true;
-    }
-
-    // Check if admin/coach in event's group
-    if (event.groupId && clubAccess.groupAccess) {
-      const groupAccess = clubAccess.groupAccess.find(
-        (ga) => ga.groupId === event.groupId,
-      );
-
-      if (
-        groupAccess?.roles?.some(
-          (role: string) =>
-            role.toLowerCase() === "admin" || role.toLowerCase() === "coach",
-        )
-      ) {
-        return true;
-      }
-    }
-
-    return false;
+    if (event.groupId)
+      return canManageGroup(userProfile, event.clubId, event.groupId);
+    return isClubAdmin(userProfile, event.clubId);
   };
 
   const getEventTypeColor = (eventType?: string) => {

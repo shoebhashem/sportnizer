@@ -7,23 +7,23 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { httpsCallable } from "firebase/functions";
 import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
 } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -31,10 +31,12 @@ import { useTranslation } from "react-i18next";
 import Button from "../components/Button";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { theme } from "../constants/theme";
+import { useGroupData } from "../contexts/GroupDataContext";
 import { useUser } from "../contexts/UserContext";
 import { functions } from "../services/core/firebase";
 import { uploadGroupPicture } from "../services/groupPictureService";
 import { GroupData } from "../services/types/group";
+import { canManageGroup } from "../utils/permissionHelpers";
 
 export default function GroupInfoScreen() {
   const insets = useSafeAreaInsets();
@@ -46,23 +48,16 @@ export default function GroupInfoScreen() {
     mode: "view" | "edit";
   }>();
   const { userProfile } = useUser();
+  const { getGroup: getGroupFromContext } = useGroupData();
 
-  // Determine if user can edit: club-admin OR group admin
+  // Get live group data from context
+  const contextGroup = getGroupFromContext(clubId!, groupId!);
+
+  // Determine if user can edit: club-admin OR group admin/coach
   const canEdit = React.useMemo(() => {
-    if (mode !== "edit" || !userProfile?.clubAccess) return false;
-
-    const clubEntry = userProfile.clubAccess.find((c) => c.clubId === clubId);
-    if (!clubEntry) return false;
-
-    // Club admin can edit any group
-    if (clubEntry.role === "club-admin") return true;
-
-    // Group admin can edit their group
-    const groupEntry = clubEntry.groupAccess?.find(
-      (g) => g.groupId === groupId,
-    );
-    return groupEntry?.roles?.includes("admin") ?? false;
-  }, [mode, userProfile?.clubAccess, clubId, groupId]);
+    if (mode !== "edit" || !userProfile) return false;
+    return canManageGroup(userProfile, clubId!, groupId!);
+  }, [mode, userProfile, clubId, groupId]);
 
   // Group data state
   const [group, setGroup] = useState<GroupData | null>(null);
@@ -112,43 +107,37 @@ export default function GroupInfoScreen() {
     setCurrentPictureUrl(groupData.pictureUrl || null);
   }, []);
 
-  // Fetch group data
+  // Fetch group data from context (real-time)
   const fetchGroup = useCallback(async () => {
     if (!clubId || !groupId) return;
 
     setLoading(true);
     try {
-      const getGroupFn = httpsCallable(functions, "getGroup");
-      const result = await getGroupFn({ clubId, groupId });
-      const response = result.data as {
-        success: boolean;
-        data?: GroupData;
-        error?: string;
-      };
-
-      if (response.success && response.data) {
-        setGroup(response.data);
-        initFormFromGroup(response.data);
+      if (contextGroup) {
+        setGroup(contextGroup);
+        initFormFromGroup(contextGroup);
       } else {
         showAlert(
           t("common:error"),
           t("screens:groupInfo.failedToLoadGroupInfo"),
         );
       }
-    } catch (error) {
-      console.error("Error fetching group:", error);
-      showAlert(
-        t("common:error"),
-        t("screens:groupInfo.failedToLoadGroupInfo"),
-      );
     } finally {
       setLoading(false);
     }
-  }, [clubId, groupId, initFormFromGroup]);
+  }, [clubId, groupId, contextGroup, initFormFromGroup]);
 
   useEffect(() => {
     fetchGroup();
   }, [fetchGroup]);
+
+  // Sync context changes to local state when not editing
+  useEffect(() => {
+    if (contextGroup && !isEditing) {
+      setGroup(contextGroup);
+      initFormFromGroup(contextGroup);
+    }
+  }, [contextGroup, isEditing, initFormFromGroup]);
 
   // ----- Actions -----
   const handleStartEdit = useCallback(() => {
@@ -229,8 +218,7 @@ export default function GroupInfoScreen() {
           throw new Error(response.error || "Failed to update group");
         }
 
-        // Refresh group data
-        await fetchGroup();
+        // Context will auto-refresh via onSnapshot
         showAlert(t("common:success"), t("screens:groupInfo.groupInfoUpdated"));
       }
 

@@ -20,59 +20,67 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email_verified == true;
     }
 
-    // Check if user is club admin - checks club membership for club-admin role
+    // ---------------------------------------------------------------------------
+    // Flat-array based permission helpers
+    // These read a SINGLE document (/users/{uid}) which Firestore caches per
+    // request, making subsequent calls free within the same rule evaluation.
+    // ---------------------------------------------------------------------------
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Check if user is club admin — reads flat array adminOfClubs on user doc
     function isClubAdmin(clubId) {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             // Check if user is in the club's member list with club-admin role
-             exists(/databases/$(database)/documents/clubs/$(clubId)/allMembers/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/clubs/$(clubId)/allMembers/$(request.auth.uid))
-               .data.roles.hasAny(['club-admin']);
+             clubId in getUserData().adminOfClubs;
     }
 
-    // Check if user has any access to a club - checks clubAccess array
-    // Due to Firestore rules limitations with nested arrays, we'll check membership documents
+    // Check if user has any access to a club (admin or member)
     function hasClubAccess(clubId) {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             // Check if user is in the club's member list
-             exists(/databases/$(database)/documents/clubs/$(clubId)/allMembers/$(request.auth.uid));
+             (clubId in getUserData().adminOfClubs ||
+              clubId in getUserData().memberOfClubs);
     }
 
-    // Check if user has specific role in group - checks nested groupAccess in clubAccess
-    // NOTE: Firestore rules don't support complex nested array operations well
-    // We'll use a simplified approach that relies on group membership documents for role verification
+    // Check if user has specific role in group
     function hasGroupRole(clubId, groupId, role) {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             // First check if user has access to the club
              hasClubAccess(clubId) &&
-             // Check if user is in the group's member list with the specified role
-             exists(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/$(request.auth.uid)) &&
-             // Verify user has the required role in the group member document
-             get(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/$(request.auth.uid))
-               .data.roles.hasAny([role]);
+             (
+               (role == 'admin' && groupId in getUserData().adminOfGroups) ||
+               (role == 'coach' && groupId in getUserData().coachOfGroups) ||
+               (role == 'guardian' && groupId in getUserData().guardianOfGroups) ||
+               // For any other role, check memberOfGroups
+               groupId in getUserData().memberOfGroups
+             );
     }
 
     // Check if user is group admin
     function isGroupAdmin(clubId, groupId) {
-      return hasGroupRole(clubId, groupId, 'admin');
+      return isClubAdmin(clubId) ||
+             (isSignedIn() &&
+              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              groupId in getUserData().adminOfGroups);
     }
 
     // Check if user is group coach
     function isGroupCoach(clubId, groupId) {
-      return hasGroupRole(clubId, groupId, 'coach');
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             groupId in getUserData().coachOfGroups;
     }
 
-    // Check if user has any access to a group
+    // Check if user has any access to a group (member, admin, coach, guardian, or club-admin)
     function hasGroupAccess(clubId, groupId) {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              (
-               // User has club admin access
                isClubAdmin(clubId) ||
-               // User is a member of this specific group
-               exists(/databases/$(database)/documents/clubs/$(clubId)/groups/$(groupId)/allMembers/$(request.auth.uid))
+               groupId in getUserData().memberOfGroups
              );
     }
 
@@ -139,6 +147,13 @@ service cloud.firestore {
                data.clubAccess.size() <= 100 &&
                validateClubAccessArray(data.clubAccess)
              )) &&
+             // Flat role arrays validation
+             (!('adminOfClubs' in data) || data.adminOfClubs is list) &&
+             (!('memberOfClubs' in data) || data.memberOfClubs is list) &&
+             (!('adminOfGroups' in data) || data.adminOfGroups is list) &&
+             (!('coachOfGroups' in data) || data.coachOfGroups is list) &&
+             (!('memberOfGroups' in data) || data.memberOfGroups is list) &&
+             (!('guardianOfGroups' in data) || data.guardianOfGroups is list) &&
              // Youth member fields validation
              (!('guardians' in data) || data.guardians is list) &&
              (!('dependents' in data) || data.dependents is list) &&
@@ -191,9 +206,11 @@ service cloud.firestore {
                          request.auth.uid != userId &&
                          // Check if current user is club admin in any of target user's clubs
                          hasClubAdminAccessToUpdateUser(userId) &&
-                         // Club-admins can only update 'clubAccess', 'guardians', or 'dependents' fields
+                         // Club-admins can only update 'clubAccess', 'guardians', 'dependents', or flat role array fields
                          request.resource.data.diff(resource.data).affectedKeys()
-                           .hasOnly(['clubAccess', 'guardians', 'dependents'])
+                           .hasOnly(['clubAccess', 'guardians', 'dependents',
+                                     'adminOfClubs', 'memberOfClubs', 'adminOfGroups',
+                                     'coachOfGroups', 'memberOfGroups', 'guardianOfGroups'])
                        );
 
       // Delete: Users can only delete their own document

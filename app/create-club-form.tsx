@@ -22,7 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function CreateClubForm() {
   const { t } = useTranslation(["screens", "common"]);
   const { user } = useAuth();
-  const { userProfile, refreshUserProfile } = useUser();
+  const { userProfile } = useUser();
 
   // Redirect users who already have clubs to home
   useEffect(() => {
@@ -160,8 +160,7 @@ export default function CreateClubForm() {
         console.log("✅ Added to club member list");
       }
 
-      // Refresh user profile to show new club
-      await refreshUserProfile();
+      // User doc listener in UserContext will pick up the new club automatically
 
       // Success!
       setModal({

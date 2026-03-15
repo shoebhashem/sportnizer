@@ -8,7 +8,6 @@
 import Button from "@/components/Button";
 import { LEGAL_URLS } from "@/constants/legal";
 import { theme } from "@/constants/theme";
-import { useUser } from "@/contexts/UserContext";
 import { legalService } from "@/services/legal/legalService";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
@@ -63,7 +62,6 @@ export default function LegalAcceptanceScreen({
 }: LegalAcceptanceScreenProps) {
   const [hasAgreed, setHasAgreed] = useState(false);
   const [effectiveDate, setEffectiveDate] = useState<string>("");
-  const { refreshUserProfile } = useUser();
   const { t } = useTranslation(["components", "common"]);
 
   useEffect(() => {
@@ -117,8 +115,8 @@ export default function LegalAcceptanceScreen({
 
   const isReAcceptance = mode === "re-acceptance";
 
-  const handleAccept = async () => {
-    await refreshUserProfile();
+  const handleAccept = () => {
+    // User doc listener in UserContext picks up changes automatically
     onAccept();
   };
 

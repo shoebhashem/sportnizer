@@ -31,11 +31,12 @@ import { useTranslation } from "react-i18next";
 import Button from "../components/Button";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { theme } from "../constants/theme";
+import { useClubData } from "../contexts/ClubDataContext";
 import { useUser } from "../contexts/UserContext";
-import { clubService } from "../services/club";
 import { uploadClubLogo } from "../services/clubLogoService";
 import { functions } from "../services/core/firebase";
 import { ClubData } from "../services/types/club";
+import { isClubAdmin as checkClubAdmin } from "../utils/permissionHelpers";
 
 export default function ClubInfoScreen() {
   const insets = useSafeAreaInsets();
@@ -46,11 +47,10 @@ export default function ClubInfoScreen() {
     mode: "view" | "edit";
   }>();
   const { userProfile } = useUser();
+  const { getClub, isLoading: isClubLoading } = useClubData();
 
   // Determine if user is club-admin (can edit)
-  const isClubAdmin = userProfile?.clubAccess?.some(
-    (c) => c.clubId === clubId && c.role === "club-admin",
-  );
+  const isClubAdmin = checkClubAdmin(userProfile, clubId || "");
   const canEdit = mode === "edit" && isClubAdmin;
 
   // Club data state
@@ -101,28 +101,22 @@ export default function ClubInfoScreen() {
     setCurrentLogoUrl(clubData.logoUrl || null);
   }, []);
 
-  // Fetch club data
-  const fetchClub = useCallback(async () => {
-    if (!clubId) return;
+  // Fetch club data from context (real-time listener)
+  const contextClub = clubId ? getClub(clubId) : undefined;
 
-    setLoading(true);
-    try {
-      const result = await clubService.getClub(clubId);
-      if (result.success && result.data) {
-        setClub(result.data);
-        initFormFromClub(result.data);
+  // Initialize local state from context on first load
+  // Also update when context data changes and user is NOT editing
+  useEffect(() => {
+    if (contextClub) {
+      setClub(contextClub as ClubData);
+      if (!isEditing) {
+        initFormFromClub(contextClub as ClubData);
       }
-    } catch (error) {
-      console.error("Error fetching club:", error);
-      showAlert(t("common:error"), t("screens:clubInfo.failedToLoadClubInfo"));
-    } finally {
+      setLoading(false);
+    } else if (!isClubLoading && !contextClub) {
       setLoading(false);
     }
-  }, [clubId, initFormFromClub]);
-
-  useEffect(() => {
-    fetchClub();
-  }, [fetchClub]);
+  }, [contextClub, isClubLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ----- Actions (defined before useLayoutEffect to avoid stale closures) -----
   const handleStartEdit = useCallback(() => {
@@ -212,8 +206,7 @@ export default function ClubInfoScreen() {
           throw new Error(response.error || "Failed to update club");
         }
 
-        // Refresh club data
-        await fetchClub();
+        // Club data auto-refreshes via ClubDataContext listener
         showAlert(t("common:success"), t("screens:clubInfo.clubInfoUpdated"));
       } else {
         console.log("📝 No changes detected");
@@ -240,7 +233,6 @@ export default function ClubInfoScreen() {
     club,
     clubId,
     selectedLogoUri,
-    fetchClub,
   ]);
 
   // ----- Header icons -----

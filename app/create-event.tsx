@@ -20,12 +20,11 @@ import CustomDateTimePicker from "../components/DateTimePicker";
 import RoleFilterModal, { ClubRole } from "../components/RoleFilterModal";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
+import { useGroupData } from "../contexts/GroupDataContext";
 import { useUser } from "../contexts/UserContext";
 import { eventCreationService } from "../services/event/createEvent";
 import { getEventDetails } from "../services/event/eventService";
 import { recurringEventService } from "../services/event/recurringEvent";
-import { fetchGroupMembers } from "../services/fetchGroupMembers";
-import { subgroupService } from "../services/subgroup";
 
 interface EventData {
   title: string;
@@ -73,6 +72,7 @@ export default function CreateEventScreen() {
   const params = useLocalSearchParams();
   const { user } = useAuth();
   const { userProfile } = useUser();
+  const { getGroupMembers, getSubgroupMembers } = useGroupData();
 
   // DEBUG: Log received params
   console.log("🔍 CreateEvent - Received Params:", {
@@ -342,45 +342,41 @@ export default function CreateEventScreen() {
         return;
       }
 
-      let result;
+      let members: any[] = [];
       if (
         eventContext.level === "subgroup" &&
         eventContext.groupId &&
         eventContext.subgroupId
       ) {
-        // Fetch subgroup members specifically
-        result = await subgroupService.getSubgroupMembers(
+        // Get subgroup members from context
+        members = getSubgroupMembers(
           eventContext.clubId,
           eventContext.groupId,
           eventContext.subgroupId,
         );
-      } else {
-        result = await fetchGroupMembers(
-          eventContext.clubId,
-          eventContext.groupId!,
+      } else if (eventContext.groupId) {
+        // Get group members from context
+        members = getGroupMembers(eventContext.clubId, eventContext.groupId);
+      }
+
+      let filteredMembers = members;
+
+      // Apply role filter if active
+      if (selectedRoles.length > 0) {
+        filteredMembers = members.filter((member) =>
+          member.roles?.some((role: string) =>
+            selectedRoles.includes(role as ClubRole),
+          ),
         );
       }
 
-      if (result.success && result.members) {
-        let filteredMembers = result.members;
-
-        // Apply role filter if active
-        if (selectedRoles.length > 0) {
-          filteredMembers = result.members.filter((member) =>
-            member.roles?.some((role) =>
-              selectedRoles.includes(role as ClubRole),
-            ),
-          );
-        }
-
-        setMemberCount(filteredMembers.length);
-      }
+      setMemberCount(filteredMembers.length);
     } catch (error) {
       console.error("Error loading member count:", error);
     } finally {
       setIsLoadingMembers(false);
     }
-  }, [eventContext, selectedRoles]);
+  }, [eventContext, selectedRoles, getGroupMembers, getSubgroupMembers]);
 
   // Load member count on mount
   useEffect(() => {

@@ -3,20 +3,17 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
-import { fetchGroupMembers } from "@/services/fetchGroupMembers";
-import { groupService } from "@/services/group";
+import { useGroupData } from "@/contexts/GroupDataContext";
+import { useUser } from "@/contexts/UserContext";
 import { SubGroup, subgroupService } from "@/services/subgroup";
-import { GroupData } from "@/services/types/group";
-import { Ionicons } from "@expo/vector-icons";
 import {
-    router,
-    useFocusEffect,
-    useLocalSearchParams,
-    useNavigation,
-} from "expo-router";
+    isClubAdmin as checkIsClubAdmin,
+    getGroupRoles,
+} from "@/utils/permissionHelpers";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { doc, getDoc } from "firebase/firestore";
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import React, { useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
@@ -28,25 +25,51 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { db } from "../services/core/firebase";
 
 export default function SubgroupSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(["screens", "common"]);
   const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
+  const { userProfile } = useUser();
+  const { getGroup: getGroupFromCtx, getSubgroups: getSubgroupsFromCtx } =
+    useGroupData();
   const navigation = useNavigation();
-  const [group, setGroup] = useState<GroupData | null>(null);
-  const [subgroup, setSubgroup] = useState<SubGroup | null>(null);
-  const [userRole, setUserRole] = useState<string>("member");
-  const [loading, setLoading] = useState(true);
+
+  // Derive data from real-time contexts
+  const group = getGroupFromCtx(clubId as string, groupId as string);
+  const contextSubgroups = getSubgroupsFromCtx(
+    clubId as string,
+    groupId as string,
+  );
+  const subgroup = useMemo(
+    () =>
+      (contextSubgroups.find((sg) => sg.id === (subgroupId as string)) as
+        | SubGroup
+        | undefined) ?? null,
+    [contextSubgroups, subgroupId],
+  );
+  const loading = !group;
+
+  // Derive user role from permissionHelpers (sync)
+  const userRole = useMemo(() => {
+    if (!userProfile) return "member";
+    const cId = clubId as string;
+    const gId = groupId as string;
+    if (checkIsClubAdmin(userProfile, cId)) return "club-admin";
+    const roles = getGroupRoles(userProfile, cId, gId);
+    if (roles.includes("admin")) return "admin";
+    if (roles.includes("coach")) return "coach";
+    return "member";
+  }, [userProfile, clubId, groupId]);
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showRenameModal, setShowRenameModal] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [newName, setNewName] = useState(subgroup?.name || "");
   const [renaming, setRenaming] = useState(false);
 
   const displayName =
@@ -60,98 +83,6 @@ export default function SubgroupSettingsScreen() {
       title: `${displayName} Settings`,
     });
   }, [displayName, navigation]);
-
-  const fetchData = useCallback(async () => {
-    if (
-      !groupId ||
-      typeof groupId !== "string" ||
-      !clubId ||
-      typeof clubId !== "string" ||
-      !subgroupId ||
-      typeof subgroupId !== "string" ||
-      !user?.uid
-    )
-      return;
-
-    try {
-      // Fetch group, subgroup, members data, and user document
-      const [groupResult, subgroupData, membersResult, userSnapshot] =
-        await Promise.all([
-          groupService.getGroup(clubId, groupId),
-          subgroupService.getSubgroup(clubId, groupId, subgroupId),
-          fetchGroupMembers(clubId, groupId),
-          getDoc(doc(db, "users", user.uid)),
-        ]);
-
-      if (groupResult.success && groupResult.data) {
-        setGroup(groupResult.data);
-      }
-
-      if (subgroupData) {
-        setSubgroup(subgroupData);
-        setNewName(subgroupData.name);
-      }
-
-      const userData = userSnapshot.data();
-
-      // Find current user's role - check club-level first
-      let userRole = "member";
-
-      // First check club-level role from user document
-      if (userData?.clubAccess) {
-        const clubAccess = userData.clubAccess.find(
-          (c: any) => c.clubId === clubId,
-        );
-        if (clubAccess?.role === "club-admin") {
-          userRole = "club-admin"; // Club admin has all permissions in all groups
-        }
-      }
-
-      // If not club-admin, check group-level roles
-      if (userRole !== "club-admin") {
-        const membersData = membersResult.success
-          ? membersResult.members || []
-          : [];
-
-        membersData.forEach((member: any) => {
-          if (member.userId === user.uid) {
-            if (member.roles.includes("admin")) {
-              userRole = "admin";
-            } else if (member.roles.includes("coach")) {
-              userRole = "coach";
-            }
-          }
-        });
-
-        // If user is the group creator, consider them as admin
-        if (
-          groupResult.success &&
-          groupResult.data &&
-          groupResult.data.createdBy === user.uid &&
-          userRole === "member"
-        ) {
-          userRole = "admin";
-        }
-      }
-
-      setUserRole(userRole);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setErrorMessage(t("screens:subgroupSettings.failedToLoadSubgroupData"));
-      setShowErrorModal(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [groupId, clubId, subgroupId, user?.uid]);
-
-  // Removed useEffect double-fetch. Only useFocusEffect remains.
-
-  // Refresh data when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [fetchData]),
-  );
 
   const handleManageMembers = () => {
     const displayName =
@@ -193,7 +124,7 @@ export default function SubgroupSettingsScreen() {
         setShowRenameModal(false);
         setSuccessMessage(t("screens:subgroupSettings.subgroupRenamed"));
         setShowSuccessModal(true);
-        await fetchData(); // Refresh data
+        // Context will auto-refresh via onSnapshot
       } else {
         setErrorMessage(
           result.error || t("screens:subgroupSettings.failedToRenameSubgroup"),

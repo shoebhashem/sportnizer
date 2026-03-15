@@ -1,12 +1,12 @@
 import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { theme } from "@/constants/theme";
-import { fetchGroupMembers } from "@/services/fetchGroupMembers";
+import { useGroupData } from "@/contexts/GroupDataContext";
 import { subgroupService } from "@/services/subgroup";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
@@ -31,6 +31,20 @@ interface Member {
 export default function ManageSubgroupMembersScreen() {
   const { groupId, clubId, subgroupId, subgroupName } = useLocalSearchParams();
   const { t } = useTranslation(["screens", "common"]);
+  const { getGroupMembers, getSubgroupMembers: getSubgroupMembersFromCtx } =
+    useGroupData();
+
+  // Derive data from real-time context
+  const contextGroupMembers = getGroupMembers(
+    clubId as string,
+    groupId as string,
+  );
+  const contextSubgroupMembers = getSubgroupMembersFromCtx(
+    clubId as string,
+    groupId as string,
+    subgroupId as string,
+  );
+
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,101 +62,38 @@ export default function ManageSubgroupMembersScreen() {
     setErrorModal({ visible: true, title, message });
   };
 
-  const fetchMembersAndSubgroup = useCallback(async () => {
-    if (
-      !groupId ||
-      !clubId ||
-      !subgroupId ||
-      typeof groupId !== "string" ||
-      typeof clubId !== "string" ||
-      typeof subgroupId !== "string"
-    )
-      return;
+  // Build initial member list from context data
+  const initialMembers = useMemo(() => {
+    if (!contextGroupMembers.length) return [];
 
-    setLoading(true);
-    console.log("Fetching members with params:", {
-      groupId,
-      clubId,
-      subgroupId,
+    const subgroupMemberIds = new Set(
+      contextSubgroupMembers.map((m) => m.userId),
+    );
+
+    return contextGroupMembers.map((memberData) => {
+      const memberRoles = memberData.roles || [];
+      const memberRole = memberRoles[0] || "member";
+      const memberName =
+        memberData.name || memberData.email?.split("@")[0] || "Unknown User";
+      const isInSubgroup = subgroupMemberIds.has(memberData.userId);
+
+      return {
+        userId: memberData.userId,
+        role: memberRole,
+        roles: memberRoles,
+        name: memberName,
+        email: memberData.email || "",
+        selected: isInSubgroup,
+        originallySelected: isInSubgroup,
+      };
     });
-    try {
-      // Fetch all group members and current subgroup members
-      const [groupMembersResult, subgroupMembersResult] = await Promise.all([
-        fetchGroupMembers(clubId, groupId),
-        subgroupService.getSubgroupMembers(clubId, groupId, subgroupId),
-      ]);
+  }, [contextGroupMembers, contextSubgroupMembers]);
 
-      const allGroupMembers = groupMembersResult.success
-        ? groupMembersResult.members || []
-        : [];
-      const subgroupMembers = subgroupMembersResult.success
-        ? subgroupMembersResult.members || []
-        : [];
-
-      if (allGroupMembers.length === 0) {
-        console.log("No members found in group");
-        setMembers([]);
-        setLoading(false);
-        return;
-      }
-
-      // Create a Set of subgroup member IDs for quick lookup
-      const subgroupMemberIds = new Set(
-        subgroupMembers.map((m: any) => m.userId),
-      );
-
-      const processedMembers: Member[] = allGroupMembers.map(
-        (memberData: any) => {
-          // Handle both old role field and new roles array
-          let memberRole = "member";
-          let memberRoles: string[] = [];
-
-          if (memberData.roles && Array.isArray(memberData.roles)) {
-            // New schema: roles array
-            memberRoles = memberData.roles;
-            memberRole = memberRoles[0] || "member"; // Use first role as primary for display
-          } else {
-            // Old schema: role string
-            memberRole = memberData.role || "member";
-            memberRoles = [memberRole];
-          }
-
-          // Get member name
-          const memberName =
-            memberData.name ||
-            memberData.email?.split("@")[0] ||
-            "Unknown User";
-
-          // Check if member is currently in this subgroup
-          const isInSubgroup = subgroupMemberIds.has(memberData.userId);
-
-          return {
-            userId: memberData.userId,
-            role: memberRole,
-            roles: memberRoles,
-            name: memberName,
-            email: memberData.email || "",
-            selected: isInSubgroup,
-            originallySelected: isInSubgroup,
-          };
-        },
-      );
-
-      setMembers(processedMembers);
-    } catch (error) {
-      console.error("Error fetching members:", error);
-      showError(
-        t("common:error"),
-        t("screens:manageSubgroupMembers.failedToLoadMembers"),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [groupId, clubId, subgroupId]);
-
+  // Initialize members from context (only when context changes and user hasn't started editing)
   useEffect(() => {
-    fetchMembersAndSubgroup();
-  }, [fetchMembersAndSubgroup]);
+    setMembers(initialMembers);
+    setLoading(false);
+  }, [initialMembers]);
 
   const toggleMemberSelection = (userId: string) => {
     setMembers((prev) =>

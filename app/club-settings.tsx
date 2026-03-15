@@ -3,24 +3,19 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import CountdownTimer from "@/components/CountdownTimer";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
+import { useClubData } from "@/contexts/ClubDataContext";
 import { useUser } from "@/contexts/UserContext";
 import { clubService } from "@/services/club";
 import { createNewGroupInExistingClub } from "@/services/orchestration/createNewGroupInExistingClub";
 import { paymentService } from "@/services/paymentService";
-import { ClubData } from "@/services/types/club";
+import { isClubAdmin as checkClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-  useNavigation,
-} from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-  useCallback,
   useEffect,
   useLayoutEffect,
-  useState,
+  useState
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -40,9 +35,13 @@ export default function ClubSettingsScreen() {
   const { t } = useTranslation(["screens", "common"]);
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
+  const { getClub, isLoading: isClubLoading } = useClubData();
   const navigation = useNavigation();
-  const [club, setClub] = useState<ClubData | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  // Club data from context (real-time listener — no manual fetch needed)
+  const club =
+    (typeof clubId === "string" ? getClub(clubId) : undefined) ?? null;
+  const loading = isClubLoading && !club;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUndoModal, setShowUndoModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -68,49 +67,20 @@ export default function ClubSettingsScreen() {
     });
   }, [club?.name, navigation]);
 
-  const fetchClubData = useCallback(async () => {
-    if (!clubId || typeof clubId !== "string" || !firebaseUser?.uid) return;
-
-    try {
-      const clubResult = await clubService.getClub(clubId);
-
-      if (clubResult.success && clubResult.data) {
-        setClub(clubResult.data as ClubData);
-
-        // Check Stripe account status from club data
-        if (clubResult.data.stripe?.accountId) {
-          try {
-            const statusResult = await paymentService.checkStripeStatus(clubId);
-            if (statusResult.success && statusResult.status?.chargesEnabled) {
-              setStripeAccountStatus("active");
-            } else if (
-              statusResult.success &&
-              statusResult.status?.requiresAction
-            ) {
-              setStripeAccountStatus("pending");
-            }
-          } catch (stripeError) {
-            console.log("Could not fetch Stripe status:", stripeError);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching club data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [clubId, firebaseUser?.uid]);
-
+  // Check Stripe account status when club data becomes available
   useEffect(() => {
-    fetchClubData();
-  }, [fetchClubData]);
-
-  // Refresh data when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      fetchClubData();
-    }, [fetchClubData]),
-  );
+    if (!club?.stripe?.accountId || typeof clubId !== "string") return;
+    paymentService
+      .checkStripeStatus(clubId)
+      .then((result) => {
+        if (result.success && result.status?.chargesEnabled) {
+          setStripeAccountStatus("active");
+        } else if (result.success && result.status?.requiresAction) {
+          setStripeAccountStatus("pending");
+        }
+      })
+      .catch((err) => console.log("Could not fetch Stripe status:", err));
+  }, [club?.stripe?.accountId, clubId]);
 
   const handleDeleteClub = () => {
     setShowDeleteModal(true);
@@ -152,8 +122,7 @@ export default function ClubSettingsScreen() {
         );
         setShowSuccessModal(true);
 
-        // Refresh club data
-        await fetchClubData();
+        // Club data auto-refreshes via context listener
       } else {
         setErrorMessage(
           result.error || t("screens:clubSettings.failedToReactivateClub"),
@@ -254,9 +223,7 @@ export default function ClubSettingsScreen() {
   };
 
   const isScheduledForDeletion = !club?.isActive && club?.deletionScheduledAt;
-  const isClubAdmin = userProfile?.clubAccess?.some(
-    (c) => c.clubId === clubId && c.role === "club-admin",
-  );
+  const isClubAdmin = checkClubAdmin(userProfile, clubId as string);
 
   if (loading) {
     return (

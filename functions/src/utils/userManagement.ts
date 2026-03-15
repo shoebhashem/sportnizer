@@ -1,6 +1,11 @@
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getDefaultProfilePictureUrl } from "./config";
+import {
+    addClubMemberFields,
+    addGroupMemberFields,
+    flatArrayFieldsFromClubAccess,
+} from "./flatArrayHelpers";
 
 /**
  * User creation data interface - matches ARCHITECTURE.md structure
@@ -86,6 +91,8 @@ export const createOrUpdateUserWithGroup = async (
           [`clubAccess.${currentClubAccess.indexOf(existingClub)}.groupAccess`]:
             FieldValue.arrayUnion(newGroupMembership),
           version: FieldValue.increment(1),
+          // Flat role arrays — atomic add for the new group
+          ...addGroupMemberFields(groupId, [role]),
           ...additionalData,
         };
 
@@ -113,6 +120,9 @@ export const createOrUpdateUserWithGroup = async (
       const updates: any = {
         clubAccess: FieldValue.arrayUnion(newClubAccess),
         version: FieldValue.increment(1),
+        // Flat role arrays — atomic add for the new club + group
+        ...addClubMemberFields(clubId),
+        ...addGroupMemberFields(groupId, [role]),
         ...additionalData,
       };
 
@@ -150,6 +160,8 @@ export const createOrUpdateUserWithGroup = async (
 
     await userRef.set({
       ...defaultUserData,
+      // Flat role arrays derived from initial clubAccess
+      ...flatArrayFieldsFromClubAccess(defaultUserData.clubAccess),
       ...additionalData,
     });
   }

@@ -269,8 +269,8 @@ await addMemberToClubFn({
   },
 });
 
-// Refresh user profile to show new club
-await refreshUserProfile();
+// UserContext's onSnapshot listener auto-detects the user document change
+// No manual refresh needed — new club appears automatically
 
 // Navigate to home with club visible
 router.replace("/(tabs)");
@@ -2229,61 +2229,131 @@ const { user, login, logout, loading } = useAuth();
 
 ### UserContext.tsx
 
-**Purpose**: READ-ONLY user profile data management with intelligent version-based caching
+**Purpose**: READ-ONLY real-time user profile data via Firestore `onSnapshot` listener.
 
-**Core Principle**: UserContext is **READ-ONLY** - it never writes to Firestore, only reads and caches frequently accessed user data to reduce Firestore read operations.
+**Core Principle**: UserContext is **READ-ONLY** — it never writes to Firestore. It attaches a real-time `onSnapshot` listener to `/users/{uid}` so every screen always has the latest user profile without manual refreshes.
 
 **Key Features**:
 
-- **Cross-platform caching**: Works on Web, Android, and iOS using local storage/cache
-- **Version-based cache invalidation**: Only stores user document (`/users/{userId}/`) with version checking
-- **Service integration**: Uses `fetchUserProfile()` service for clean data fetching
-- **Cache optimization**: Reduces Firestore reads by comparing document versions
-- **Automatic sync**: Detects version changes and updates cache when user document changes
-- **Global data provider**: All screens get user data from local cache (not direct Firestore)
+- **Real-time listener**: `onSnapshot` on `/users/{uid}` delivers instant updates when any field changes (roles, club memberships, group access, etc.)
+- **Automatic lifecycle**: Listener attaches when `firebaseUser` authenticates, detaches on sign-out or unmount
+- **Timestamp conversion**: Built-in `toDate()` helper converts Firestore `Timestamp` fields to JavaScript `Date` objects
+- **Loading state**: `hasLoadedFreshData` flag distinguishes "still waiting for first snapshot" from "data received"
+- **Global data provider**: All screens access user data through `useUser()` — no direct Firestore calls
 
-**Cache Strategy**:
+**Data Flow**:
 
-```typescript
-// User document only (version-cached for performance):
-/users/{userId} → Local Cache (with version checking) → Provided to all screens
-
-// Other documents (direct reads when needed):
-/clubs/{clubId} → Always fetch from Firestore (no caching)
-/groups/{groupId} → Always fetch from Firestore (no caching)
-/events/{eventId} → Always fetch from Firestore (no caching)
+```
+Firebase Auth login
+  → onSnapshot(/users/{uid}) attached
+    → snapshot fires immediately with current data
+    → snapshot fires again on any server-side change
+      → userProfile state updated → all consumers re-render
+Firebase Auth logout / unmount
+  → listener detached, userProfile cleared
 ```
 
-**Usage**: Import `useUser` hook for READ-ONLY user profile operations:
+**Usage**: Import `useUser` hook for READ-ONLY user profile data:
 
 ```typescript
-const { userProfile, refreshUserProfile, clearUserData, isFromCache } =
-  useUser();
-// NOTE: NO updateUserProfile - UserContext is READ-ONLY
+const {
+  firebaseUser,
+  userProfile,
+  isLoading,
+  isAuthenticated,
+  hasLoadedFreshData,
+  clearUserData,
+} = useUser();
+// NOTE: NO write methods — UserContext is READ-ONLY
+// userProfile updates automatically via onSnapshot — no manual refresh needed
 ```
-
-**Version-Based Cache Flow**:
-
-1. **App requests user data** → UserContext checks local cache
-2. **Version check** → Reads version from Firestore (`/users/{userId}.version`)
-3. **Version comparison**:
-   - If `localVersion >= firestoreVersion` → Return cached data (fast)
-   - If `localVersion < firestoreVersion` → Fetch complete document from Firestore
-4. **Cache update** → Store fresh data + version in local storage
-5. **Data delivery** → Always serve from local cache to ensure consistent performance
-
-**Cross-Platform Compatibility**:
-
-- **Web**: Uses localStorage/IndexedDB
-- **Android/iOS**: Uses AsyncStorage via React Native
-- **Unified interface**: Same API across all platforms
 
 **Context Integration**:
 
 - AuthContext provides Firebase user authentication state
-- UserContext provides Clubnizer app user profile data
+- UserContext provides Clubnizer app user profile data via real-time listener
 - Both contexts work independently but complement each other
-- Authentication state changes trigger user profile refresh
+- Authentication state changes control listener lifecycle (attach on login, detach on logout)
+
+### ClubDataContext.tsx
+
+**Purpose**: Real-time Firestore listeners for club documents and admin-only club member data.
+
+**Key Features**:
+
+- Attaches `onSnapshot` listeners to `/clubs/{clubId}` for each club the user belongs to
+- For club admins only: also listens to `/clubs/{clubId}/allMembers/*` (security-rule restricted)
+- Listener lifecycle tied to `userProfile.clubAccess[]` — auto-attaches/detaches as memberships change
+- Uses serialized `clubAccessKey` to avoid unnecessary listener re-attachment
+
+**Key Exports**:
+
+```typescript
+const { clubs, clubMembers, isLoading, getClub, getClubMembers } =
+  useClubData();
+// clubs: Map<string, ClubData>
+// clubMembers: Map<string, ClubMemberData[]> (admin-only, keyed by clubId)
+// getClub(clubId): ClubData | undefined
+// getClubMembers(clubId): ClubMemberData[]
+```
+
+**Security Constraint**: `allMembers` subcollection requires `club-admin` role. Non-admin screens needing club member lists must use Cloud Functions.
+
+### GroupDataContext.tsx
+
+**Purpose**: Real-time listeners for groups, group members, subgroup collections, and dynamic subgroup member listeners.
+
+**Key Features**:
+
+- Listens to groups and group members for each `groupAccess[]` entry in user profile
+- Listens to subgroup collections and dynamically attaches subgroup member listeners
+- Uses composite keys: `"clubId:groupId"` for group-level, `"clubId:groupId:subgroupId"` for subgroup-level
+
+**Key Exports**:
+
+```typescript
+const {
+  groups,
+  groupMembers,
+  subgroups,
+  subgroupMembers,
+  isLoading,
+  getGroup,
+  getGroupMembers,
+  getSubgroups,
+  getSubgroupMembers,
+} = useGroupData();
+// getGroup(clubId, groupId): GroupData | undefined
+// getGroupMembers(clubId, groupId): GroupMemberData[]
+// getSubgroups(clubId, groupId): SubgroupData[]
+// getSubgroupMembers(clubId, groupId, subgroupId): GroupMemberData[]
+```
+
+### permissionHelpers.ts
+
+**Purpose**: Pure synchronous permission check functions operating on `UserProfile` from context.
+
+**Key Exports**:
+
+```typescript
+isClubAdmin(userProfile, clubId): boolean
+canManageClub(userProfile, clubId): boolean
+getUserClubRole(userProfile, clubId): "club-admin" | "member" | null
+getGroupRoles(userProfile, clubId, groupId): string[]
+canManageGroup(userProfile, clubId, groupId): boolean  // club-admin OR group admin/coach
+isGroupMember(userProfile, clubId, groupId): boolean
+getHighestRole(roles): string
+getActiveClubIds(userProfile): string[]
+getActiveGroups(userProfile, clubId): GroupAccess[]
+```
+
+### Provider Nesting Order
+
+```
+LanguageProvider > DataCacheProvider > UserProvider > ClubDataProvider > GroupDataProvider > EventProvider > NewsProvider > AuthProvider
+```
+
+**Migration Status**: All app screens have been migrated from manual `fetchGroupMembers()` / `fetchClubMembers()` / inline permission checks to use these context providers and permission helpers. Screens now receive real-time data updates via Firestore `onSnapshot` listeners instead of one-shot fetches.
 
 ## Firebase Functions Structure
 
@@ -2978,13 +3048,13 @@ services/
 
 #### Read-Only Services
 
-Services that call Firebase Functions for data fetching:
+Services that call Firebase Functions for data fetching. **Note:** With the real-time listener migration, app screens no longer call these services directly. They are retained for use by backend Cloud Functions and orchestration services only.
 
 ```
 services/
-├── fetchUserAccess.ts       # Calls getUserProfile Firebase Function
-├── fetchGroupMembers.ts     # Calls getGroupMembers Firebase Function
-├── fetchClubMembers.ts      # Calls getClubMembers Firebase Function
+├── fetchUserAccess.ts       # Calls getUserProfile Firebase Function (superseded by UserContext onSnapshot for screens)
+├── fetchGroupMembers.ts     # Calls getGroupMembers Firebase Function (superseded by GroupDataContext for screens)
+├── fetchClubMembers.ts      # Calls getClubMembers Firebase Function (superseded by ClubDataContext for screens)
 ├── fetchEventMembers.ts     # Calls getEventMembers Firebase Function (TODO: implement)
 ```
 
@@ -2996,7 +3066,12 @@ services/
 - `canUserManageGroup(userId, clubId, groupId)` - Check group management permissions
 - Helper utilities for role validation and access summary
 
-**UserContext Integration**: UserContext now uses `fetchUserProfile()` service instead of direct Firestore calls, providing cleaner separation of concerns and reusable user data fetching.
+**Screen-Level Data Access**: App screens now use context providers instead of these services:
+
+- **User data**: `useUser().userProfile` (real-time via `onSnapshot`)
+- **Club data**: `useClubData().getClub(clubId)` / `useClubData().getClubMembers(clubId)` (real-time via `onSnapshot`)
+- **Group data**: `useGroupData().getGroupMembers(clubId, groupId)` / `useGroupData().getSubgroups(clubId, groupId)` (real-time via `onSnapshot`)
+- **Permissions**: `permissionHelpers.isClubAdmin(userProfile, clubId)` / `canManageGroup(userProfile, clubId, groupId)` (synchronous checks on live profile)
 
 #### Thin Orchestration Services
 
@@ -5816,9 +5891,22 @@ member.scheduledForDeletion = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
 ### UI Filtering for Active Members
 
-#### Frontend Service Layer
+#### Real-Time Context Layer (App Screens)
+
+App screens now receive group member data via `GroupDataContext`, which attaches `onSnapshot` listeners to the group's `allMembers` subcollection. The context delivers real-time updates automatically.
+
+```typescript
+// In any screen that needs group members:
+const { getGroupMembers } = useGroupData();
+const members = getGroupMembers(clubId, groupId);
+// members is always up-to-date — no manual fetch needed
+```
+
+#### Legacy Service Layer (Cloud Functions Only)
 
 **File:** `services/fetchGroupMembers.ts`
+
+> **Note:** This service is retained for use by backend orchestration services and Cloud Functions. App screens no longer call it directly.
 
 ```typescript
 export async function fetchGroupMembers(clubId: string, groupId: string) {
@@ -6020,7 +6108,15 @@ interface UpdateMemberRoleRequest {
         },
       ],
     },
-  ];
+  ],
+
+  // ── Flat role arrays (derived from clubAccess, used by Firestore security rules) ──
+  adminOfClubs: ["club1"],        // clubIds where role === "club-admin" & isActive
+  memberOfClubs: ["club2"],       // clubIds where role === "member" & isActive
+  adminOfGroups: ["group3"],      // groupIds where roles includes "admin"
+  coachOfGroups: ["group2"],      // groupIds where roles includes "coach"
+  memberOfGroups: ["group1", "group2"], // ALL active group IDs with any role
+  guardianOfGroups: [],           // groupIds where roles includes "guardian"
 }
 ```
 
@@ -6698,17 +6794,15 @@ interface RemoveMemberScreen {
   selectedMember: GroupMemberData | null;
   loading: boolean;
 
-  // Fetch members on mount
-  async fetchMembers() {
-    const result = await fetchGroupMembers(clubId, groupId);
-    const filtered = result.members.filter(m => {
-      if (memberType === 'player') {
-        return m.roles.includes('player') || m.roles.includes('player-underage');
-      }
-      return m.roles.includes(memberType);
-    });
-    setMembers(filtered);
-  }
+  // Members come from real-time context (no manual fetch)
+  const { getGroupMembers } = useGroupData();
+  const allMembers = getGroupMembers(clubId, groupId);
+  const members = allMembers.filter(m => {
+    if (memberType === 'player') {
+      return m.roles.includes('player') || m.roles.includes('player-underage');
+    }
+    return m.roles.includes(memberType);
+  });
 
   // Removal handler
   async handleRemove() {
@@ -6875,7 +6969,7 @@ Club admins can view payment status for membership fees at the group level.
 **Data Sources:**
 
 - `paymentService.getMembershipFees(clubId, groupId)` - Get fees for the group
-- `fetchGroupMembers(clubId, groupId)` - Get members with `paymentStatus` field
+- `useGroupData().getGroupMembers(clubId, groupId)` - Real-time group members with `paymentStatus` field (via `onSnapshot` listener)
 
 ---
 
@@ -8854,7 +8948,7 @@ The Event Management system allows club and group administrators to create event
 
 - **Single Document Storage**: Events stored as one document with embedded responses array (cost-effective)
 - **Year-Based Statistics**: Statistics separated by year for scalability and easy archival
-- **Permission Integration**: Reuses existing `permissionService` for consistent access control
+- **Permission Integration**: Uses `permissionHelpers` (synchronous checks on live `userProfile` from context) for consistent access control
 - **Notification Reuse**: Leverages existing `createNotificationDirect()` function
 - **targetScope Structure**: Events store context in nested targetScope object with clubId, groupId, subgroupId
 
@@ -9147,9 +9241,9 @@ interface YearlyAttendanceStatistics {
 
 **Permission Integration:**
 
-- Reuses existing `permissionService.canManageClub(userId, clubId)`
-- Reuses existing `permissionService.canManageGroup(userId, clubId, groupId)`
-- Consistent with existing permission architecture
+- Uses `permissionHelpers.isClubAdmin(userProfile, clubId)` for club-level checks (synchronous, from live profile)
+- Uses `permissionHelpers.canManageGroup(userProfile, clubId, groupId)` for group-level checks
+- Consistent with the real-time listener permission architecture
 
 ---
 
@@ -9404,7 +9498,7 @@ Clubnizer implements a sophisticated role-based event fetching strategy that opt
 
 #### EventContext Architecture
 
-**Pattern**: Version-based caching with role detection (follows UserContext pattern)
+**Pattern**: Role-based caching strategy (privileged users get real-time listeners, regular users get cache + background refresh)
 
 ```typescript
 // contexts/EventContext.tsx
@@ -9445,23 +9539,23 @@ interface EventContextType {
 **Logic** (`utils/roleUtils.ts`):
 
 ```typescript
-export async function isPrivilegedUser(
-  userId: string,
+export function isPrivilegedUser(
+  userProfile: UserProfile | null | undefined,
   clubId: string,
-): Promise<boolean> {
-  // Uses permissionService (5-min cache) + fetchUserProfile (version cache)
+): boolean {
+  // Uses permissionHelpers (synchronous checks on live userProfile from context)
 
   // Check 1: Is user a club-admin?
-  const isClubAdmin = await permissionService.canManageClub(userId, clubId);
-  if (isClubAdmin) return true;
+  if (isClubAdmin(userProfile, clubId)) return true;
 
   // Check 2: Is user admin or coach in ANY group?
-  const userProfile = await fetchUserProfile(userId);
   const clubData = userProfile?.clubAccess?.find((c) => c.clubId === clubId);
 
   if (clubData?.groupAccess) {
     const hasManageRole = clubData.groupAccess.some(
-      (g) => g.role === "admin" || g.role === "coach",
+      (g) =>
+        g.isActive !== false &&
+        g.roles?.some((r) => r === "admin" || r === "coach"),
     );
     return hasManageRole;
   }
@@ -9472,10 +9566,9 @@ export async function isPrivilegedUser(
 
 **Performance:**
 
-- Uses cached permission checks (5-minute TTL)
-- Uses cached user profile (version-based invalidation)
-- No direct Firestore queries (architecture-compliant)
-- Fast execution (~10-20ms typical)
+- Synchronous check on in-memory `userProfile` from `UserContext` (real-time listener)
+- No async calls, no caching layer — data is always live
+- Instant execution (~0ms)
 
 #### Event Listener Service
 
@@ -13489,42 +13582,52 @@ Clubnizer uses a **6-tier role system** with clear scope boundaries:
 - **Stored in**: Group's `allMembers/members` document with `roles: ['guardian']`
 - **Special**: Linked to youth players via `guardiansContacts` relationship
 
-### Permission Service (`services/permissions.ts`)
+### Permission Helpers (`utils/permissionHelpers.ts`)
 
-**Centralized permission checking** with caching strategy aligned with `UserContext`.
+**Pure synchronous permission checking** operating on the live `userProfile` from `UserContext`. Since `UserContext` is backed by a real-time `onSnapshot` listener, permission checks are always up-to-date with zero latency.
 
 #### **Core Methods:**
 
 ```typescript
-// Check if user can manage a club
-await permissionService.canManageClub(userId: string, clubId: string): Promise<boolean>
-// Returns true if user has 'club-admin' role in that club
+// Check if user is a club admin
+isClubAdmin(userProfile, clubId): boolean
+// Returns true if user has 'club-admin' role and isActive !== false
 
-// Check if user can manage a group (and its subgroups)
-await permissionService.canManageGroup(userId: string, clubId: string, groupId: string): Promise<boolean>
+// Alias for isClubAdmin (may grow to include more roles in the future)
+canManageClub(userProfile, clubId): boolean
+
+// Get club-level role
+getUserClubRole(userProfile, clubId): "club-admin" | "member" | null
+
+// Get group-level roles array
+getGroupRoles(userProfile, clubId, groupId): string[]
+
+// Check if user can manage a group (add/remove members, edit settings)
+canManageGroup(userProfile, clubId, groupId): boolean
 // Returns true if user is:
 //  - club-admin in parent club, OR
-//  - group creator (createdBy), OR
 //  - has 'admin' role in group, OR
 //  - has 'coach' role in group
 
-// Get user's roles in a context
-await permissionService.getUserRolesInContext(
-  userId: string,
-  context: { clubId: string, groupId?: string }
-): Promise<UserRole[]>
+// Check if user has any role in the group
+isGroupMember(userProfile, clubId, groupId): boolean
 
-// Clear permission cache
-await permissionService.clearPermissionCache(userId: string): Promise<void>
+// Get highest privilege role across all groups in a club
+getHighestRole(userProfile, clubId): "club-admin" | "admin" | "coach" | "player" | "player-underage" | "guardian" | "member" | null
+
+// Get all active club IDs
+getActiveClubIds(userProfile): string[]
+
+// Get all active groups for a club
+getActiveGroups(userProfile, clubId): { groupId, groupName, roles }[]
 ```
 
-#### **Caching Strategy:**
+#### **Design:**
 
-- **Memory cache**: Fast access, cleared on app restart
-- **Storage cache**: Persistent across sessions using `CrossPlatformStorage`
-- **Cache expiry**: 5 minutes (aligned with UserContext pattern)
-- **Cache key format**: `permission_cache_v1_{userId}_{clubId}_{groupId?}`
-- **Auto-invalidation**: On permission changes, context switches
+- **No async**: All functions are synchronous — no Promises, no caching, no timers
+- **No Firebase dependency**: Pure logic operating on `UserProfile` type
+- **Always fresh data**: `userProfile` comes from `onSnapshot` listener, so permission checks reflect the latest server state
+- **Testable**: Zero side effects, easy to unit test with fixture data
 
 #### **Permission Inheritance:**
 
@@ -13544,21 +13647,10 @@ await permissionService.clearPermissionCache(userId: string): Promise<void>
 
 ```typescript
 // In manage-group.tsx
-const [canManage, setCanManage] = useState(false);
+const { userProfile } = useUser();
 
-useEffect(() => {
-  async function checkPermissions() {
-    if (user && clubId && groupId) {
-      const hasPermission = await permissionService.canManageGroup(
-        user.uid,
-        clubId,
-        groupId
-      );
-      setCanManage(hasPermission);
-    }
-  }
-  checkPermissions();
-}, [user, clubId, groupId]);
+// Synchronous check — no async, no useEffect for permission loading
+const canManage = canManageGroup(userProfile, clubId, groupId);
 
 // Conditionally render kebab menu
 {canManage && (
@@ -13720,27 +13812,53 @@ allow delete: if isClubAdmin(clubId) || isGroupAdmin(clubId, groupId);
 ```javascript
 // How security rules verify permissions:
 1. Check authentication: isSignedIn()
-2. Verify user document exists: exists(/databases/.../users/{uid})
-3. Check club membership: exists(/databases/.../clubs/{clubId}/allMembers/{uid})
-4. Verify specific role: get(...).data.roles.hasAny(['admin', 'coach'])
+2. Read user document (cached per request): getUserData()
+3. Check flat role arrays on user doc:
+   - isClubAdmin(clubId)     → clubId in getUserData().adminOfClubs
+   - hasClubAccess(clubId)   → adminOfClubs or memberOfClubs
+   - hasGroupRole(groupId, role) → groupId in the matching flat array
+   - hasGroupAccess(groupId) → groupId in memberOfGroups
 ```
 
 ### Security Rule Strategy
 
-#### **Membership-Based Verification:**
+#### **Flat Role Arrays (Single-Document Verification):**
 
-Due to Firestore rules limitations with nested array operations, permissions are verified through **membership documents** rather than parsing the nested `clubAccess` arrays:
+Permissions are verified through **flat role arrays** stored directly on each user document (`/users/{userId}`). When any Cloud Function mutates `clubAccess`, it also writes six derived flat arrays:
 
-- **Club Access**: Checked via `/clubs/{clubId}/allMembers/{userId}` document existence
-- **Group Access**: Checked via `/clubs/{clubId}/groups/{groupId}/allMembers/{userId}` document
-- **Role Verification**: Uses `roles` array in membership documents
+| Flat Array         | Derived From                                                           |
+| ------------------ | ---------------------------------------------------------------------- |
+| `adminOfClubs`     | `clubAccess[].role === "club-admin"` (active only)                     |
+| `memberOfClubs`    | `clubAccess[].role === "member"` (active only)                         |
+| `adminOfGroups`    | `clubAccess[].groupAccess[].roles` includes `"admin"` (active only)    |
+| `coachOfGroups`    | `clubAccess[].groupAccess[].roles` includes `"coach"` (active only)    |
+| `memberOfGroups`   | All active group IDs with any role                                     |
+| `guardianOfGroups` | `clubAccess[].groupAccess[].roles` includes `"guardian"` (active only) |
 
-#### **Why This Approach:**
+#### **Why Flat Arrays:**
 
-- **Performance**: Direct document lookups are faster than nested array parsing
-- **Simplicity**: Clearer logic in security rules (Firestore rules language is limited)
-- **Reliability**: Membership documents are authoritative source of roles
-- **Consistency**: Same role data used by both security rules and application logic
+- **Single document read**: Security rules read one cached user doc for ALL permission checks in a request
+- **No cross-collection lookups**: Eliminates `exists()` / `get()` calls to `allMembers` sub-collections
+- **Cost efficiency**: One Firestore read vs. multiple `exists()` calls per rule evaluation
+- **Correctness**: `allMembers/members` is an aggregate doc (not per-user), so per-user lookups would fail
+- **Simplicity**: `clubId in resource.data.adminOfClubs` is straightforward in rules language
+
+#### **Shared Helper — `flatArrayHelpers.ts`:**
+
+All Cloud Functions that write `clubAccess` import `flatArrayFieldsFromClubAccess()` from `functions/src/utils/flatArrayHelpers.ts` and spread the result into the same `update()` call:
+
+```typescript
+import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
+
+await userRef.update({
+  clubAccess,
+  ...flatArrayFieldsFromClubAccess(clubAccess),
+});
+```
+
+#### **Backfill — `backfillFlatArrays.ts`:**
+
+A one-time callable function (`backfillFlatArrays`) in `functions/src/utils/backfillFlatArrays.ts` populates flat arrays for all existing users. Run it once after deploying the updated Cloud Functions.
 
 ### Critical Security Principles
 

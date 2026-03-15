@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
+import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
 export interface RespondToGroupInviteRequest {
@@ -134,6 +135,7 @@ export const respondToGroupInvite = onCall(
         // Update user document
         await userRef.update({
           clubAccess: clubAccess,
+          ...flatArrayFieldsFromClubAccess(clubAccess),
           lastModified: FieldValue.serverTimestamp(),
           version: FieldValue.increment(1),
         });
@@ -391,6 +393,7 @@ export const respondToGroupInvite = onCall(
         // Update user document
         await userRef.update({
           clubAccess: clubAccess,
+          ...flatArrayFieldsFromClubAccess(clubAccess),
           lastModified: FieldValue.serverTimestamp(),
           version: FieldValue.increment(1),
         });

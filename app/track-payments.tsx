@@ -8,7 +8,7 @@ import PaymentStatusBadge, {
 } from "@/components/PaymentStatusBadge";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
-import { fetchGroupMembers } from "@/services/fetchGroupMembers";
+import { useGroupData } from "@/contexts/GroupDataContext";
 import { MembershipFee, paymentService } from "@/services/paymentService";
 import { GroupMemberData } from "@/services/types/group";
 import { Ionicons } from "@expo/vector-icons";
@@ -65,6 +65,13 @@ export default function TrackPaymentsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { clubId, groupId, groupName } = useLocalSearchParams();
+  const { getGroupMembers } = useGroupData();
+
+  // Get members from real-time context
+  const contextGroupMembers = getGroupMembers(
+    clubId as string,
+    groupId as string,
+  );
 
   // State
   const [loading, setLoading] = useState(true);
@@ -115,78 +122,72 @@ export default function TrackPaymentsScreen() {
     }
   }, [clubId, groupId, t]);
 
-  // Fetch members with payment status
+  // Derive members with payment status from context
   const fetchMembersWithPaymentStatus = useCallback(async () => {
     if (!clubId || !groupId) return;
 
     try {
-      const result = await fetchGroupMembers(
-        clubId as string,
-        groupId as string,
-      );
+      // Cast context members to include potential payment data
+      const membersWithPaymentData =
+        contextGroupMembers as MemberWithPaymentData[];
 
-      if (result.success && result.members) {
-        // Cast members to include potential payment data from Firestore
-        const membersWithPaymentData =
-          result.members as MemberWithPaymentData[];
+      // Map members with their payment status
+      const membersWithStatus: MemberPaymentInfo[] = membersWithPaymentData.map(
+        (member) => {
+          // Payment data may be stored in member document from Firestore
+          const paymentData = member.paymentStatus;
 
-        // Map members with their payment status
-        const membersWithStatus: MemberPaymentInfo[] =
-          membersWithPaymentData.map((member) => {
-            // Payment data may be stored in member document from Firestore
-            const paymentData = member.paymentStatus;
+          // Determine payment status
+          let status: PaymentStatus = "no_fee";
 
-            // Determine payment status
-            let status: PaymentStatus = "no_fee";
-
-            if (
-              paymentData &&
-              selectedFee &&
-              paymentData.activeFeeId === selectedFee.feeId
-            ) {
-              if (paymentData.status === "paid") {
-                status = "paid";
-              } else if (paymentData.status === "overdue") {
+          if (
+            paymentData &&
+            selectedFee &&
+            paymentData.activeFeeId === selectedFee.feeId
+          ) {
+            if (paymentData.status === "paid") {
+              status = "paid";
+            } else if (paymentData.status === "overdue") {
+              status = "overdue";
+            } else {
+              status = "pending";
+            }
+          } else if (selectedFee) {
+            // Check if member should pay this fee (in includedMembers)
+            // For simplicity, check if member has a payer role
+            const payerRoles = ["player", "player-underage"];
+            const hasPayerRole = member.roles.some((r: string) =>
+              payerRoles.includes(r),
+            );
+            if (hasPayerRole) {
+              // Check if fee is overdue
+              if (selectedFee.dueDate && new Date() > selectedFee.dueDate) {
                 status = "overdue";
               } else {
                 status = "pending";
               }
-            } else if (selectedFee) {
-              // Check if member should pay this fee (in includedMembers)
-              // For simplicity, check if member has a payer role
-              const payerRoles = ["player", "player-underage"];
-              const hasPayerRole = member.roles.some((r: string) =>
-                payerRoles.includes(r),
-              );
-              if (hasPayerRole) {
-                // Check if fee is overdue
-                if (selectedFee.dueDate && new Date() > selectedFee.dueDate) {
-                  status = "overdue";
-                } else {
-                  status = "pending";
-                }
-              }
             }
+          }
 
-            return {
-              userId: member.userId,
-              name: member.name,
-              email: member.email,
-              roles: member.roles,
-              photoURL: member.photoURL,
-              needsGuardian: member.needsGuardian,
-              displayPaymentStatus: status,
-              paidBy: paymentData?.paidBy || null,
-              paidAt: paymentData?.paidAt || null,
-            };
-          });
+          return {
+            userId: member.userId,
+            name: member.name,
+            email: member.email,
+            roles: member.roles,
+            photoURL: member.photoURL,
+            needsGuardian: member.needsGuardian,
+            displayPaymentStatus: status,
+            paidBy: paymentData?.paidBy || null,
+            paidAt: paymentData?.paidAt || null,
+          };
+        },
+      );
 
-        setMembers(membersWithStatus);
-      }
+      setMembers(membersWithStatus);
     } catch (error) {
       console.error("Error fetching members:", error);
     }
-  }, [clubId, groupId, selectedFee]);
+  }, [clubId, groupId, contextGroupMembers, selectedFee]);
 
   // Initial load
   useEffect(() => {

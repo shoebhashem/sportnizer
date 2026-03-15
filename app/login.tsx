@@ -26,7 +26,7 @@ import {
 export default function LoginScreen() {
   const { t } = useTranslation(["screens", "common"]);
   const { invite } = useLocalSearchParams<{ invite?: string }>();
-  const { refreshUserProfile, firebaseUser } = useUser();
+  const { firebaseUser } = useUser();
 
   // Clean up expired invitations on component mount
   useEffect(() => {
@@ -287,11 +287,8 @@ export default function LoginScreen() {
           invitationInfo,
         });
 
-        // ✅ CRITICAL FIX: Refresh user profile to get fresh data from Firestore
-        // This ensures newly added club memberships are loaded before navigation
-        console.log("🔄 Refreshing user profile before navigation...");
-        await refreshUserProfile();
-        console.log("✅ User profile refreshed");
+        // User doc listener in UserContext will load fresh data automatically
+        // after auth state changes — no manual refresh needed.
 
         // If there's an invitation token, show the invitation modal
         if ((invite || currentInviteToken) && invitationInfo) {
@@ -422,8 +419,7 @@ export default function LoginScreen() {
           console.error("Error clearing stored invitation:", error);
         }
 
-        // Refresh user profile to update the groups list
-        await refreshUserProfile();
+        // User doc listener in UserContext picks up the updated groups list automatically
 
         setInvitationModalVisible(false);
         // Show success message before navigating

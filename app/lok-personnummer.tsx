@@ -33,13 +33,12 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
-    Alert,
     Linking,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View
+    View,
 } from "react-native";
 
 export default function LokPersonnummerScreen() {
@@ -61,6 +60,18 @@ export default function LokPersonnummerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
+
+  // Alert modal state (cross-platform replacement for Alert.alert)
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({ visible: false, title: "", message: "" });
+
+  const showAlert = (title: string, message: string) =>
+    setAlertModal({ visible: true, title, message });
+  const hideAlert = () =>
+    setAlertModal({ visible: false, title: "", message: "" });
 
   // Fetch existing personnummer status
   useEffect(() => {
@@ -112,10 +123,9 @@ export default function LokPersonnummerScreen() {
         setConsentGiven(false);
         setIsReplacing(false);
 
-        Alert.alert(
+        showAlert(
           t("screens:lokPersonnummer.successTitle"),
           t("screens:lokPersonnummer.successMessage"),
-          [{ text: t("common:ok") }],
         );
       } else {
         setError(result.error || t("common:somethingWentWrong"));
@@ -142,18 +152,18 @@ export default function LokPersonnummerScreen() {
         });
         setShowRemoveModal(false);
 
-        Alert.alert(
+        showAlert(
           t("screens:lokPersonnummer.removedTitle"),
           t("screens:lokPersonnummer.removedMessage"),
         );
       } else {
-        Alert.alert(
+        showAlert(
           t("common:error"),
           result.error || t("common:somethingWentWrong"),
         );
       }
     } catch (err: any) {
-      Alert.alert(
+      showAlert(
         t("common:error"),
         err.message || t("common:somethingWentWrong"),
       );
@@ -330,6 +340,16 @@ export default function LokPersonnummerScreen() {
         onConfirm={handleRemove}
         onCancel={() => setShowRemoveModal(false)}
         confirmButtonTheme="primary"
+      />
+
+      {/* Alert Modal (cross-platform replacement for Alert.alert) */}
+      <ConfirmationModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        confirmText={t("common:ok")}
+        onConfirm={hideAlert}
+        onCancel={hideAlert}
       />
     </SafeAreaView>
   );

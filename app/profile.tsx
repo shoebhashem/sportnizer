@@ -40,7 +40,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { userProfile, refreshUserProfile } = useUser();
+  const { userProfile } = useUser();
   const { language, setLanguage } = useLanguage();
   const { t } = useTranslation(["screens", "common"]);
 
@@ -259,7 +259,7 @@ export default function ProfileScreen() {
 
       const result = await updateUserProfile(profileData);
       if (result.success) {
-        await refreshUserProfile();
+        // User doc listener in UserContext picks up profile changes automatically
         setIsEditing(false);
         showAlert("Success", "Profile updated successfully!");
       } else {
@@ -276,10 +276,9 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleImageUploadSuccess = async (newImageUrl: string) => {
+  const handleImageUploadSuccess = (newImageUrl: string) => {
     setCurrentPhotoURL(newImageUrl);
-    // Refresh user profile so the tab bar avatar also updates
-    await refreshUserProfile();
+    // User doc listener in UserContext picks up the new photoURL automatically
     showAlert(t("common:success"), t("screens:profile.profilePictureUploaded"));
   };
 

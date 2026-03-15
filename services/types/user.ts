@@ -31,6 +31,18 @@ export interface UserProfile {
     acceptedAt: Date;
     acceptanceMethod: string;
   };
+
+  // ---------------------------------------------------------------------------
+  // Flat role arrays — used by Firestore security rules for cheap permission
+  // checks (1 cached read on /users/{uid}).  Maintained in sync with clubAccess
+  // by every Cloud Function that writes clubAccess / groupAccess.
+  // ---------------------------------------------------------------------------
+  adminOfClubs?: string[]; // clubIds where role === "club-admin"
+  memberOfClubs?: string[]; // clubIds where role === "member"
+  adminOfGroups?: string[]; // groupIds where roles includes "admin"
+  coachOfGroups?: string[]; // groupIds where roles includes "coach"
+  memberOfGroups?: string[]; // ALL groupIds the user has any role in
+  guardianOfGroups?: string[]; // groupIds where roles includes "guardian"
 }
 
 // Dependent (youth member) info stored in guardian's document

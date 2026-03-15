@@ -4,26 +4,19 @@ import MemberContactModal from "@/components/MemberContactModal";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDataCache } from "@/contexts/DataCacheContext";
-import { fetchGroupMembers } from "@/services/fetchGroupMembers";
-import { groupService } from "@/services/group";
-import { subgroupService } from "@/services/subgroup";
-import { GroupData, GroupMemberData } from "@/services/types/group";
+import { useGroupData } from "@/contexts/GroupDataContext";
+import { useUser } from "@/contexts/UserContext";
+import { GroupMemberData } from "@/services/types/group";
+import { canManageGroup } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
-import {
-    router,
-    useFocusEffect,
-    useLocalSearchParams,
-    useNavigation,
-} from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
     Image,
-    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -33,30 +26,34 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ManageSubgroupScreen() {
-  const cache = useDataCache();
   const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const { groupId, subgroupId, clubId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
+  const { userProfile } = useUser();
+  const { getGroup, getSubgroupMembers: getSubgroupMembersFromCtx } =
+    useGroupData();
   const navigation = useNavigation();
-  const [group, setGroup] = useState<GroupData | null>(null);
-  const [subgroupMembers, setSubgroupMembers] = useState<GroupMemberData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
+
+  // Derive data from real-time context
+  const group = getGroup(clubId as string, groupId as string);
+  const subgroupMembers = getSubgroupMembersFromCtx(
+    clubId as string,
+    groupId as string,
+    subgroupId as string,
+  );
+
+  // Derive permission from userProfile (sync)
+  const canManage = useMemo(
+    () => canManageGroup(userProfile, clubId as string, groupId as string),
+    [userProfile, clubId, groupId],
+  );
+
+  const loading = !group;
   const [selectedMember, setSelectedMember] = useState<GroupMemberData | null>(
     null,
   );
   const [showMemberModal, setShowMemberModal] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Check if user can manage subgroup (inherits from group permissions)
-  const canManage =
-    user &&
-    group &&
-    (group.createdBy === user.uid ||
-      userRoles.includes("club-admin") ||
-      userRoles.includes("admin") ||
-      userRoles.includes("coach"));
 
   const displaySubgroupName =
     typeof subgroupName === "string" ? subgroupName : "Subgroup";
@@ -84,83 +81,6 @@ export default function ManageSubgroupScreen() {
         ) : null,
     });
   }, [displaySubgroupName, canManage, navigation, groupId, clubId, subgroupId]);
-
-  const fetchData = useCallback(async () => {
-    if (
-      !groupId ||
-      !clubId ||
-      !subgroupId ||
-      typeof groupId !== "string" ||
-      typeof clubId !== "string" ||
-      typeof subgroupId !== "string"
-    )
-      return;
-
-    try {
-      // Fetch group and subgroup members
-      const [groupResult, membersResult, subgroupMembersResult] =
-        await Promise.all([
-          groupService.getGroup(clubId, groupId, cache),
-          fetchGroupMembers(clubId, groupId, cache),
-          subgroupService.getSubgroupMembers(clubId, groupId, subgroupId),
-        ]);
-
-      // Process group data
-      if (groupResult.success && groupResult.data) {
-        setGroup(groupResult.data);
-      }
-
-      // Process members data for role checking
-      const membersData: GroupMemberData[] = membersResult.success
-        ? membersResult.members
-        : [];
-
-      // Process subgroup members data
-      const subgroupMembersData: GroupMemberData[] =
-        subgroupMembersResult.success ? subgroupMembersResult.members : [];
-      console.log(
-        `📋 Fetched ${subgroupMembersData.length} members for subgroup ${subgroupId}`,
-      );
-      setSubgroupMembers(subgroupMembersData);
-
-      // Get current user's roles
-      if (user && membersData) {
-        const currentUserMember = membersData.find(
-          (member: any) => member.userId === user.uid,
-        );
-        setUserRoles(currentUserMember?.roles || []);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [groupId, clubId, subgroupId, user]);
-
-  // Pull-to-refresh: clear cache then re-fetch
-  const onRefresh = useCallback(async () => {
-    if (
-      !clubId ||
-      typeof clubId !== "string" ||
-      !groupId ||
-      typeof groupId !== "string"
-    )
-      return;
-    setRefreshing(true);
-    cache.remove(`groupData_${clubId}_${groupId}`);
-    cache.remove(`groupMembers_${clubId}_${groupId}`);
-    await fetchData();
-    setRefreshing(false);
-  }, [clubId, groupId, cache, fetchData]);
-
-  // Removed useEffect double-fetch. Only useFocusEffect remains.
-
-  // Refresh data when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [fetchData]),
-  );
 
   const handleMemberPress = (member: GroupMemberData) => {
     if (canManage) {
@@ -247,14 +167,6 @@ export default function ManageSubgroupScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.accent}
-            colors={[theme.colors.accent]}
-          />
-        }
       >
         {/* Members Section */}
         <Text style={styles.sectionTitle}>

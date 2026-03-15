@@ -13,11 +13,11 @@ import { Redirect, router, Tabs } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    Image,
-    Platform,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  Platform,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -71,8 +71,7 @@ function HeaderRight() {
 export default function TabLayout() {
   const { user } = useAuth();
   const { t } = useTranslation("navigation");
-  const { userProfile, isLoading, hasLoadedFreshData, refreshUserProfile } =
-    useUserProfile();
+  const { isLoading, hasLoadedFreshData } = useUserProfile();
 
   // Legal acceptance state
   const [legalCheckResult, setLegalCheckResult] =
@@ -125,8 +124,7 @@ export default function TabLayout() {
 
       if (result.success) {
         console.log("✅ Legal acceptance recorded successfully");
-        // Refresh user profile to get updated legal acceptance
-        await refreshUserProfile();
+        // User doc listener will pick up the updated legal acceptance automatically
         // Clear the legal check - user has now accepted
         setLegalCheckResult({
           ...legalCheckResult,

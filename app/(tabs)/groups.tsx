@@ -1,12 +1,12 @@
 //import AdContainer from "@/components/AdContainer";
 import { theme } from "@/constants/theme";
-import { useDataCache } from "@/contexts/DataCacheContext";
+import { useGroupData } from "@/contexts/GroupDataContext";
 import { useUser } from "@/contexts/UserContext";
-import { groupService } from "@/services/group";
+import { canManageGroup } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Image,
@@ -20,16 +20,11 @@ import {
 
 export default function GroupsScreen() {
   const { t } = useTranslation(["screens", "common"]);
-  const { userProfile, isLoading, refreshUserProfile } = useUser();
-  const cache = useDataCache();
+  const { userProfile, isLoading } = useUser();
+  const { getGroup } = useGroupData();
 
   // Extract clubs and groups from userProfile
   const clubs = userProfile?.clubAccess || [];
-
-  // Group pictures state
-  const [groupPictures, setGroupPictures] = useState<
-    Record<string, string | null>
-  >({});
 
   // Enhanced group type with membership context
   interface EnhancedGroup {
@@ -108,45 +103,17 @@ export default function GroupsScreen() {
     return allGroups;
   }, [userProfile?.clubAccess, userProfile?.dependents]);
 
-  // Fetch group pictures using cache
-  const fetchGroupPictures = useCallback(async () => {
-    if (userGroups.length === 0) return;
-
+  // Group pictures derived from GroupDataContext (real-time listener data)
+  const groupPictures = React.useMemo(() => {
     const pictures: Record<string, string | null> = {};
-
-    // Deduplicate group IDs (same group may appear for direct + dependent)
-    const uniqueGroups = new Map<string, { clubId: string; groupId: string }>();
     for (const group of userGroups) {
-      if (!uniqueGroups.has(group.groupId)) {
-        uniqueGroups.set(group.groupId, {
-          clubId: group.clubId,
-          groupId: group.groupId,
-        });
+      if (!(group.groupId in pictures)) {
+        const groupData = getGroup(group.clubId, group.groupId);
+        pictures[group.groupId] = groupData?.pictureUrl || null;
       }
     }
-
-    await Promise.all(
-      Array.from(uniqueGroups.values()).map(async ({ clubId, groupId }) => {
-        try {
-          const result = await groupService.getGroup(clubId, groupId, cache);
-          if (result.success && result.data?.pictureUrl) {
-            pictures[groupId] = result.data.pictureUrl;
-          } else {
-            pictures[groupId] = null;
-          }
-        } catch (error) {
-          console.log(`Could not fetch picture for group ${groupId}:`, error);
-          pictures[groupId] = null;
-        }
-      }),
-    );
-
-    setGroupPictures(pictures);
-  }, [userGroups, cache]);
-
-  useEffect(() => {
-    fetchGroupPictures();
-  }, [fetchGroupPictures]);
+    return pictures;
+  }, [userGroups, getGroup]);
 
   console.log("📱 GroupsScreen render - DETAILED DEBUG:", {
     isLoading,
@@ -184,19 +151,10 @@ export default function GroupsScreen() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Manual refresh function for pull-to-refresh
+  // Data is kept current by real-time listeners — pull-to-refresh is visual only.
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    try {
-      console.log("🔄 Manual refresh triggered");
-      await refreshUserProfile();
-      // Dependent access is now stored in userProfile.dependents[].clubAccess
-      // No need to fetch separately
-    } catch (error) {
-      console.error("❌ Error during manual refresh:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   const handleGroupPress = (
@@ -209,16 +167,9 @@ export default function GroupsScreen() {
     );
   };
 
-  // Determine if user can edit a specific group (club-admin or group admin)
+  // Determine if user can edit a specific group (club-admin or group admin/coach)
   const canEditGroup = (clubId: string, groupId: string): boolean => {
-    if (!userProfile?.clubAccess) return false;
-    const clubEntry = userProfile.clubAccess.find((c) => c.clubId === clubId);
-    if (!clubEntry) return false;
-    if (clubEntry.role === "club-admin") return true;
-    const groupEntry = clubEntry.groupAccess?.find(
-      (g) => g.groupId === groupId,
-    );
-    return groupEntry?.roles?.includes("admin") ?? false;
+    return canManageGroup(userProfile, clubId, groupId);
   };
 
   if (isLoading) {

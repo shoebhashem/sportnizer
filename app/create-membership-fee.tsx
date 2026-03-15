@@ -6,9 +6,9 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import DateTimePicker from "@/components/DateTimePicker";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
-import { clubService } from "@/services/club";
+import { useClubData } from "@/contexts/ClubDataContext";
+import { useGroupData } from "@/contexts/GroupDataContext";
 import { fetchClubGroups } from "@/services/fetchClubGroups";
-import { fetchGroupMembers } from "@/services/fetchGroupMembers";
 import { paymentService } from "@/services/paymentService";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
@@ -49,6 +49,8 @@ export default function CreateMembershipFeeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { clubId, groupId: preselectedGroupId } = useLocalSearchParams();
+  const { getClub } = useClubData();
+  const { getGroupMembers } = useGroupData();
 
   // Form state
   const [title, setTitle] = useState("");
@@ -90,16 +92,14 @@ export default function CreateMembershipFeeScreen() {
       }
 
       try {
-        // Aggregate role counts across all selected groups
+        // Aggregate role counts across all selected groups using context
         const roleMap = new Map<string, number>();
 
         for (const groupId of groupIds) {
-          const result = await fetchGroupMembers(clubId as string, groupId);
-          if (result.success) {
-            for (const member of result.members) {
-              for (const role of member.roles || []) {
-                roleMap.set(role, (roleMap.get(role) || 0) + 1);
-              }
+          const members = getGroupMembers(clubId as string, groupId);
+          for (const member of members) {
+            for (const role of member.roles || []) {
+              roleMap.set(role, (roleMap.get(role) || 0) + 1);
             }
           }
         }
@@ -127,7 +127,7 @@ export default function CreateMembershipFeeScreen() {
         console.error("Error loading group members:", error);
       }
     },
-    [clubId],
+    [clubId, getGroupMembers],
   );
 
   // Fetch club data and groups
@@ -136,10 +136,9 @@ export default function CreateMembershipFeeScreen() {
 
     setLoading(true);
     try {
-      // Fetch club for currency info
-      const clubResult = await clubService.getClub(clubId as string);
-      if (clubResult.success && clubResult.data) {
-        const club = clubResult.data;
+      // Get club data from context for currency info
+      const club = getClub(clubId as string);
+      if (club) {
         setClubCountry(club.stripe?.country || "SE");
         setClubCurrency(club.stripe?.currency || "sek");
       }
@@ -161,7 +160,7 @@ export default function CreateMembershipFeeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [clubId, preselectedGroupId, loadGroupsMembers]);
+  }, [clubId, preselectedGroupId, loadGroupsMembers, getClub]);
 
   useEffect(() => {
     fetchData();

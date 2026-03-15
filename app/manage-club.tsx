@@ -7,12 +7,14 @@ import MemberContactModal from "@/components/MemberContactModal";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useClubData } from "@/contexts/ClubDataContext";
 import { useDataCache } from "@/contexts/DataCacheContext";
-import { clubService } from "@/services/club";
+import { useUser } from "@/contexts/UserContext";
 import { functions } from "@/services/core/firebase";
 import { ClubGroupData, fetchClubGroups } from "@/services/fetchClubGroups";
-import { fetchClubMembers } from "@/services/fetchClubMembers";
 import { groupService } from "@/services/group";
+import type { ClubMemberData } from "@/services/types/club";
+import { isClubAdmin as checkIsClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import {
     router,
@@ -22,7 +24,7 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { httpsCallable } from "firebase/functions";
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
@@ -37,37 +39,26 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface ClubMemberData {
-  userId: string;
-  name: string;
-  email: string;
-  photoURL?: string;
-  roles: string[];
-  needsGuardian?: boolean;
-  clubRole?: string;
-  joinedAt?: any;
-}
-
-interface ClubData {
-  id: string;
-  name: string;
-  description?: string;
-  createdBy: string;
-  createdAt: any;
-}
-
 export default function ManageClubScreen() {
   const cache = useDataCache();
   const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const { clubId, tab, deleteMode } = useLocalSearchParams();
   const { user } = useAuth();
+  const { userProfile } = useUser();
+  const { getClub, getClubMembers } = useClubData();
   const navigation = useNavigation();
-  const [club, setClub] = useState<ClubData | null>(null);
-  const [members, setMembers] = useState<ClubMemberData[]>([]);
+
+  // Derive club data and members from real-time context
+  const club = getClub(clubId as string);
+  const contextMembers = getClubMembers(clubId as string);
+  const isAdmin = useMemo(
+    () => checkIsClubAdmin(userProfile, clubId as string),
+    [userProfile, clubId],
+  );
+
   const [groups, setGroups] = useState<ClubGroupData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isClubAdmin, setIsClubAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState<"members" | "groups">(
     tab === "groups" ? "groups" : "members",
   );
@@ -92,36 +83,9 @@ export default function ManageClubScreen() {
 
     setLoading(true);
     try {
-      // Fetch club data, members, and groups (include deleted groups for admins)
-      const [clubResult, membersResult, groupsResult] = await Promise.all([
-        clubService.getClub(clubId, cache),
-        fetchClubMembers(clubId, cache),
-        fetchClubGroups(clubId, true, cache), // Include deleted groups
-      ]);
+      // Only fetch groups manually — club data & members come from real-time context
+      const groupsResult = await fetchClubGroups(clubId, true, cache); // Include deleted groups
 
-      // Process club data
-      if (clubResult.success && clubResult.data) {
-        setClub(clubResult.data as ClubData);
-        console.log("🏢 Club data:", {
-          clubId: clubResult.data.id,
-          clubName: clubResult.data.name,
-        });
-      }
-
-      // Process members data
-      const membersData: ClubMemberData[] = membersResult.success
-        ? membersResult.members
-        : [];
-      if (!membersResult.success && membersResult.error) {
-        console.error("❌ Failed to fetch club members:", membersResult.error);
-      }
-      console.log(
-        `📋 Fetched ${membersData.length} members for club ${clubId}:`,
-        membersData,
-      );
-      setMembers(membersData);
-
-      // Process groups data
       const groupsData: ClubGroupData[] = groupsResult.success
         ? groupsResult.groups
         : [];
@@ -133,25 +97,12 @@ export default function ManageClubScreen() {
         groupsData,
       );
       setGroups(groupsData);
-
-      // Check if current user is club-admin
-      if (user) {
-        const currentUserMember = membersData.find(
-          (m) => m.userId === user.uid,
-        );
-        const isAdmin =
-          currentUserMember?.clubRole === "club-admin" ||
-          currentUserMember?.roles?.includes("club-admin") ||
-          false;
-        setIsClubAdmin(isAdmin);
-        console.log(`🔒 User is club admin: ${isAdmin}`);
-      }
     } catch (error) {
       console.error("Error fetching club data:", error);
     } finally {
       setLoading(false);
     }
-  }, [clubId, user]);
+  }, [clubId]);
 
   const handleDeleteGroup = (group: ClubGroupData) => {
     setSelectedGroup(group);
@@ -246,13 +197,10 @@ export default function ManageClubScreen() {
     }
   };
 
-  // Pull-to-refresh: clear cache then re-fetch
+  // Pull-to-refresh: clear groups cache then re-fetch
   const onRefresh = useCallback(async () => {
     if (!clubId || typeof clubId !== "string") return;
     setRefreshing(true);
-    // Invalidate cached data for this club
-    cache.remove(`clubData_${clubId}`);
-    cache.remove(`clubMembers_${clubId}`);
     cache.remove(`clubGroups_${clubId}_true`);
     cache.remove(`clubGroups_${clubId}_false`);
     await fetchAllData();
@@ -281,7 +229,7 @@ export default function ManageClubScreen() {
     navigation.setOptions({
       title: club.name || "Manage Club",
       headerRight: () =>
-        isClubAdmin ? (
+        isAdmin ? (
           <TouchableOpacity
             onPress={() => {
               router.push(`/club-settings?clubId=${clubId}` as any);
@@ -297,10 +245,10 @@ export default function ManageClubScreen() {
         ) : null,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [club, isClubAdmin, navigation]);
+  }, [club, isAdmin, navigation]);
 
   const handleMemberPress = (member: ClubMemberData) => {
-    if (isClubAdmin) {
+    if (isAdmin) {
       setSelectedMember(member);
       setShowMemberModal(true);
     }
@@ -318,11 +266,11 @@ export default function ManageClubScreen() {
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{item.name}</Text>
           <Text style={styles.memberRole}>
-            {item.clubRole || [...new Set(item.roles)]?.join(", ") || "member"}
+            {[...new Set(item.roles)]?.join(", ") || "member"}
             {item.needsGuardian && " (Child/Youth)"}
           </Text>
         </View>
-        {isClubAdmin && (
+        {isAdmin && (
           <Ionicons
             name="chevron-forward"
             size={20}
@@ -332,7 +280,7 @@ export default function ManageClubScreen() {
       </>
     );
 
-    if (isClubAdmin) {
+    if (isAdmin) {
       return (
         <TouchableOpacity
           style={styles.memberItem}
@@ -394,7 +342,7 @@ export default function ManageClubScreen() {
               color={theme.colors.textSecondary}
             />
           </TouchableOpacity>
-          {isClubAdmin && isDeleteMode && item.isActive !== false && (
+          {isAdmin && isDeleteMode && item.isActive !== false && (
             <TouchableOpacity
               style={styles.deleteGroupButton}
               onPress={() => handleDeleteGroup(item)}
@@ -424,7 +372,7 @@ export default function ManageClubScreen() {
               deletionScheduledAt={item.deletionScheduledAt?.toMillis?.()}
               compact={true}
             />
-            {isClubAdmin && (
+            {isAdmin && (
               <View style={styles.groupActionButtons}>
                 <View style={styles.undoButton}>
                   <Button
@@ -543,7 +491,7 @@ export default function ManageClubScreen() {
                 activeTab === "members" && styles.activeTabText,
               ]}
             >
-              {t("screens:manageClub.members")} ({members.length})
+              {t("screens:manageClub.members")} ({contextMembers.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -564,9 +512,9 @@ export default function ManageClubScreen() {
         {/* Content based on active tab */}
         {activeTab === "members" ? (
           // Members List
-          members.length > 0 ? (
+          contextMembers.length > 0 ? (
             <FlatList
-              data={members}
+              data={contextMembers}
               renderItem={renderMemberItem}
               keyExtractor={(item) => item.userId}
               scrollEnabled={false}
@@ -650,7 +598,7 @@ export default function ManageClubScreen() {
       )}
 
       {/* FAB: Create Club-wide Event or News */}
-      {isClubAdmin && (
+      {isAdmin && (
         <NewsEventFAB
           onNewsPress={() => {
             router.push({
@@ -669,7 +617,7 @@ export default function ManageClubScreen() {
                 clubId: clubId as string,
                 clubName: club?.name || "",
                 sourceScreen: "manage-club",
-                memberCount: members.length,
+                memberCount: contextMembers.length,
               },
             });
           }}

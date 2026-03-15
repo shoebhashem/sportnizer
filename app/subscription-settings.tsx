@@ -1,38 +1,33 @@
 import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { theme } from "@/constants/theme";
+import { useClubData } from "@/contexts/ClubDataContext";
 import { useUser } from "@/contexts/UserContext";
-import { clubService } from "@/services/club";
 import {
-  SUBSCRIPTION_TIERS,
-  subscriptionService,
-  SubscriptionStatusResult,
-  SupportedCurrency,
+    SUBSCRIPTION_TIERS,
+    subscriptionService,
+    SubscriptionStatusResult,
+    SupportedCurrency,
 } from "@/services/subscriptionService";
 import { ClubData } from "@/services/types/club";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-  useNavigation,
-} from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useState,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -45,9 +40,14 @@ export default function SubscriptionSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
+  const { getClub, isLoading: isClubLoading } = useClubData();
   const navigation = useNavigation();
 
-  const [club, setClub] = useState<ClubData | null>(null);
+  // Club data from context (real-time listener)
+  const club =
+    ((typeof clubId === "string"
+      ? getClub(clubId)
+      : undefined) as ClubData | null) ?? null;
   const [subscriptionStatus, setSubscriptionStatus] =
     useState<SubscriptionStatusResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,18 +71,12 @@ export default function SubscriptionSettingsScreen() {
     });
   }, [club?.name, navigation]);
 
-  const fetchData = useCallback(async () => {
+  const fetchSubscriptionData = useCallback(async () => {
     if (!clubId || typeof clubId !== "string") return;
 
     try {
-      const [clubResult, statusResult] = await Promise.all([
-        clubService.getClub(clubId),
-        subscriptionService.getSubscriptionStatus(clubId),
-      ]);
-
-      if (clubResult.success && clubResult.data) {
-        setClub(clubResult.data as ClubData);
-      }
+      const statusResult =
+        await subscriptionService.getSubscriptionStatus(clubId);
 
       if (statusResult.success && statusResult.data) {
         setSubscriptionStatus(statusResult.data);
@@ -96,19 +90,13 @@ export default function SubscriptionSettingsScreen() {
   }, [clubId]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [fetchData]),
-  );
+    fetchSubscriptionData();
+  }, [fetchSubscriptionData]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchData();
-  }, [fetchData]);
+    fetchSubscriptionData();
+  }, [fetchSubscriptionData]);
 
   const handleUpgrade = (tier: "basic" | "pro") => {
     setSelectedTier(tier);
@@ -137,8 +125,8 @@ export default function SubscriptionSettingsScreen() {
         );
 
         if (result.success) {
-          // Refresh data to show updated tier
-          await fetchData();
+          // Refresh subscription data (club data auto-refreshes via context)
+          await fetchSubscriptionData();
         }
       } else {
         // Use checkout flow for new subscriptions

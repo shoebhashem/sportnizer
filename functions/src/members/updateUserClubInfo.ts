@@ -6,6 +6,7 @@ import {
     UpdateUserClubInfoRequest,
 } from "../types/interfaces";
 import { config } from "../utils/config";
+import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
 export const updateUserClubInfo = onCall(
@@ -145,6 +146,8 @@ export const updateUserClubInfo = onCall(
       // Update user document with new structure and increment version
       const updateData: any = {
         clubAccess: clubAccess,
+        // Recompute flat role arrays from the full clubAccess
+        ...flatArrayFieldsFromClubAccess(clubAccess),
         version: FieldValue.increment(1),
         lastModified: FieldValue.serverTimestamp(),
       };

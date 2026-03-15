@@ -1,13 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import {
-    router,
-    useFocusEffect,
-    useLocalSearchParams,
-    useNavigation,
-} from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { doc, getDoc } from "firebase/firestore";
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
@@ -26,14 +20,17 @@ import CountdownTimer from "../components/CountdownTimer";
 import Input from "../components/Input";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
-import { db } from "../services/core/firebase";
+import { useClubData } from "../contexts/ClubDataContext";
+import { useGroupData } from "../contexts/GroupDataContext";
+import { useUser } from "../contexts/UserContext";
 
-// Import services following three-layer architecture
-import { clubService } from "../services/club";
-import { fetchGroupMembers } from "../services/fetchGroupMembers";
+// Import services for mutations only
 import { groupService } from "../services/group";
 import { subgroupService } from "../services/subgroup";
-import { GroupData } from "../services/types/group";
+import {
+    isClubAdmin as checkIsClubAdmin,
+    getGroupRoles
+} from "../utils/permissionHelpers";
 
 // interface UnconfirmedMember {
 //   id: string; // Member document ID
@@ -48,11 +45,32 @@ export default function GroupSettingsScreen() {
   const { t } = useTranslation(["screens", "common"]);
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
+  const { userProfile } = useUser();
+  const { getGroup: getGroupFromCtx } = useGroupData();
+  const { getClub } = useClubData();
   const navigation = useNavigation();
-  const [group, setGroup] = useState<GroupData | null>(null);
-  // const [members, setMembers] = useState<GroupMemberData[]>([]); // Commented out - not used in UI yet
-  const [userRole, setUserRole] = useState<string>("member");
-  const [loading, setLoading] = useState(true);
+
+  // Derive data from real-time contexts
+  const group = getGroupFromCtx(clubId as string, groupId as string);
+  const club = getClub(clubId as string);
+  const clubName = club?.name || "Club";
+  const loading = !group;
+
+  // Derive user role from permissionHelpers (sync)
+  const userRole = useMemo(() => {
+    if (!userProfile) return "member";
+    const cId = clubId as string;
+    const gId = groupId as string;
+    if (checkIsClubAdmin(userProfile, cId)) return "club-admin";
+    const roles = getGroupRoles(userProfile, cId, gId);
+    if (roles.includes("admin")) return "admin";
+    if (roles.includes("coach")) return "coach";
+    if (roles.includes("player")) return "player";
+    if (roles.includes("player-underage")) return "player-underage";
+    if (roles.includes("guardian")) return "guardian";
+    return "member";
+  }, [userProfile, clubId, groupId]);
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -66,7 +84,6 @@ export default function GroupSettingsScreen() {
   const [selectedSubgroup, setSelectedSubgroup] = useState<any>(null);
   const [showDeleteSubgroupModal, setShowDeleteSubgroupModal] = useState(false);
   const [isDeletingSubgroup, setIsDeletingSubgroup] = useState(false);
-  const [clubName, setClubName] = useState<string>("Club");
   const [addMembersExpanded, setAddMembersExpanded] = useState(false);
   const [removeMembersExpanded, setRemoveMembersExpanded] = useState(false);
 
@@ -76,125 +93,6 @@ export default function GroupSettingsScreen() {
       title: group?.name ? `${group.name} Settings` : "Group Settings",
     });
   }, [group?.name, navigation]);
-
-  const fetchGroupDataFromServices = useCallback(async () => {
-    if (
-      !groupId ||
-      typeof groupId !== "string" ||
-      !clubId ||
-      typeof clubId !== "string" ||
-      !user?.uid
-    )
-      return;
-
-    try {
-      // Fetch group data, members data, and user document
-      const groupResult = await groupService.getGroup(clubId, groupId);
-      const membersResult = await fetchGroupMembers(clubId, groupId);
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-      const userData = userSnap.data();
-
-      if (groupResult.success && groupResult.data) {
-        setGroup(groupResult.data);
-      }
-
-      // Process members data
-      const membersData = membersResult.success
-        ? membersResult.members || []
-        : [];
-      // setMembers(membersData); // Commented out - not used in UI yet
-
-      // Find current user's role - check club-level first
-      let userRole = "member";
-      // let adminCount = 0; // Commented out - for future use (Leave Group validation)
-      // const unconfirmedMembers: UnconfirmedMember[] = []; // Commented out - not used yet
-
-      // First check club-level role from user document
-      if (userData?.clubAccess) {
-        const clubAccess = userData.clubAccess.find(
-          (c: any) => c.clubId === clubId,
-        );
-        if (clubAccess?.role === "club-admin") {
-          userRole = "club-admin"; // Club admin has all permissions in all groups
-        }
-      }
-
-      // If not club-admin, check group-level roles and count admins
-      if (userRole !== "club-admin") {
-        membersData.forEach((member: any) => {
-          if (member.userId === user.uid) {
-            // Check user's roles
-            if (member.roles.includes("admin")) {
-              userRole = "admin";
-            } else if (member.roles.includes("coach")) {
-              userRole = "coach";
-            } else {
-              userRole = "member";
-            }
-          }
-
-          // Count admins (commented out - for future use)
-          // if (member.roles.includes('admin')) {
-          //   adminCount++;
-          // }
-
-          // Collect unconfirmed members (if they have this property)
-          // Note: We may need to add this to GroupMemberData interface if needed
-          // if (member.isConfirmed === false) {
-          //   unconfirmedMembers.push({
-          //     id: member.userId,
-          //     name: member.name,
-          //     // ... other fields
-          //   });
-          // }
-        });
-
-        // If user is the group creator but not found in members, consider them as admin
-        if (
-          groupResult.success &&
-          groupResult.data &&
-          groupResult.data.createdBy === user.uid &&
-          userRole === "member"
-        ) {
-          userRole = "admin";
-        }
-      } else {
-        // Club admin: still count group admins for validation (commented out - for future use)
-        // membersData.forEach((member: any) => {
-        //   if (member.roles.includes('admin')) {
-        //     adminCount++;
-        //   }
-        // });
-      }
-
-      setUserRole(userRole);
-      // setAdminCount(adminCount); // Commented out - for future use
-
-      // Fetch club name for navigation params
-      try {
-        const clubResult = await clubService.getClub(clubId);
-        setClubName(clubResult.data?.name || "Club");
-      } catch (error) {
-        console.error("Failed to fetch club name:", error);
-      }
-    } catch (error) {
-      console.error("Error fetching group data:", error);
-      setErrorMessage(t("screens:groupSettings.failedToLoadGroupData"));
-      setShowErrorModal(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [groupId, clubId, user?.uid]);
-
-  // Removed useEffect double-fetch. Only useFocusEffect remains.
-
-  // Refresh data when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      fetchGroupDataFromServices();
-    }, [fetchGroupDataFromServices]),
-  );
 
   const handleUndoDeletion = () => {
     setShowUndoModal(true);
@@ -224,8 +122,7 @@ export default function GroupSettingsScreen() {
         );
         setShowSuccessModal(true);
 
-        // Refresh group data to show active status
-        await fetchGroupDataFromServices();
+        // Context will auto-refresh via onSnapshot
       } else {
         setErrorMessage(
           result.error || t("screens:groupSettings.failedToReactivateGroup"),
@@ -493,8 +390,7 @@ export default function GroupSettingsScreen() {
         );
         setShowSuccessModal(true);
 
-        // Refresh group data to update subgroups list
-        await fetchGroupDataFromServices();
+        // Context will auto-refresh via onSnapshot
       } else {
         setErrorMessage(
           result.error || t("screens:groupSettings.failedToDeleteSubgroup"),

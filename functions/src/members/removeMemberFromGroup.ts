@@ -2,10 +2,11 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
-  RemoveMemberFromGroupRequest,
-  RemoveMemberFromGroupResponse,
+    RemoveMemberFromGroupRequest,
+    RemoveMemberFromGroupResponse,
 } from "../types/interfaces";
 import { config } from "../utils/config";
+import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
 export const removeMemberFromGroup = onCall(
@@ -411,6 +412,9 @@ export const removeMemberFromGroup = onCall(
 
                           await guardianUserRef.update({
                             clubAccess: guardianClubAccess,
+                            ...flatArrayFieldsFromClubAccess(
+                              guardianClubAccess,
+                            ),
                             lastModifiedAt: FieldValue.serverTimestamp(),
                           });
 
@@ -505,6 +509,7 @@ export const removeMemberFromGroup = onCall(
 
               await userRef.update({
                 clubAccess,
+                ...flatArrayFieldsFromClubAccess(clubAccess),
                 lastModifiedAt: FieldValue.serverTimestamp(),
               });
             }
@@ -635,6 +640,7 @@ export const removeMemberFromGroup = onCall(
 
                     await userRef.update({
                       clubAccess,
+                      ...flatArrayFieldsFromClubAccess(clubAccess),
                       lastModifiedAt: FieldValue.serverTimestamp(),
                     });
 

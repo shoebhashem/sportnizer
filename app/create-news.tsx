@@ -32,16 +32,15 @@ import ConfirmationModal from "../components/ConfirmationModal";
 import RoleFilterModal, { ClubRole } from "../components/RoleFilterModal";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
+import { useClubData } from "../contexts/ClubDataContext";
+import { useGroupData } from "../contexts/GroupDataContext";
 import { useUser } from "../contexts/UserContext";
-import { fetchClubMembers } from "../services/fetchClubMembers";
-import { fetchGroupMembers } from "../services/fetchGroupMembers";
 import { newsCreationService } from "../services/news/createNews";
 import {
     deleteNews,
     fetchNewsItem,
     updateNews,
 } from "../services/news/newsListener";
-import { subgroupService } from "../services/subgroup";
 
 const MAX_TITLE_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 4200;
@@ -69,6 +68,8 @@ export default function CreateNewsScreen() {
   const params = useLocalSearchParams();
   const { user } = useAuth();
   const { userProfile } = useUser();
+  const { getClubMembers } = useClubData();
+  const { getGroupMembers, getSubgroupMembers } = useGroupData();
 
   console.log("🔍 CreateNews - Received Params:", params);
 
@@ -199,44 +200,26 @@ export default function CreateNewsScreen() {
       let members: any[] = [];
 
       if (newsContext.level === "club") {
-        // Fetch club members
-        const response = await fetchClubMembers(newsContext.clubId);
-        if (!response.success || !response.members) {
-          setMemberCount(0);
-          return;
-        }
-        members = response.members;
+        // Get club members from context (only populated for admins)
+        members = getClubMembers(newsContext.clubId);
       } else if (
         newsContext.level === "subgroup" &&
         newsContext.groupId &&
         newsContext.subgroupId
       ) {
-        // Fetch subgroup members specifically
-        const response = await subgroupService.getSubgroupMembers(
+        // Get subgroup members from context
+        members = getSubgroupMembers(
           newsContext.clubId,
           newsContext.groupId,
           newsContext.subgroupId,
         );
-        if (!response.success || !response.members) {
-          setMemberCount(0);
-          return;
-        }
-        members = response.members;
       } else {
-        // Fetch group members
+        // Get group members from context
         if (!newsContext.groupId) {
           setMemberCount(0);
           return;
         }
-        const response = await fetchGroupMembers(
-          newsContext.clubId,
-          newsContext.groupId,
-        );
-        if (!response.success || !response.members) {
-          setMemberCount(0);
-          return;
-        }
-        members = response.members;
+        members = getGroupMembers(newsContext.clubId, newsContext.groupId);
       }
 
       // Filter by selected roles if any
