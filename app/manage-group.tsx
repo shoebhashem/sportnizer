@@ -6,13 +6,16 @@ import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGroupData } from "@/contexts/GroupDataContext";
 import { useUser } from "@/contexts/UserContext";
+import { db } from "@/services/core/firebase";
 import { SubGroup } from "@/services/subgroup";
 import { GroupMemberData } from "@/services/types/group";
+import { shouldShowManageGroupLoading } from "@/utils/manageGroupScreenState";
 import { canManageGroup } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useLayoutEffect, useMemo, useState } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
@@ -36,6 +39,7 @@ export default function ManageGroupScreen() {
     getGroup,
     getGroupMembers,
     getSubgroups: getSubgroupsFromCtx,
+    isLoading: isGroupDataLoading,
   } = useGroupData();
   const navigation = useNavigation();
 
@@ -46,6 +50,9 @@ export default function ManageGroupScreen() {
     clubId as string,
     groupId as string,
   );
+  const [fallbackGroup, setFallbackGroup] = useState<any | null>(null);
+  const [fallbackMembers, setFallbackMembers] = useState<GroupMemberData[]>([]);
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
 
   // Derive subgroups in the format the UI expects (SubGroup interface)
   const subgroups: SubGroup[] = useMemo(
@@ -76,7 +83,16 @@ export default function ManageGroupScreen() {
     return (memberId: string) => dependentUids.has(memberId);
   }, [userProfile?.dependents]);
 
-  const loading = !group && !contextMembers.length;
+  const effectiveGroup = group || fallbackGroup;
+  const effectiveMembers = contextMembers.length
+    ? contextMembers
+    : fallbackMembers;
+  const loading = shouldShowManageGroupLoading({
+    hasGroup: !!effectiveGroup,
+    memberCount: effectiveMembers.length,
+    isGroupDataLoading,
+    loadingTimedOut,
+  });
 
   const [activeTab, setActiveTab] = useState<"members" | "subgroups">(
     tab === "subgroups" ? "subgroups" : "members",
@@ -86,9 +102,80 @@ export default function ManageGroupScreen() {
   );
   const [showMemberModal, setShowMemberModal] = useState(false);
 
+  useEffect(() => {
+    if (!clubId || !groupId) return;
+
+    setLoadingTimedOut(false);
+    const timeoutId = setTimeout(() => {
+      setLoadingTimedOut(true);
+    }, 7000);
+
+    return () => clearTimeout(timeoutId);
+  }, [clubId, groupId]);
+
+  useEffect(() => {
+    if (!clubId || !groupId || !canManage || group) {
+      setFallbackGroup(null);
+      setFallbackMembers([]);
+      return;
+    }
+
+    const groupDocRef = doc(
+      db,
+      "clubs",
+      clubId as string,
+      "groups",
+      groupId as string,
+    );
+    const membersDocRef = doc(
+      db,
+      "clubs",
+      clubId as string,
+      "groups",
+      groupId as string,
+      "allMembers",
+      "members",
+    );
+
+    const unsubGroup = onSnapshot(
+      groupDocRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setFallbackGroup({ ...snapshot.data(), id: snapshot.id });
+        } else {
+          setFallbackGroup(null);
+        }
+      },
+      (error) => {
+        console.error("❌ ManageGroup fallback group listener error:", error);
+      },
+    );
+
+    const unsubMembers = onSnapshot(
+      membersDocRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setFallbackMembers(
+            (snapshot.data().members || []) as GroupMemberData[],
+          );
+        } else {
+          setFallbackMembers([]);
+        }
+      },
+      (error) => {
+        console.error("❌ ManageGroup fallback members listener error:", error);
+      },
+    );
+
+    return () => {
+      unsubGroup();
+      unsubMembers();
+    };
+  }, [canManage, clubId, group, groupId]);
+
   // Set dynamic header with group name and settings button
   useLayoutEffect(() => {
-    if (!group) {
+    if (!effectiveGroup) {
       navigation.setOptions({
         title: "Manage Group",
         headerRight: () => null,
@@ -97,7 +184,7 @@ export default function ManageGroupScreen() {
     }
 
     navigation.setOptions({
-      title: group.name || "Manage Group",
+      title: effectiveGroup.name || "Manage Group",
       headerRight: () =>
         canManage ? (
           <TouchableOpacity
@@ -117,7 +204,7 @@ export default function ManageGroupScreen() {
         ) : null,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [group, canManage, navigation]);
+  }, [effectiveGroup, canManage, navigation]);
 
   const handleSubgroupClick = (subgroupId: string, subgroupName: string) => {
     router.push(
@@ -207,7 +294,7 @@ export default function ManageGroupScreen() {
     );
   }
 
-  if (!group) {
+  if (!effectiveGroup) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
@@ -243,7 +330,7 @@ export default function ManageGroupScreen() {
                 activeTab === "members" && styles.activeTabText,
               ]}
             >
-              {t("screens:manageGroup.members")} ({contextMembers.length})
+              {t("screens:manageGroup.members")} ({effectiveMembers.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -257,14 +344,14 @@ export default function ManageGroupScreen() {
               ]}
             >
               {t("screens:manageGroup.subgroups")} (
-              {group?.subGroups?.length || 0})
+              {effectiveGroup?.subGroups?.length || 0})
             </Text>
           </TouchableOpacity>
         </View>
 
         {activeTab === "members" ? (
           <FlatList
-            data={contextMembers}
+            data={effectiveMembers}
             renderItem={renderMemberItem}
             keyExtractor={(item) => item.userId}
             style={styles.membersList}
@@ -293,7 +380,7 @@ export default function ManageGroupScreen() {
                 clubId: clubId as string,
                 clubName: clubName as string,
                 groupId: groupId as string,
-                groupName: group?.name || "",
+                groupName: effectiveGroup?.name || "",
                 sourceScreen: "manage-group",
               },
             });
@@ -304,7 +391,7 @@ export default function ManageGroupScreen() {
               clubId,
               clubName,
               groupId,
-              groupName: group?.name,
+              groupName: effectiveGroup?.name,
               clubIdValue: clubId as string,
               clubNameValue: clubName as string,
             });
@@ -315,9 +402,9 @@ export default function ManageGroupScreen() {
                 clubId: clubId as string,
                 clubName: clubName as string,
                 groupId: groupId as string,
-                groupName: group?.name || "",
+                groupName: effectiveGroup?.name || "",
                 sourceScreen: "manage-group",
-                memberCount: contextMembers.length,
+                memberCount: effectiveMembers.length,
               },
             });
           }}

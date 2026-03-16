@@ -1922,20 +1922,70 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 
 ---
 
+### Phase 3: Club Admin Group Navigation (Manage Club → Manage Group)
+
+#### TC-GN01: Club admin can open all active groups from Manage Club
+
+**Preconditions:** User has `club-admin` role in the selected club. Club has at least 3 active groups. User is only a player/member in one of them.
+**Steps:**
+
+1. From Home, open the club card
+2. Open `manage-club`
+3. Switch to **Groups** tab
+4. Tap Group A, then back
+5. Tap Group B, then back
+6. Tap Group C
+   **Expected:**
+
+- Each tap opens `manage-group` for that exact group
+- No infinite spinner on Group B/C when user lacks explicit `groupAccess` entries
+- Group header title matches tapped group name
+
+#### TC-GN02: Missing context data does not spin forever
+
+**Preconditions:** Simulate delayed/missing group context for a tapped group (e.g., by throttling network or forcing stale profile cache).
+**Steps:**
+
+1. Navigate to a group from `manage-club`
+2. Observe loading state for ~7 seconds
+   **Expected:**
+
+- Screen exits loading state (no permanent spinner)
+- If group cannot be resolved, user sees "group not found" fallback with **Go Back** action
+
+#### TC-GN03: Club admin fallback data path still shows members correctly
+
+**Preconditions:** Club admin opens a group they can manage but are not directly listed under their profile's `groupAccess`.
+**Steps:**
+
+1. Open that group from `manage-club`
+2. Verify Members tab list count
+3. Open News/Event FAB flows
+   **Expected:**
+
+- Members list renders from fallback listeners
+- Group name and member count are correct
+- Create News / Create Event navigation receives correct `groupId` and `groupName`
+
+**Automated regression:** `functions/test/manage-group-screen-state.test.ts` validates the loading-state guard for unresolved groups so this spinner regression is caught in CI.
+
+---
+
 #### Manual / QA Test Case Summary
 
 > These are **manual checklists** — not automated. For the 46 automated integration tests, see [section 5b](#5b-event-cancellation--recurring-events-event-cancellation-recurringtestts--46-tests).
 
-| Area                       | Cases  | IDs             | Type   |
-| -------------------------- | ------ | --------------- | ------ |
-| Event Cancellation         | 10     | TC-C01 – TC-C10 | Manual |
-| Recurring — Create         | 8      | TC-R01 – TC-R08 | Manual |
-| Recurring — Badges         | 2      | TC-R09 – TC-R10 | Manual |
-| Recurring — Cancel (scope) | 4      | TC-R11 – TC-R14 | Manual |
-| Recurring — Edit (scope)   | 3      | TC-R15 – TC-R17 | Manual |
-| Recurring — Notifications  | 2      | TC-R18 – TC-R19 | Manual |
-| Recurring — Edge Cases     | 5      | TC-R20 – TC-R24 | Manual |
-| **Total**                  | **34** |                 |        |
+| Area                       | Cases  | IDs               | Type   |
+| -------------------------- | ------ | ----------------- | ------ |
+| Event Cancellation         | 10     | TC-C01 – TC-C10   | Manual |
+| Recurring — Create         | 8      | TC-R01 – TC-R08   | Manual |
+| Recurring — Badges         | 2      | TC-R09 – TC-R10   | Manual |
+| Recurring — Cancel (scope) | 4      | TC-R11 – TC-R14   | Manual |
+| Recurring — Edit (scope)   | 3      | TC-R15 – TC-R17   | Manual |
+| Recurring — Notifications  | 2      | TC-R18 – TC-R19   | Manual |
+| Recurring — Edge Cases     | 5      | TC-R20 – TC-R24   | Manual |
+| Group Navigation           | 3      | TC-GN01 – TC-GN03 | Manual |
+| **Total**                  | **37** |                   |        |
 
 ---
 

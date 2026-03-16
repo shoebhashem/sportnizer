@@ -2368,8 +2368,11 @@ const { clubs, clubMembers, isLoading, getClub, getClubMembers } =
 **Key Features**:
 
 - Listens to groups and group members for each `groupAccess[]` entry in user profile
+- For `club-admin`, also fetches all active groups in admin clubs and attaches listeners even if `groupAccess[]` is incomplete
 - Listens to subgroup collections and dynamically attaches subgroup member listeners
 - Uses composite keys: `"clubId:groupId"` for group-level, `"clubId:groupId:subgroupId"` for subgroup-level
+
+**Manage-group resilience**: `app/manage-group.tsx` includes a direct club-admin fallback listener + loading timeout guard to prevent permanent spinner when context entries are temporarily missing.
 
 **Key Exports**:
 
