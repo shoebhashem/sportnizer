@@ -43,3 +43,5 @@ app-example
 .vscode/copilot-config.json
 settings.json
 .copilot-instructions.md
+
+firebase-debug.log
