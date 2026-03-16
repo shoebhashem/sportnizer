@@ -339,6 +339,7 @@ export default function ManageGroupScreen() {
           initialPhotoURL={selectedMember.photoURL}
           isYouth={selectedMember.needsGuardian}
           isGuardianViewing={isGuardianOf(selectedMember.userId)}
+          isAdminViewing={canManage}
         />
       )}
     </View>

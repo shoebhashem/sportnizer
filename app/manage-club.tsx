@@ -637,6 +637,7 @@ export default function ManageClubScreen() {
           initialName={selectedMember.name}
           initialPhotoURL={selectedMember.photoURL}
           isYouth={selectedMember.needsGuardian}
+          isAdminViewing={isAdmin}
         />
       )}
     </View>

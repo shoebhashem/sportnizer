@@ -9,7 +9,7 @@ import { NewsProvider } from "@/contexts/NewsContext";
 import { UserProvider } from "@/contexts/UserContext";
 import "@/i18n";
 import { Ionicons } from "@expo/vector-icons";
-import { router, Stack, useNavigation } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import { useTranslation } from "react-i18next";
@@ -49,31 +49,48 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const { t } = useTranslation("navigation");
-  const navigation = useNavigation();
-
-  // Fallback back button for when the navigation stack is empty (e.g., after
-  // returning from an external redirect like Stripe checkout on web).
-  const renderFallbackBackButton = () => {
-    if (navigation.canGoBack()) {
-      // Normal stack — let expo-router render its default back arrow
-      return undefined;
-    }
-    // No stack history — show a manual arrow that navigates home
-    return (
-      <TouchableOpacity
-        onPress={() => router.replace("/(tabs)")}
-        style={{ marginLeft: Platform.OS === "web" ? 8 : 0, padding: 8 }}
-      >
-        <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
-      </TouchableOpacity>
-    );
-  };
 
   return (
     <Stack
       screenOptions={{
         contentStyle: { backgroundColor: theme.colors.primary },
-        headerLeft: renderFallbackBackButton,
+        headerLeft: ({ canGoBack, tintColor }) => {
+          if (canGoBack) {
+            // Normal stack — render a back arrow that pops the stack
+            return (
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={{
+                  marginLeft: Platform.OS === "web" ? 8 : 0,
+                  padding: 8,
+                }}
+              >
+                <Ionicons
+                  name="arrow-back"
+                  size={24}
+                  color={tintColor ?? theme.colors.white}
+                />
+              </TouchableOpacity>
+            );
+          }
+          // No stack history (e.g., after returning from an external redirect
+          // like Stripe checkout on web) — navigate home
+          return (
+            <TouchableOpacity
+              onPress={() => router.replace("/(tabs)")}
+              style={{
+                marginLeft: Platform.OS === "web" ? 8 : 0,
+                padding: 8,
+              }}
+            >
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={tintColor ?? theme.colors.white}
+              />
+            </TouchableOpacity>
+          );
+        },
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

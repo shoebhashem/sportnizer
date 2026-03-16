@@ -61,7 +61,11 @@
     "phone": "Telefon",
     "dateOfBirth": "Geburtsdatum",
     "guardianContacts": "Erziehungsberechtigte Kontakte",
-    "noGuardianInfo": "Keine Informationen zu Erziehungsberechtigten verfügbar"
+    "noGuardianInfo": "Keine Informationen zu Erziehungsberechtigten verfügbar",
+    "editName": "Name",
+    "editDateOfBirth": "Geburtsdatum",
+    "editProfile": "Profil bearbeiten",
+    "updateFailed": "Profil konnte nicht aktualisiert werden"
   },
 
   "eventCard": {

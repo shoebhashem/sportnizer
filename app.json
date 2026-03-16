@@ -38,7 +38,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/clubnizer_logo.png",
+          "image": "./assets/images/splash_image.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#25292e"

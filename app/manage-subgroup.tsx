@@ -244,6 +244,7 @@ export default function ManageSubgroupScreen() {
           initialName={selectedMember.name}
           initialPhotoURL={selectedMember.photoURL}
           isYouth={selectedMember.needsGuardian}
+          isAdminViewing={canManage}
         />
       )}
     </View>

@@ -2453,8 +2453,10 @@ functions/src/
 │   ├── removeGuardianFromYouth.ts  # Unlinks guardian from youth member
 │   ├── removeMemberFromClub.ts
 │   ├── removeMemberFromGroup.ts
+│   ├── updateGuardianContactInfo.ts # Guardian/admin edits guardian phone number
 │   ├── updateUserClubInfo.ts      # Updates user document club access
-│   └── updateUserGroupInfo.ts     # Updates user document group access
+│   ├── updateUserGroupInfo.ts     # Updates user document group access
+│   └── updateYouthProfile.ts      # Admin edits youth name/DOB with full sync
 ├── polls/              # Poll operations
 │   ├── createPoll.ts
 │   ├── updatePoll.ts
@@ -16184,6 +16186,38 @@ dependents: [
 | `app/remove-member.tsx`    | `mode: "select"` with `removeType: "youth"` for single-select youth player picking                      |
 | `app/add-adult-member.tsx` | `role: "guardian"` sends guardian invitation with `guardianData`                                        |
 | `app/remove-guardian.tsx`  | Displays youth's guardians, multi-select removal with confirmation                                      |
+
+#### **Admin Youth Profile Editing**
+
+Club admins and group admins can update a youth player's name and/or date of birth directly from the member contact modal. This feature also allows admins to upload profile pictures for youth players and update guardian phone numbers.
+
+**Cloud Functions**:
+
+**`updateYouthProfile`** (`functions/src/members/updateYouthProfile.ts`):
+
+- **Purpose**: Allows club-admin or group admin to update a youth's `displayName` and/or `dateOfBirth`
+- **Auth**: Requires authenticated user with `club-admin` role for the club OR `admin` role for the group
+- **Request**: `{ youthUid, clubId, groupId, displayName?, dateOfBirth? }`
+- **Sync locations** (denormalized):
+  1. `users/{youthUid}` — primary document (`displayName`, `dateOfBirth`)
+  2. `allMembers/members` arrays (club, group, subgroup) — `members[].name` (collectionGroup query, emulator-safe)
+  3. Guardian `dependents[]` — `users/{guardianUid}.dependents[].childName` and `.dateOfBirth`
+- **Validation**: `displayName` cannot be empty or exceed 100 chars; at least one field must be provided; target must have `isYouth: true`
+- **Error codes**: `unauthenticated`, `invalid-argument`, `permission-denied`, `not-found`, `failed-precondition`
+
+**`updateGuardianContactInfo`** (`functions/src/members/updateGuardianContactInfo.ts`) — **Admin path**:
+
+- **Purpose**: Extended to allow club-admin/group admin to update a guardian's phone number (in addition to guardian self-edit)
+- **Admin request**: `{ guardianUid, clubId, groupId?, phoneNumber }` — when `guardianUid` differs from caller, permission check is performed
+- **Permission**: `isClubAdmin(callerId, clubId)` OR `isGroupAdmin(callerId, clubId, groupId)` (if `groupId` provided)
+
+**UI Component** (`components/MemberContactModal.tsx`):
+
+- `isAdminViewing` prop enables admin editing UI when passed from manage screens
+- Admin can tap "Edit Profile" to edit youth name and DOB inline
+- Admin can tap pencil icon on guardian cards to edit phone number
+- Admin can tap camera overlay to upload/change youth profile picture
+- Passed from: `manage-group.tsx` (`canManage`), `manage-club.tsx` (`isAdmin`), `manage-subgroup.tsx` (`canManage`)
 
 #### **Future Enhancements**
 

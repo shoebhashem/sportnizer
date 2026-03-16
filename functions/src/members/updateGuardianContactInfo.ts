@@ -1,25 +1,36 @@
 /**
  * updateGuardianContactInfo - Cloud Function (onCall)
  *
- * Allows a guardian to update their own contact info (email, phone).
- * Updates both:
+ * Allows a guardian to update their own contact info (phone).
+ * Also allows a club-admin or group admin to update any guardian's
+ * phone number for a youth player in their club/group.
+ *
+ * Updates:
  *   1. The guardian's own users/{guardianUid} document
  *   2. The youth's users/{youthUid}.guardians[] entry for this guardian
+ *   3. guardiansContacts[] in allMembers arrays where the youth appears
  *
- * Permission: The caller must be authenticated and must be listed in
- * the youth's guardians[] array.
- *
- * NOTE: This does NOT update the youth's name — only admin/club-admin can do that.
+ * Permission:
+ *   - The caller is listed in the youth's guardians[] array, OR
+ *   - The caller is a club-admin for the given clubId, OR
+ *   - The caller is a group admin for the given groupId.
  */
 
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
+import { isClubAdmin, isGroupAdmin } from "../utils/roleValidation";
 
 interface UpdateGuardianContactRequest {
   youthUid: string;
   phoneNumber?: string | null;
+  /** Required when an admin is updating on behalf of the guardian */
+  guardianUid?: string;
+  /** Required for admin permission verification */
+  clubId?: string;
+  /** Required for admin permission verification */
+  groupId?: string;
 }
 
 export const updateGuardianContactInfo = onCall(
@@ -31,9 +42,14 @@ export const updateGuardianContactInfo = onCall(
         throw new HttpsError("unauthenticated", "User must be authenticated");
       }
 
-      const guardianUid = request.auth.uid;
-      const { youthUid, phoneNumber } =
-        request.data as UpdateGuardianContactRequest;
+      const callerUid = request.auth.uid;
+      const {
+        youthUid,
+        phoneNumber,
+        guardianUid: targetGuardianUid,
+        clubId,
+        groupId,
+      } = request.data as UpdateGuardianContactRequest;
 
       if (!youthUid) {
         throw new HttpsError("invalid-argument", "youthUid is required");
@@ -48,7 +64,7 @@ export const updateGuardianContactInfo = onCall(
 
       const db = admin.firestore();
 
-      // 2. Verify the caller is actually a guardian of this youth
+      // 2. Verify the youth exists
       const youthDoc = await db.collection("users").doc(youthUid).get();
       if (!youthDoc.exists) {
         throw new HttpsError("not-found", "Youth member not found");
@@ -56,6 +72,43 @@ export const updateGuardianContactInfo = onCall(
 
       const youthData = youthDoc.data()!;
       const guardians: any[] = youthData.guardians || [];
+
+      // 3. Determine who the guardian target is, and verify permission
+      let guardianUid: string;
+
+      if (targetGuardianUid && targetGuardianUid !== callerUid) {
+        // Admin updating on behalf of a guardian
+        if (!clubId) {
+          throw new HttpsError(
+            "invalid-argument",
+            "clubId is required when updating as admin",
+          );
+        }
+
+        const hasClubAdmin = await isClubAdmin(callerUid, clubId);
+        if (!hasClubAdmin) {
+          if (!groupId) {
+            throw new HttpsError(
+              "invalid-argument",
+              "groupId is required when updating as group admin",
+            );
+          }
+          const hasGroupAdmin = await isGroupAdmin(callerUid, clubId, groupId);
+          if (!hasGroupAdmin) {
+            throw new HttpsError(
+              "permission-denied",
+              "You must be a club admin or group admin to update another guardian's contact",
+            );
+          }
+        }
+
+        guardianUid = targetGuardianUid;
+      } else {
+        // Guardian updating their own contact
+        guardianUid = callerUid;
+      }
+
+      // 4. Verify the guardian exists in the youth's guardians[] array
       const guardianIndex = guardians.findIndex(
         (g: any) => g.guardianUid === guardianUid,
       );
@@ -63,7 +116,7 @@ export const updateGuardianContactInfo = onCall(
       if (guardianIndex === -1) {
         throw new HttpsError(
           "permission-denied",
-          "You are not a guardian of this youth member",
+          "The specified user is not a guardian of this youth member",
         );
       }
 

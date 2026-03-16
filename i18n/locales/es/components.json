@@ -61,7 +61,11 @@
     "phone": "Teléfono",
     "dateOfBirth": "Fecha de nacimiento",
     "guardianContacts": "Contactos de tutores",
-    "noGuardianInfo": "No hay información de tutores disponible"
+    "noGuardianInfo": "No hay información de tutores disponible",
+    "editName": "Nombre",
+    "editDateOfBirth": "Fecha de nacimiento",
+    "editProfile": "Editar perfil",
+    "updateFailed": "Error al actualizar el perfil"
   },
 
   "eventCard": {

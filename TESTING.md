@@ -16,8 +16,8 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 404                                                           |
-| **Test suites**  | 21                                                            |
+| **Total tests**  | 415                                                           |
+| **Test suites**  | 22                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
 | **Backend**      | Firebase Emulator Suite (Auth, Firestore, Functions, Storage) |
@@ -44,6 +44,7 @@
 | Flat Array Helpers    | `functions/test/flat-array-helpers.test.ts`           | 24    | buildFlatArraysFromClubAccess, emptyFlatArrays, inactive filtering      |
 | Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)    |
 | Account Security      | `functions/test/account-security.test.ts`             | 16    | Token revocation, email change request/verify, email sync               |
+| Youth Profile Admin   | `functions/test/update-youth-profile.test.ts`         | 11    | Admin update youth name/DOB, sync, guardian phone update, permissions   |
 
 ---
 
@@ -696,6 +697,31 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | 14  | should reject already-verified token               | `verified: true` → error redirect                                 |
 | 15  | should reject nonexistent token                    | Invalid token → error redirect                                    |
 | 16  | should revoke refresh tokens after email change    | `tokensValidAfterTime` advances after verification                |
+
+### 12. Youth Profile Admin (`update-youth-profile.test.ts`) — 11 tests
+
+> Integration tests for admin editing of youth player profiles (name, DOB) and admin updating guardian phone numbers.
+
+#### updateYouthProfile (9 tests)
+
+| #   | Test                                            | What it verifies                                                   |
+| --- | ----------------------------------------------- | ------------------------------------------------------------------ |
+| 1   | club admin can update youth displayName         | `users/{youthUid}.displayName` updated                             |
+| 2   | club admin can update youth dateOfBirth         | `users/{youthUid}.dateOfBirth` updated                             |
+| 3   | club admin can update both name and DOB at once | Both fields updated in single call                                 |
+| 4   | group admin can update youth profile            | Non-club-admin with group admin role succeeds                      |
+| 5   | syncs guardian dependents after name update     | `dependents[].childName` and `.dateOfBirth` synced on guardian doc |
+| 6   | rejects non-admin user                          | Guardian (no admin role) → `PERMISSION_DENIED`                     |
+| 7   | rejects update on non-youth member              | Target without `isYouth: true` → `FAILED_PRECONDITION`             |
+| 8   | rejects empty displayName                       | Whitespace-only name → `INVALID_ARGUMENT`                          |
+| 9   | rejects when no update fields provided          | Neither displayName nor dateOfBirth → `INVALID_ARGUMENT`           |
+
+#### Admin Guardian Phone Update (2 tests)
+
+| #   | Test                                              | What it verifies                                         |
+| --- | ------------------------------------------------- | -------------------------------------------------------- |
+| 10  | club admin can update a guardian phone number     | `users/{guardianUid}.phoneNumber` updated via admin path |
+| 11  | rejects non-admin updating another guardian phone | Non-admin caller → `PERMISSION_DENIED`                   |
 
 ---
 

@@ -43,6 +43,8 @@ interface MemberContactModalProps {
   isYouth?: boolean;
   /** True when the current user is the guardian of this member */
   isGuardianViewing?: boolean;
+  /** True when the current user is a club-admin or group admin */
+  isAdminViewing?: boolean;
 }
 
 export default function MemberContactModal({
@@ -55,6 +57,7 @@ export default function MemberContactModal({
   initialPhotoURL,
   isYouth = false,
   isGuardianViewing = false,
+  isAdminViewing = false,
 }: MemberContactModalProps) {
   const { t } = useTranslation(["components", "common"]);
   const { user } = useAuth();
@@ -71,9 +74,26 @@ export default function MemberContactModal({
   const [editPhone, setEditPhone] = useState("");
   const [savingContact, setSavingContact] = useState(false);
 
+  // Admin editing state — name & DOB for youth members
+  const [editingYouthProfile, setEditingYouthProfile] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDob, setEditDob] = useState("");
+  const [savingYouthProfile, setSavingYouthProfile] = useState(false);
+
+  // Admin editing guardian phone (for a specific guardian)
+  const [editingAdminGuardianUid, setEditingAdminGuardianUid] = useState<
+    string | null
+  >(null);
+  const [adminEditPhone, setAdminEditPhone] = useState("");
+
   useEffect(() => {
     if (visible && userId) {
       loadMemberDetails();
+    } else if (!visible) {
+      // Reset editing states when modal closes
+      setEditingYouthProfile(false);
+      setEditingAdminGuardianUid(null);
+      setEditingGuardianContact(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, userId, clubId, groupId]);
@@ -153,6 +173,97 @@ export default function MemberContactModal({
     }
   };
 
+  // ── Admin: Youth profile editing (name & DOB) ──────────────────────
+  const startEditingYouthProfile = () => {
+    setEditName(member?.displayName || initialName || "");
+    setEditDob(member?.dateOfBirth || "");
+    setEditingYouthProfile(true);
+  };
+
+  const cancelEditingYouthProfile = () => {
+    setEditingYouthProfile(false);
+    setEditName("");
+    setEditDob("");
+  };
+
+  const saveYouthProfile = async () => {
+    if (!editName.trim()) return;
+    setSavingYouthProfile(true);
+    try {
+      const updateFn = httpsCallable(functions, "updateYouthProfile");
+      const result = await updateFn({
+        youthUid: userId,
+        clubId,
+        groupId,
+        displayName: editName.trim(),
+        dateOfBirth: editDob.trim() || undefined,
+      });
+      const data = result.data as { success: boolean; error?: string };
+      if (data.success) {
+        // Update local state
+        if (member) {
+          setMember({
+            ...member,
+            displayName: editName.trim(),
+            dateOfBirth: editDob.trim() || member.dateOfBirth,
+          });
+        }
+        setEditingYouthProfile(false);
+      } else {
+        setError(data.error || t("components:memberContactModal.updateFailed"));
+      }
+    } catch (err: any) {
+      console.error("Error saving youth profile:", err);
+      setError(err.message || t("components:memberContactModal.updateFailed"));
+    } finally {
+      setSavingYouthProfile(false);
+    }
+  };
+
+  // ── Admin: Guardian phone editing ──────────────────────────────────
+  const startEditingAdminGuardianPhone = (guardian: GuardianContactDetails) => {
+    setEditingAdminGuardianUid(guardian.guardianUid);
+    setAdminEditPhone(guardian.phoneNumber || "");
+  };
+
+  const cancelEditingAdminGuardianPhone = () => {
+    setEditingAdminGuardianUid(null);
+    setAdminEditPhone("");
+  };
+
+  const saveAdminGuardianPhone = async () => {
+    if (!editingAdminGuardianUid) return;
+    setSavingContact(true);
+    try {
+      const updateFn = httpsCallable(functions, "updateGuardianContactInfo");
+      const result = await updateFn({
+        youthUid: userId,
+        guardianUid: editingAdminGuardianUid,
+        clubId,
+        groupId,
+        phoneNumber: adminEditPhone.trim() || null,
+      });
+      const data = result.data as { success: boolean; error?: string };
+      if (data.success) {
+        setGuardians((prev) =>
+          prev.map((g) =>
+            g.guardianUid === editingAdminGuardianUid
+              ? { ...g, phoneNumber: adminEditPhone.trim() || null }
+              : g,
+          ),
+        );
+        setEditingAdminGuardianUid(null);
+      } else {
+        setError(data.error || t("components:memberContactModal.updateFailed"));
+      }
+    } catch (err: any) {
+      console.error("Error saving admin guardian phone:", err);
+      setError(err.message || t("components:memberContactModal.updateFailed"));
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
   const formatDateOfBirth = (dateStr: string | null): string => {
     if (!dateStr) return t("components:memberContactModal.notAvailable");
     try {
@@ -196,8 +307,9 @@ export default function MemberContactModal({
 
   const renderGuardianCard = (guardian: GuardianContactDetails) => {
     const isOwnEntry = isGuardianViewing && guardian.guardianUid === user?.uid;
+    const isAdminEditingThis = editingAdminGuardianUid === guardian.guardianUid;
 
-    // If editing own contact info, show editable fields
+    // If editing own contact info (guardian self-edit), show editable fields
     if (isOwnEntry && editingGuardianContact) {
       return (
         <View key={guardian.guardianUid} style={styles.guardianCard}>
@@ -246,6 +358,57 @@ export default function MemberContactModal({
       );
     }
 
+    // Admin editing a guardian's phone
+    if (isAdminViewing && isAdminEditingThis) {
+      return (
+        <View key={guardian.guardianUid} style={styles.guardianCard}>
+          <View style={styles.guardianHeader}>
+            <Text style={styles.guardianName}>{guardian.displayName}</Text>
+            <View style={styles.relationshipBadge}>
+              <Text style={styles.relationshipText}>
+                {guardian.relationship}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.editFieldContainer}>
+            <Text style={styles.editFieldLabel}>
+              {t("components:memberContactModal.phone")}
+            </Text>
+            <TextInput
+              style={styles.editFieldInput}
+              value={adminEditPhone}
+              onChangeText={setAdminEditPhone}
+              placeholder={t("components:memberContactModal.phone")}
+              placeholderTextColor={theme.colors.textSecondary}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.editButtonRow}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={cancelEditingAdminGuardianPhone}
+              disabled={savingContact}
+            >
+              <Text style={styles.cancelButtonText}>{t("common:cancel")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={saveAdminGuardianPhone}
+              disabled={savingContact}
+            >
+              {savingContact ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <Text style={styles.saveButtonText}>{t("common:save")}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View key={guardian.guardianUid} style={styles.guardianCard}>
         <View style={styles.guardianHeader}>
@@ -256,8 +419,21 @@ export default function MemberContactModal({
                 {guardian.relationship}
               </Text>
             </View>
+            {/* Guardian self-edit pencil */}
             {isOwnEntry && (
               <TouchableOpacity onPress={startEditingOwnContact}>
+                <Ionicons
+                  name="pencil"
+                  size={18}
+                  color={theme.colors.secondary}
+                />
+              </TouchableOpacity>
+            )}
+            {/* Admin edit pencil (for any guardian) */}
+            {isAdminViewing && !isOwnEntry && (
+              <TouchableOpacity
+                onPress={() => startEditingAdminGuardianPhone(guardian)}
+              >
                 <Ionicons
                   name="pencil"
                   size={18}
@@ -356,8 +532,8 @@ export default function MemberContactModal({
                         </Text>
                       </View>
                     )}
-                    {/* Camera icon overlay for guardians */}
-                    {isGuardianViewing && (
+                    {/* Camera icon overlay for guardians and admins */}
+                    {(isGuardianViewing || isAdminViewing) && (
                       <TouchableOpacity
                         style={styles.cameraOverlay}
                         onPress={() => setShowPhotoUpload(true)}
@@ -381,6 +557,83 @@ export default function MemberContactModal({
                     </View>
                   )}
                 </View>
+
+                {/* Admin Edit Youth Profile Section */}
+                {isAdminViewing && member.isYouth && (
+                  <View style={styles.adminEditSection}>
+                    {editingYouthProfile ? (
+                      <View>
+                        <Text style={styles.adminEditLabel}>
+                          {t("components:memberContactModal.editName")}
+                        </Text>
+                        <TextInput
+                          style={styles.editInput}
+                          value={editName}
+                          onChangeText={setEditName}
+                          placeholder={t(
+                            "components:memberContactModal.editName",
+                          )}
+                          placeholderTextColor={theme.colors.textSecondary}
+                        />
+                        <Text
+                          style={[styles.adminEditLabel, { marginTop: 12 }]}
+                        >
+                          {t("components:memberContactModal.editDateOfBirth")}
+                        </Text>
+                        <TextInput
+                          style={styles.editInput}
+                          value={editDob}
+                          onChangeText={setEditDob}
+                          placeholder="YYYY-MM-DD"
+                          placeholderTextColor={theme.colors.textSecondary}
+                        />
+                        <View style={styles.editButtonRow}>
+                          <TouchableOpacity
+                            style={styles.cancelButton}
+                            onPress={cancelEditingYouthProfile}
+                          >
+                            <Text style={styles.cancelButtonText}>
+                              {t("common:cancel")}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.saveButton,
+                              savingYouthProfile && styles.saveButtonDisabled,
+                            ]}
+                            onPress={saveYouthProfile}
+                            disabled={savingYouthProfile}
+                          >
+                            {savingYouthProfile ? (
+                              <ActivityIndicator
+                                size="small"
+                                color={theme.colors.white}
+                              />
+                            ) : (
+                              <Text style={styles.saveButtonText}>
+                                {t("common:save")}
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.editProfileButton}
+                        onPress={startEditingYouthProfile}
+                      >
+                        <Ionicons
+                          name="pencil"
+                          size={16}
+                          color={theme.colors.secondary}
+                        />
+                        <Text style={styles.editProfileButtonText}>
+                          {t("components:memberContactModal.editProfile")}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
 
                 {/* Member Info Section */}
                 <View style={styles.infoSection}>
@@ -449,8 +702,8 @@ export default function MemberContactModal({
         </View>
       </View>
 
-      {/* Profile Picture Upload Modal (for guardians) */}
-      {isGuardianViewing && (
+      {/* Profile Picture Upload Modal (for guardians and admins) */}
+      {(isGuardianViewing || isAdminViewing) && (
         <ProfilePictureUpload
           visible={showPhotoUpload}
           onClose={() => setShowPhotoUpload(false)}
@@ -729,6 +982,47 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  // Admin edit youth profile section
+  adminEditSection: {
+    marginBottom: 16,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    padding: 16,
+  },
+  adminEditLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  editInput: {
+    fontSize: 16,
+    color: theme.colors.text,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  editProfileButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 10,
+  },
+  editProfileButtonText: {
+    color: theme.colors.secondary,
     fontSize: 14,
     fontWeight: "600",
   },

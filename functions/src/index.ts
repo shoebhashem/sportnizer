@@ -82,6 +82,7 @@ export { getMemberContactDetails } from "./members/getMemberContactDetails";
 export { getMemberGroupMemberships } from "./members/getMemberGroupMemberships";
 export { updateGuardianContactInfo } from "./members/updateGuardianContactInfo";
 export { updateGuardianDependentClubRemoval } from "./members/updateGuardianDependentClubRemoval";
+export { updateYouthProfile } from "./members/updateYouthProfile";
 
 // User Document Update Functions (Atomic)
 export { updateGuardianDependentAccess } from "./members/updateGuardianDependentAccess";

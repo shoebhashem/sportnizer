@@ -61,7 +61,11 @@
     "phone": "Phone",
     "dateOfBirth": "Date of Birth",
     "guardianContacts": "Guardian Contacts",
-    "noGuardianInfo": "No guardian information available"
+    "noGuardianInfo": "No guardian information available",
+    "editName": "Name",
+    "editDateOfBirth": "Date of Birth",
+    "editProfile": "Edit Profile",
+    "updateFailed": "Failed to update profile"
   },
 
   "eventCard": {

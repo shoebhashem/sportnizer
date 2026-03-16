@@ -61,7 +61,11 @@
     "phone": "Telefon",
     "dateOfBirth": "Födelsedatum",
     "guardianContacts": "Vårdnadshavarkontakter",
-    "noGuardianInfo": "Ingen information om vårdnadshavare tillgänglig"
+    "noGuardianInfo": "Ingen information om vårdnadshavare tillgänglig",
+    "editName": "Namn",
+    "editDateOfBirth": "Födelsedatum",
+    "editProfile": "Redigera profil",
+    "updateFailed": "Kunde inte uppdatera profilen"
   },
 
   "eventCard": {
