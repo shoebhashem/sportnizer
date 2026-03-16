@@ -16197,7 +16197,7 @@ Club admins and group admins can update a youth player's name and/or date of bir
 
 - **Purpose**: Allows club-admin or group admin to update a youth's `displayName` and/or `dateOfBirth`
 - **Auth**: Requires authenticated user with `club-admin` role for the club OR `admin` role for the group
-- **Request**: `{ youthUid, clubId, groupId, displayName?, dateOfBirth? }`
+- **Request**: `{ youthUid, clubId, groupId?, displayName?, dateOfBirth? }` (`groupId` is optional for club admins; required for group-admin-only callers)
 - **Sync locations** (denormalized):
   1. `users/{youthUid}` — primary document (`displayName`, `dateOfBirth`)
   2. `allMembers/members` arrays (club, group, subgroup) — `members[].name` (collectionGroup query, emulator-safe)

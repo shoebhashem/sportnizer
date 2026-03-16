@@ -588,6 +588,37 @@ describe("Suite P: Picture Upload & Firestore Verification", () => {
         "permission-denied",
       );
     });
+
+    it("TC-P10b: Club admin uploads for member without groupId → success", async () => {
+      const {
+        admin: adminUser,
+        clubId,
+        groupId,
+        subGroupId,
+      } = await setupFullEnvironment();
+
+      const member = await createFullTestUser({
+        email: `member_${Date.now()}@test.com`,
+        displayName: "No-Group Member",
+      });
+      await addMemberEverywhere(member, clubId, groupId, subGroupId);
+
+      // Call WITHOUT groupId — club admin should still succeed
+      const result = await callFunction<{
+        success: boolean;
+        photoURL: string;
+      }>("uploadProfilePictureForMember", adminUser.idToken, {
+        targetUserId: member.uid,
+        clubId,
+        // no groupId
+        imageBase64: TINY_IMAGE_BASE64,
+        contentType: "image/png",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.photoURL).toBeDefined();
+      expect(result.photoURL).toContain(`profilePictures/users/${member.uid}`);
+    });
   });
 
   // ─── onProfilePictureResized — Firestore propagation ─────────

@@ -497,6 +497,39 @@ describe("Update Youth Profile", () => {
       "INVALID_ARGUMENT",
     );
   });
+
+  /* ────────────────────────────────────────────────────
+   *  10. Club admin can update without groupId
+   * ──────────────────────────────────────────────────── */
+  it("club admin can update youth profile without groupId", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+    const guardian = await createFullTestUser({
+      email: `guardian_${Date.now()}@test.com`,
+    });
+    await seedUserDocument(guardian.uid, { dependents: [], isYouth: false });
+
+    const youthUid = await setupYouthWithGuardian(
+      admin,
+      guardian,
+      clubId,
+      groupId,
+    );
+
+    // Call WITHOUT groupId — club admin should still succeed
+    const result = await callFunction("updateYouthProfile", admin.idToken, {
+      youthUid,
+      clubId,
+      // no groupId
+      displayName: "Club-Level Update",
+      dateOfBirth: "2015-09-01",
+    });
+
+    expect(result.success).toBe(true);
+
+    const youthDoc = await getDocument(`users/${youthUid}`);
+    expect(youthDoc!.displayName).toBe("Club-Level Update");
+    expect(youthDoc!.dateOfBirth).toBe("2015-09-01");
+  });
 });
 
 /* ------------------------------------------------------------------ */

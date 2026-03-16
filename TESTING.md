@@ -715,6 +715,7 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | 7   | rejects update on non-youth member              | Target without `isYouth: true` → `FAILED_PRECONDITION`             |
 | 8   | rejects empty displayName                       | Whitespace-only name → `INVALID_ARGUMENT`                          |
 | 9   | rejects when no update fields provided          | Neither displayName nor dateOfBirth → `INVALID_ARGUMENT`           |
+| 10  | club admin can update without groupId           | Club admin succeeds without `groupId` (club-level access path)     |
 
 #### Admin Guardian Phone Update (2 tests)
 
@@ -1435,6 +1436,8 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 #### TC-P9: Regular member gets permission denied on uploadProfilePictureForMember
 
 #### TC-P10: Target must be in group for non-club-admin (coach tries for outsider)
+
+#### TC-P10b: Club admin uploads profile picture for member without groupId → success
 
 #### TC-P11: onProfilePictureResized — photoURL propagated to all Firestore locations
 

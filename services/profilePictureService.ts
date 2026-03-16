@@ -74,7 +74,7 @@ export async function uploadOwnProfilePicture(
 export async function uploadProfilePictureForMember(
   targetUserId: string,
   clubId: string,
-  groupId: string,
+  groupId: string | undefined,
   imageUri: string,
 ): Promise<ProfilePictureUploadResult> {
   try {
@@ -91,7 +91,7 @@ export async function uploadProfilePictureForMember(
       {
         targetUserId: string;
         clubId: string;
-        groupId: string;
+        groupId?: string;
         imageBase64: string;
         contentType: string;
       },
@@ -101,7 +101,7 @@ export async function uploadProfilePictureForMember(
     const result = await uploadFn({
       targetUserId,
       clubId,
-      groupId,
+      ...(groupId && { groupId }),
       imageBase64: base64,
       contentType: "image/jpeg",
     });

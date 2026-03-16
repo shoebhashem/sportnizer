@@ -22,7 +22,7 @@ import { isClubAdmin, isGroupAdmin } from "../utils/roleValidation";
 interface UpdateYouthProfileRequest {
   youthUid: string;
   clubId: string;
-  groupId: string;
+  groupId?: string;
   displayName?: string;
   dateOfBirth?: string;
 }
@@ -46,9 +46,6 @@ export const updateYouthProfile = onCall(
       }
       if (!clubId) {
         throw new HttpsError("invalid-argument", "clubId is required");
-      }
-      if (!groupId) {
-        throw new HttpsError("invalid-argument", "groupId is required");
       }
 
       if (displayName === undefined && dateOfBirth === undefined) {
@@ -78,6 +75,12 @@ export const updateYouthProfile = onCall(
       // 4. Permission check — club-admin OR group admin
       const hasClubAdmin = await isClubAdmin(callerId, clubId);
       if (!hasClubAdmin) {
+        if (!groupId) {
+          throw new HttpsError(
+            "invalid-argument",
+            "groupId is required when updating as group admin",
+          );
+        }
         const hasGroupAdmin = await isGroupAdmin(callerId, clubId, groupId);
         if (!hasGroupAdmin) {
           throw new HttpsError(

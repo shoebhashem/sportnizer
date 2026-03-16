@@ -3,19 +3,19 @@ import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Image,
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    Modal,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 import { theme } from "../constants/theme";
 import {
-  uploadOwnProfilePicture,
-  uploadProfilePictureForMember,
+    uploadOwnProfilePicture,
+    uploadProfilePictureForMember,
 } from "../services/profilePictureService";
 import Button from "./Button";
 import ConfirmationModal from "./ConfirmationModal";
@@ -120,8 +120,8 @@ export default function ProfilePictureUpload({
     try {
       let result;
 
-      if (isForMember && targetUserId && clubId && groupId) {
-        // Admin/coach uploading for a member
+      if (isForMember && targetUserId && clubId) {
+        // Admin/coach uploading for a member (groupId is optional for club admins)
         result = await uploadProfilePictureForMember(
           targetUserId,
           clubId,

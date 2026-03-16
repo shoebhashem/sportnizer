@@ -22,7 +22,7 @@ import { waitForResizedImage } from "../utils/waitForResizedImage";
 interface UploadForMemberRequest {
   targetUserId: string;
   clubId: string;
-  groupId: string;
+  groupId?: string;
   imageBase64: string;
   contentType: string;
 }
@@ -50,7 +50,6 @@ export const uploadProfilePictureForMember = onCall(
       validateRequiredFields(request.data, [
         "targetUserId",
         "clubId",
-        "groupId",
         "imageBase64",
         "contentType",
       ]);
@@ -76,6 +75,14 @@ export const uploadProfilePictureForMember = onCall(
       const hasClubAdminAccess = await isClubAdmin(callerId, clubId);
 
       if (!hasClubAdminAccess) {
+        if (!groupId) {
+          // Non-club-admin must provide a groupId for group-level permission check
+          throw new HttpsError(
+            "invalid-argument",
+            "groupId is required when not a club admin",
+          );
+        }
+
         // Check if caller is admin or coach in the specified group
         const hasGroupManageAccess = await checkGroupManageRole(
           callerId,
