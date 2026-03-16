@@ -7,16 +7,18 @@ import { useNavigation, useRouter } from "expo-router";
 import React, { useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,12 +30,17 @@ import { getDefaultProfilePicture } from "../constants/profilePictures";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
 import {
-    SUPPORTED_LANGUAGES,
-    SupportedLanguage,
-    useLanguage,
+  SUPPORTED_LANGUAGES,
+  SupportedLanguage,
+  useLanguage,
 } from "../contexts/LanguageContext";
 import { useUser } from "../contexts/UserContext";
-import { signOutUser, updateUserProfile } from "../services/auth/authService";
+import {
+  changePassword,
+  requestEmailChange,
+  signOutUser,
+  updateUserProfile,
+} from "../services/auth/authService";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -58,6 +65,15 @@ export default function ProfileScreen() {
   const [currentPhotoURL, setCurrentPhotoURL] = useState("");
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  // Security modals state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
+  const [newEmailInput, setNewEmailInput] = useState("");
+  const [securityLoading, setSecurityLoading] = useState(false);
 
   // Generic alert modal state (replaces Alert.alert for cross-platform)
   const [alertModal, setAlertModal] = useState<{
@@ -280,6 +296,94 @@ export default function ProfileScreen() {
     setCurrentPhotoURL(newImageUrl);
     // User doc listener in UserContext picks up the new photoURL automatically
     showAlert(t("common:success"), t("screens:profile.profilePictureUploaded"));
+  };
+
+  // ----- Security: Change Password -----
+  const handleOpenPasswordModal = () => {
+    setCurrentPasswordInput("");
+    setNewPasswordInput("");
+    setConfirmPasswordInput("");
+    setShowPasswordModal(true);
+  };
+
+  const handleChangePassword = async () => {
+    if (newPasswordInput.length < 6) {
+      showAlert(t("common:error"), t("screens:profile.passwordTooShort"));
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      showAlert(t("common:error"), t("screens:profile.passwordMismatch"));
+      return;
+    }
+
+    setSecurityLoading(true);
+    try {
+      const result = await changePassword(
+        currentPasswordInput,
+        newPasswordInput,
+      );
+      if (result.success) {
+        setShowPasswordModal(false);
+        showAlert(
+          t("common:success"),
+          t("screens:profile.passwordChanged"),
+          async () => {
+            await signOutUser();
+            router.replace("/login");
+          },
+        );
+      } else {
+        showAlert(
+          t("common:error"),
+          result.error?.message || "Failed to change password.",
+        );
+      }
+    } catch (error: any) {
+      console.error("Password change error:", error);
+      showAlert(t("common:error"), "An unexpected error occurred.");
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  // ----- Security: Change Email -----
+  const handleOpenEmailModal = () => {
+    setNewEmailInput("");
+    setShowEmailModal(true);
+  };
+
+  const handleRequestEmailChange = async () => {
+    const trimmed = newEmailInput.trim();
+    if (!trimmed || !trimmed.includes("@")) {
+      showAlert(t("common:error"), t("screens:profile.passwordTooShort")); // reuse generic validation
+      return;
+    }
+
+    setSecurityLoading(true);
+    try {
+      const result = await requestEmailChange(trimmed);
+      if (result.success) {
+        setShowEmailModal(false);
+        showAlert(
+          t("common:success"),
+          t("screens:profile.emailChangeRequested"),
+          async () => {
+            await signOutUser();
+            router.replace("/login");
+          },
+        );
+      } else {
+        showAlert(
+          t("common:error"),
+          result.error?.message || "Failed to request email change.",
+        );
+      }
+    } catch (error: any) {
+      console.error("Email change request error:", error);
+      showAlert(t("common:error"), "An unexpected error occurred.");
+    } finally {
+      setSecurityLoading(false);
+    }
   };
 
   // ----- Sign Out -----
@@ -534,6 +638,57 @@ export default function ProfileScreen() {
           {/* ---- Legal Settings ---- */}
           <LegalSettingsSection showAcceptanceStatus={true} />
 
+          {/* ---- Security Section ---- */}
+          {!isEditing && (
+            <View style={styles.securitySection}>
+              <Text style={styles.sectionTitle}>
+                {t("screens:profile.security")}
+              </Text>
+
+              <TouchableOpacity
+                style={styles.securityButton}
+                onPress={handleOpenPasswordModal}
+              >
+                <View style={styles.securityButtonIcon}>
+                  <FontAwesome
+                    name="lock"
+                    size={16}
+                    color={theme.colors.secondary}
+                  />
+                </View>
+                <Text style={styles.securityButtonText}>
+                  {t("screens:profile.changePassword")}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={theme.colors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.securityButton}
+                onPress={handleOpenEmailModal}
+              >
+                <View style={styles.securityButtonIcon}>
+                  <FontAwesome
+                    name="envelope"
+                    size={14}
+                    color={theme.colors.secondary}
+                  />
+                </View>
+                <Text style={styles.securityButtonText}>
+                  {t("screens:profile.changeEmail")}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={theme.colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* ---- Language Selector ---- */}
           <View style={styles.languageSection}>
             <DropdownInput
@@ -597,6 +752,180 @@ export default function ProfileScreen() {
         onConfirm={hideAlert}
         onCancel={hideAlert}
       />
+
+      {/* ---- Change Password Modal ---- */}
+      <Modal
+        visible={showPasswordModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !securityLoading && setShowPasswordModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => !securityLoading && setShowPasswordModal(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.modalKeyboardView}
+          >
+            <Pressable style={styles.modalCard} onPress={() => {}}>
+              <Text style={styles.modalTitle}>
+                {t("screens:profile.changePassword")}
+              </Text>
+
+              <Text style={styles.modalInputLabel}>
+                {t("screens:profile.currentPassword")}
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                value={currentPasswordInput}
+                onChangeText={setCurrentPasswordInput}
+                placeholder={t("screens:profile.enterCurrentPassword")}
+                placeholderTextColor={theme.colors.textSecondary}
+                secureTextEntry
+                autoCapitalize="none"
+                editable={!securityLoading}
+              />
+
+              <Text style={styles.modalInputLabel}>
+                {t("screens:profile.newPassword")}
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                value={newPasswordInput}
+                onChangeText={setNewPasswordInput}
+                placeholder={t("screens:profile.enterNewPassword")}
+                placeholderTextColor={theme.colors.textSecondary}
+                secureTextEntry
+                autoCapitalize="none"
+                editable={!securityLoading}
+              />
+
+              <Text style={styles.modalInputLabel}>
+                {t("screens:profile.confirmNewPassword")}
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                value={confirmPasswordInput}
+                onChangeText={setConfirmPasswordInput}
+                placeholder={t("screens:profile.confirmPassword")}
+                placeholderTextColor={theme.colors.textSecondary}
+                secureTextEntry
+                autoCapitalize="none"
+                editable={!securityLoading}
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowPasswordModal(false)}
+                  disabled={securityLoading}
+                >
+                  <Text style={styles.modalCancelText}>
+                    {t("common:cancel")}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalConfirmButton,
+                    securityLoading && styles.modalButtonDisabled,
+                  ]}
+                  onPress={handleChangePassword}
+                  disabled={securityLoading}
+                >
+                  {securityLoading ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={theme.colors.primary}
+                    />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>
+                      {t("screens:profile.changePassword")}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
+
+      {/* ---- Change Email Modal ---- */}
+      <Modal
+        visible={showEmailModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !securityLoading && setShowEmailModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => !securityLoading && setShowEmailModal(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.modalKeyboardView}
+          >
+            <Pressable style={styles.modalCard} onPress={() => {}}>
+              <Text style={styles.modalTitle}>
+                {t("screens:profile.changeEmail")}
+              </Text>
+
+              <Text style={styles.modalInputLabel}>
+                {t("screens:profile.currentEmail")}
+              </Text>
+              <Text style={styles.modalCurrentValue}>
+                {userProfile?.email || user?.email}
+              </Text>
+
+              <Text style={styles.modalInputLabel}>
+                {t("screens:profile.newEmail")}
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                value={newEmailInput}
+                onChangeText={setNewEmailInput}
+                placeholder={t("screens:profile.enterNewEmail")}
+                placeholderTextColor={theme.colors.textSecondary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!securityLoading}
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowEmailModal(false)}
+                  disabled={securityLoading}
+                >
+                  <Text style={styles.modalCancelText}>
+                    {t("common:cancel")}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalConfirmButton,
+                    securityLoading && styles.modalButtonDisabled,
+                  ]}
+                  onPress={handleRequestEmailChange}
+                  disabled={securityLoading}
+                >
+                  {securityLoading ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={theme.colors.primary}
+                    />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>
+                      {t("screens:profile.changeEmail")}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -774,6 +1103,114 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: theme.colors.inputBorder,
+  },
+  // ---- Security Section ----
+  securitySection: {
+    marginTop: 24,
+  },
+  securityButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: theme.colors.primary,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    padding: 14,
+    marginBottom: 8,
+  },
+  securityButtonIcon: {
+    width: 28,
+    alignItems: "center",
+  },
+  securityButtonText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    color: theme.colors.text,
+    marginLeft: 12,
+  },
+  // ---- Custom Form Modals ----
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalKeyboardView: {
+    width: "100%",
+    alignItems: "center",
+  },
+  modalCard: {
+    width: "90%",
+    maxWidth: 400,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.large,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  modalTitle: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalInputLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  modalInput: {
+    fontSize: 15,
+    color: theme.colors.text,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: theme.colors.primary,
+  },
+  modalCurrentValue: {
+    fontSize: 15,
+    color: theme.colors.textSecondary,
+    paddingVertical: 4,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 24,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    alignItems: "center",
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.colors.textSecondary,
+  },
+  modalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: theme.colors.secondary,
+    alignItems: "center",
+  },
+  modalConfirmText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.colors.primary,
+  },
+  modalButtonDisabled: {
+    opacity: 0.6,
   },
   // ---- Sign Out ----
   signOutSection: {

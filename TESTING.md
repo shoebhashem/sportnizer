@@ -16,8 +16,8 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 388                                                           |
-| **Test suites**  | 20                                                            |
+| **Total tests**  | 404                                                           |
+| **Test suites**  | 21                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
 | **Backend**      | Firebase Emulator Suite (Auth, Firestore, Functions, Storage) |
@@ -43,6 +43,7 @@
 | Permission Helpers    | `functions/test/permission-helpers.test.ts`           | 45    | permissionHelpers: isClubAdmin, canManageGroup, getHighestRole, etc.    |
 | Flat Array Helpers    | `functions/test/flat-array-helpers.test.ts`           | 24    | buildFlatArraysFromClubAccess, emptyFlatArrays, inactive filtering      |
 | Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)    |
+| Account Security      | `functions/test/account-security.test.ts`             | 16    | Token revocation, email change request/verify, email sync               |
 
 ---
 
@@ -661,6 +662,43 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ---
 
+### 11. Account Security (`account-security.test.ts`) — 16 tests
+
+> Integration tests for email & password change features. Covers token revocation, email change request/verification, and denormalised email synchronisation across allMembers & guardian records.
+
+#### revokeUserTokens (3 tests)
+
+| #   | Test                                                | What it verifies                                              |
+| --- | --------------------------------------------------- | ------------------------------------------------------------- |
+| 1   | should revoke refresh tokens for authenticated user | `tokensValidAfterTime` advances after call                    |
+| 2   | should reject unauthenticated requests              | No auth → `unauthenticated`                                   |
+| 3   | should be idempotent                                | Calling twice succeeds; second `tokensValidAfterTime` ≥ first |
+
+#### requestEmailChange (7 tests)
+
+| #   | Test                                                  | What it verifies                                                 |
+| --- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| 4   | should create email change request and return success | Token doc in `emailChangeRequests` with correct uid/email fields |
+| 5   | should reject when new email is same as current       | Same email → `invalid-argument`                                  |
+| 6   | should reject when new email is already taken         | Existing Auth user → `already-exists`                            |
+| 7   | should reject invalid email format                    | Bad format → `invalid-argument`                                  |
+| 8   | should reject unauthenticated requests                | No auth → `unauthenticated`                                      |
+| 9   | should clean up previous pending requests             | Old token deleted, only new token remains                        |
+| 10  | should reject empty email string                      | Empty string → `invalid-argument`                                |
+
+#### verifyEmailChange (6 tests)
+
+| #   | Test                                               | What it verifies                                                  |
+| --- | -------------------------------------------------- | ----------------------------------------------------------------- |
+| 11  | should complete full email change flow             | Auth email updated, Firestore user doc updated, allMembers synced |
+| 12  | should sync guardian email in youth user documents | `guardians[].guardianEmail` updated on youth user doc             |
+| 13  | should reject expired token                        | Expired token → error redirect                                    |
+| 14  | should reject already-verified token               | `verified: true` → error redirect                                 |
+| 15  | should reject nonexistent token                    | Invalid token → error redirect                                    |
+| 16  | should revoke refresh tokens after email change    | `tokensValidAfterTime` advances after verification                |
+
+---
+
 ## Coverage Gap Analysis
 
 ### Backend Cloud Functions — Current Coverage
@@ -671,7 +709,7 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | **Groups**        | 14        | 7 (`createGroup`, `getGroup`, `updateGroup`, `deleteGroup`, `createSubGroup`, `updateSubGroup`, `deleteSubGroup`)                                                                                                        | 50%      |
 | **Members**       | 16        | 8 (`addMemberToClub`, `addMemberToGroup`, `removeMemberFromClub`, `updateMemberRole`, `updateClubMemberRole`, `addMemberToSubGroup`, `removeMemberFromSubGroup`)                                                         | 50%      |
 | **Payments**      | 3         | 2 (`createMembershipFee`, `getMembershipFees`)                                                                                                                                                                           | 67%      |
-| **Auth**          | 7         | 4 (`createUserAccount`, `getUserProfile`, `updateUserProfile`, `sendEmailVerification`)                                                                                                                                  | 57%      |
+| **Auth**          | 10        | 7 (`createUserAccount`, `getUserProfile`, `updateUserProfile`, `sendEmailVerification`, `revokeUserTokens`, `requestEmailChange`, `verifyEmailChange`)                                                                   | 70%      |
 | **Events**        | 13        | 10 (`createEventV2`, `getEvent`, `updateEvent`, `deleteEvent`, `updateEventResponse`, `recordAttendance`, `getStatistics`, `cancelEvent`, `createRecurringEvent`, `editRecurringEvent`) — 46 automated integration tests | 77%      |
 | **Invitations**   | 6         | 4 (`sendGroupInvitation`, `validateInvitationToken`, `markInvitationUsed`, `respondToEmailInvite`)                                                                                                                       | 67%      |
 | **Users**         | 5         | 0                                                                                                                                                                                                                        | 0%       |
@@ -683,7 +721,7 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | **LOK/RF**        | 11        | 0                                                                                                                                                                                                                        | 0%       |
 | **Profile**       | 2         | 0                                                                                                                                                                                                                        | 0%       |
 | **Scheduled**     | 2         | 0                                                                                                                                                                                                                        | 0%       |
-| **TOTAL**         | **~100**  | **39**                                                                                                                                                                                                                   | **~39%** |
+| **TOTAL**         | **~103**  | **42**                                                                                                                                                                                                                   | **~41%** |
 
 ★ Stripe/Subscription functions require external Stripe API — need mocking strategy
 

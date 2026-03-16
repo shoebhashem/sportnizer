@@ -188,7 +188,25 @@
     "signingOut": "Loggar ut...",
     "language": "Språk",
     "languageDescription": "Välj ditt föredragna språk",
-    "selectLanguage": "Välj språk"
+    "selectLanguage": "Välj språk",
+    "security": "Säkerhet",
+    "changePassword": "Byt lösenord",
+    "changeEmail": "Byt e-postadress",
+    "currentPassword": "Nuvarande lösenord",
+    "newPassword": "Nytt lösenord",
+    "confirmNewPassword": "Bekräfta nytt lösenord",
+    "newEmail": "Ny e-postadress",
+    "currentEmail": "Nuvarande e-post",
+    "passwordChanged": "Lösenordet ändrades! Logga in med ditt nya lösenord.",
+    "passwordMismatch": "De nya lösenorden matchar inte.",
+    "passwordTooShort": "Lösenordet måste vara minst 6 tecken.",
+    "emailChangeRequested": "Ett verifieringsmeddelande har skickats till din nya adress. Klicka på länken för att bekräfta och logga sedan in med den nya e-postadressen.",
+    "enterCurrentPassword": "Ange nuvarande lösenord",
+    "enterNewPassword": "Ange nytt lösenord",
+    "confirmPassword": "Bekräfta nytt lösenord",
+    "enterNewEmail": "Ange ny e-postadress",
+    "changingPassword": "Byter lösenord...",
+    "requestingEmailChange": "Begär byte av e-post..."
   },
 
   "createClubForm": {

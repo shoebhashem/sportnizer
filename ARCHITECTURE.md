@@ -85,11 +85,14 @@ The app uses **Firebase Authentication for login/logout** combined with **custom
 
 ```
 functions/src/auth/
-├── createUserAccount.ts     # Creates Firestore user profile + sends verification email
-├── verifyEmail.ts          # Email verification via URL link (HTTP endpoint)
-├── getUserProfile.ts       # Retrieves user profile data
-├── sendEmailVerification.ts # Sends verification email with token
-└── resendVerificationEmail.ts # Resends verification for unverified users
+├── createUserAccount.ts      # Creates Firestore user profile + sends verification email
+├── verifyEmail.ts            # Email verification via URL link (HTTP endpoint)
+├── getUserProfile.ts         # Retrieves user profile data
+├── sendEmailVerification.ts  # Sends verification email with token
+├── resendVerificationEmail.ts # Resends verification for unverified users
+├── revokeUserTokens.ts       # Revokes all refresh tokens (Admin SDK)
+├── requestEmailChange.ts     # Sends email change verification to new address
+└── verifyEmailChange.ts      # HTTP endpoint — confirms email change + syncs data
 ```
 
 #### Auth Flow:
@@ -111,6 +114,65 @@ functions/src/auth/
   - User clicked invitation link, confirming email ownership
   - Reduces friction for legitimate invited users
   - Invitation token acts as email validation proof
+
+#### Email & Password Change:
+
+##### Password Change Flow
+
+```
+Client (profile.tsx)
+  │
+  ├── 1. reauthenticateWithCredential(currentPassword)
+  ├── 2. updatePassword(newPassword)           ← Firebase Auth client SDK
+  ├── 3. revokeUserTokens CF                   ← Admin SDK (server-side)
+  └── 4. signOut → redirect to /login
+```
+
+- **Re-authentication** required to prevent stale-session attacks.
+- **Token revocation** via Cloud Function (`revokeUserTokens`) invalidates ALL
+  sessions across devices — only `admin.auth().revokeRefreshTokens()` can do this.
+- User is signed out and must log in with the new password.
+
+##### Email Change Flow
+
+```
+Client (profile.tsx)
+  │
+  ├── 1. requestEmailChange CF → validates new email not taken
+  │      → stores token in emailChangeRequests/{token}
+  │      → sends SMTP verification email to NEW address
+  └── 2. signOut → redirect to /login
+
+User clicks link in email
+  │
+  └── verifyEmailChange HTTP endpoint
+        ├── 1. Validates token (exists, not expired, not used)
+        ├── 2. admin.auth().updateUser(uid, { email: newEmail })
+        ├── 3. Updates users/{uid}.email in Firestore
+        ├── 4. syncEmailToMemberArrays() — updates email in:
+        │      ├── allMembers arrays (club/group/subgroup)
+        │      ├── members[].guardians[].guardianEmail
+        │      └── users/{youthUid}.guardians[].guardianEmail
+        ├── 5. admin.auth().revokeRefreshTokens(uid)
+        └── 6. Redirects to /login?emailChanged=success
+```
+
+- Verification sent to the **new** address to prove ownership.
+- `syncEmailToMemberArrays()` in `functions/src/utils/emailSync.ts` updates
+  all denormalized email references (same collectionGroup pattern as
+  `syncProfileToMemberArrays` in `updateUserProfile.ts`).
+- Both Auth and Firestore are updated atomically before the redirect.
+
+##### Denormalized Email Locations Updated:
+
+| Location                             | Field                                 |
+| ------------------------------------ | ------------------------------------- |
+| `users/{uid}`                        | `email`                               |
+| `clubs/{cid}/allMembers/members`     | `members[].email`                     |
+| `groups/{gid}/allMembers/members`    | `members[].email`                     |
+| `subgroups/{sid}/allMembers/members` | `members[].email`                     |
+| `allMembers/members` (any level)     | `members[].guardians[].guardianEmail` |
+| `users/{youthUid}`                   | `guardians[].guardianEmail`           |
 
 #### User Document Creation:
 

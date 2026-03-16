@@ -12,6 +12,11 @@ export { sendEmailVerification } from "./auth/sendEmailVerification";
 export { updateUserProfile } from "./auth/updateUserProfile";
 export { verifyEmail } from "./auth/verifyEmail";
 
+// Account Security Functions
+export { requestEmailChange } from "./auth/requestEmailChange";
+export { revokeUserTokens } from "./auth/revokeUserTokens";
+export { verifyEmailChange } from "./auth/verifyEmailChange";
+
 // Club Management Functions (Atomic)
 export { createClub } from "./clubs/createClub";
 export { deleteClub } from "./clubs/deleteClub";

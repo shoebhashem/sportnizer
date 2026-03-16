@@ -387,6 +387,46 @@ export const emailVerificationTemplate = (
   `);
 
 // =======================================================
+// EMAIL CHANGE VERIFICATION
+// =======================================================
+export const emailChangeTemplate = (
+  fullName: string,
+  verificationLink: string,
+) =>
+  emailWrapper(`
+    ${emailHeader("Email Change Verification")}
+
+    <div style="padding: 40px 30px;">
+      <h2 style="color:${BRAND.textDark}; margin-top:0;">
+        Confirm Your New Email Address
+      </h2>
+
+      <p style="color:${BRAND.textLight}; font-size:16px; line-height:1.6;">
+        Hi <strong>${fullName}</strong>, you requested to change the email address
+        associated with your Clubnizer account.
+      </p>
+
+      <p style="color:${BRAND.textLight}; font-size:15px; line-height:1.6;">
+        Click the button below to confirm this new email address.
+        If you did not request this change, you can safely ignore this email.
+      </p>
+
+      ${primaryButton("Confirm Email Change", verificationLink)}
+
+      <p style="font-size:14px; color:#999;">
+        If the button doesn't work, copy this link:<br>
+        <a href="${verificationLink}" style="color:${BRAND.accent}; word-break: break-all;">
+          ${verificationLink}
+        </a>
+      </p>
+
+      <p style="font-size:13px; color:#999; margin-top:20px;">
+        This link expires in 24 hours.
+      </p>
+    </div>
+  `);
+
+// =======================================================
 // NEWS EMAIL TEMPLATE
 // =======================================================
 export const newsEmailTemplate = (

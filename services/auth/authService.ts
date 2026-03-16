@@ -1,10 +1,13 @@
 import { auth, db, functions } from "@/services/core/firebase";
 import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  User,
+    createUserWithEmailAndPassword,
+    EmailAuthProvider,
+    updatePassword as firebaseUpdatePassword,
+    onAuthStateChanged,
+    reauthenticateWithCredential,
+    signInWithEmailAndPassword,
+    signOut,
+    User,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -297,6 +300,129 @@ export const updateUserProfile = async (profileData: {
       error: {
         code: error.code || "unknown",
         message: error.message || "Failed to update profile",
+      },
+    };
+  }
+};
+
+// ---------------------- CHANGE PASSWORD ----------------------
+/**
+ * Change the current user's password.
+ *
+ * 1. Re-authenticate with current credentials.
+ * 2. Update password via Firebase Auth client SDK.
+ * 3. Revoke all refresh tokens via backend CF (invalidates other sessions).
+ * 4. Sign out — user must log in again with new password.
+ */
+export const changePassword = async (
+  currentPassword: string,
+  newPassword: string,
+): Promise<{
+  success: boolean;
+  error?: { code: string; message: string };
+}> => {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser || !currentUser.email) {
+      return {
+        success: false,
+        error: {
+          code: "auth/user-not-authenticated",
+          message: "No authenticated user found",
+        },
+      };
+    }
+
+    // Re-authenticate
+    const credential = EmailAuthProvider.credential(
+      currentUser.email,
+      currentPassword,
+    );
+    await reauthenticateWithCredential(currentUser, credential);
+
+    // Update password
+    await firebaseUpdatePassword(currentUser, newPassword);
+
+    // Revoke all refresh tokens server-side
+    try {
+      const revokeTokens = httpsCallable(functions, "revokeUserTokens");
+      await revokeTokens({});
+    } catch (revokeError) {
+      // Non-fatal — password is already changed
+      console.warn("Token revocation failed (non-fatal):", revokeError);
+    }
+
+    // NOTE: Do NOT sign out here — the caller must show a success
+    // alert first and sign out from the onConfirm callback.
+    // Calling signOut here fires onAuthStateChanged(null) which
+    // triggers AuthGuard → Redirect before the UI can react.
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error changing password:", error);
+
+    let message = "Failed to change password. Please try again.";
+    if (
+      error.code === "auth/wrong-password" ||
+      error.code === "auth/invalid-credential"
+    ) {
+      message = "Current password is incorrect.";
+    } else if (error.code === "auth/weak-password") {
+      message = "New password is too weak. Use at least 6 characters.";
+    } else if (error.code === "auth/requires-recent-login") {
+      message =
+        "Session expired. Please sign out, sign back in, and try again.";
+    }
+
+    return {
+      success: false,
+      error: {
+        code: error.code || "unknown",
+        message,
+      },
+    };
+  }
+};
+
+// ---------------------- REQUEST EMAIL CHANGE ----------------------
+/**
+ * Request an email address change.
+ *
+ * Calls the `requestEmailChange` CF which sends a verification email
+ * to the new address. The user is signed out immediately — they must
+ * click the verification link, then log in with the new email.
+ */
+export const requestEmailChange = async (
+  newEmail: string,
+): Promise<{
+  success: boolean;
+  message?: string;
+  error?: { code: string; message: string };
+}> => {
+  try {
+    const requestChange = httpsCallable(functions, "requestEmailChange");
+    const result = await requestChange({ newEmail: newEmail.trim() });
+    const data = result.data as { success: boolean; message: string };
+
+    // NOTE: Do NOT sign out here — the caller must show a success
+    // alert first and sign out from the onConfirm callback.
+
+    return { success: true, message: data.message };
+  } catch (error: any) {
+    console.error("Error requesting email change:", error);
+
+    let message = "Failed to request email change. Please try again.";
+    if (error.code === "functions/already-exists") {
+      message = "This email address is already in use by another account.";
+    } else if (error.code === "functions/invalid-argument") {
+      message = error.message || "Invalid email address.";
+    }
+
+    return {
+      success: false,
+      error: {
+        code: error.code || "unknown",
+        message,
       },
     };
   }
