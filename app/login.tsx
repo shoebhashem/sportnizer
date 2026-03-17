@@ -1,12 +1,9 @@
 import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import Input from "@/components/Input";
-import InvitationModal from "@/components/InvitationModal";
 import { theme } from "@/constants/theme";
-import { useUser } from "@/contexts/UserContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { router } from "expo-router";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     KeyboardAvoidingView,
@@ -25,48 +22,6 @@ import {
 
 export default function LoginScreen() {
   const { t } = useTranslation(["screens", "common"]);
-  const { invite } = useLocalSearchParams<{ invite?: string }>();
-  const { firebaseUser } = useUser();
-
-  // Clean up expired invitations on component mount
-  useEffect(() => {
-    const cleanupExpiredInvitations = async () => {
-      try {
-        const storedInvitationString =
-          await AsyncStorage.getItem("pendingInvitation");
-        console.log(
-          "🧹 Cleanup check - AsyncStorage value:",
-          storedInvitationString,
-        );
-
-        if (storedInvitationString) {
-          try {
-            const storedInvitation = JSON.parse(storedInvitationString);
-            if (
-              storedInvitation.expiresAt &&
-              Date.now() > storedInvitation.expiresAt
-            ) {
-              console.log(
-                "🧹 Cleaning up expired invitation token on app start",
-              );
-              await AsyncStorage.removeItem("pendingInvitation");
-            } else {
-              console.log("🧹 Found valid stored invitation on app start");
-            }
-          } catch {
-            // If parsing fails, it's probably an old format token, leave it for now
-            console.log("🧹 Found legacy invitation format on app start");
-          }
-        } else {
-          console.log("🧹 No stored invitation found during cleanup");
-        }
-      } catch (error) {
-        console.error("❌ Error during invitation cleanup:", error);
-      }
-    };
-
-    cleanupExpiredInvitations();
-  }, []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -79,153 +34,6 @@ export default function LoginScreen() {
     useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
-  const [invitationModalVisible, setInvitationModalVisible] = useState(false);
-  const [invitationLoading, setInvitationLoading] = useState(false);
-  const [invitationInfo, setInvitationInfo] = useState<{
-    groupName: string;
-    clubName?: string;
-    inviterName: string;
-    role?: string;
-    invitationType?: string;
-  } | null>(null);
-  const [currentInviteToken, setCurrentInviteToken] = useState<string | null>(
-    null,
-  );
-
-  // Load invitation info if invite token is present
-  useEffect(() => {
-    const loadInvitationInfo = async () => {
-      // Check URL parameter first, then AsyncStorage as fallback
-      let inviteToken = invite;
-
-      if (!inviteToken) {
-        // Check AsyncStorage for pending invitation
-        console.log("🔍 No URL invite parameter, checking AsyncStorage...");
-        try {
-          const storedInvitationString =
-            await AsyncStorage.getItem("pendingInvitation");
-          console.log("🔍 AsyncStorage raw value:", storedInvitationString);
-
-          if (storedInvitationString) {
-            // Try to parse as JSON (new format with expiration)
-            try {
-              const storedInvitation = JSON.parse(storedInvitationString);
-              console.log("🔍 Parsed stored invitation:", storedInvitation);
-
-              // Check if token has expired
-              if (
-                storedInvitation.expiresAt &&
-                Date.now() > storedInvitation.expiresAt
-              ) {
-                console.log(
-                  "⚠️ Stored invitation token has expired, removing it",
-                );
-                await AsyncStorage.removeItem("pendingInvitation");
-              } else {
-                console.log("🔍 Found valid stored invitation token");
-                // Decode the base64 encoded token
-                try {
-                  const decodedToken = atob(storedInvitation.token);
-                  console.log(
-                    "🔍 Decoded token:",
-                    decodedToken.substring(0, 10) + "...",
-                  );
-                  inviteToken = decodedToken;
-                } catch {
-                  // If decoding fails, use token as-is (backward compatibility)
-                  console.log("🔍 Using token as-is (no base64)");
-                  inviteToken = storedInvitation.token;
-                }
-              }
-            } catch {
-              // Handle old format (plain string) for backward compatibility
-              console.log(
-                "🔍 Found legacy stored invitation token:",
-                storedInvitationString,
-              );
-              inviteToken = storedInvitationString;
-            }
-          } else {
-            console.log("ℹ️ No stored invitation found in AsyncStorage");
-          }
-        } catch (error) {
-          console.error("❌ Error reading stored invitation:", error);
-        }
-      } else {
-        console.log("🔍 Using URL invite parameter:", invite);
-      }
-
-      if (inviteToken) {
-        // Basic validation - invitation tokens should be non-empty strings
-        if (typeof inviteToken === "string" && inviteToken.trim().length > 0) {
-          console.log(
-            "🔍 Login screen processing invitation token:",
-            inviteToken.substring(0, 10) + "...",
-          );
-          try {
-            console.log("Loading invitation details for token");
-
-            // Fetch actual invitation details
-            const response = await fetch(
-              `${process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL}/getInvitationDetails?token=${encodeURIComponent(inviteToken)}`,
-              {
-                method: "GET",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-              },
-            );
-
-            console.log("✅ Invitation API response status:", response.status);
-            const result = await response.json();
-            console.log("✅ Invitation API response data:", result);
-
-            if (result.success && result.invitation) {
-              const invitationData = {
-                groupName: result.invitation.groupName || "the group",
-                clubName: result.invitation.clubName,
-                inviterName: result.invitation.inviterName || "a team member",
-                role: result.invitation.role, // Include role from invitation
-                invitationType:
-                  result.invitation.invitationType || result.invitation.type, // Include invitation type
-              };
-              console.log("✅ Setting invitation info:", invitationData);
-              setInvitationInfo(invitationData);
-
-              // Store the current invitation token for processing
-              setCurrentInviteToken(inviteToken);
-            } else {
-              // Fallback to placeholder data if API fails
-              console.warn(
-                "⚠️ Failed to fetch invitation details, using fallback",
-              );
-              const fallbackData = {
-                groupName: "the group",
-                inviterName: "a team member",
-              };
-              setInvitationInfo(fallbackData);
-              setCurrentInviteToken(inviteToken);
-            }
-          } catch (error) {
-            console.error("❌ Error loading invitation info:", error);
-            // Fallback to placeholder data if API fails
-            const fallbackData = {
-              groupName: "the group",
-              inviterName: "a team member",
-            };
-            setInvitationInfo(fallbackData);
-            setCurrentInviteToken(inviteToken);
-          }
-        } else {
-          console.log("⚠️ Invalid invitation token format");
-        }
-      } else {
-        console.log("ℹ️ No invitation token found in login screen");
-      }
-    };
-
-    loadInvitationInfo();
-  }, [invite]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -278,39 +86,8 @@ export default function LoginScreen() {
         // Reset resend button state on successful sign in
         setShowResendButton(false);
 
-        console.log("🔍 Login successful. Checking invitation state:", {
-          hasInvite: !!invite,
-          hasCurrentInviteToken: !!currentInviteToken,
-          hasInvitationInfo: !!invitationInfo,
-          invite,
-          currentInviteToken,
-          invitationInfo,
-        });
-
-        // User doc listener in UserContext will load fresh data automatically
-        // after auth state changes — no manual refresh needed.
-
-        // If there's an invitation token, show the invitation modal
-        if ((invite || currentInviteToken) && invitationInfo) {
-          console.log(
-            "✅ Showing invitation modal for:",
-            invitationInfo.groupName,
-          );
-          // Longer delay to ensure user context is fully loaded with firebaseUser
-          setTimeout(() => {
-            console.log(
-              "🔍 Setting invitation modal visible. Current firebaseUser:",
-              firebaseUser ? "exists" : "null",
-            );
-            setInvitationModalVisible(true);
-          }, 1500);
-        } else {
-          console.log(
-            "➡️ No invitation found, navigating to tabs or create club",
-          );
-          // Navigate to main app (tabs) - the tabs layout will redirect to welcome/create-club if no clubs
-          router.replace("/(tabs)");
-        }
+        // Navigate to main app (tabs) - the tabs layout will redirect to welcome/create-club if no clubs
+        router.replace("/(tabs)");
       } else {
         // Show error
         let errorMessage = t("screens:login.errors.generic");
@@ -351,123 +128,10 @@ export default function LoginScreen() {
     }
   };
 
-  const handleInvitationAccept = async () => {
-    const tokenToUse = invite || currentInviteToken;
-    if (!tokenToUse || !invitationInfo) return;
-
-    setInvitationLoading(true);
-
-    // Wait for firebaseUser to be available (with timeout)
-    let userUid = firebaseUser?.uid;
-    let attempts = 0;
-    const maxAttempts = 10; // 5 seconds total
-
-    while (!userUid && attempts < maxAttempts) {
-      console.log(`🔍 Waiting for firebaseUser... attempt ${attempts + 1}`);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      userUid = firebaseUser?.uid;
-      attempts++;
-    }
-
-    console.log("🔍 Debug invitation accept:", {
-      tokenToUse: tokenToUse.substring(0, 10) + "...",
-      firebaseUser: firebaseUser ? "exists" : "null",
-      userUid,
-      attempts,
-      invitationInfo,
-    });
-
-    if (!userUid) {
-      setErrorMessage(
-        "Unable to get user information. Please try signing in again.",
-      );
-      setInvitationModalVisible(false);
-      setErrorModalVisible(true);
-      setInvitationLoading(false);
-      return;
-    }
-
-    try {
-      console.log("Accepting invitation for user UID:", userUid);
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL}/respondToInvitation`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            invitationToken: tokenToUse,
-            uid: userUid,
-            action: "accept",
-          }),
-        },
-      );
-
-      console.log("Response status:", response.status);
-      const result = await response.json();
-      console.log("Invitation acceptance result:", result);
-
-      if (result.success) {
-        console.log("Successfully joined group!");
-
-        // Clear stored invitation after successful acceptance
-        try {
-          await AsyncStorage.removeItem("pendingInvitation");
-          console.log("✅ Cleared stored invitation token");
-        } catch (error) {
-          console.error("Error clearing stored invitation:", error);
-        }
-
-        // User doc listener in UserContext picks up the updated groups list automatically
-
-        setInvitationModalVisible(false);
-        // Show success message before navigating
-        setErrorMessage(`Successfully joined the group! Welcome!`);
-        setErrorModalVisible(true);
-        // Navigate after user closes the success message
-      } else {
-        console.error("Failed to accept invitation:", result.error);
-        setErrorMessage(
-          result.error || "Failed to join group. Please try again.",
-        );
-        setInvitationModalVisible(false);
-        setErrorModalVisible(true);
-      }
-    } catch (error) {
-      console.error("Error accepting invitation:", error);
-      setErrorMessage(
-        "An error occurred while joining the group. Please try again.",
-      );
-      setInvitationModalVisible(false);
-      setErrorModalVisible(true);
-    } finally {
-      setInvitationLoading(false);
-    }
-  };
-
-  const handleInvitationReject = async () => {
-    // Clear stored invitation when rejecting
-    try {
-      await AsyncStorage.removeItem("pendingInvitation");
-      console.log("✅ Cleared stored invitation token after rejection");
-    } catch (error) {
-      console.error("Error clearing stored invitation:", error);
-    }
-
-    setInvitationModalVisible(false);
-    // Navigate to main app without processing invitation
-    router.replace("/(tabs)");
-  };
-
   const handleCreateAccount = () => {
     // Reset resend button state when navigating to signup
     setShowResendButton(false);
-    if (invite) {
-      router.push(`/signup?invite=${encodeURIComponent(invite)}` as any);
-    } else {
-      router.push("/signup" as any);
-    }
+    router.push("/signup" as any);
   };
 
   const handleResendVerification = async () => {
@@ -508,10 +172,6 @@ export default function LoginScreen() {
     // Only reset resend button state if it's a success message (verification email sent)
     if (errorMessage.includes("sent successfully")) {
       setShowResendButton(false);
-    }
-    // If it's a success message (contains "Successfully"), navigate to tabs
-    if (errorMessage.includes("Successfully")) {
-      router.replace("/(tabs)");
     }
     setErrorMessage("");
   };
@@ -610,20 +270,6 @@ export default function LoginScreen() {
         onCancel={handleCloseResendSuccessModal}
         confirmButtonTheme="primary"
       />
-
-      {invitationInfo && (
-        <InvitationModal
-          visible={invitationModalVisible}
-          groupName={invitationInfo.groupName}
-          clubName={invitationInfo.clubName}
-          inviterName={invitationInfo.inviterName}
-          role={invitationInfo.role}
-          invitationType={invitationInfo.invitationType}
-          onAccept={handleInvitationAccept}
-          onReject={handleInvitationReject}
-          loading={invitationLoading}
-        />
-      )}
     </SafeAreaView>
   );
 }
