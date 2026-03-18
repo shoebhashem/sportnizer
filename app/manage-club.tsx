@@ -36,7 +36,6 @@ import {
     FlatList,
     Image,
     RefreshControl,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -544,124 +543,124 @@ export default function ManageClubScreen() {
     );
   }
 
+  const listHeader = (
+    <>
+      {/* Delete Mode Banner */}
+      {isDeleteMode && (
+        <View style={styles.deleteModeBanner}>
+          <View style={styles.deleteModeBannerContent}>
+            <Ionicons
+              name="trash-outline"
+              size={20}
+              color={theme.colors.error}
+            />
+            <Text style={styles.deleteModeBannerText}>
+              {t("screens:manageClub.selectGroupToDelete")}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.deleteModeCancelButton}
+            onPress={() => {
+              setIsDeleteMode(false);
+              router.back();
+            }}
+          >
+            <Text style={styles.deleteModeCancelText}>{t("common:cancel")}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Tabs */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "members" && styles.activeTab]}
+          onPress={() => setActiveTab("members")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "members" && styles.activeTabText,
+            ]}
+          >
+            {t("screens:manageClub.members")} ({filteredMembers.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "groups" && styles.activeTab]}
+          onPress={() => setActiveTab("groups")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "groups" && styles.activeTabText,
+            ]}
+          >
+            {t("screens:manageClub.groups")} ({groups.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Bar (toggled from header icon) */}
+      {showFilters && activeTab === "members" && (
+        <MemberFilterBar
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+          roleFilter={roleFilter}
+          onRoleChange={setRoleFilter}
+          availableRoles={clubRoleOptions}
+        />
+      )}
+    </>
+  );
+
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.accent}
-            colors={[theme.colors.accent]}
-          />
-        }
-      >
-        {/* Delete Mode Banner */}
-        {isDeleteMode && (
-          <View style={styles.deleteModeBanner}>
-            <View style={styles.deleteModeBannerContent}>
-              <Ionicons
-                name="trash-outline"
-                size={20}
-                color={theme.colors.error}
-              />
-              <Text style={styles.deleteModeBannerText}>
-                {t("screens:manageClub.selectGroupToDelete")}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.deleteModeCancelButton}
-              onPress={() => {
-                setIsDeleteMode(false);
-                router.back();
-              }}
-            >
-              <Text style={styles.deleteModeCancelText}>
-                {t("common:cancel")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "members" && styles.activeTab]}
-            onPress={() => setActiveTab("members")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "members" && styles.activeTabText,
-              ]}
-            >
-              {t("screens:manageClub.members")} ({filteredMembers.length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "groups" && styles.activeTab]}
-            onPress={() => setActiveTab("groups")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "groups" && styles.activeTabText,
-              ]}
-            >
-              {t("screens:manageClub.groups")} ({groups.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Filter Bar (toggled from header icon) */}
-        {showFilters && activeTab === "members" && (
-          <MemberFilterBar
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            roleFilter={roleFilter}
-            onRoleChange={setRoleFilter}
-            availableRoles={clubRoleOptions}
-          />
-        )}
-
-        {/* Content based on active tab */}
-        {activeTab === "members" ? (
-          // Members List
-          filteredMembers.length > 0 ? (
-            <FlatList
-              data={filteredMembers}
-              renderItem={renderMemberItem}
-              keyExtractor={(item) => item.userId}
-              scrollEnabled={false}
-              style={styles.membersList}
-            />
-          ) : (
+      {activeTab === "members" ? (
+        <FlatList
+          data={filteredMembers}
+          renderItem={renderMemberItem}
+          keyExtractor={(item) => item.userId}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>
-                {t("screens:manageClub.noMembers")}
-              </Text>
+              <Text style={styles.emptyText}>{t("screens:manageClub.noMembers")}</Text>
             </View>
-          )
-        ) : // Groups List
-        groups.length > 0 ? (
-          <FlatList
-            data={groups}
-            renderItem={renderGroupItem}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-            style={styles.groupsList}
-          />
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>
-              {t("screens:manageClub.noGroups")}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          }
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.colors.accent}
+              colors={[theme.colors.accent]}
+            />
+          }
+        />
+      ) : (
+        <FlatList
+          data={groups}
+          renderItem={renderGroupItem}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>{t("screens:manageClub.noGroups")}</Text>
+            </View>
+          }
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.colors.accent}
+              colors={[theme.colors.accent]}
+            />
+          }
+        />
+      )}
 
       {/* Delete Group Confirmation Modal */}
       <DeletionConfirmationModal

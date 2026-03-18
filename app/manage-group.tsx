@@ -26,7 +26,6 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -412,74 +411,83 @@ export default function ManageGroupScreen() {
     );
   }
 
+  const listHeader = (
+    <>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "members" && styles.activeTab]}
+          onPress={() => setActiveTab("members")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "members" && styles.activeTabText,
+            ]}
+          >
+            {t("screens:manageGroup.members")} ({filteredMembers.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "subgroups" && styles.activeTab]}
+          onPress={() => setActiveTab("subgroups")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "subgroups" && styles.activeTabText,
+            ]}
+          >
+            {t("screens:manageGroup.subgroups")} (
+            {effectiveGroup?.subGroups?.length || 0})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Bar (toggled from header icon) */}
+      {showFilters && activeTab === "members" && (
+        <MemberFilterBar
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+          roleFilter={roleFilter}
+          onRoleChange={setRoleFilter}
+          availableRoles={groupRoleOptions}
+        />
+      )}
+    </>
+  );
+
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "members" && styles.activeTab]}
-            onPress={() => setActiveTab("members")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "members" && styles.activeTabText,
-              ]}
-            >
-              {t("screens:manageGroup.members")} ({filteredMembers.length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "subgroups" && styles.activeTab]}
-            onPress={() => setActiveTab("subgroups")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "subgroups" && styles.activeTabText,
-              ]}
-            >
-              {t("screens:manageGroup.subgroups")} (
-              {effectiveGroup?.subGroups?.length || 0})
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Filter Bar (toggled from header icon) */}
-        {showFilters && activeTab === "members" && (
-          <MemberFilterBar
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            roleFilter={roleFilter}
-            onRoleChange={setRoleFilter}
-            availableRoles={groupRoleOptions}
-          />
-        )}
-
-        {activeTab === "members" ? (
-          <FlatList
-            data={filteredMembers}
-            renderItem={renderMemberItem}
-            keyExtractor={(item) => item.userId}
-            style={styles.membersList}
-            scrollEnabled={false}
-            showsVerticalScrollIndicator={false}
-          />
-        ) : (
-          <FlatList
-            data={subgroups}
-            renderItem={renderSubgroupItem}
-            keyExtractor={(item) => item.id}
-            style={styles.subgroupsList}
-            scrollEnabled={false}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-      </ScrollView>
+      {activeTab === "members" ? (
+        <FlatList
+          data={filteredMembers}
+          renderItem={renderMemberItem}
+          keyExtractor={(item) => item.userId}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>{t("screens:manageGroup.noMembers")}</Text>
+            </View>
+          }
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlatList
+          data={subgroups}
+          renderItem={renderSubgroupItem}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>{t("screens:manageGroup.noSubgroups")}</Text>
+            </View>
+          }
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {/* Floating Action Buttons for Create News & Event */}
       {canManage && (
@@ -576,6 +584,19 @@ const styles = StyleSheet.create({
   errorText: {
     color: theme.colors.error,
     fontSize: theme.typography.fontSize.large,
+    textAlign: "center",
+  },
+  emptyState: {
+    padding: theme.spacing.xl,
+    alignItems: "center",
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  emptyText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.textSecondary,
     textAlign: "center",
   },
   tabContainer: {
