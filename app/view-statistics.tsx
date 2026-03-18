@@ -5,6 +5,7 @@
  * Accessible to club-admin, admin, and coach roles
  */
 
+import { useGroupData } from "@/contexts/GroupDataContext";
 import { Ionicons } from "@expo/vector-icons";
 import {
     useFocusEffect,
@@ -12,7 +13,7 @@ import {
     useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
@@ -44,10 +45,31 @@ export default function ViewStatisticsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const navigation = useNavigation();
+  const { getGroupMembers } = useGroupData();
 
   const groupId = params.groupId as string;
   const clubId = params.clubId as string;
   const groupName = decodeURIComponent((params.groupName as string) || "");
+  const contextGroupMembers = getGroupMembers(clubId, groupId);
+
+  const memberPhotoMap = useMemo(
+    () =>
+      new Map(
+        contextGroupMembers
+          .filter((member) => !!member.photoURL)
+          .map((member) => [member.userId, member.photoURL]),
+      ),
+    [contextGroupMembers],
+  );
+
+  const attachMemberPhotos = useCallback(
+    (members: MemberStatDisplay[]) =>
+      members.map((member) => ({
+        ...member,
+        photoUrl: member.photoUrl || memberPhotoMap.get(member.userId),
+      })),
+    [memberPhotoMap],
+  );
 
   const [statistics, setStatistics] =
     useState<YearlyAttendanceStatistics | null>(null);
@@ -113,7 +135,7 @@ export default function ViewStatisticsScreen() {
         const members = getSortedMemberList(data, selectedFilter);
         const average = getGroupAverage(data, selectedFilter);
 
-        setMemberList(members);
+        setMemberList(attachMemberPhotos(members));
         setGroupAverage(average);
       } else {
         setMemberList([]);
@@ -145,7 +167,7 @@ export default function ViewStatisticsScreen() {
       const members = getSortedMemberList(statistics, filter);
       const average = getGroupAverage(statistics, filter);
 
-      setMemberList(members);
+      setMemberList(attachMemberPhotos(members));
       setGroupAverage(average);
     }
   };

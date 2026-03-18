@@ -24,7 +24,6 @@ import React, { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
-    FlatList,
     Image,
     Modal,
     ScrollView,
@@ -32,7 +31,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -1321,11 +1320,8 @@ export default function EventDetailsScreen() {
           </View>
 
           {event.responses && event.responses.length > 0 ? (
-            <FlatList
-              data={event.responses}
-              scrollEnabled={false}
-              keyExtractor={(item) => item.userId}
-              renderItem={({ item }) => {
+            <View style={styles.responsesList}>
+              {event.responses.map((item, index) => {
                 // Normalize status field (handle both 'status' and 'response' fields)
                 const statusValue = item.status || item.response || "pending";
 
@@ -1346,7 +1342,6 @@ export default function EventDetailsScreen() {
 
                 const inviteeContent = (
                   <>
-                    {/* Checkbox for recording mode */}
                     {isRecordingAttendance && (
                       <TouchableOpacity
                         style={styles.attendanceCheckbox}
@@ -1371,7 +1366,6 @@ export default function EventDetailsScreen() {
                       </TouchableOpacity>
                     )}
 
-                    {/* Read-only attendance indicator (when event is completed) */}
                     {event.status === "completed" && !isRecordingAttendance && (
                       <View style={styles.attendanceIndicator}>
                         {actuallyAttended ? (
@@ -1470,33 +1464,37 @@ export default function EventDetailsScreen() {
                   </>
                 );
 
-                return canClickInvitee ? (
-                  <TouchableOpacity
-                    style={styles.inviteeItem}
-                    onPress={() => {
-                      setSelectedInvitee({
-                        userId: item.userId,
-                        userName: item.userName || "Unknown User",
-                        photoUrl: item.photoUrl,
-                        status: statusValue as
-                          | "pending"
-                          | "accepted"
-                          | "declined",
-                        respondedBy: item.respondedBy,
-                        respondedByName: item.respondedByName,
-                      });
-                    }}
-                  >
-                    {inviteeContent}
-                  </TouchableOpacity>
-                ) : (
-                  <View style={styles.inviteeItem}>{inviteeContent}</View>
+                return (
+                  <View key={item.userId}>
+                    {canClickInvitee ? (
+                      <TouchableOpacity
+                        style={styles.inviteeItem}
+                        onPress={() => {
+                          setSelectedInvitee({
+                            userId: item.userId,
+                            userName: item.userName || "Unknown User",
+                            photoUrl: item.photoUrl,
+                            status: statusValue as
+                              | "pending"
+                              | "accepted"
+                              | "declined",
+                            respondedBy: item.respondedBy,
+                            respondedByName: item.respondedByName,
+                          });
+                        }}
+                      >
+                        {inviteeContent}
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={styles.inviteeItem}>{inviteeContent}</View>
+                    )}
+                    {index < event.responses.length - 1 && (
+                      <View style={styles.inviteeSeparator} />
+                    )}
+                  </View>
                 );
-              }}
-              ItemSeparatorComponent={() => (
-                <View style={styles.inviteeSeparator} />
-              )}
-            />
+              })}
+            </View>
           ) : (
             <Text style={styles.emptyResponsesText}>No invitees yet</Text>
           )}
