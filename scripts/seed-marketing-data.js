@@ -32,7 +32,7 @@ const path = require("path");
 const serviceAccountPath = path.join(
   require("os").homedir(),
   "Downloads",
-  "sportnizer-firebase-adminsdk-fbsvc-a28e6962f3.json"
+  "sportnizer-firebase-adminsdk-fbsvc-a28e6962f3.json",
 );
 const serviceAccount = require(serviceAccountPath);
 admin.initializeApp({
@@ -185,20 +185,24 @@ function buildEvents(members, clubName, groupName) {
 
     const accepted = responses.filter((r) => r.response === "accepted").length;
     const declined = responses.filter((r) => r.response === "declined").length;
-    const attended = responses.filter((r) => r.actualAttendance === true).length;
+    const attended = responses.filter(
+      (r) => r.actualAttendance === true,
+    ).length;
 
     events.push({
       id: seedId(`event_past_${i}`),
       data: {
         eventId: seedId(`event_past_${i}`),
         title,
-        description: eventType === "training"
-          ? "Vanlig träning, ta med vattenflaska."
-          : "Samling 30 min före avspark. Full matchutrustning.",
+        description:
+          eventType === "training"
+            ? "Vanlig träning, ta med vattenflaska."
+            : "Samling 30 min före avspark. Full matchutrustning.",
         eventType,
         startDate: ts(startDate),
         endDate: ts(endDate),
-        gatheringTime: eventType === "match" ? ts(addHours(startDate, -0.5)) : null,
+        gatheringTime:
+          eventType === "match" ? ts(addHours(startDate, -0.5)) : null,
         responseDeadline: ts(addHours(startDate, -2)),
         location,
         targetScope: {
@@ -220,7 +224,8 @@ function buildEvents(members, clubName, groupName) {
           attended,
         },
         createdBy: USER_ID,
-        createdByName: members.find((m) => m.userId === USER_ID)?.name || "Admin",
+        createdByName:
+          members.find((m) => m.userId === USER_ID)?.name || "Admin",
         createdAt: ts(addHours(startDate, -72)),
         updatedAt: ts(endDate),
         status: "completed",
@@ -259,7 +264,8 @@ function buildEvents(members, clubName, groupName) {
         userName: m.name,
         photoUrl: m.photoURL || "",
         response,
-        respondedAt: response !== "pending" ? ts(addHours(now, -randInt(1, 48))) : null,
+        respondedAt:
+          response !== "pending" ? ts(addHours(now, -randInt(1, 48))) : null,
         isYouthMember: (m.roles || []).includes("player-underage"),
         guardianIds: (m.guardiansContacts || []).map((g) => g.guardianUid),
         guardianNames: (m.guardiansContacts || []).map((g) => g.guardianName),
@@ -276,13 +282,15 @@ function buildEvents(members, clubName, groupName) {
       data: {
         eventId: seedId(`event_upcoming_${i}`),
         title,
-        description: eventType === "training"
-          ? "Vanlig träning, ta med vattenflaska."
-          : "Samling 30 min före avspark. Full matchutrustning.",
+        description:
+          eventType === "training"
+            ? "Vanlig träning, ta med vattenflaska."
+            : "Samling 30 min före avspark. Full matchutrustning.",
         eventType,
         startDate: ts(startDate),
         endDate: ts(endDate),
-        gatheringTime: eventType === "match" ? ts(addHours(startDate, -0.5)) : null,
+        gatheringTime:
+          eventType === "match" ? ts(addHours(startDate, -0.5)) : null,
         responseDeadline: ts(addHours(startDate, -2)),
         location,
         targetScope: {
@@ -303,7 +311,8 @@ function buildEvents(members, clubName, groupName) {
           pending,
         },
         createdBy: USER_ID,
-        createdByName: members.find((m) => m.userId === USER_ID)?.name || "Admin",
+        createdByName:
+          members.find((m) => m.userId === USER_ID)?.name || "Admin",
         createdAt: ts(addHours(startDate, -72)),
         updatedAt: ts(now),
         status: "scheduled",
@@ -330,13 +339,13 @@ function buildStatistics(members, groupName) {
     const declinedCount = randInt(0, invited - acceptedCount);
     const attendanceRate = Math.round((attended / invited) * 100);
     const responseRate = Math.round(
-      ((acceptedCount + declinedCount) / invited) * 100
+      ((acceptedCount + declinedCount) / invited) * 100,
     );
 
     const trainingInvited = randInt(6, 10);
     const trainingAttended = randInt(
       Math.floor(trainingInvited * 0.5),
-      trainingInvited
+      trainingInvited,
     );
     const matchInvited = invited - trainingInvited;
     const matchAttended = attended - trainingAttended;
@@ -367,7 +376,7 @@ function buildStatistics(members, groupName) {
 
   const allRates = Object.values(memberStats).map((s) => s.attendanceRate);
   const avgRate = Math.round(
-    allRates.reduce((a, b) => a + b, 0) / allRates.length
+    allRates.reduce((a, b) => a + b, 0) / allRates.length,
   );
 
   return {
@@ -398,7 +407,7 @@ function buildFeeAndPayments(members, groupName) {
   const playingMembers = members.filter(
     (m) =>
       (m.roles || []).includes("player") ||
-      (m.roles || []).includes("player-underage")
+      (m.roles || []).includes("player-underage"),
   );
   // If no players, fall back to all members
   const targetMembers = playingMembers.length > 0 ? playingMembers : members;
@@ -574,7 +583,9 @@ async function seed() {
   const clubName = clubInfo.name || "Club";
   const groupName = groupInfo.name || "Group";
 
-  console.log(`   Found ${members.length} members in ${groupName} (${clubName})`);
+  console.log(
+    `   Found ${members.length} members in ${groupName} (${clubName})`,
+  );
 
   if (members.length === 0) {
     console.error("❌ No members found. Aborting.");
@@ -585,12 +596,8 @@ async function seed() {
   console.log("🔨 Building seed data...");
   const events = buildEvents(members, clubName, groupName);
   const statistics = buildStatistics(members, groupName);
-  const {
-    fee,
-    payments,
-    paymentStatusUpdates,
-    notifications,
-  } = buildFeeAndPayments(members, groupName);
+  const { fee, payments, paymentStatusUpdates, notifications } =
+    buildFeeAndPayments(members, groupName);
   const news = buildNews(members, clubName, groupName);
 
   // Write in batches (Firestore max 500 ops per batch)
@@ -632,7 +639,7 @@ async function seed() {
   {
     // Read current members doc, update paymentStatus on each
     const membersRef = db.doc(
-      `clubs/${CLUB_ID}/groups/${GROUP_ID}/allMembers/members`
+      `clubs/${CLUB_ID}/groups/${GROUP_ID}/allMembers/members`,
     );
     const membersDoc = await membersRef.get();
     const currentMembers = membersDoc.data().members || [];
@@ -643,7 +650,9 @@ async function seed() {
       return m;
     });
     await membersRef.update({ members: updatedMembers });
-    console.log(`   ✅ paymentStatus updated for ${Object.keys(paymentStatusUpdates).length} members`);
+    console.log(
+      `   ✅ paymentStatus updated for ${Object.keys(paymentStatusUpdates).length} members`,
+    );
   }
 
   console.log("🔔 Writing payment notifications...");
@@ -719,7 +728,7 @@ async function cleanup() {
   // 5. Remove paymentStatus from group members
   console.log("🗑  Removing paymentStatus from members...");
   const membersRef = db.doc(
-    `clubs/${CLUB_ID}/groups/${GROUP_ID}/allMembers/members`
+    `clubs/${CLUB_ID}/groups/${GROUP_ID}/allMembers/members`,
   );
   const membersDoc = await membersRef.get();
   if (membersDoc.exists) {
