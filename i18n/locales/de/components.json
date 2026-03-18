@@ -92,7 +92,8 @@
     "ofTotalInvited": "von {{total}} eingeladen",
     "deadlineApproaching": "Frist nähert sich",
     "cancelled": "Abgesagt",
-    "recurring": "Wiederkehrend"
+    "recurring": "Wiederkehrend",
+    "organizer": "Organisator"
   },
 
   "newsCard": {

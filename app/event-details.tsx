@@ -14,6 +14,10 @@ import {
     getEventDetails,
     updateEventResponse,
 } from "@/services/event/eventService";
+import {
+    syncRecipientsService,
+    type SyncMemberDiff,
+} from "@/services/event/syncRecipients";
 import type { EventData } from "@/services/types/event";
 import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,7 +35,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -98,6 +102,16 @@ export default function EventDetailsScreen() {
   const [recurringScope, setRecurringScope] = useState<"single" | "future">(
     "single",
   );
+
+  // Sync recipients state
+  const [showSyncScopeModal, setShowSyncScopeModal] = useState(false);
+  const [showSyncPreviewModal, setShowSyncPreviewModal] = useState(false);
+  const [syncScope, setSyncScope] = useState<"single" | "future">("single");
+  const [syncPreviewLoading, setSyncPreviewLoading] = useState(false);
+  const [syncConfirming, setSyncConfirming] = useState(false);
+  const [syncAdded, setSyncAdded] = useState<SyncMemberDiff[]>([]);
+  const [syncRemoved, setSyncRemoved] = useState<SyncMemberDiff[]>([]);
+  const [syncUnchanged, setSyncUnchanged] = useState(0);
 
   useEffect(() => {
     loadEventDetails();
@@ -541,6 +555,79 @@ export default function EventDetailsScreen() {
       });
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  // Handle Sync Members flow
+  const handleSyncPress = () => {
+    if (!event) return;
+    if (event.isRecurring && event.recurringEventId) {
+      setShowSyncScopeModal(true);
+    } else {
+      setSyncScope("single");
+      loadSyncPreview("single");
+    }
+  };
+
+  const loadSyncPreview = async (scope: "single" | "future") => {
+    if (!event) return;
+    setSyncPreviewLoading(true);
+    setShowSyncPreviewModal(true);
+    setSyncAdded([]);
+    setSyncRemoved([]);
+    setSyncUnchanged(0);
+
+    const result = await syncRecipientsService.preview(event.clubId, event.id, {
+      scope,
+      recurringEventId: event.recurringEventId,
+    });
+
+    if (result.success) {
+      setSyncAdded(result.added || []);
+      setSyncRemoved(result.removed || []);
+      setSyncUnchanged(result.unchanged || 0);
+    } else {
+      setShowSyncPreviewModal(false);
+      setConfirmModal({
+        visible: true,
+        title: t("common:error"),
+        message: result.message || t("screens:eventDetails.syncFailed"),
+        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+      });
+    }
+    setSyncPreviewLoading(false);
+  };
+
+  const handleSyncConfirm = async () => {
+    if (!event) return;
+    setSyncConfirming(true);
+
+    const result = await syncRecipientsService.confirm(event.clubId, event.id, {
+      scope: syncScope,
+      recurringEventId: event.recurringEventId,
+    });
+
+    setSyncConfirming(false);
+    setShowSyncPreviewModal(false);
+
+    if (result.success) {
+      await loadEventDetails();
+      setConfirmModal({
+        visible: true,
+        title: t("screens:eventDetails.syncSuccess"),
+        message: t("screens:eventDetails.syncSuccessMessage", {
+          added: result.added?.length || 0,
+          events: result.updatedOccurrences || 1,
+        }),
+        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+      });
+    } else {
+      setConfirmModal({
+        visible: true,
+        title: t("common:error"),
+        message: result.message || t("screens:eventDetails.syncFailed"),
+        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+      });
     }
   };
 
@@ -1197,6 +1284,30 @@ export default function EventDetailsScreen() {
                   {t("screens:eventDetails.recordAttendance")}
                 </Text>
               </TouchableOpacity>
+            </View>
+          )}
+
+        {/* Sync Members Button (for creator, club admin, group admin/coach) */}
+        {canEditEvent() &&
+          event.status !== "cancelled" &&
+          event.status !== "completed" && (
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.syncMembersButton}
+                onPress={handleSyncPress}
+              >
+                <Ionicons
+                  name="people-outline"
+                  size={20}
+                  color={theme.colors.white}
+                />
+                <Text style={styles.syncMembersButtonText}>
+                  {t("screens:eventDetails.syncMembers")}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.syncMembersHint}>
+                {t("screens:eventDetails.syncMembersDescription")}
+              </Text>
             </View>
           )}
 
@@ -2090,6 +2201,367 @@ export default function EventDetailsScreen() {
         </View>
       </Modal>
 
+      {/* Sync Scope Modal (for recurring events) */}
+      <Modal
+        visible={showSyncScopeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSyncScopeModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.primary,
+              borderRadius: 16,
+              padding: 24,
+              width: "100%",
+              maxWidth: 400,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: theme.colors.text,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              {t("screens:eventDetails.syncScope")}
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: theme.colors.textSecondary,
+                textAlign: "center",
+                marginBottom: 20,
+              }}
+            >
+              {t("screens:eventDetails.syncScopeDescription")}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setSyncScope("single");
+                setShowSyncScopeModal(false);
+                loadSyncPreview("single");
+              }}
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: theme.colors.inputBorder,
+                backgroundColor: theme.colors.inputBackground,
+                marginBottom: 12,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.text,
+                }}
+              >
+                {t("screens:eventDetails.syncThisOnly")}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.textSecondary,
+                  marginTop: 4,
+                }}
+              >
+                {t("screens:eventDetails.syncThisOnlyHint")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setSyncScope("future");
+                setShowSyncScopeModal(false);
+                loadSyncPreview("future");
+              }}
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: theme.colors.secondary,
+                backgroundColor: "rgba(0, 200, 83, 0.1)",
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.secondary,
+                }}
+              >
+                {t("screens:eventDetails.syncAllFuture")}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.textSecondary,
+                  marginTop: 4,
+                }}
+              >
+                {t("screens:eventDetails.syncAllFutureHint")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowSyncScopeModal(false)}
+              style={{
+                padding: 12,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>
+                {t("common:cancel")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Sync Preview Modal */}
+      <Modal
+        visible={showSyncPreviewModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!syncConfirming) setShowSyncPreviewModal(false);
+        }}
+      >
+        <View style={styles.cancelModalOverlay}>
+          <View style={[styles.cancelModalContainer, { maxHeight: "80%" }]}>
+            <View style={styles.cancelModalHeader}>
+              <Ionicons
+                name="people"
+                size={32}
+                color={theme.colors.secondary}
+              />
+              <Text style={styles.cancelModalTitle}>
+                {t("screens:eventDetails.syncPreviewTitle")}
+              </Text>
+            </View>
+
+            {syncPreviewLoading ? (
+              <View style={{ alignItems: "center", paddingVertical: 24 }}>
+                <ActivityIndicator
+                  color={theme.colors.secondary}
+                  size="large"
+                />
+                <Text
+                  style={{
+                    marginTop: 12,
+                    color: theme.colors.textSecondary,
+                    fontSize: 14,
+                  }}
+                >
+                  {t("screens:eventDetails.syncPreviewLoading")}
+                </Text>
+              </View>
+            ) : syncAdded.length === 0 && syncRemoved.length === 0 ? (
+              <View style={{ alignItems: "center", paddingVertical: 24 }}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={48}
+                  color={theme.colors.success}
+                />
+                <Text
+                  style={{
+                    marginTop: 12,
+                    color: theme.colors.text,
+                    fontSize: 16,
+                    textAlign: "center",
+                  }}
+                >
+                  {t("screens:eventDetails.syncAlreadyInSync")}
+                </Text>
+                <Text
+                  style={{
+                    marginTop: 4,
+                    color: theme.colors.textSecondary,
+                    fontSize: 14,
+                  }}
+                >
+                  {t("screens:eventDetails.syncUnchanged", {
+                    count: syncUnchanged,
+                  })}
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 350 }}>
+                {/* Added members */}
+                {syncAdded.length > 0 && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: "600",
+                        color: theme.colors.success,
+                        marginBottom: 8,
+                      }}
+                    >
+                      + {t("screens:eventDetails.syncNewMembers")} (
+                      {syncAdded.length})
+                    </Text>
+                    {syncAdded.map((m) => (
+                      <View
+                        key={m.userId}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingVertical: 6,
+                          paddingHorizontal: 8,
+                          backgroundColor: "rgba(0,200,83,0.08)",
+                          borderRadius: 8,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <Ionicons
+                          name="add-circle"
+                          size={18}
+                          color={theme.colors.success}
+                        />
+                        <Text
+                          style={{
+                            marginLeft: 8,
+                            fontSize: 14,
+                            color: theme.colors.text,
+                          }}
+                        >
+                          {m.userName}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Removed members */}
+                {syncRemoved.length > 0 && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: "600",
+                        color: "#EF5350",
+                        marginBottom: 8,
+                      }}
+                    >
+                      - {t("screens:eventDetails.syncRemovedMembers")} (
+                      {syncRemoved.length})
+                    </Text>
+                    {syncRemoved.map((m) => (
+                      <View
+                        key={m.userId}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingVertical: 6,
+                          paddingHorizontal: 8,
+                          backgroundColor: "rgba(239,83,80,0.08)",
+                          borderRadius: 8,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <Ionicons
+                          name="remove-circle"
+                          size={18}
+                          color="#EF5350"
+                        />
+                        <Text
+                          style={{
+                            marginLeft: 8,
+                            fontSize: 14,
+                            color: theme.colors.text,
+                          }}
+                        >
+                          {m.userName}
+                        </Text>
+                      </View>
+                    ))}
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: theme.colors.textSecondary,
+                        fontStyle: "italic",
+                        marginTop: 4,
+                      }}
+                    >
+                      {t("screens:eventDetails.syncRemovedNote")}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Unchanged count */}
+                {syncUnchanged > 0 && (
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: theme.colors.textSecondary,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {t("screens:eventDetails.syncUnchanged", {
+                      count: syncUnchanged,
+                    })}
+                  </Text>
+                )}
+              </ScrollView>
+            )}
+
+            {/* Actions */}
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 12,
+                marginTop: 16,
+              }}
+            >
+              <TouchableOpacity
+                style={styles.cancelModalKeepButton}
+                onPress={() => setShowSyncPreviewModal(false)}
+                disabled={syncConfirming}
+              >
+                <Text style={styles.cancelModalKeepButtonText}>
+                  {t("common:cancel")}
+                </Text>
+              </TouchableOpacity>
+
+              {syncAdded.length > 0 && (
+                <TouchableOpacity
+                  style={[
+                    styles.syncConfirmButton,
+                    syncConfirming && { opacity: 0.5 },
+                  ]}
+                  onPress={handleSyncConfirm}
+                  disabled={syncConfirming || syncPreviewLoading}
+                >
+                  {syncConfirming ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.syncConfirmButtonText}>
+                      {t("screens:eventDetails.syncConfirm")}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Confirmation Modal */}
       <ConfirmationModal
         visible={confirmModal.visible}
@@ -2872,6 +3344,40 @@ const styles = StyleSheet.create({
     backgroundColor: "#B71C1C",
   },
   cancelModalConfirmButtonText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: "#fff",
+  },
+  // Sync Members Styles
+  syncMembersButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.secondary,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    gap: theme.spacing.sm,
+  },
+  syncMembersButtonText: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.white,
+  },
+  syncMembersHint: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+    marginTop: theme.spacing.xs,
+  },
+  syncConfirmButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.secondary,
+  },
+  syncConfirmButtonText: {
     fontSize: theme.typography.fontSize.medium,
     fontWeight: theme.typography.fontWeight.semibold,
     color: "#fff",

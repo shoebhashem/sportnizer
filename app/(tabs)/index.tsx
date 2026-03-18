@@ -308,44 +308,42 @@ export default function Index() {
         const expanded: ExpandedEventData[] = [];
 
         for (const event of weekEventsFromContext) {
-          if (!event.responses) continue;
-
           // Find responses for current user and their dependents
-          const relevantResponses = event.responses.filter((r) =>
+          const responses = event.responses || [];
+          const relevantResponses = responses.filter((r) =>
             allUserIds.includes(r.userId),
           );
 
+          // Convert Timestamps to Date objects (shared by all cards for this event)
+          const startDateObj = convertTimestampToDate(event.startDate);
+          const endDateObj = convertTimestampToDate(event.endDate);
+          const gatheringTimeObj = event.gatheringTime
+            ? convertTimestampToDate(event.gatheringTime)
+            : null;
+          const responseDeadlineObj = event.responseDeadline
+            ? convertTimestampToDate(event.responseDeadline)
+            : null;
+
+          const startTime =
+            startDateObj instanceof Date
+              ? startDateObj.toISOString()
+              : startDateObj;
+          const endTime =
+            endDateObj instanceof Date ? endDateObj.toISOString() : endDateObj;
+          const gatheringTime = gatheringTimeObj
+            ? gatheringTimeObj instanceof Date
+              ? gatheringTimeObj.toISOString()
+              : gatheringTimeObj
+            : null;
+
           // Create a card for each relevant invitee
+          let createdCardForCurrentUser = false;
           for (const response of relevantResponses) {
             const isCurrentUser = response.userId === user.uid;
+            if (isCurrentUser) createdCardForCurrentUser = true;
             const inviteeName = isCurrentUser
               ? "You"
               : response.userName || response.userId;
-
-            // Convert Timestamps to Date objects for EventCard
-            const startDateObj = convertTimestampToDate(event.startDate);
-            const endDateObj = convertTimestampToDate(event.endDate);
-            const gatheringTimeObj = event.gatheringTime
-              ? convertTimestampToDate(event.gatheringTime)
-              : null;
-            const responseDeadlineObj = event.responseDeadline
-              ? convertTimestampToDate(event.responseDeadline)
-              : null;
-
-            // Extract time strings for EventCard (ISO format for formatTime function)
-            const startTime =
-              startDateObj instanceof Date
-                ? startDateObj.toISOString()
-                : startDateObj;
-            const endTime =
-              endDateObj instanceof Date
-                ? endDateObj.toISOString()
-                : endDateObj;
-            const gatheringTime = gatheringTimeObj
-              ? gatheringTimeObj instanceof Date
-                ? gatheringTimeObj.toISOString()
-                : gatheringTimeObj
-              : null;
 
             expanded.push({
               ...event,
@@ -360,6 +358,29 @@ export default function Index() {
               isCurrentUser,
               isYouthMember: response.isYouthMember || false,
               responseStatus: response.response || response.status || "pending",
+            });
+          }
+
+          // Fallback: if the current user is the event creator but has no
+          // response entry (e.g. club-admin who created a group event they
+          // don't belong to), still show a card so they can manage the event.
+          if (
+            !createdCardForCurrentUser &&
+            (event as any).createdBy === user.uid
+          ) {
+            expanded.push({
+              ...event,
+              startDate: startDateObj,
+              endDate: endDateObj,
+              startTime: startTime,
+              endTime: endTime,
+              gatheringTime: gatheringTime,
+              responseDeadline: responseDeadlineObj,
+              inviteeUserId: user.uid,
+              inviteeName: "You",
+              isCurrentUser: true,
+              isYouthMember: false,
+              responseStatus: "organizer",
             });
           }
         }
@@ -939,6 +960,7 @@ export default function Index() {
                       inviteeName={event.inviteeName}
                       isCurrentUser={event.isCurrentUser}
                       isYouthMember={event.isYouthMember}
+                      responseStatus={event.responseStatus}
                     />
                   ))}
 

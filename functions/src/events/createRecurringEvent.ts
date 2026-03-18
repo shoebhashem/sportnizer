@@ -300,11 +300,21 @@ export const createRecurringEvent = onCall(
         });
       }
 
-      // Ensure creator is in invitedUserIds and responses
-      if (!invitedUserIds.includes(data.createdBy)) {
+      // Check if the creator is already in the resolved member list BEFORE
+      // force-adding them, so we know whether they are a genuine group member.
+      const creatorIsGroupMember = invitedUserIds.includes(data.createdBy);
+
+      // Ensure creator is always in invitedUserIds (so they can see the event)
+      if (!creatorIsGroupMember) {
         invitedUserIds.push(data.createdBy);
       }
-      if (!responses.some((r) => r.userId === data.createdBy)) {
+      // Only add creator to responses[] if they are a group member.
+      // A club-admin who is not in the group can still view & manage the event
+      // via invitedUserIds + createdBy, but should not appear as a respondent.
+      const creatorInResponses = responses.some(
+        (r) => r.userId === data.createdBy,
+      );
+      if (!creatorInResponses && creatorIsGroupMember) {
         const creatorDoc = await db
           .collection("users")
           .doc(data.createdBy)

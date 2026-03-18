@@ -16,8 +16,8 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 415                                                           |
-| **Test suites**  | 22                                                            |
+| **Total tests**  | 464                                                           |
+| **Test suites**  | 24                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
 | **Backend**      | Firebase Emulator Suite (Auth, Firestore, Functions, Storage) |
@@ -26,25 +26,26 @@
 
 ### Test Suites
 
-| Suite                 | File                                                  | Tests | Domain                                                                  |
-| --------------------- | ----------------------------------------------------- | ----- | ----------------------------------------------------------------------- |
-| Club Lifecycle        | `functions/test/clubs.test.ts`                        | 10    | Create, get, update, delete + permissions                               |
-| Group Lifecycle       | `functions/test/groups.test.ts`                       | 12    | CRUD + cascade delete to subgroups                                      |
-| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`                    | 10    | CRUD + membership add/remove                                            |
-| Members & Fees        | `functions/test/members-and-fees.test.ts`             | 14    | Member roles, club roles, fee CRUD                                      |
-| Events & Attendance   | `functions/test/events.test.ts`                       | 23    | Event CRUD, RSVP, attendance, statistics                                |
-| Auth & User Mgmt      | `functions/test/auth.test.ts`                         | 18    | Account creation, profiles, verification                                |
-| Invitation Flows      | `functions/test/invitations.test.ts`                  | 21    | Send, validate, accept/reject, delete, dedup                            |
-| Guardian Flows        | `functions/test/guardian-flows.test.ts`               | 14    | Add/remove guardian, role accumulation, subgroup cascade                |
-| Picture Uploads       | `functions/test/upload-pictures.test.ts`              | 11    | Upload club/group/profile pics + Firestore propagation                  |
-| News & Notifications  | `functions/test/news-notifications.test.ts`           | 10    | News CRUD, permissions, recipient logic, youth→guardian, role filter    |
-| Notification Side-Fx  | `functions/test/notification-side-effects.test.ts`    | 6     | Event/invitation/fee/callable notification docs + auth/not-found errors |
-| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | 82    | Validation, roles, limits, LOK rules                                    |
-| Permission Helpers    | `functions/test/permission-helpers.test.ts`           | 45    | permissionHelpers: isClubAdmin, canManageGroup, getHighestRole, etc.    |
-| Flat Array Helpers    | `functions/test/flat-array-helpers.test.ts`           | 24    | buildFlatArraysFromClubAccess, emptyFlatArrays, inactive filtering      |
-| Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)    |
-| Account Security      | `functions/test/account-security.test.ts`             | 16    | Token revocation, email change request/verify, email sync               |
-| Youth Profile Admin   | `functions/test/update-youth-profile.test.ts`         | 11    | Admin update youth name/DOB, sync, guardian phone update, permissions   |
+| Suite                 | File                                                  | Tests | Domain                                                                                |
+| --------------------- | ----------------------------------------------------- | ----- | ------------------------------------------------------------------------------------- |
+| Club Lifecycle        | `functions/test/clubs.test.ts`                        | 10    | Create, get, update, delete + permissions                                             |
+| Group Lifecycle       | `functions/test/groups.test.ts`                       | 12    | CRUD + cascade delete to subgroups                                                    |
+| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`                    | 10    | CRUD + membership add/remove                                                          |
+| Members & Fees        | `functions/test/members-and-fees.test.ts`             | 14    | Member roles, club roles, fee CRUD                                                    |
+| Events & Attendance   | `functions/test/events.test.ts`                       | 23    | Event CRUD, RSVP, attendance, statistics                                              |
+| Auth & User Mgmt      | `functions/test/auth.test.ts`                         | 18    | Account creation, profiles, verification                                              |
+| Invitation Flows      | `functions/test/invitations.test.ts`                  | 21    | Send, validate, accept/reject, delete, dedup                                          |
+| Guardian Flows        | `functions/test/guardian-flows.test.ts`               | 14    | Add/remove guardian, role accumulation, subgroup cascade                              |
+| Picture Uploads       | `functions/test/upload-pictures.test.ts`              | 11    | Upload club/group/profile pics + Firestore propagation                                |
+| News & Notifications  | `functions/test/news-notifications.test.ts`           | 10    | News CRUD, permissions, recipient logic, youth→guardian, role filter                  |
+| Notification Side-Fx  | `functions/test/notification-side-effects.test.ts`    | 6     | Event/invitation/fee/callable notification docs + auth/not-found errors               |
+| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | 82    | Validation, roles, limits, LOK rules                                                  |
+| Permission Helpers    | `functions/test/permission-helpers.test.ts`           | 45    | permissionHelpers: isClubAdmin, canManageGroup, getHighestRole, etc.                  |
+| Flat Array Helpers    | `functions/test/flat-array-helpers.test.ts`           | 24    | buildFlatArraysFromClubAccess, emptyFlatArrays, inactive filtering                    |
+| Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)                  |
+| Account Security      | `functions/test/account-security.test.ts`             | 16    | Token revocation, email change request/verify, email sync                             |
+| Youth Profile Admin   | `functions/test/update-youth-profile.test.ts`         | 11    | Admin update youth name/DOB, sync, guardian phone update, permissions                 |
+| Sync Event Recipients | `functions/test/sync-event-recipients.test.ts`        | 18    | Preview/confirm sync, permissions, recurring scope, youth/guardian, creator exclusion |
 
 ---
 
@@ -365,6 +366,60 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | 44  | should reject unauthenticated request                         | No auth → `unauthenticated`                                 |
 | 45  | should reject edit by regular player                          | Player role → `permission-denied`                           |
 | 46  | should allow group coach to edit recurring events             | Coach edits successfully                                    |
+
+---
+
+### 5c. Sync Event Recipients (`sync-event-recipients.test.ts`) — 18 tests
+
+#### preview mode (3 tests)
+
+| #   | Test                                                  | What it verifies                                                  |
+| --- | ----------------------------------------------------- | ----------------------------------------------------------------- |
+| 1   | should return empty diff when all members are in sync | `added: []`, `removed: []`, `unchanged >= 1`                      |
+| 2   | should detect newly added group member as 'added'     | New member appears in `added[]` after joining group post-creation |
+| 3   | should detect removed group member as 'removed'       | Deactivated member appears in `removed[]`                         |
+
+#### confirm mode (4 tests)
+
+| #   | Test                                              | What it verifies                                                      |
+| --- | ------------------------------------------------- | --------------------------------------------------------------------- |
+| 4   | should add new members to the event               | `responses[]` and `invitedUserIds` updated, `responseSummary` correct |
+| 5   | should not modify event when already in sync      | `added: []`, no writes necessary                                      |
+| 6   | should not remove existing members from the event | Deactivated member remains in `responses[]` (historical preservation) |
+| 7   | should handle youth member with guardians         | Youth gets `isYouthMember: true` + `guardianIds[]`, guardian invited  |
+
+#### permissions (4 tests)
+
+| #   | Test                                                 | What it verifies                  |
+| --- | ---------------------------------------------------- | --------------------------------- |
+| 8   | should reject unauthenticated request                | No auth → `unauthenticated`       |
+| 9   | should reject request from regular player            | Player role → `permission-denied` |
+| 10  | should allow club-admin who is not the event creator | Club admin can preview sync       |
+| 11  | should allow group coach to sync                     | Coach can preview sync            |
+
+#### validation (4 tests)
+
+| #   | Test                                  | What it verifies                          |
+| --- | ------------------------------------- | ----------------------------------------- |
+| 12  | should reject missing required fields | Missing eventId/mode → `invalid-argument` |
+| 13  | should reject invalid mode            | `mode: "invalid"` → `invalid-argument`    |
+| 14  | should reject nonexistent event       | Invalid eventId → `not-found`             |
+| 15  | should reject invalid scope value     | `scope: "all"` → `invalid-argument`       |
+
+#### recurring events — future scope (2 tests)
+
+| #   | Test                                                      | What it verifies                                        |
+| --- | --------------------------------------------------------- | ------------------------------------------------------- |
+| 16  | should sync multiple future occurrences when scope=future | New member added to all non-modified future occurrences |
+| 17  | should sync only single occurrence when scope=single      | New member added only to targeted occurrence            |
+
+#### creator exclusion (3 tests)
+
+| #   | Test                                                                | What it verifies                                                           |
+| --- | ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 18  | should NOT show the non-member creator as 'removed' in sync preview | Club-admin creator (not group member) excluded from `removed[]`            |
+| 19  | non-member creator should be in invitedUserIds but NOT in responses | Creator in `invitedUserIds` for visibility, absent from `responses[]`      |
+| 20  | group-member creator SHOULD still appear in responses normally      | Contrast: member-creator exists in both `invitedUserIds` and `responses[]` |
 
 ---
 

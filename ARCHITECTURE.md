@@ -18,6 +18,7 @@
 - [Group & Club Deletion Architecture](#️-group--club-deletion-architecture)
 - [Event Management & Attendance Statistics](#-event-management--attendance-statistics)
 - [Event Cancellation & Recurring Events](#-event-cancellation--recurring-events)
+- [Sync Event Recipients](#-sync-event-recipients)
 - [LOK-stöd & RF Integration (Swedish Clubs)](#-lok-stöd--rf-integration-swedish-clubs)
 - [News System](#-news-system)
 - [Data Model Conventions](#data-model-conventions)
@@ -11587,6 +11588,99 @@ All recurring event labels added to 8 locales (da, de, en, es, fr, it, no, sv):
 - `screens.json` → `createEvent` section (22 keys: toggle, frequency, end condition, summary, button labels)
 - `screens.json` → `eventDetails` section (14 keys: scope modals, recurring badge)
 - `components.json` → `eventCard` section (1 key: recurring badge)
+
+---
+
+## 🔄 Sync Event Recipients
+
+### Overview
+
+When new members join a group **after** events have already been created, those members are not automatically included in existing events. The Sync Event Recipients feature provides an explicit action for admins/coaches to "catch up" event invitations with the current group membership.
+
+### Design Decision
+
+**Approach: Explicit Sync** — Rather than auto-syncing on every edit or silently on join, we chose an explicit "Sync Members" action. This gives the organiser a preview of what will change and full control over when new members are added. Historical response data for removed members is never deleted.
+
+### Cloud Function — `syncEventRecipients`
+
+| Detail  | Value                                         |
+| ------- | --------------------------------------------- |
+| File    | `functions/src/events/syncEventRecipients.ts` |
+| Type    | `onCall` (Firebase v2)                        |
+| Region  | `europe-north1`                               |
+| Timeout | 120 s                                         |
+
+#### Request Interface
+
+```typescript
+interface SyncEventRecipientsRequest {
+  clubId: string;
+  eventId: string;
+  mode: "preview" | "confirm";
+  scope?: "single" | "future"; // recurring events only
+  recurringEventId?: string; // required when scope = "future"
+}
+```
+
+#### Two-Phase Flow
+
+1. **Preview** (`mode: "preview"`) — reads current group membership, computes a diff against the event's `responses[]`, and returns `{added[], removed[], unchanged}` without writing anything.
+2. **Confirm** (`mode: "confirm"`) — re-reads the diff, creates `EventResponse` entries for added members (pending response), updates `invitedUserIds[]` and `responseSummary`, and sends event notifications to newly invited users.
+
+#### Permission Check
+
+Must be one of:
+
+- **Event creator** (`event.createdBy`)
+- **Club admin** (`clubAccess.role === "club-admin"`)
+- **Group admin or coach** (`groupAccess.roles includes "admin" | "coach"`)
+
+Players and other roles receive `permission-denied`.
+
+#### Recurring Event Handling
+
+- `scope: "single"` — only the specified occurrence is synced.
+- `scope: "future"` — the specified occurrence **plus** all future occurrences from the master's `occurrenceEventIds[]` are synced, skipping cancelled, completed, or individually-modified (`isModified: true`) occurrences.
+
+#### Youth / Guardian Handling
+
+Youth members with `needsGuardian: true` are added as `EventResponse` entries with `isYouthMember: true` and `guardianIds[]`. Their guardians are added to `invitedUserIds[]` so they receive the notification and can respond on behalf of the youth.
+
+#### Removed Members
+
+Members who are in the event but no longer active in the group are reported in the `removed[]` array but **never deleted** from the event document — this preserves historical RSVP and attendance data.
+
+#### Creator Handling
+
+A club-admin who is **not** a member of the target group can still create events for that group. To prevent such creators from incorrectly appearing as "removed" during sync:
+
+1. **At creation time** (`createEventV2` / `createRecurringEvent`): the creator is always added to `invitedUserIds[]` (so they can view/manage the event), but is only added to `responses[]` if they are an actual group member. This keeps the RSVP list clean.
+2. **During sync** (`syncEventRecipients`): the `createdBy` user is excluded from the `removed[]` diff as a safety net for events created before this logic was added.
+
+Event visibility is driven exclusively by `invitedUserIds[]` (Firestore `array-contains` query), **not** by `responses[]`. The `createdBy` field provides additional permission checks for edit/cancel.
+
+### Frontend
+
+| Layer                | File                                                 |
+| -------------------- | ---------------------------------------------------- |
+| Service wrapper      | `services/event/syncRecipients.ts`                   |
+| UI (button + modals) | `app/event-details.tsx`                              |
+| i18n keys            | `i18n/locales/*/screens.json` → `eventDetails.sync*` |
+
+#### UI Flow
+
+1. **"Sync Members" button** — visible to permitted users when event is not cancelled/completed.
+2. **Scope picker** (recurring events only) — "This occurrence only" / "All future occurrences".
+3. **Preview modal** — shows new members (green), removed members (red, informational), unchanged count.
+4. **Confirm** — calls `syncEventRecipients` in confirm mode, reloads event, shows success toast.
+
+### Integration Tests
+
+| File                                           | Tests |
+| ---------------------------------------------- | ----- |
+| `functions/test/sync-event-recipients.test.ts` | 18    |
+
+Covers: preview diff detection, confirm writes, no-op when in sync, permission checks (player, club-admin, coach), validation (missing fields, invalid mode/scope), recurring future scope, recurring single scope, youth/guardian handling, historical data preservation, creator exclusion (non-member creator not in removed diff, not in responses).
 
 ---
 

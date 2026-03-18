@@ -17,6 +17,7 @@ interface EventCardProps {
   inviteeName: string; // Name to show in badge
   isCurrentUser: boolean; // True if this is the current user's card
   isYouthMember?: boolean; // True if invitee is a youth member
+  responseStatus?: string; // Pre-computed status (e.g. "organizer" for non-member creators)
 }
 
 export default function EventCard({
@@ -28,6 +29,7 @@ export default function EventCard({
   inviteeName,
   isCurrentUser,
   isYouthMember,
+  responseStatus: responseStatusProp,
 }: EventCardProps) {
   const { t } = useTranslation(["components", "common"]);
 
@@ -84,6 +86,9 @@ export default function EventCard({
 
   // Get user's response status
   const getUserResponseStatus = () => {
+    // Use pre-computed status if provided (e.g. "organizer" for non-member creators)
+    if (responseStatusProp) return responseStatusProp;
+
     if (!event.responses || !inviteeUserId) return "pending";
 
     // Find response by invitee's ID (not necessarily current user)
@@ -118,6 +123,8 @@ export default function EventCard({
         return "#F44336";
       case "cancelled":
         return "#B71C1C";
+      case "organizer":
+        return "#1976D2"; // Blue for organizer/creator
       default:
         return theme.colors.textSecondary;
     }
@@ -304,7 +311,10 @@ export default function EventCard({
           <Text style={styles.statusText}>
             {isEventCancelled
               ? t("components:eventCard.cancelled")
-              : displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+              : displayStatus === "organizer"
+                ? t("components:eventCard.organizer")
+                : displayStatus.charAt(0).toUpperCase() +
+                  displayStatus.slice(1)}
           </Text>
         </View>
       </View>

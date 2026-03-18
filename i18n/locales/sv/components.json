@@ -92,7 +92,8 @@
     "ofTotalInvited": "av {{total}} inbjudna",
     "deadlineApproaching": "Deadline närmar sig",
     "cancelled": "Inställd",
-    "recurring": "Återkommande"
+    "recurring": "Återkommande",
+    "organizer": "Organisatör"
   },
 
   "newsCard": {

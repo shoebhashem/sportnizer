@@ -57,6 +57,7 @@ export { cleanupOldStatistics } from "./events/cleanupOldStatistics";
 export { createEventV2 } from "./events/createEventV2";
 export { getStatistics } from "./events/getStatistics";
 export { recordAttendance } from "./events/recordAttendance";
+export { syncEventRecipients } from "./events/syncEventRecipients";
 export { updateEventResponse } from "./events/updateEventResponse";
 export { updateStatistics } from "./events/updateStatistics";
 

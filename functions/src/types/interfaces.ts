@@ -1206,3 +1206,38 @@ export interface LegalConfigResponse {
   };
   error?: string;
 }
+
+// ============================================================================
+// Sync Event Recipients (Add new members to an existing event)
+// ============================================================================
+
+export interface SyncEventRecipientsRequest {
+  clubId: string;
+  eventId: string;
+  /** "preview" returns the diff without making changes; "confirm" applies the sync */
+  mode: "preview" | "confirm";
+  /** For recurring events: "single" = this occurrence only, "future" = this + all future */
+  scope?: "single" | "future";
+  /** Required when scope is "future" */
+  recurringEventId?: string;
+}
+
+export interface SyncMemberDiff {
+  userId: string;
+  userName: string;
+  photoUrl?: string | null;
+}
+
+export interface SyncEventRecipientsResponse {
+  success: boolean;
+  /** Members who are in the group but not yet in the event */
+  added: SyncMemberDiff[];
+  /** Members who are in the event but no longer in the group (informational only) */
+  removed: SyncMemberDiff[];
+  /** Count of members already in the event and still in the group */
+  unchanged: number;
+  /** Number of recurring occurrences updated (only for scope="future") */
+  updatedOccurrences?: number;
+  message?: string;
+  error?: string;
+}

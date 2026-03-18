@@ -295,17 +295,24 @@ export const createEventV2 = onCall(
       // ============================================================================
       // STEP 3.5: Ensure Creator Can Always See Event
       // ============================================================================
-      // Always add creator to invitedUserIds so they can view/edit the event
+      // Always add creator to invitedUserIds so they can view/edit the event.
+      // Events are queried via invitedUserIds (array-contains), so this is
+      // required for the creator to see the event in their list.
       if (!invitedUserIds.includes(data.createdBy)) {
         invitedUserIds.push(data.createdBy);
         console.log(`✅ Added creator ${data.createdBy} to invitedUserIds`);
       }
 
-      // Always add creator to responses array so they can see the event in the app
+      // Only add creator to responses[] if they are already a group member.
+      // A club-admin who is not in the group should NOT appear as a respondent
+      // — they can still view & manage the event via invitedUserIds + createdBy.
       const creatorInResponses = responses.some(
         (r) => r.userId === data.createdBy,
       );
-      if (!creatorInResponses) {
+      const creatorIsGroupMember = members.some(
+        (m: any) => m.userId === data.createdBy,
+      );
+      if (!creatorInResponses && creatorIsGroupMember) {
         // Fetch creator profile for name/photo
         const creatorDoc = await db
           .collection("users")
@@ -320,7 +327,13 @@ export const createEventV2 = onCall(
           photoUrl: creatorData?.photoURL || null,
           response: "pending",
         });
-        console.log(`✅ Added creator ${data.createdBy} to responses array`);
+        console.log(
+          `✅ Added creator ${data.createdBy} to responses array (is group member)`,
+        );
+      } else if (!creatorInResponses) {
+        console.log(
+          `ℹ️ Creator ${data.createdBy} is not a group member — added to invitedUserIds only (not responses)`,
+        );
       }
 
       // ============================================================================

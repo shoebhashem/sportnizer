@@ -88,7 +88,8 @@
     "ofTotalInvited": "av {{total}} inviterte",
     "deadlineApproaching": "Frist nærmer seg",
     "cancelled": "Avlyst",
-    "recurring": "Gjentakende"
+    "recurring": "Gjentakende",
+    "organizer": "Arrangør"
   },
 
   "newsCard": {
