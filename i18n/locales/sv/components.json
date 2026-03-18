@@ -65,7 +65,21 @@
     "editName": "Namn",
     "editDateOfBirth": "Födelsedatum",
     "editProfile": "Redigera profil",
-    "updateFailed": "Kunde inte uppdatera profilen"
+    "updateFailed": "Kunde inte uppdatera profilen",
+    "inactiveMember": "Inaktiv medlem",
+    "scheduledDeletion": "Kontodata raderas permanent den {{date}}."
+  },
+
+  "memberFilterBar": {
+    "all": "Alla",
+    "active": "Aktiva",
+    "inactive": "Inaktiva",
+    "player": "Spelare",
+    "playerUnderage": "Spelare (U)",
+    "coach": "Tränare",
+    "admin": "Admin",
+    "clubAdmin": "Klubbadmin",
+    "guardian": "Vårdnadshavare"
   },
 
   "eventCard": {

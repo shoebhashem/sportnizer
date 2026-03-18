@@ -87,6 +87,9 @@ export interface ClubMemberData {
   lastModifiedAt: any; // Firestore timestamp
   needsGuardian: boolean; // true for child/youth members
   guardiansContacts: GuardianContact[]; // Guardian contact details (UPDATED)
+  isActive?: boolean; // false when member has no roles left (soft-deleted)
+  inactiveSince?: any; // Firestore timestamp — when member became inactive
+  scheduledForDeletion?: any; // Firestore timestamp — when data will be permanently deleted
 }
 
 // New interface for club's single allMembers document

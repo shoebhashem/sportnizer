@@ -945,6 +945,9 @@ export const addRegularMemberToGroupService = {
           invitationToken,
           checkMembership: true,
           includeGroupOps: true,
+          // For youth invitations accepted by an existing guardian, userId is the youth UID
+          // but notification cleanup must run in the guardian's notifications subcollection.
+          guardianUserId: createdYouthUid ? originalUserId : undefined,
         });
       }
 

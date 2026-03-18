@@ -65,7 +65,21 @@
     "editName": "Nombre",
     "editDateOfBirth": "Fecha de nacimiento",
     "editProfile": "Editar perfil",
-    "updateFailed": "Error al actualizar el perfil"
+    "updateFailed": "Error al actualizar el perfil",
+    "inactiveMember": "Miembro inactivo",
+    "scheduledDeletion": "Los datos de la cuenta se eliminarán permanentemente el {{date}}."
+  },
+
+  "memberFilterBar": {
+    "all": "Todos",
+    "active": "Activos",
+    "inactive": "Inactivos",
+    "player": "Jugador",
+    "playerUnderage": "Jugador (U)",
+    "coach": "Entrenador",
+    "admin": "Admin",
+    "clubAdmin": "Admin Club",
+    "guardian": "Tutor"
   },
 
   "eventCard": {

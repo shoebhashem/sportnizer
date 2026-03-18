@@ -61,7 +61,21 @@
     "phone": "Téléphone",
     "dateOfBirth": "Date de naissance",
     "guardianContacts": "Contacts des tuteurs",
-    "noGuardianInfo": "Aucune information de tuteur disponible"
+    "noGuardianInfo": "Aucune information de tuteur disponible",
+    "inactiveMember": "Membre inactif",
+    "scheduledDeletion": "Les données du compte seront définitivement supprimées le {{date}}."
+  },
+
+  "memberFilterBar": {
+    "all": "Tous",
+    "active": "Actifs",
+    "inactive": "Inactifs",
+    "player": "Joueur",
+    "playerUnderage": "Joueur (U)",
+    "coach": "Entraîneur",
+    "admin": "Admin",
+    "clubAdmin": "Admin Club",
+    "guardian": "Tuteur"
   },
 
   "eventCard": {

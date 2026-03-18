@@ -61,7 +61,21 @@
     "phone": "Telefon",
     "dateOfBirth": "Fødselsdato",
     "guardianContacts": "Værgekontakter",
-    "noGuardianInfo": "Ingen værgeinformation tilgængelig"
+    "noGuardianInfo": "Ingen værgeinformation tilgængelig",
+    "inactiveMember": "Inaktivt medlem",
+    "scheduledDeletion": "Kontodata slettes permanent den {{date}}."
+  },
+
+  "memberFilterBar": {
+    "all": "Alle",
+    "active": "Aktive",
+    "inactive": "Inaktive",
+    "player": "Spiller",
+    "playerUnderage": "Spiller (U)",
+    "coach": "Træner",
+    "admin": "Admin",
+    "clubAdmin": "Klubadmin",
+    "guardian": "Værge"
   },
 
   "eventCard": {

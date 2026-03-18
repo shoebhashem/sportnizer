@@ -1,6 +1,11 @@
 import Button from "@/components/Button";
 import { NewsEventFAB } from "@/components/FloatingActionButton";
 import MemberContactModal from "@/components/MemberContactModal";
+import MemberFilterBar, {
+    type RoleFilter,
+    type RoleOption,
+    type StatusFilter,
+} from "@/components/MemberFilterBar";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,7 +35,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ManageGroupScreen() {
-  const { t } = useTranslation(["screens", "common"]);
+  const { t } = useTranslation(["screens", "common", "components"]);
   const insets = useSafeAreaInsets();
   const { groupId, clubId, clubName, tab } = useLocalSearchParams();
   const { user } = useAuth();
@@ -101,6 +106,47 @@ export default function ManageGroupScreen() {
     null,
   );
   const [showMemberModal, setShowMemberModal] = useState(false);
+
+  // ── Filter state ─────────────────────────────────────────────────
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+
+  const groupRoleOptions: RoleOption[] = useMemo(
+    () => [
+      { value: "all", label: t("components:memberFilterBar.all") },
+      { value: "player", label: t("components:memberFilterBar.player") },
+      {
+        value: "player-underage",
+        label: t("components:memberFilterBar.playerUnderage"),
+      },
+      { value: "coach", label: t("components:memberFilterBar.coach") },
+      { value: "admin", label: t("components:memberFilterBar.admin") },
+    ],
+    [t],
+  );
+
+  // Derived filtered member list
+  const filteredMembers = useMemo(() => {
+    let result = effectiveMembers;
+
+    // Status filter
+    if (statusFilter === "active") {
+      result = result.filter((m) => m.isActive !== false);
+    } else if (statusFilter === "inactive") {
+      result = result.filter((m) => m.isActive === false);
+    }
+    // 'all' → no status filtering
+
+    // Role filter
+    if (roleFilter !== "all") {
+      result = result.filter((m) => m.roles.includes(roleFilter));
+    }
+
+    return result;
+  }, [effectiveMembers, statusFilter, roleFilter]);
+
+  const isFilterActive = statusFilter === "inactive" || roleFilter !== "all";
 
   useEffect(() => {
     if (!clubId || !groupId) return;
@@ -185,26 +231,54 @@ export default function ManageGroupScreen() {
 
     navigation.setOptions({
       title: effectiveGroup.name || "Manage Group",
-      headerRight: () =>
-        canManage ? (
+      headerRight: () => (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {/* Filter toggle */}
           <TouchableOpacity
-            onPress={() => {
-              router.push(
-                `/group-settings?groupId=${groupId}&clubId=${clubId}` as any,
-              );
-            }}
-            style={{ marginRight: 8, padding: 8 }}
+            onPress={() => setShowFilters((prev) => !prev)}
+            style={{ padding: 8 }}
           >
             <Ionicons
-              name="settings-outline"
+              name={isFilterActive ? "filter" : "filter-outline"}
               size={24}
               color={theme.colors.secondary}
             />
+            {isFilterActive && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 6,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: theme.colors.error,
+                }}
+              />
+            )}
           </TouchableOpacity>
-        ) : null,
+          {/* Settings gear (admin only) */}
+          {canManage && (
+            <TouchableOpacity
+              onPress={() => {
+                router.push(
+                  `/group-settings?groupId=${groupId}&clubId=${clubId}` as any,
+                );
+              }}
+              style={{ marginRight: 8, padding: 8 }}
+            >
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                color={theme.colors.secondary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveGroup, canManage, navigation]);
+  }, [effectiveGroup, canManage, navigation, isFilterActive]);
 
   const handleSubgroupClick = (subgroupId: string, subgroupName: string) => {
     router.push(
@@ -221,16 +295,36 @@ export default function ManageGroupScreen() {
 
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
     const canTap = canManage || isGuardianOf(item.userId);
+    const isInactive = item.isActive === false;
     const content = (
       <>
         <Image
-          style={styles.memberAvatar}
+          style={[
+            styles.memberAvatar,
+            isInactive && styles.memberAvatarInactive,
+          ]}
           source={{
             uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian),
           }}
         />
         <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{item.name}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text
+              style={[
+                styles.memberName,
+                isInactive && styles.memberNameInactive,
+              ]}
+            >
+              {item.name}
+            </Text>
+            {isInactive && (
+              <View style={styles.inactiveBadge}>
+                <Text style={styles.inactiveBadgeText}>
+                  {t("components:memberFilterBar.inactive")}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.memberRole}>
             {item.roles.join(", ")} {item.needsGuardian && "(Child/Youth)"}
           </Text>
@@ -248,7 +342,7 @@ export default function ManageGroupScreen() {
     if (canTap) {
       return (
         <TouchableOpacity
-          style={styles.memberItem}
+          style={[styles.memberItem, isInactive && styles.memberItemInactive]}
           onPress={() => handleMemberPress(item)}
           activeOpacity={0.7}
         >
@@ -257,7 +351,13 @@ export default function ManageGroupScreen() {
       );
     }
 
-    return <View style={styles.memberItem}>{content}</View>;
+    return (
+      <View
+        style={[styles.memberItem, isInactive && styles.memberItemInactive]}
+      >
+        {content}
+      </View>
+    );
   };
 
   const renderSubgroupItem = ({ item }: { item: SubGroup }) => {
@@ -330,7 +430,7 @@ export default function ManageGroupScreen() {
                 activeTab === "members" && styles.activeTabText,
               ]}
             >
-              {t("screens:manageGroup.members")} ({effectiveMembers.length})
+              {t("screens:manageGroup.members")} ({filteredMembers.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -349,9 +449,20 @@ export default function ManageGroupScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Filter Bar (toggled from header icon) */}
+        {showFilters && activeTab === "members" && (
+          <MemberFilterBar
+            statusFilter={statusFilter}
+            onStatusChange={setStatusFilter}
+            roleFilter={roleFilter}
+            onRoleChange={setRoleFilter}
+            availableRoles={groupRoleOptions}
+          />
+        )}
+
         {activeTab === "members" ? (
           <FlatList
-            data={effectiveMembers}
+            data={filteredMembers}
             renderItem={renderMemberItem}
             keyExtractor={(item) => item.userId}
             style={styles.membersList}
@@ -427,6 +538,8 @@ export default function ManageGroupScreen() {
           isYouth={selectedMember.needsGuardian}
           isGuardianViewing={isGuardianOf(selectedMember.userId)}
           isAdminViewing={canManage}
+          isInactive={selectedMember.isActive === false}
+          scheduledForDeletion={selectedMember.scheduledForDeletion}
         />
       )}
     </View>
@@ -522,6 +635,28 @@ const styles = StyleSheet.create({
   memberRole: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
+  },
+  // Inactive member styles
+  memberItemInactive: {
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.error,
+  },
+  memberAvatarInactive: {
+    opacity: 0.5,
+  },
+  memberNameInactive: {
+    opacity: 0.7,
+  },
+  inactiveBadge: {
+    backgroundColor: theme.colors.error + "20",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  inactiveBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: theme.colors.error,
   },
   subgroupsList: {
     flex: 1,

@@ -161,8 +161,10 @@ export const updateInvitation = onCall(
         );
 
         await invitationRef.delete();
-
         console.log(`✅ Invitation ${invitationToken} deleted successfully`);
+
+        // Delete the associated notification (server-side = no client cache issues)
+        await cleanupNotificationForInvitation(db, userId, invitationToken);
 
         return { success: true };
       }
@@ -173,12 +175,13 @@ export const updateInvitation = onCall(
           `❌ Rejecting invitation ${invitationToken} for user ${userId}...`,
         );
 
-        // Delete the invitation document (same as marking it used)
         await invitationRef.delete();
-
         console.log(
           `✅ Invitation ${invitationToken} rejected and deleted successfully`,
         );
+
+        // Delete the associated notification (server-side = no client cache issues)
+        await cleanupNotificationForInvitation(db, userId, invitationToken);
 
         return { success: true };
       }
@@ -209,6 +212,46 @@ export const updateInvitation = onCall(
     }
   },
 );
+
+/**
+ * Helper: Delete any notification document linked to the given invitation token.
+ * Uses Admin SDK — no client-side cache issues, always reads/writes to server.
+ */
+async function cleanupNotificationForInvitation(
+  db: admin.firestore.Firestore,
+  userId: string,
+  invitationToken: string,
+): Promise<void> {
+  try {
+    const snapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("notifications")
+      .where("invitationToken", "==", invitationToken)
+      .get();
+
+    if (snapshot.empty) {
+      console.log(
+        `ℹ️ No notification found for invitation ${invitationToken} (user ${userId})`,
+      );
+      return;
+    }
+
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+
+    console.log(
+      `🧹 Deleted ${snapshot.size} notification(s) for invitation ${invitationToken} (user ${userId})`,
+    );
+  } catch (error: any) {
+    // Non-fatal: log but don't fail the main operation
+    console.warn(
+      `⚠️ Failed to cleanup notification for invitation ${invitationToken}:`,
+      error.message,
+    );
+  }
+}
 
 /**
  * Helper: Convert Firestore Timestamps to ISO strings for JSON serialization.

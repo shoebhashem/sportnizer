@@ -45,6 +45,10 @@ interface MemberContactModalProps {
   isGuardianViewing?: boolean;
   /** True when the current user is a club-admin or group admin */
   isAdminViewing?: boolean;
+  /** True when the member is inactive (soft-deleted, no roles) */
+  isInactive?: boolean;
+  /** Firestore timestamp — when the member data will be permanently deleted */
+  scheduledForDeletion?: any;
 }
 
 export default function MemberContactModal({
@@ -58,6 +62,8 @@ export default function MemberContactModal({
   isYouth = false,
   isGuardianViewing = false,
   isAdminViewing = false,
+  isInactive = false,
+  scheduledForDeletion,
 }: MemberContactModalProps) {
   const { t } = useTranslation(["components", "common"]);
   const { user } = useAuth();
@@ -635,6 +641,45 @@ export default function MemberContactModal({
                   </View>
                 )}
 
+                {/* Inactive / Deletion Warning Banner */}
+                {isInactive && (
+                  <View style={styles.inactiveBanner}>
+                    <Ionicons
+                      name="warning"
+                      size={20}
+                      color={theme.colors.error}
+                    />
+                    <View style={styles.inactiveBannerTextContainer}>
+                      <Text style={styles.inactiveBannerTitle}>
+                        {t("components:memberContactModal.inactiveMember")}
+                      </Text>
+                      {scheduledForDeletion && (
+                        <Text style={styles.inactiveBannerDate}>
+                          {t(
+                            "components:memberContactModal.scheduledDeletion",
+                            {
+                              date: (() => {
+                                const d = scheduledForDeletion?.toDate
+                                  ? scheduledForDeletion.toDate()
+                                  : scheduledForDeletion?.seconds
+                                    ? new Date(
+                                        scheduledForDeletion.seconds * 1000,
+                                      )
+                                    : new Date(scheduledForDeletion);
+                                return d.toLocaleDateString(undefined, {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                });
+                              })(),
+                            },
+                          )}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+
                 {/* Member Info Section */}
                 <View style={styles.infoSection}>
                   {/* Email - only show for non-youth or if available */}
@@ -1025,5 +1070,30 @@ const styles = StyleSheet.create({
     color: theme.colors.secondary,
     fontSize: 14,
     fontWeight: "600",
+  },
+  // Inactive member / deletion warning banner
+  inactiveBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: theme.colors.error + "15",
+    borderWidth: 1,
+    borderColor: theme.colors.error + "40",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  inactiveBannerTextContainer: {
+    flex: 1,
+  },
+  inactiveBannerTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: theme.colors.error,
+    marginBottom: 4,
+  },
+  inactiveBannerDate: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
   },
 });

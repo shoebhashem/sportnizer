@@ -35,6 +35,11 @@ import { paymentService, PendingPayment } from "../../services/paymentService";
 import { NewsFlowItem } from "../../services/types";
 import type { EventData } from "../../services/types/event";
 
+// Module-level Set: persists for the app session even if the component remounts.
+// Prevents a successfully-processed invitation from re-triggering the modal
+// after state is wiped by a component unmount/remount cycle.
+const _sessionProcessedInvites = new Set<string>();
+
 // Extended event data with invitee context
 interface ExpandedEventData extends EventData {
   inviteeUserId: string;
@@ -174,8 +179,13 @@ export default function Index() {
       const allInvites = response.invites || [];
 
       // Filter out invitations we've already processed
+      // Uses both the React state Set (current session) and the module-level Set
+      // (survives component remounts within the same app session).
       const newInvites = allInvites.filter((invite) => {
-        return !processedInvites.has(invite.inviteId);
+        return (
+          !processedInvites.has(invite.inviteId) &&
+          !_sessionProcessedInvites.has(invite.inviteId)
+        );
       });
 
       console.log("New unprocessed invitations:", newInvites);
@@ -183,8 +193,59 @@ export default function Index() {
 
       // Show the first new invitation if any exist and no modal is currently visible
       if (newInvites.length > 0 && !isInviteModalVisible && !currentInvite) {
-        setCurrentInvite(newInvites[0]);
-        setIsInviteModalVisible(true);
+        let inviteToShow: GroupInviteInfo | null = null;
+        const staleInviteIds: string[] = [];
+
+        try {
+          const { doc, getDocFromServer } = await import("firebase/firestore");
+          const { db } = await import("../../services/core/firebase");
+
+          for (const invite of newInvites) {
+            const inviteDoc = await getDocFromServer(
+              doc(db, "invitations", invite.inviteId),
+            );
+
+            if (!inviteDoc.exists()) {
+              staleInviteIds.push(invite.inviteId);
+              continue;
+            }
+
+            const inviteData = inviteDoc.data();
+            const isStillPending = inviteData.status === "pending";
+            const isInAppInvite = inviteData.isExistingUser !== false;
+
+            if (isStillPending && isInAppInvite) {
+              inviteToShow = invite;
+              break;
+            }
+
+            staleInviteIds.push(invite.inviteId);
+          }
+        } catch (verificationError) {
+          console.warn(
+            "⚠️ Server verification failed, skipping invite display:",
+            verificationError,
+          );
+          // Do NOT fall back to showing a potentially stale invite.
+          // The user can pull-to-refresh to retry once connectivity is restored.
+        }
+
+        if (staleInviteIds.length > 0) {
+          setProcessedInvites((prev) => {
+            const next = new Set(prev);
+            staleInviteIds.forEach((id) => next.add(id));
+            return next;
+          });
+
+          setPendingInvites((prev) =>
+            prev.filter((invite) => !staleInviteIds.includes(invite.inviteId)),
+          );
+        }
+
+        if (inviteToShow) {
+          setCurrentInvite(inviteToShow);
+          setIsInviteModalVisible(true);
+        }
       }
     } catch (error) {
       console.error("Error loading invitations:", error);
@@ -492,6 +553,10 @@ export default function Index() {
           currentInvite.groupId,
         );
       }
+
+      // Permanently record this invite as processed for the lifetime of the app session.
+      // This survives component remounts (unlike processedInvites React state).
+      _sessionProcessedInvites.add(currentInvite.inviteId);
 
       // Remove from pending invites
       const updatedInvites = pendingInvites.filter(

@@ -65,7 +65,21 @@
     "editName": "Name",
     "editDateOfBirth": "Date of Birth",
     "editProfile": "Edit Profile",
-    "updateFailed": "Failed to update profile"
+    "updateFailed": "Failed to update profile",
+    "inactiveMember": "Inactive Member",
+    "scheduledDeletion": "Account data will be permanently deleted on {{date}}."
+  },
+
+  "memberFilterBar": {
+    "all": "All",
+    "active": "Active",
+    "inactive": "Inactive",
+    "player": "Player",
+    "playerUnderage": "Player (U)",
+    "coach": "Coach",
+    "admin": "Admin",
+    "clubAdmin": "Club Admin",
+    "guardian": "Guardian"
   },
 
   "eventCard": {

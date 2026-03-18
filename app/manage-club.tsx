@@ -4,6 +4,11 @@ import CountdownTimer from "@/components/CountdownTimer";
 import DeletionConfirmationModal from "@/components/DeletionConfirmationModal";
 import { NewsEventFAB } from "@/components/FloatingActionButton";
 import MemberContactModal from "@/components/MemberContactModal";
+import MemberFilterBar, {
+    type RoleFilter,
+    type RoleOption,
+    type StatusFilter,
+} from "@/components/MemberFilterBar";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,7 +46,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ManageClubScreen() {
   const cache = useDataCache();
-  const { t } = useTranslation(["screens", "common"]);
+  const { t } = useTranslation(["screens", "common", "components"]);
   const insets = useSafeAreaInsets();
   const { clubId, tab, deleteMode } = useLocalSearchParams();
   const { user } = useAuth();
@@ -77,6 +82,52 @@ export default function ManageClubScreen() {
   );
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // ── Filter state ─────────────────────────────────────────────────
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+
+  const clubRoleOptions: RoleOption[] = useMemo(
+    () => [
+      { value: "all", label: t("components:memberFilterBar.all") },
+      { value: "player", label: t("components:memberFilterBar.player") },
+      {
+        value: "player-underage",
+        label: t("components:memberFilterBar.playerUnderage"),
+      },
+      { value: "coach", label: t("components:memberFilterBar.coach") },
+      { value: "admin", label: t("components:memberFilterBar.admin") },
+      {
+        value: "club-admin",
+        label: t("components:memberFilterBar.clubAdmin"),
+      },
+      { value: "guardian", label: t("components:memberFilterBar.guardian") },
+    ],
+    [t],
+  );
+
+  // Derived filtered member list
+  const filteredMembers = useMemo(() => {
+    let result = contextMembers;
+
+    // Status filter
+    if (statusFilter === "active") {
+      result = result.filter((m) => m.isActive !== false);
+    } else if (statusFilter === "inactive") {
+      result = result.filter((m) => m.isActive === false);
+    }
+    // 'all' → no status filtering
+
+    // Role filter
+    if (roleFilter !== "all") {
+      result = result.filter((m) => m.roles.includes(roleFilter));
+    }
+
+    return result;
+  }, [contextMembers, statusFilter, roleFilter]);
+
+  const isFilterActive = statusFilter === "inactive" || roleFilter !== "all";
 
   const fetchAllData = useCallback(async () => {
     if (!clubId || typeof clubId !== "string") return;
@@ -228,24 +279,54 @@ export default function ManageClubScreen() {
 
     navigation.setOptions({
       title: club.name || "Manage Club",
-      headerRight: () =>
-        isAdmin ? (
+      headerRight: () => (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {/* Filter toggle */}
           <TouchableOpacity
-            onPress={() => {
-              router.push(`/club-settings?clubId=${clubId}` as any);
-            }}
-            style={{ marginRight: 8, padding: 8 }}
+            onPress={() => setShowFilters((prev) => !prev)}
+            style={{ padding: 8 }}
           >
             <Ionicons
-              name="settings-outline"
+              name={isFilterActive ? "filter" : "filter-outline"}
               size={24}
-              color={theme.colors.secondary}
+              color={
+                isFilterActive ? theme.colors.secondary : theme.colors.secondary
+              }
             />
+            {isFilterActive && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 6,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: theme.colors.error,
+                }}
+              />
+            )}
           </TouchableOpacity>
-        ) : null,
+          {/* Settings gear (admin only) */}
+          {isAdmin && (
+            <TouchableOpacity
+              onPress={() => {
+                router.push(`/club-settings?clubId=${clubId}` as any);
+              }}
+              style={{ marginRight: 8, padding: 8 }}
+            >
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                color={theme.colors.secondary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [club, isAdmin, navigation]);
+  }, [club, isAdmin, navigation, isFilterActive]);
 
   const handleMemberPress = (member: ClubMemberData) => {
     if (isAdmin) {
@@ -255,16 +336,36 @@ export default function ManageClubScreen() {
   };
 
   const renderMemberItem = ({ item }: { item: ClubMemberData }) => {
+    const isInactive = item.isActive === false;
     const content = (
       <>
         <Image
-          style={styles.memberAvatar}
+          style={[
+            styles.memberAvatar,
+            isInactive && styles.memberAvatarInactive,
+          ]}
           source={{
             uri: item.photoURL || getDefaultProfilePicture(item.needsGuardian),
           }}
         />
         <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{item.name}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text
+              style={[
+                styles.memberName,
+                isInactive && styles.memberNameInactive,
+              ]}
+            >
+              {item.name}
+            </Text>
+            {isInactive && (
+              <View style={styles.inactiveBadge}>
+                <Text style={styles.inactiveBadgeText}>
+                  {t("components:memberFilterBar.inactive")}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.memberRole}>
             {[...new Set(item.roles)]?.join(", ") || "member"}
             {item.needsGuardian && " (Child/Youth)"}
@@ -283,7 +384,7 @@ export default function ManageClubScreen() {
     if (isAdmin) {
       return (
         <TouchableOpacity
-          style={styles.memberItem}
+          style={[styles.memberItem, isInactive && styles.memberItemInactive]}
           onPress={() => handleMemberPress(item)}
           activeOpacity={0.7}
         >
@@ -292,7 +393,13 @@ export default function ManageClubScreen() {
       );
     }
 
-    return <View style={styles.memberItem}>{content}</View>;
+    return (
+      <View
+        style={[styles.memberItem, isInactive && styles.memberItemInactive]}
+      >
+        {content}
+      </View>
+    );
   };
 
   const renderGroupItem = ({ item }: { item: ClubGroupData }) => {
@@ -491,7 +598,7 @@ export default function ManageClubScreen() {
                 activeTab === "members" && styles.activeTabText,
               ]}
             >
-              {t("screens:manageClub.members")} ({contextMembers.length})
+              {t("screens:manageClub.members")} ({filteredMembers.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -509,12 +616,23 @@ export default function ManageClubScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Filter Bar (toggled from header icon) */}
+        {showFilters && activeTab === "members" && (
+          <MemberFilterBar
+            statusFilter={statusFilter}
+            onStatusChange={setStatusFilter}
+            roleFilter={roleFilter}
+            onRoleChange={setRoleFilter}
+            availableRoles={clubRoleOptions}
+          />
+        )}
+
         {/* Content based on active tab */}
         {activeTab === "members" ? (
           // Members List
-          contextMembers.length > 0 ? (
+          filteredMembers.length > 0 ? (
             <FlatList
-              data={contextMembers}
+              data={filteredMembers}
               renderItem={renderMemberItem}
               keyExtractor={(item) => item.userId}
               scrollEnabled={false}
@@ -638,6 +756,8 @@ export default function ManageClubScreen() {
           initialPhotoURL={selectedMember.photoURL}
           isYouth={selectedMember.needsGuardian}
           isAdminViewing={isAdmin}
+          isInactive={selectedMember.isActive === false}
+          scheduledForDeletion={selectedMember.scheduledForDeletion}
         />
       )}
     </View>
@@ -694,6 +814,28 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
   },
+  // Inactive member styles
+  memberItemInactive: {
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.error,
+  },
+  memberAvatarInactive: {
+    opacity: 0.5,
+  },
+  memberNameInactive: {
+    opacity: 0.7,
+  },
+  inactiveBadge: {
+    backgroundColor: theme.colors.error + "20",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  inactiveBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: theme.colors.error,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -731,18 +873,18 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: "row",
     marginBottom: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.xs,
   },
   tab: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     alignItems: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    borderRadius: theme.borderRadius.small,
   },
   activeTab: {
-    borderBottomColor: theme.colors.secondary,
+    backgroundColor: theme.colors.secondary,
   },
   tabText: {
     fontSize: theme.typography.fontSize.medium,
@@ -750,7 +892,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   activeTabText: {
-    color: theme.colors.secondary,
+    color: theme.colors.primary,
     fontWeight: theme.typography.fontWeight.bold,
   },
   groupsList: {
