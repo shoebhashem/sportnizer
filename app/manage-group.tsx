@@ -467,7 +467,9 @@ export default function ManageGroupScreen() {
           ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>{t("screens:manageGroup.noMembers")}</Text>
+              <Text style={styles.emptyText}>
+                {t("screens:manageGroup.noMembers")}
+              </Text>
             </View>
           }
           contentContainerStyle={styles.scrollContent}
@@ -481,7 +483,9 @@ export default function ManageGroupScreen() {
           ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>{t("screens:manageGroup.noSubgroups")}</Text>
+              <Text style={styles.emptyText}>
+                {t("screens:manageGroup.noSubgroups")}
+              </Text>
             </View>
           }
           contentContainerStyle={styles.scrollContent}

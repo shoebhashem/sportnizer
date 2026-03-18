@@ -11,7 +11,6 @@ import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     FlatList,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -244,38 +243,34 @@ export default function ManageSubgroupMembersScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Subtitle showing subgroup name */}
-        <Text style={styles.subtitle}>
-          {t("screens:manageSubgroupMembers.selectMembersFor", {
-            name: typeof subgroupName === "string" ? subgroupName : "Subgroup",
-          })}
-        </Text>
+      <FlatList
+        data={members}
+        renderItem={renderMemberItem}
+        keyExtractor={(item) => item.userId}
+        ListHeaderComponent={
+          <>
+            <Text style={styles.subtitle}>
+              {t("screens:manageSubgroupMembers.selectMembersFor", {
+                name:
+                  typeof subgroupName === "string" ? subgroupName : "Subgroup",
+              })}
+            </Text>
 
-        <View style={styles.content}>
-          <Text style={styles.instructionText}>
-            {t("screens:manageSubgroupMembers.tapToSelectDeselect")}
-          </Text>
-
-          {members.length > 0 ? (
-            <FlatList
-              data={members}
-              renderItem={renderMemberItem}
-              keyExtractor={(item) => item.userId}
-              scrollEnabled={false}
-              style={styles.membersList}
-            />
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>
-                {t("screens:manageSubgroupMembers.noMembersInGroup")}
+            <View style={styles.content}>
+              <Text style={styles.instructionText}>
+                {t("screens:manageSubgroupMembers.tapToSelectDeselect")}
               </Text>
             </View>
-          )}
-
+          </>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>
+              {t("screens:manageSubgroupMembers.noMembersInGroup")}
+            </Text>
+          </View>
+        }
+        ListFooterComponent={
           <View style={styles.buttonContainer}>
             <Button
               label={t("screens:manageSubgroupMembers.saveChanges")}
@@ -292,8 +287,11 @@ export default function ManageSubgroupMembersScreen() {
               disabled={saving}
             />
           </View>
-        </View>
-      </ScrollView>
+        }
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        style={styles.membersList}
+      />
 
       <ConfirmationModal
         visible={errorModal.visible}

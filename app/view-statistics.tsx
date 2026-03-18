@@ -21,7 +21,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../constants/theme";
@@ -57,13 +57,41 @@ export default function ViewStatisticsScreen() {
   const [memberList, setMemberList] = useState<MemberStatDisplay[]>([]);
   const [groupAverage, setGroupAverage] = useState(0);
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Set dynamic native header title
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: groupName ? t("screens:viewStatistics.groupStatistics", { groupName }) : t("screens:viewStatistics.statistics"),
+      title: groupName
+        ? t("screens:viewStatistics.groupStatistics", { groupName })
+        : t("screens:viewStatistics.statistics"),
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => setShowFilters((prev) => !prev)}
+          style={{ marginRight: 8, padding: 8 }}
+        >
+          <Ionicons
+            name={selectedFilter !== "all" ? "filter" : "filter-outline"}
+            size={24}
+            color={theme.colors.secondary}
+          />
+          {selectedFilter !== "all" && (
+            <View
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 6,
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: theme.colors.error,
+              }}
+            />
+          )}
+        </TouchableOpacity>
+      ),
     });
-  }, [groupName, navigation]);
+  }, [groupName, navigation, t, selectedFilter]);
 
   const loadStatistics = async () => {
     if (!clubId || !groupId) return;
@@ -150,7 +178,10 @@ export default function ViewStatisticsScreen() {
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{item.userName}</Text>
           <Text style={styles.memberEvents}>
-            {t("screens:viewStatistics.attendedOfInvited", { attended: item.eventsAttended, invited: item.eventsInvited })}
+            {t("screens:viewStatistics.attendedOfInvited", {
+              attended: item.eventsAttended,
+              invited: item.eventsInvited,
+            })}
           </Text>
         </View>
       </View>
@@ -177,7 +208,9 @@ export default function ViewStatisticsScreen() {
           size={80}
           color={theme.colors.textSecondary}
         />
-        <Text style={styles.emptyTitle}>{t("screens:viewStatistics.noStatisticsYet")}</Text>
+        <Text style={styles.emptyTitle}>
+          {t("screens:viewStatistics.noStatisticsYet")}
+        </Text>
         <Text style={styles.emptyMessage}>
           {t("screens:viewStatistics.noStatisticsInstructions")}
         </Text>
@@ -205,7 +238,9 @@ export default function ViewStatisticsScreen() {
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>{t("screens:viewStatistics.loadingStatistics")}</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:viewStatistics.loadingStatistics")}
+          </Text>
         </View>
       </View>
     );
@@ -262,35 +297,41 @@ export default function ViewStatisticsScreen() {
       {statistics ? (
         <>
           {/* Filter Tabs */}
-          <View style={styles.filterContainer}>
-            {(["all", "training", "match", "other"] as EventTypeFilter[]).map(
-              (filter) => (
-                <TouchableOpacity
-                  key={filter}
-                  style={[
-                    styles.filterTab,
-                    selectedFilter === filter && styles.filterTabActive,
-                  ]}
-                  onPress={() => handleFilterChange(filter)}
-                >
-                  <Text
+          {showFilters && (
+            <View style={styles.filterContainer}>
+              {(["all", "training", "match", "other"] as EventTypeFilter[]).map(
+                (filter) => (
+                  <TouchableOpacity
+                    key={filter}
                     style={[
-                      styles.filterTabText,
-                      selectedFilter === filter && styles.filterTabTextActive,
+                      styles.filterTab,
+                      selectedFilter === filter && styles.filterTabActive,
                     ]}
+                    onPress={() => handleFilterChange(filter)}
                   >
-                    {t(`screens:viewStatistics.filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`)}
-                  </Text>
-                </TouchableOpacity>
-              ),
-            )}
-          </View>
+                    <Text
+                      style={[
+                        styles.filterTabText,
+                        selectedFilter === filter && styles.filterTabTextActive,
+                      ]}
+                    >
+                      {t(
+                        `screens:viewStatistics.filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`,
+                      )}
+                    </Text>
+                  </TouchableOpacity>
+                ),
+              )}
+            </View>
+          )}
 
           {/* Stats Summary Card */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>{t("screens:viewStatistics.groupAverage")}</Text>
+                <Text style={styles.summaryLabel}>
+                  {t("screens:viewStatistics.groupAverage")}
+                </Text>
                 <Text
                   style={[
                     styles.summaryValue,
@@ -302,7 +343,9 @@ export default function ViewStatisticsScreen() {
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>{t("screens:viewStatistics.totalEvents")}</Text>
+                <Text style={styles.summaryLabel}>
+                  {t("screens:viewStatistics.totalEvents")}
+                </Text>
                 <Text style={styles.summaryValue}>
                   {selectedFilter === "all"
                     ? statistics.groupAggregates.totalEvents
@@ -313,7 +356,9 @@ export default function ViewStatisticsScreen() {
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>{t("screens:viewStatistics.members")}</Text>
+                <Text style={styles.summaryLabel}>
+                  {t("screens:viewStatistics.members")}
+                </Text>
                 <Text style={styles.summaryValue}>{memberList.length}</Text>
               </View>
             </View>
@@ -322,7 +367,9 @@ export default function ViewStatisticsScreen() {
           {/* Member List */}
           <View style={styles.memberListContainer}>
             <Text style={styles.memberListTitle}>
-              {t("screens:viewStatistics.memberStatistics", { count: memberList.length })}
+              {t("screens:viewStatistics.memberStatistics", {
+                count: memberList.length,
+              })}
             </Text>
             <FlatList
               data={memberList}
@@ -427,8 +474,11 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   summaryCard: {
-    margin: theme.spacing.lg,
-    padding: theme.spacing.lg,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.medium,
   },
@@ -443,16 +493,16 @@ const styles = StyleSheet.create({
   },
   summaryDivider: {
     width: 1,
-    height: 40,
+    height: 30,
     backgroundColor: theme.colors.border,
   },
   summaryLabel: {
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
   },
   summaryValue: {
-    fontSize: theme.typography.fontSize.xlarge,
+    fontSize: theme.typography.fontSize.large,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.text,
   },

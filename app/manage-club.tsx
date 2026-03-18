@@ -565,7 +565,9 @@ export default function ManageClubScreen() {
               router.back();
             }}
           >
-            <Text style={styles.deleteModeCancelText}>{t("common:cancel")}</Text>
+            <Text style={styles.deleteModeCancelText}>
+              {t("common:cancel")}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -624,7 +626,9 @@ export default function ManageClubScreen() {
           ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>{t("screens:manageClub.noMembers")}</Text>
+              <Text style={styles.emptyText}>
+                {t("screens:manageClub.noMembers")}
+              </Text>
             </View>
           }
           contentContainerStyle={styles.scrollContent}
@@ -646,7 +650,9 @@ export default function ManageClubScreen() {
           ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>{t("screens:manageClub.noGroups")}</Text>
+              <Text style={styles.emptyText}>
+                {t("screens:manageClub.noGroups")}
+              </Text>
             </View>
           }
           contentContainerStyle={styles.scrollContent}

@@ -80,6 +80,7 @@ export default function TrackPaymentsScreen() {
   const [selectedFee, setSelectedFee] = useState<MembershipFee | null>(null);
   const [members, setMembers] = useState<MemberPaymentInfo[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
+  const [showFilters, setShowFilters] = useState(false);
 
   // Modal state
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -91,8 +92,33 @@ export default function TrackPaymentsScreen() {
       title: groupName
         ? t("screens:trackPayments.groupPayments", { groupName })
         : t("screens:trackPayments.trackPayments"),
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => setShowFilters((prev) => !prev)}
+          style={{ marginRight: 8, padding: 8 }}
+        >
+          <Ionicons
+            name={activeFilter !== "all" ? "filter" : "filter-outline"}
+            size={24}
+            color={theme.colors.secondary}
+          />
+          {activeFilter !== "all" && (
+            <View
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 6,
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: theme.colors.error,
+              }}
+            />
+          )}
+        </TouchableOpacity>
+      ),
     });
-  }, [navigation, groupName, t]);
+  }, [navigation, groupName, t, activeFilter]);
 
   // Fetch fees for the group
   const fetchFees = useCallback(async () => {
@@ -422,11 +448,90 @@ export default function TrackPaymentsScreen() {
     );
   }
 
+  const listHeader = (
+    <>
+      {/* Fee Selection (if multiple fees) */}
+      {fees.length > 1 && (
+        <View style={styles.feesSection}>
+          <Text style={styles.sectionTitle}>
+            {t("screens:trackPayments.membershipFees")}
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.feesCarousel}
+          >
+            {fees.map(renderFeeCard)}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Selected Fee Summary */}
+      {selectedFee && fees.length === 1 && (
+        <View style={styles.selectedFeeContainer}>
+          <View style={styles.selectedFeeHeader}>
+            <Text style={styles.selectedFeeTitle}>{selectedFee.title}</Text>
+            <View
+              style={[
+                styles.feeStatusBadge,
+                selectedFee.status === "active"
+                  ? styles.feeStatusActive
+                  : styles.feeStatusClosed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.feeStatusText,
+                  selectedFee.status === "active"
+                    ? styles.feeStatusTextActive
+                    : styles.feeStatusTextClosed,
+                ]}
+              >
+                {selectedFee.status === "active" ? "Active" : "Closed"}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.selectedFeeAmount}>
+            {formatAmount(selectedFee.amount, selectedFee.currency)}
+          </Text>
+          <Text style={styles.selectedFeeDueDate}>
+            {t("screens:trackPayments.dueDate", {
+              date: formatDate(selectedFee.dueDate),
+            })}
+          </Text>
+        </View>
+      )}
+
+      {/* Filter Tabs (toggled from header icon) */}
+      {showFilters && renderFilterTabs()}
+
+      {/* Members List Header */}
+      <View style={styles.membersSection}>
+        <Text style={styles.sectionTitle}>
+          {t("screens:trackPayments.membersCount", {
+            count: filteredMembers.length,
+          })}
+        </Text>
+      </View>
+    </>
+  );
+
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
 
-      <ScrollView
+      <FlatList
+        data={filteredMembers}
+        renderItem={renderMemberItem}
+        keyExtractor={(item) => item.userId}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          <View style={styles.noMembersContainer}>
+            <Text style={styles.noMembersText}>
+              {t("screens:trackPayments.noMembersMatchFilter")}
+            </Text>
+          </View>
+        }
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -436,104 +541,7 @@ export default function TrackPaymentsScreen() {
             tintColor={theme.colors.secondary}
           />
         }
-      >
-        {/* Fee Selection (if multiple fees) */}
-        {fees.length > 1 && (
-          <View style={styles.feesSection}>
-            <Text style={styles.sectionTitle}>
-              {t("screens:trackPayments.membershipFees")}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.feesCarousel}
-            >
-              {fees.map(renderFeeCard)}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Selected Fee Summary */}
-        {selectedFee && fees.length === 1 && (
-          <View style={styles.selectedFeeContainer}>
-            <View style={styles.selectedFeeHeader}>
-              <Text style={styles.selectedFeeTitle}>{selectedFee.title}</Text>
-              <View
-                style={[
-                  styles.feeStatusBadge,
-                  selectedFee.status === "active"
-                    ? styles.feeStatusActive
-                    : styles.feeStatusClosed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.feeStatusText,
-                    selectedFee.status === "active"
-                      ? styles.feeStatusTextActive
-                      : styles.feeStatusTextClosed,
-                  ]}
-                >
-                  {selectedFee.status === "active" ? "Active" : "Closed"}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.selectedFeeAmount}>
-              {formatAmount(selectedFee.amount, selectedFee.currency)}
-            </Text>
-            <Text style={styles.selectedFeeDueDate}>
-              {t("screens:trackPayments.dueDate", {
-                date: formatDate(selectedFee.dueDate),
-              })}
-            </Text>
-          </View>
-        )}
-
-        {/* Stats Summary */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.statItem, styles.statPaid]}>
-            <Text style={styles.statValue}>{stats.paid}</Text>
-            <Text style={styles.statLabel}>Paid</Text>
-          </View>
-          <View style={[styles.statItem, styles.statPending]}>
-            <Text style={styles.statValue}>{stats.pending}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
-          </View>
-          <View style={[styles.statItem, styles.statOverdue]}>
-            <Text style={styles.statValue}>{stats.overdue}</Text>
-            <Text style={styles.statLabel}>Overdue</Text>
-          </View>
-        </View>
-
-        {/* Filter Tabs */}
-        {renderFilterTabs()}
-
-        {/* Members List */}
-        <View style={styles.membersSection}>
-          <Text style={styles.sectionTitle}>
-            {t("screens:trackPayments.membersCount", {
-              count: filteredMembers.length,
-            })}
-          </Text>
-
-          {filteredMembers.length === 0 ? (
-            <View style={styles.noMembersContainer}>
-              <Text style={styles.noMembersText}>
-                {t("screens:trackPayments.noMembersMatchFilter")}
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={filteredMembers}
-              renderItem={renderMemberItem}
-              keyExtractor={(item) => item.userId}
-              style={styles.membersList}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
-        </View>
-      </ScrollView>
+      />
 
       {/* Error Modal */}
       <ConfirmationModal
@@ -703,39 +711,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
     marginTop: 4,
-  },
-
-  // Stats
-  statsContainer: {
-    flexDirection: "row",
-    marginTop: theme.spacing.lg,
-    gap: theme.spacing.md,
-  },
-  statItem: {
-    flex: 1,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.md,
-    alignItems: "center",
-  },
-  statPaid: {
-    backgroundColor: "#DCFCE7",
-  },
-  statPending: {
-    backgroundColor: "#FEF9C3",
-  },
-  statOverdue: {
-    backgroundColor: "#FEE2E2",
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: theme.colors.primary,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: theme.colors.primary,
-    marginTop: 2,
   },
 
   // Filter Tabs

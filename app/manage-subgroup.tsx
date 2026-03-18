@@ -17,7 +17,6 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -164,24 +163,16 @@ export default function ManageSubgroupScreen() {
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Members Section */}
-        <Text style={styles.sectionTitle}>
-          {t("screens:manageSubgroup.members")} ({subgroupMembers.length})
-        </Text>
-
-        {subgroupMembers.length > 0 ? (
-          <FlatList
-            data={subgroupMembers}
-            renderItem={renderMemberItem}
-            keyExtractor={(item) => item.userId}
-            scrollEnabled={false}
-            style={styles.membersList}
-          />
-        ) : (
+      <FlatList
+        data={subgroupMembers}
+        renderItem={renderMemberItem}
+        keyExtractor={(item) => item.userId}
+        ListHeaderComponent={
+          <Text style={styles.sectionTitle}>
+            {t("screens:manageSubgroup.members")} ({subgroupMembers.length})
+          </Text>
+        }
+        ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
               {t("screens:manageSubgroup.noMembersInSubgroup")}
@@ -192,8 +183,10 @@ export default function ManageSubgroupScreen() {
               </Text>
             )}
           </View>
-        )}
-      </ScrollView>
+        }
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      />
 
       {/* FAB: Create Subgroup News or Event */}
       {canManage && (
