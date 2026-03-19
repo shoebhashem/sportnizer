@@ -19,7 +19,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 // Header logo that navigates to the About screen
 function HeaderLeft() {
@@ -72,6 +75,7 @@ export default function TabLayout() {
   const { user } = useAuth();
   const { t } = useTranslation("navigation");
   const { isLoading, hasLoadedFreshData } = useUserProfile();
+  const insets = useSafeAreaInsets();
 
   // Legal acceptance state
   const [legalCheckResult, setLegalCheckResult] =
@@ -201,7 +205,7 @@ export default function TabLayout() {
     <AuthGuard>
       <SafeAreaView
         style={{ flex: 1, backgroundColor: theme.colors.primary }}
-        edges={["top", "bottom"]}
+        edges={Platform.OS === "android" ? ["top"] : ["top", "bottom"]}
       >
         <Tabs
           screenOptions={{
@@ -226,8 +230,8 @@ export default function TabLayout() {
             headerRight: () => <HeaderRight />,
             tabBarStyle: {
               backgroundColor: theme.colors.primary,
-              height: 60,
-              // Safe area automatically handled by SafeAreaView
+              height: Platform.OS === "android" ? 60 + insets.bottom : 60,
+              paddingBottom: Platform.OS === "android" ? insets.bottom : 0,
             },
           }}
         >

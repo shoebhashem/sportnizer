@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "363301763041",
+    "project_id": "sportnizer",
+    "storage_bucket": "sportnizer.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:363301763041:android:21979777f779fe16f544a0",
+        "android_client_info": {
+          "package_name": "com.clubnizer.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "363301763041-rb6i3ge1alo2hvoa0i6oaa98k02ec9qn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWV0b-vsnSvAMXfUSKScHfFt9xb2sM6dw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "363301763041-rb6i3ge1alo2hvoa0i6oaa98k02ec9qn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "363301763041-nct91drl2vfd1eoohf6u779r3t3r4lf8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sportnizer.app"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:363301763041:android:42ef70070c6e2dacf544a0",
+        "android_client_info": {
+          "package_name": "com.sportnizer.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "363301763041-rb6i3ge1alo2hvoa0i6oaa98k02ec9qn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWV0b-vsnSvAMXfUSKScHfFt9xb2sM6dw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "363301763041-rb6i3ge1alo2hvoa0i6oaa98k02ec9qn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "363301763041-nct91drl2vfd1eoohf6u779r3t3r4lf8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sportnizer.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

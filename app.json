@@ -4,35 +4,50 @@
     "slug": "clubnizer",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/clubnizer_logo.png",
+
+    // ✅ iOS + fallback icon
+    "icon": "./assets/images/icon.png",
+
     "scheme": "clubnizer",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
     "ios": {
       "supportsTablet": true,
+      "icon": "./assets/images/icon.png",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to the camera to take profile pictures.",
         "NSPhotoLibraryUsageDescription": "This app needs access to the photo library to select profile pictures."
       }
     },
+
     "android": {
+      "package": "com.clubnizer.app",
+
+      // ✅ Proper adaptive icon setup
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/clubnizer_logo.png",
+        "foregroundImage": "./assets/images/icon-foreground.png",
         "backgroundColor": "#25292e"
       },
+
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
+
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png",
+
+      // ✅ Use same icon for favicon (good practice)
+      "favicon": "./assets/images/icon.png",
       "themeColor": "#25292e"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -53,8 +68,18 @@
       ],
       "expo-localization"
     ],
+
     "experiments": {
       "typedRoutes": true
-    }
+    },
+
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "09d2cd34-930b-479f-b9c0-1570da24a702"
+      }
+    },
+
+    "owner": "850901"
   }
 }
