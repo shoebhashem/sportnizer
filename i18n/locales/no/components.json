@@ -228,5 +228,20 @@
     "compactFormat": "{{days}}d {{hours}}t",
     "fullFormat": "{{days}} dager, {{hours}} timer, {{minutes}} minutter",
     "remaining": "igjen"
+  },
+
+  "pushNotifications": {
+    "channels": {
+      "default": "Generelt",
+      "events": "Arrangementer",
+      "invitations": "Invitasjoner",
+      "news": "Nyheter",
+      "payments": "Betalinger"
+    },
+    "nudge": {
+      "title": "Hold deg oppdatert",
+      "message": "Aktiver varsler for å motta oppdateringer om arrangementer, invitasjoner og betalinger.",
+      "openSettings": "Åpne innstillinger"
+    }
   }
 }

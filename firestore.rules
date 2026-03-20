@@ -244,6 +244,15 @@ service cloud.firestore {
           isGuardianOf(userId)
         );
       }
+
+      // ---------------------------
+      // Push tokens subcollection
+      // Stores Expo push tokens per device for push notification delivery
+      // ---------------------------
+      match /pushTokens/{tokenId} {
+        // Read/Write/Delete: User can only manage their own push tokens
+        allow read, create, update, delete: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     // ---------------------------

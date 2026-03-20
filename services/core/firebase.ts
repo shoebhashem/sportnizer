@@ -17,7 +17,10 @@ const appId =
   Platform.OS === "android"
     ? process.env.EXPO_PUBLIC_FIREBASE_APP_ID_ANDROID ||
       process.env.EXPO_PUBLIC_FIREBASE_APP_ID
-    : process.env.EXPO_PUBLIC_FIREBASE_APP_ID;
+    : Platform.OS === "ios"
+      ? process.env.EXPO_PUBLIC_FIREBASE_APP_ID_IOS ||
+        process.env.EXPO_PUBLIC_FIREBASE_APP_ID
+      : process.env.EXPO_PUBLIC_FIREBASE_APP_ID;
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,

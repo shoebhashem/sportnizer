@@ -355,7 +355,39 @@ export const createNews = onCall(
 
       // ============================================================================
       // STEP 5: Send Notifications to All Recipients
+      // Personalized: guardians see the youth member's name in the message
       // ============================================================================
+
+      // Build guardian → youth names mapping
+      const guardianYouthNames: Record<string, string[]> = {};
+      const directRecipientIds = new Set<string>();
+
+      for (const memberData of members) {
+        if (
+          memberData.needsGuardian &&
+          memberData.guardiansContacts &&
+          memberData.guardiansContacts.length > 0
+        ) {
+          for (const guardian of memberData.guardiansContacts) {
+            if (guardian.guardianUid) {
+              if (!guardianYouthNames[guardian.guardianUid]) {
+                guardianYouthNames[guardian.guardianUid] = [];
+              }
+              guardianYouthNames[guardian.guardianUid].push(
+                memberData.name || "Unknown",
+              );
+            }
+          }
+        } else {
+          directRecipientIds.add(memberData.userId);
+        }
+      }
+
+      const descriptionPreview =
+        data.description.length > 100
+          ? data.description.substring(0, 100) + "..."
+          : data.description;
+
       console.log(
         `📬 Sending notifications to ${recipientUserIds.length} users...`,
       );
@@ -363,13 +395,25 @@ export const createNews = onCall(
       const notificationPromises = recipientUserIds.map(
         async (recipientUserId) => {
           try {
+            // Determine personalized message
+            let message: string;
+            const youthNames = guardianYouthNames[recipientUserId];
+
+            if (youthNames && youthNames.length > 0) {
+              const nameList = youthNames.join(", ");
+              if (directRecipientIds.has(recipientUserId)) {
+                message = `News for you and ${nameList}: ${descriptionPreview}`;
+              } else {
+                message = `News for ${nameList}: ${descriptionPreview}`;
+              }
+            } else {
+              message = descriptionPreview;
+            }
+
             await createNotificationDirect(recipientUserId, {
               type: "news",
               title: `News: ${data.title}`,
-              message:
-                data.description.length > 100
-                  ? data.description.substring(0, 100) + "..."
-                  : data.description,
+              message,
               sourceId: newsRef.id,
               sourceCollection: "news",
               clubId,
@@ -379,7 +423,7 @@ export const createNews = onCall(
                 groupName: targetScope.groupName,
               }),
               priority: "normal",
-              actionUrl: `/news/${newsRef.id}`,
+              actionUrl: `/news-details?newsId=${newsRef.id}&clubId=${clubId}`,
             });
           } catch (notifError: any) {
             console.error(

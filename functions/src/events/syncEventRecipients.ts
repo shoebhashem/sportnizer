@@ -3,10 +3,10 @@ import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
-    EventResponse,
-    SyncEventRecipientsRequest,
-    SyncEventRecipientsResponse,
-    SyncMemberDiff,
+  EventResponse,
+  SyncEventRecipientsRequest,
+  SyncEventRecipientsResponse,
+  SyncMemberDiff,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
@@ -476,7 +476,7 @@ export const syncEventRecipients = onCall(
                 groupName: targetScope.groupName,
               }),
               priority: "normal",
-              actionUrl: `/events/${data.eventId}`,
+              actionUrl: `/event-details?eventId=${data.eventId}&clubId=${clubId}`,
             });
           } catch (notifError: any) {
             console.error(

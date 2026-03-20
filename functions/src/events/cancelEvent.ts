@@ -306,7 +306,7 @@ export const cancelEvent = onCall(
               ...(groupId && { groupId }),
               ...(groupName && { groupName }),
               priority: "high",
-              actionUrl: `/events/${eventId}`,
+              actionUrl: `/event-details?eventId=${eventId}&clubId=${clubId}`,
               metadata: {
                 eventId,
                 cancellationReason: cancellationReason || null,

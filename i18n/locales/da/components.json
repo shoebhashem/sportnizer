@@ -228,5 +228,20 @@
     "compactFormat": "{{days}}d {{hours}}t",
     "fullFormat": "{{days}} dage, {{hours}} timer, {{minutes}} minutter",
     "remaining": "tilbage"
+  },
+
+  "pushNotifications": {
+    "channels": {
+      "default": "Generelt",
+      "events": "Begivenheder",
+      "invitations": "Invitationer",
+      "news": "Nyheder",
+      "payments": "Betalinger"
+    },
+    "nudge": {
+      "title": "Hold dig opdateret",
+      "message": "Aktivér notifikationer for at modtage opdateringer om begivenheder, invitationer og betalinger.",
+      "openSettings": "Åbn indstillinger"
+    }
   }
 }

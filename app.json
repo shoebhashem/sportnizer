@@ -4,50 +4,46 @@
     "slug": "clubnizer",
     "version": "1.0.0",
     "orientation": "portrait",
-
-    // ✅ iOS + fallback icon
     "icon": "./assets/images/icon.png",
-
     "scheme": "clubnizer",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-
     "ios": {
       "supportsTablet": true,
+      "googleServicesFile": "./GoogleService-Info.plist",
       "icon": "./assets/images/icon.png",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to the camera to take profile pictures.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to the photo library to select profile pictures."
-      }
+        "NSPhotoLibraryUsageDescription": "This app needs access to the photo library to select profile pictures.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "aps-environment": "production"
+      },
+      "bundleIdentifier": "com.clubnizer.app"
     },
-
     "android": {
       "package": "com.clubnizer.app",
-
-      // ✅ Proper adaptive icon setup
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon-foreground.png",
         "backgroundColor": "#25292e"
       },
-
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
-
     "web": {
       "bundler": "metro",
       "output": "static",
-
-      // ✅ Use same icon for favicon (good practice)
       "favicon": "./assets/images/icon.png",
       "themeColor": "#25292e"
     },
-
     "plugins": [
       "expo-router",
       [
@@ -66,20 +62,25 @@
           "cameraPermission": "Allow Clubnizer to access your camera to take profile pictures."
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#25292e",
+          "defaultChannel": "default"
+        }
+      ]
     ],
-
     "experiments": {
       "typedRoutes": true
     },
-
     "extra": {
       "router": {},
       "eas": {
         "projectId": "09d2cd34-930b-479f-b9c0-1570da24a702"
       }
     },
-
     "owner": "850901"
   }
 }

@@ -232,5 +232,20 @@
     "compactFormat": "{{days}}d {{hours}}t",
     "fullFormat": "{{days}} dagar, {{hours}} timmar, {{minutes}} minuter",
     "remaining": "kvar"
+  },
+
+  "pushNotifications": {
+    "channels": {
+      "default": "Allmänt",
+      "events": "Händelser",
+      "invitations": "Inbjudningar",
+      "news": "Nyheter",
+      "payments": "Betalningar"
+    },
+    "nudge": {
+      "title": "Håll dig uppdaterad",
+      "message": "Aktivera notifieringar för att få uppdateringar om händelser, inbjudningar och betalningar.",
+      "openSettings": "Öppna inställningar"
+    }
   }
 }

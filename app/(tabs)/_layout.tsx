@@ -7,10 +7,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserContext";
 import { signOutUser } from "@/services/auth/authService";
 import { legalService } from "@/services/legal/legalService";
+import {
+  registerForPushNotificationsAsync,
+  savePushTokenToFirestore,
+} from "@/services/pushNotificationService";
 import { VersionCheckResult } from "@/services/types/legal";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router, Tabs } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -76,6 +80,31 @@ export default function TabLayout() {
   const { t } = useTranslation("navigation");
   const { isLoading, hasLoadedFreshData } = useUserProfile();
   const insets = useSafeAreaInsets();
+  const pushTokenRef = useRef<string | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Register push token AFTER user reaches main app (tabs).
+  // This ensures the OS permission dialog never fires during login/signup,
+  // which previously caused Android to return to the launching activity (Chrome).
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (!user?.uid) {
+      // User logged out — clean up token ref
+      if (pushTokenRef.current) pushTokenRef.current = null;
+      return;
+    }
+
+    const register = async () => {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        pushTokenRef.current = token;
+        await savePushTokenToFirestore(user.uid, token);
+      }
+    };
+
+    register();
+  }, [user?.uid]);
 
   // Legal acceptance state
   const [legalCheckResult, setLegalCheckResult] =

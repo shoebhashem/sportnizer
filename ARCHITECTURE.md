@@ -1556,6 +1556,101 @@ REJECTION: 'pending' → 'rejected'
 
 ---
 
+## Push Notification Architecture
+
+ClubNizer delivers push notifications to iOS and Android devices using the **Expo Push Notification Service** as a transport layer. This sits on top of APNs (iOS) and FCM (Android), with no direct dependency on `@react-native-firebase`.
+
+### Overview
+
+```
+
+Cloud Function
+└─ createNotificationDirect() [createNotification.ts]
+├─ 1. Write users/{uid}/notifications/{id} ← Firestore (guaranteed)
+└─ 2. sendPushNotification() [sendPushNotification.ts] ← fire-and-forget
+├─ Read users/{uid}/pushTokens
+├─ POST https://exp.host/--/api/v2/push/send
+│ └─ Expo Push Service
+│ ├─ APNs → iOS device
+│ └─ FCM → Android device
+└─ Clean up DeviceNotRegistered tokens
+
+````
+
+**Contract:** Push failures never block or roll back the Firestore write. The in-app notification bell remains the authoritative UI source.
+
+### Token Lifecycle
+
+| Event | Action |
+| ----- | ------ |
+| User logs in on a device | `registerForPushNotificationsAsync()` obtains Expo push token, `savePushTokenToFirestore()` writes to `users/{uid}/pushTokens/{tokenId}` (idempotent) |
+| User logs out | `removePushTokenFromFirestore()` deletes the token for that device |
+| Expo API returns `DeviceNotRegistered` | Token deleted from Firestore automatically by `sendPushNotification()` |
+
+**Firestore push token document:**
+```typescript
+// users/{userId}/pushTokens/{tokenId}
+{
+  token: "ExponentPushToken[xxxxxx]",
+  platform: "android" | "ios",
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+}
+````
+
+### Android Notification Channels
+
+| Channel ID    | Label       | Importance | Use Case                                        |
+| ------------- | ----------- | ---------- | ----------------------------------------------- |
+| `default`     | General     | DEFAULT    | Fallback / announcements                        |
+| `events`      | Events      | HIGH       | Event created / cancelled                       |
+| `invitations` | Invitations | HIGH       | Group / admin / youth invitations, role changes |
+| `news`        | News        | DEFAULT    | News posts                                      |
+| `payments`    | Payments    | HIGH       | Payment requests                                |
+
+Channel IDs are also used as iOS `categoryIdentifier` values.
+
+### Notification Type → Channel Mapping
+
+```typescript
+const CHANNEL_MAP = {
+  event: "events",
+  event_cancelled: "events",
+  group_invitation: "invitations",
+  youth_member_invitation: "invitations",
+  club_admin_invitation: "invitations",
+  role_changed: "invitations",
+  news: "news",
+  news_updated: "news",
+  payment_request: "payments",
+  announcement: "default", // fallback
+};
+```
+
+### Frontend Setup (`app/_layout.tsx`)
+
+1. **`setNotificationHandler`** — suppresses foreground banner (in-app bell is the UI)
+2. **Channel + token registration** — runs on every `user.uid` change (login)
+3. **`addNotificationResponseReceivedListener`** — handles background/killed state taps, deep-links via `router.push(actionUrl)`
+4. **Logout cleanup** — `removePushTokenFromFirestore()` called when user signs out
+
+### Key Files
+
+| File                                                  | Purpose                                                     |
+| ----------------------------------------------------- | ----------------------------------------------------------- |
+| `services/pushNotificationService.ts`                 | Frontend: token registration, channel setup, Firestore CRUD |
+| `functions/src/notifications/sendPushNotification.ts` | Backend: Expo Push API dispatch, token cleanup              |
+| `functions/src/notifications/createNotification.ts`   | Orchestrator: Firestore write → push dispatch               |
+| `functions/test/push-notifications.test.ts`           | Suite R: 10 backend integration tests                       |
+
+### Graceful Degradation
+
+- Push requires network access to `exp.host` — unavailable in the emulator test environment
+- All push dispatch is wrapped in `.catch()` / `try-catch` — errors are logged but never surfaced to callers
+- The `sendPushNotification()` function has a `Promise<void>` return type and always resolves
+
+---
+
 ## Usage Limits & Subscription System
 
 ### Overview
@@ -1571,6 +1666,7 @@ REJECTION: 'pending' → 'rejected'
 Clubnizer enforces member limits at the **CLUB level** (not group level), allowing clubs essentially unlimited groups but restricting total members to **1,500** per club.
 
 **Design Philosophy**:
+
 - **Club-level member limits**: Total members across all groups count against the club's limit
 - **Unlimited groups**: All clubs allow up to 99 groups (essentially unlimited)
 - **1,500 member safety cap**: Prevents abuse; contact support for a higher limit
@@ -1590,19 +1686,19 @@ Clubnizer enforces member limits at the **CLUB level** (not group level), allowi
 │ Price │ Free │
 └─────────────────┴───────────────────────────────────┘
 
-````
+```
 
 ### Parked Subscription Tiers (for future reactivation)
 
 The following tiers exist in `subscriptionConfig.ts` and `limits.ts` but are
 currently all mapped to the same 1,500-member limit except Enterprise:
 
-| Tier       | Was       | Now (Parked)                          |
-|------------|-----------|---------------------------------------|
-| Free       | 50 members| 1,500 members                         |
-| Basic      | 500       | 1,500 (same as free while parked)     |
-| Pro        | 2,000     | 1,500 (same as free while parked)     |
-| Enterprise | Unlimited | Unlimited (contact support)           |
+| Tier       | Was        | Now (Parked)                      |
+| ---------- | ---------- | --------------------------------- |
+| Free       | 50 members | 1,500 members                     |
+| Basic      | 500        | 1,500 (same as free while parked) |
+| Pro        | 2,000      | 1,500 (same as free while parked) |
+| Enterprise | Unlimited  | Unlimited (contact support)       |
 
 **To reactivate subscriptions**: Restore the original tier limits in `limits.ts`
 and `subscriptionConfig.ts`, uncomment the Subscription menu in `club-settings.tsx`,
@@ -1617,29 +1713,29 @@ interface ClubData {
   // ... existing fields ...
 
   // Total member count (used for subscription limits)
-  totalCounts: number;           // Total members across all groups in the club
+  totalCounts: number; // Total members across all groups in the club
 
   // Group limits (essentially unlimited now)
-  activeGroupCount?: number;     // Count of groups with isActive=true
-  maxGroups?: number;            // Maximum groups allowed (default: 99)
+  activeGroupCount?: number; // Count of groups with isActive=true
+  maxGroups?: number; // Maximum groups allowed (default: 99)
 
   // Member limit based on subscription tier
-  maxMembers?: number;           // Maximum members in club (50/500/2000/unlimited)
+  maxMembers?: number; // Maximum members in club (50/500/2000/unlimited)
 
   // Subscription to Clubnizer platform
   subscription?: {
-    tier: 'free' | 'basic' | 'pro' | 'enterprise';
-    status: 'active' | 'past_due' | 'cancelled' | 'trialing';
+    tier: "free" | "basic" | "pro" | "enterprise";
+    status: "active" | "past_due" | "cancelled" | "trialing";
     stripeCustomerId: string | null;
     stripeSubscriptionId: string | null;
     stripePriceId: string | null;
     currentPeriodStart: Timestamp | null;
     currentPeriodEnd: Timestamp | null;
     cancelAtPeriodEnd: boolean;
-    paymentFailedAt: Timestamp | null;  // For 14-day grace period tracking
+    paymentFailedAt: Timestamp | null; // For 14-day grace period tracking
   };
 }
-````
+```
 
 **Default Values** (Free — all clubs):
 

@@ -431,4 +431,54 @@ describe("Suite Q: Notification Side-Effects Across Cloud Functions", () => {
       "not-found",
     );
   });
+
+  // ─── Push dispatch graceful degradation ──────────────────────
+
+  it("TC-Q7: createNotification succeeds even when Expo Push API is unreachable", async () => {
+    // This test verifies the fire-and-forget contract: push failures must
+    // never prevent the Firestore notification document from being written.
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+    } = await setupClubGroupAndMembers();
+
+    // Seed a push token so sendPushNotification actually attempts a fetch.
+    // In the emulator environment the Expo API call will fail with a network
+    // error — that is expected and intentional.
+    const db = getFirestore();
+    await db.collection("users").doc(player.uid).collection("pushTokens").add({
+      token: "ExponentPushToken[emulator-test]",
+      platform: "android",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Call createNotification — push will fail but should not throw
+    const result = await callFunction<{
+      success: boolean;
+      notificationId: string;
+    }>("createNotification", adminUser.idToken, {
+      userId: player.uid,
+      type: "event",
+      title: "Push Degradation Test",
+      message: "Firestore write must succeed even if push fails.",
+      clubId,
+      clubName: "Side Club",
+      priority: "normal",
+    });
+
+    // Callable must return success
+    expect(result.success).toBe(true);
+    expect(result.notificationId).toBeDefined();
+
+    // Firestore notification must exist
+    const notifDoc = await getDocument(
+      `users/${player.uid}/notifications/${result.notificationId}`,
+    );
+    expect(notifDoc).toBeDefined();
+    expect(notifDoc!.title).toBe("Push Degradation Test");
+    expect(notifDoc!.read).toBe(false);
+    expect(notifDoc!.dismissed).toBe(false);
+  });
 });

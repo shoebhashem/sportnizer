@@ -6,6 +6,7 @@
 export type NotificationType =
   | "group_invitation"
   | "youth_member_invitation"
+  | "club_admin_invitation"
   | "announcement"
   | "event"
   | "poll"

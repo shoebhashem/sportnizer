@@ -3,11 +3,11 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
-    CreateRecurringEventRequest,
-    CreateRecurringEventResponse,
-    EventDocument,
-    EventResponse,
-    RecurringEventMaster,
+  CreateRecurringEventRequest,
+  CreateRecurringEventResponse,
+  EventDocument,
+  EventResponse,
+  RecurringEventMaster,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
@@ -548,7 +548,30 @@ export const createRecurringEvent = onCall(
 
       // ============================================================================
       // STEP 6: Send Notifications (only for the first upcoming occurrence)
+      // Personalized: guardians see the youth member's name in the message
       // ============================================================================
+
+      // Build guardian → youth names mapping from responses array
+      const guardianYouthNames: Record<string, string[]> = {};
+      const directMemberIds = new Set<string>();
+
+      for (const resp of responses) {
+        if (
+          resp.isYouthMember &&
+          resp.guardianIds &&
+          resp.guardianIds.length > 0
+        ) {
+          for (const guardianId of resp.guardianIds) {
+            if (!guardianYouthNames[guardianId]) {
+              guardianYouthNames[guardianId] = [];
+            }
+            guardianYouthNames[guardianId].push(resp.userName || "Unknown");
+          }
+        } else {
+          directMemberIds.add(resp.userId);
+        }
+      }
+
       console.log(
         `📬 Sending notifications for recurring event to ${invitedUserIds.length} users...`,
       );
@@ -557,10 +580,25 @@ export const createRecurringEvent = onCall(
       const notificationPromises = invitedUserIds.map(
         async (invitedUserId: string) => {
           try {
+            // Determine personalized message
+            let message: string;
+            const youthNames = guardianYouthNames[invitedUserId];
+
+            if (youthNames && youthNames.length > 0) {
+              const nameList = youthNames.join(", ");
+              if (directMemberIds.has(invitedUserId)) {
+                message = `You and ${nameList} have been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`;
+              } else {
+                message = `${nameList} has been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`;
+              }
+            } else {
+              message = `You've been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`;
+            }
+
             await createNotificationDirect(invitedUserId, {
               type: "event",
               title: `New Recurring Event: ${data.title}`,
-              message: `You've been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`,
+              message,
               sourceId: occurrenceEventIds[0], // Link to first occurrence
               sourceCollection: "events",
               clubId,
@@ -570,7 +608,7 @@ export const createRecurringEvent = onCall(
                 groupName: targetScope.groupName,
               }),
               priority: "normal",
-              actionUrl: `/events/${occurrenceEventIds[0]}`,
+              actionUrl: `/event-details?eventId=${occurrenceEventIds[0]}&clubId=${clubId}`,
               metadata: {
                 recurringEventId: masterRef.id,
                 totalOccurrences: occurrenceDates.length,

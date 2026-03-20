@@ -8,10 +8,12 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { NewsProvider } from "@/contexts/NewsContext";
 import { UserProvider } from "@/contexts/UserContext";
 import "@/i18n";
+import { setupNotificationChannels } from "@/services/pushNotificationService";
 import { Ionicons } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
 import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, TouchableOpacity } from "react-native";
 
@@ -49,6 +51,61 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const { t } = useTranslation("navigation");
+
+  // ---------------------------------------------------------------------------
+  // Push notification foreground handler
+  // Suppress OS banners when the app is open — user already sees the bell badge
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: false, // Suppress banner when app is in foreground
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      }),
+    });
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Set up notification channels/categories early (before permission prompt)
+  // Push token registration is deferred to (tabs)/_layout.tsx so the OS
+  // permission dialog only appears after login/signup completes.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    setupNotificationChannels();
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Notification tap handler — deep-link when app was killed/backgrounded
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        if (!data) return;
+
+        // Use structured route params if available, fall back to actionUrl string
+        if (data.route && typeof data.route === "string") {
+          const params =
+            data.routeParams && typeof data.routeParams === "object"
+              ? data.routeParams
+              : {};
+          router.push({ pathname: data.route as any, params } as any);
+        } else if (data.actionUrl && typeof data.actionUrl === "string") {
+          router.push(data.actionUrl as any);
+        }
+      },
+    );
+
+    return () => subscription.remove();
+  }, []);
 
   return (
     <Stack

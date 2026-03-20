@@ -232,5 +232,20 @@
     "compactFormat": "{{days}}d {{hours}}h",
     "fullFormat": "{{days}} días, {{hours}} horas, {{minutes}} minutos",
     "remaining": "restante"
+  },
+
+  "pushNotifications": {
+    "channels": {
+      "default": "General",
+      "events": "Eventos",
+      "invitations": "Invitaciones",
+      "news": "Noticias",
+      "payments": "Pagos"
+    },
+    "nudge": {
+      "title": "Mantente informado",
+      "message": "Activa las notificaciones para recibir actualizaciones sobre eventos, invitaciones y pagos.",
+      "openSettings": "Abrir ajustes"
+    }
   }
 }

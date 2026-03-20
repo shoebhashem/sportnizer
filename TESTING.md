@@ -26,26 +26,27 @@
 
 ### Test Suites
 
-| Suite                 | File                                                  | Tests | Domain                                                                                |
-| --------------------- | ----------------------------------------------------- | ----- | ------------------------------------------------------------------------------------- |
-| Club Lifecycle        | `functions/test/clubs.test.ts`                        | 10    | Create, get, update, delete + permissions                                             |
-| Group Lifecycle       | `functions/test/groups.test.ts`                       | 12    | CRUD + cascade delete to subgroups                                                    |
-| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`                    | 10    | CRUD + membership add/remove                                                          |
-| Members & Fees        | `functions/test/members-and-fees.test.ts`             | 14    | Member roles, club roles, fee CRUD                                                    |
-| Events & Attendance   | `functions/test/events.test.ts`                       | 23    | Event CRUD, RSVP, attendance, statistics                                              |
-| Auth & User Mgmt      | `functions/test/auth.test.ts`                         | 18    | Account creation, profiles, verification                                              |
-| Invitation Flows      | `functions/test/invitations.test.ts`                  | 21    | Send, validate, accept/reject, delete, dedup                                          |
-| Guardian Flows        | `functions/test/guardian-flows.test.ts`               | 14    | Add/remove guardian, role accumulation, subgroup cascade                              |
-| Picture Uploads       | `functions/test/upload-pictures.test.ts`              | 11    | Upload club/group/profile pics + Firestore propagation                                |
-| News & Notifications  | `functions/test/news-notifications.test.ts`           | 10    | News CRUD, permissions, recipient logic, youth→guardian, role filter                  |
-| Notification Side-Fx  | `functions/test/notification-side-effects.test.ts`    | 6     | Event/invitation/fee/callable notification docs + auth/not-found errors               |
-| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | 82    | Validation, roles, limits, LOK rules                                                  |
-| Permission Helpers    | `functions/test/permission-helpers.test.ts`           | 45    | permissionHelpers: isClubAdmin, canManageGroup, getHighestRole, etc.                  |
-| Flat Array Helpers    | `functions/test/flat-array-helpers.test.ts`           | 24    | buildFlatArraysFromClubAccess, emptyFlatArrays, inactive filtering                    |
-| Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)                  |
-| Account Security      | `functions/test/account-security.test.ts`             | 16    | Token revocation, email change request/verify, email sync                             |
-| Youth Profile Admin   | `functions/test/update-youth-profile.test.ts`         | 11    | Admin update youth name/DOB, sync, guardian phone update, permissions                 |
-| Sync Event Recipients | `functions/test/sync-event-recipients.test.ts`        | 18    | Preview/confirm sync, permissions, recurring scope, youth/guardian, creator exclusion |
+| Suite                 | File                                                  | Tests | Domain                                                                                                        |
+| --------------------- | ----------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------- |
+| Club Lifecycle        | `functions/test/clubs.test.ts`                        | 10    | Create, get, update, delete + permissions                                                                     |
+| Group Lifecycle       | `functions/test/groups.test.ts`                       | 12    | CRUD + cascade delete to subgroups                                                                            |
+| Subgroup Lifecycle    | `functions/test/subgroups.test.ts`                    | 10    | CRUD + membership add/remove                                                                                  |
+| Members & Fees        | `functions/test/members-and-fees.test.ts`             | 14    | Member roles, club roles, fee CRUD                                                                            |
+| Events & Attendance   | `functions/test/events.test.ts`                       | 23    | Event CRUD, RSVP, attendance, statistics                                                                      |
+| Auth & User Mgmt      | `functions/test/auth.test.ts`                         | 18    | Account creation, profiles, verification                                                                      |
+| Invitation Flows      | `functions/test/invitations.test.ts`                  | 21    | Send, validate, accept/reject, delete, dedup                                                                  |
+| Guardian Flows        | `functions/test/guardian-flows.test.ts`               | 14    | Add/remove guardian, role accumulation, subgroup cascade                                                      |
+| Picture Uploads       | `functions/test/upload-pictures.test.ts`              | 11    | Upload club/group/profile pics + Firestore propagation                                                        |
+| News & Notifications  | `functions/test/news-notifications.test.ts`           | 10    | News CRUD, permissions, recipient logic, youth→guardian, role filter                                          |
+| Notification Side-Fx  | `functions/test/notification-side-effects.test.ts`    | 7     | Event/invitation/fee/callable notification docs + auth/not-found errors + push degradation                    |
+| Push Notifications    | `functions/test/push-notifications.test.ts`           | 10    | sendPushNotification: no-op, multi-device, DeviceNotRegistered cleanup, channel mapping, graceful degradation |
+| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | 82    | Validation, roles, limits, LOK rules                                                                          |
+| Permission Helpers    | `functions/test/permission-helpers.test.ts`           | 45    | permissionHelpers: isClubAdmin, canManageGroup, getHighestRole, etc.                                          |
+| Flat Array Helpers    | `functions/test/flat-array-helpers.test.ts`           | 24    | buildFlatArraysFromClubAccess, emptyFlatArrays, inactive filtering                                            |
+| Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)                                          |
+| Account Security      | `functions/test/account-security.test.ts`             | 16    | Token revocation, email change request/verify, email sync                                                     |
+| Youth Profile Admin   | `functions/test/update-youth-profile.test.ts`         | 11    | Admin update youth name/DOB, sync, guardian phone update, permissions                                         |
+| Sync Event Recipients | `functions/test/sync-event-recipients.test.ts`        | 18    | Preview/confirm sync, permissions, recurring scope, youth/guardian, creator exclusion                         |
 
 ---
 
@@ -1608,6 +1609,33 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 
 #### TC-Q6: createNotification for non-existent user → `not-found`
 
+#### TC-Q7: createNotification succeeds even when Expo Push API is unreachable
+
+| ✅ Contract Verified                           | Detail                                           |
+| ---------------------------------------------- | ------------------------------------------------ |
+| Callable returns `success: true`               | Push failure does not throw                      |
+| `users/{playerUid}/notifications/{id}` written | `title`, `read=false`, `dismissed=false` present |
+
+---
+
+### Suite R: Push Notification Dispatch
+
+**File:** `functions/test/push-notifications.test.ts`
+
+> Tests `sendPushNotification()` directly (ts-jest import, no emulator HTTP call). Mocks `global.fetch` to simulate Expo Push API responses.
+
+| Test | Description                                                        |
+| ---- | ------------------------------------------------------------------ |
+| R1   | No-op when user has no push tokens — `fetch` never called          |
+| R2   | Sends to all registered devices — correct payload shape            |
+| R3   | Removes `DeviceNotRegistered` token, keeps valid token             |
+| R4   | Multiple devices, partial failure cleans up only invalid tokens    |
+| R5   | Correct `channelId` / `categoryIdentifier` per notification type   |
+| R6   | Network error does not throw (graceful degradation)                |
+| R6b  | Expo API 500 error does not throw                                  |
+| R7   | Firestore notification written even when push fails (via callable) |
+| R8   | `payment_request` → `priority="high"`, `channelId="payments"`      |
+
 ---
 
 ### Test Case Count Summary
@@ -1622,8 +1650,9 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | G. Guardian Flows              | `guardian-flows.test.ts`                | 15     |
 | N. News & Notifications        | `news-notifications.test.ts`            | 10     |
 | P. Picture Uploads             | `upload-pictures.test.ts`               | 11     |
-| Q. Notification Side-Effects   | `notification-side-effects.test.ts`     | 6      |
-| **Total new**                  |                                         | **78** |
+| Q. Notification Side-Effects   | `notification-side-effects.test.ts`     | 7      |
+| R. Push Notifications          | `push-notifications.test.ts`            | 9      |
+| **Total new**                  |                                         | **87** |
 
 ### Implementation Priority
 

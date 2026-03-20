@@ -3,10 +3,10 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
-    CreateEventRequestV2,
-    CreateEventResponse,
-    EventDocument,
-    EventResponse,
+  CreateEventRequestV2,
+  CreateEventResponse,
+  EventDocument,
+  EventResponse,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
@@ -414,17 +414,59 @@ export const createEventV2 = onCall(
 
       // ============================================================================
       // STEP 5: Send Notifications to All Invited Users
+      // Personalized: guardians see the youth member's name in the message.
+      // Derive the guardian→youth mapping from the `responses` array (same
+      // source the frontend uses to render per-invitee event cards).
       // ============================================================================
+
+      const guardianYouthNames: Record<string, string[]> = {};
+      const directMemberIds = new Set<string>();
+
+      for (const resp of responses) {
+        if (
+          resp.isYouthMember &&
+          resp.guardianIds &&
+          resp.guardianIds.length > 0
+        ) {
+          for (const guardianId of resp.guardianIds) {
+            if (!guardianYouthNames[guardianId]) {
+              guardianYouthNames[guardianId] = [];
+            }
+            guardianYouthNames[guardianId].push(resp.userName || "Unknown");
+          }
+        } else {
+          directMemberIds.add(resp.userId);
+        }
+      }
+
+      const eventDateStr = new Date(data.startDate).toLocaleDateString();
+
       console.log(
         `📬 Sending notifications to ${invitedUserIds.length} users...`,
       );
 
       const notificationPromises = invitedUserIds.map(async (invitedUserId) => {
         try {
+          // Determine personalized message
+          let message: string;
+          const youthNames = guardianYouthNames[invitedUserId];
+
+          if (youthNames && youthNames.length > 0) {
+            const nameList = youthNames.join(", ");
+            if (directMemberIds.has(invitedUserId)) {
+              // Guardian is also a direct member
+              message = `You and ${nameList} have been invited to ${data.title} on ${eventDateStr}`;
+            } else {
+              message = `${nameList} has been invited to ${data.title} on ${eventDateStr}`;
+            }
+          } else {
+            message = `You've been invited to ${data.title} on ${eventDateStr}`;
+          }
+
           await createNotificationDirect(invitedUserId, {
             type: "event",
             title: `New Event: ${data.title}`,
-            message: `You've been invited to ${data.title} on ${new Date(data.startDate).toLocaleDateString()}`,
+            message,
             sourceId: eventRef.id,
             sourceCollection: "events",
             clubId,
@@ -432,7 +474,7 @@ export const createEventV2 = onCall(
             ...(targetScope.groupId && { groupId: targetScope.groupId }),
             ...(targetScope.groupName && { groupName: targetScope.groupName }),
             priority: "normal",
-            actionUrl: `/events/${eventRef.id}`,
+            actionUrl: `/event-details?eventId=${eventRef.id}&clubId=${clubId}`,
           });
         } catch (notifError: any) {
           console.error(

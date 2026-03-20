@@ -4,6 +4,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { NotificationType } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
+import { sendPushNotification } from "./sendPushNotification";
 
 export interface CreateNotificationRequest {
   userId: string;
@@ -253,6 +254,22 @@ export const createNotificationDirect = async (
   console.log(
     `✅ Notification created directly: ${notificationRef.id} for user ${userId}`,
   );
+
+  // Send push notification to user's registered devices (fire-and-forget)
+  // Push failures must never fail the Firestore notification write
+  sendPushNotification(userId, {
+    title: notificationData.title,
+    body: notificationData.message,
+    priority: notificationData.priority || "normal",
+    type: notificationData.type,
+    data: {
+      actionUrl: notificationData.actionUrl ?? null,
+      type: notificationData.type,
+      sourceId: notificationData.sourceId ?? null,
+      clubId: notificationData.clubId,
+      groupId: notificationData.groupId ?? null,
+    },
+  }).catch((err) => console.error("❌ Push send failed (non-fatal):", err));
 
   return notificationRef.id;
 };
