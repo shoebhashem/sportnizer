@@ -419,8 +419,19 @@ export const createEventV2 = onCall(
       // source the frontend uses to render per-invitee event cards).
       // ============================================================================
 
-      const guardianYouthNames: Record<string, string[]> = {};
-      const directMemberIds = new Set<string>();
+      const eventDateStr = new Date(data.startDate).toLocaleDateString();
+
+      // Build one notification job per invitee:
+      //   - youth member  → one job per guardian, actionUrl points to the youth's inviteeUserId
+      //   - direct member → one job for themselves
+      type NotificationJob = {
+        targetUserId: string;
+        message: string;
+        inviteeUserId: string;
+        inviteeName: string;
+      };
+
+      const notificationJobs: NotificationJob[] = [];
 
       for (const resp of responses) {
         if (
@@ -428,45 +439,36 @@ export const createEventV2 = onCall(
           resp.guardianIds &&
           resp.guardianIds.length > 0
         ) {
+          // One notification per guardian, linking to the youth player's context
           for (const guardianId of resp.guardianIds) {
-            if (!guardianYouthNames[guardianId]) {
-              guardianYouthNames[guardianId] = [];
-            }
-            guardianYouthNames[guardianId].push(resp.userName || "Unknown");
+            notificationJobs.push({
+              targetUserId: guardianId,
+              message: `${resp.userName || "Your child"} has been invited to ${data.title} on ${eventDateStr}`,
+              inviteeUserId: resp.userId,
+              inviteeName: resp.userName || "",
+            });
           }
         } else {
-          directMemberIds.add(resp.userId);
+          // Direct member: notify themselves with their own invitee context
+          notificationJobs.push({
+            targetUserId: resp.userId,
+            message: `You've been invited to ${data.title} on ${eventDateStr}`,
+            inviteeUserId: resp.userId,
+            inviteeName: resp.userName || "",
+          });
         }
       }
 
-      const eventDateStr = new Date(data.startDate).toLocaleDateString();
-
       console.log(
-        `📬 Sending notifications to ${invitedUserIds.length} users...`,
+        `📬 Sending ${notificationJobs.length} notifications (from ${responses.length} invitees)...`,
       );
 
-      const notificationPromises = invitedUserIds.map(async (invitedUserId) => {
+      const notificationPromises = notificationJobs.map(async (job) => {
         try {
-          // Determine personalized message
-          let message: string;
-          const youthNames = guardianYouthNames[invitedUserId];
-
-          if (youthNames && youthNames.length > 0) {
-            const nameList = youthNames.join(", ");
-            if (directMemberIds.has(invitedUserId)) {
-              // Guardian is also a direct member
-              message = `You and ${nameList} have been invited to ${data.title} on ${eventDateStr}`;
-            } else {
-              message = `${nameList} has been invited to ${data.title} on ${eventDateStr}`;
-            }
-          } else {
-            message = `You've been invited to ${data.title} on ${eventDateStr}`;
-          }
-
-          await createNotificationDirect(invitedUserId, {
+          await createNotificationDirect(job.targetUserId, {
             type: "event",
             title: `New Event: ${data.title}`,
-            message,
+            message: job.message,
             sourceId: eventRef.id,
             sourceCollection: "events",
             clubId,
@@ -474,11 +476,11 @@ export const createEventV2 = onCall(
             ...(targetScope.groupId && { groupId: targetScope.groupId }),
             ...(targetScope.groupName && { groupName: targetScope.groupName }),
             priority: "normal",
-            actionUrl: `/event-details?eventId=${eventRef.id}&clubId=${clubId}`,
+            actionUrl: `/event-details?eventId=${eventRef.id}&clubId=${clubId}&inviteeUserId=${job.inviteeUserId}&inviteeName=${encodeURIComponent(job.inviteeName)}`,
           });
         } catch (notifError: any) {
           console.error(
-            `⚠️ Failed to send notification to user ${invitedUserId}:`,
+            `⚠️ Failed to send notification to user ${job.targetUserId}:`,
             notifError.message,
           );
           // Don't throw - notification failure shouldn't block event creation
@@ -495,8 +497,10 @@ export const createEventV2 = onCall(
       return {
         success: true,
         eventId: eventRef.id,
-        totalRecipients: invitedUserIds.length,
-        message: `Event created successfully with ${invitedUserIds.length} invitations sent`,
+        totalRecipients: notificationJobs.length,
+        message: `Event created successfully with ${notificationJobs.length} invitations sent`,
+        // Note: totalRecipients counts notification jobs (may exceed invitedUserIds.length
+        // when a guardian has multiple youth players in the same event).
       };
     } catch (error: any) {
       console.error("❌ Error in createEventV2:", error);

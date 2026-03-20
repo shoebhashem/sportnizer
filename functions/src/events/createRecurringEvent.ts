@@ -551,9 +551,18 @@ export const createRecurringEvent = onCall(
       // Personalized: guardians see the youth member's name in the message
       // ============================================================================
 
-      // Build guardian → youth names mapping from responses array
-      const guardianYouthNames: Record<string, string[]> = {};
-      const directMemberIds = new Set<string>();
+      // Build one notification job per invitee:
+      //   - youth member  → one job per guardian, actionUrl points to the youth's inviteeUserId
+      //   - direct member → one job for themselves
+      type RecurringNotificationJob = {
+        targetUserId: string;
+        message: string;
+        inviteeUserId: string;
+        inviteeName: string;
+      };
+
+      const firstOccurrenceDate = occurrenceDates[0];
+      const notificationJobs: RecurringNotificationJob[] = [];
 
       for (const resp of responses) {
         if (
@@ -561,44 +570,37 @@ export const createRecurringEvent = onCall(
           resp.guardianIds &&
           resp.guardianIds.length > 0
         ) {
+          // One notification per guardian, linking to the youth player's context
           for (const guardianId of resp.guardianIds) {
-            if (!guardianYouthNames[guardianId]) {
-              guardianYouthNames[guardianId] = [];
-            }
-            guardianYouthNames[guardianId].push(resp.userName || "Unknown");
+            notificationJobs.push({
+              targetUserId: guardianId,
+              message: `${resp.userName || "Your child"} has been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`,
+              inviteeUserId: resp.userId,
+              inviteeName: resp.userName || "",
+            });
           }
         } else {
-          directMemberIds.add(resp.userId);
+          // Direct member: notify themselves with their own invitee context
+          notificationJobs.push({
+            targetUserId: resp.userId,
+            message: `You've been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`,
+            inviteeUserId: resp.userId,
+            inviteeName: resp.userName || "",
+          });
         }
       }
 
       console.log(
-        `📬 Sending notifications for recurring event to ${invitedUserIds.length} users...`,
+        `📬 Sending ${notificationJobs.length} notifications for recurring event (from ${responses.length} invitees)...`,
       );
 
-      const firstOccurrenceDate = occurrenceDates[0];
-      const notificationPromises = invitedUserIds.map(
-        async (invitedUserId: string) => {
+      const notificationPromises = notificationJobs.map(
+        async (job: RecurringNotificationJob) => {
           try {
-            // Determine personalized message
-            let message: string;
-            const youthNames = guardianYouthNames[invitedUserId];
-
-            if (youthNames && youthNames.length > 0) {
-              const nameList = youthNames.join(", ");
-              if (directMemberIds.has(invitedUserId)) {
-                message = `You and ${nameList} have been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`;
-              } else {
-                message = `${nameList} has been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`;
-              }
-            } else {
-              message = `You've been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`;
-            }
-
-            await createNotificationDirect(invitedUserId, {
+            await createNotificationDirect(job.targetUserId, {
               type: "event",
               title: `New Recurring Event: ${data.title}`,
-              message,
+              message: job.message,
               sourceId: occurrenceEventIds[0], // Link to first occurrence
               sourceCollection: "events",
               clubId,
@@ -608,7 +610,7 @@ export const createRecurringEvent = onCall(
                 groupName: targetScope.groupName,
               }),
               priority: "normal",
-              actionUrl: `/event-details?eventId=${occurrenceEventIds[0]}&clubId=${clubId}`,
+              actionUrl: `/event-details?eventId=${occurrenceEventIds[0]}&clubId=${clubId}&inviteeUserId=${job.inviteeUserId}&inviteeName=${encodeURIComponent(job.inviteeName)}`,
               metadata: {
                 recurringEventId: masterRef.id,
                 totalOccurrences: occurrenceDates.length,
@@ -616,7 +618,7 @@ export const createRecurringEvent = onCall(
             });
           } catch (notifError: any) {
             console.error(
-              `⚠️ Failed to send notification to user ${invitedUserId}:`,
+              `⚠️ Failed to send notification to user ${job.targetUserId}:`,
               notifError.message,
             );
           }
@@ -634,8 +636,8 @@ export const createRecurringEvent = onCall(
         recurringEventId: masterRef.id,
         occurrenceEventIds,
         totalOccurrences: occurrenceDates.length,
-        totalRecipients: invitedUserIds.length,
-        message: `Recurring event created with ${occurrenceDates.length} occurrences and ${invitedUserIds.length} invitations`,
+        totalRecipients: notificationJobs.length,
+        message: `Recurring event created with ${occurrenceDates.length} occurrences and ${notificationJobs.length} invitations`,
       };
     } catch (error: any) {
       console.error("❌ Error in createRecurringEvent:", error);
