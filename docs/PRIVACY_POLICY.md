@@ -44,7 +44,7 @@ When you create an account, we collect:
 
 You may optionally provide:
 
-- Profile photo
+- Profile photo (may be taken with your device camera or selected from your photo library)
 - Phone number
 - Date of birth (required for Youth Members)
 
@@ -91,6 +91,23 @@ We automatically collect:
 - Error logs and performance data
 
 This data helps us improve the Service and troubleshoot issues.
+
+### 3.8 Images and Media
+
+The app allows you to upload images in the following contexts:
+
+- **Profile photos** — a personal image associated with your account
+- **Club logos** — an image representing your club
+- **Group images** — an image representing a group within a club
+
+**Camera and Photo Library Access**
+To upload images, the app may request access to your device camera or photo library. This permission is requested only when you actively choose to upload an image. You can decline this permission and still use all other features of the app.
+
+**Image Storage**
+Uploaded images are stored using Firebase Storage (Google Cloud). Uploaded images may be accessible via a direct URL, meaning anyone who obtains the link to an image may be able to view it. You should not upload images containing sensitive or personal information you do not want to be publicly accessible.
+
+**Purpose**
+Images are used solely to personalize your profile or club within the app. We do not use uploaded images for advertising, analytics, or any purpose beyond providing the core functionality of the Service.
 
 ---
 
@@ -183,11 +200,11 @@ Certain information (such as name, profile photo, email, and role) may be visibl
 
 We share data with service providers who process data on our behalf:
 
-| Sub-Processor           | Purpose                                  | Location   |
-| ----------------------- | ---------------------------------------- | ---------- |
-| Google Cloud / Firebase | Infrastructure, authentication, database | USA/EU     |
-| Stripe                  | Payment processing                       | USA/EU     |
-| [Email Provider]        | Transactional email delivery             | [Location] |
+| Sub-Processor           | Purpose                                                 | Location   |
+| ----------------------- | ------------------------------------------------------- | ---------- |
+| Google Cloud / Firebase | Infrastructure, authentication, database, image storage | USA/EU     |
+| Stripe                  | Payment processing                                      | USA/EU     |
+| [Email Provider]        | Transactional email delivery                            | [Location] |
 
 ### 7.4 Legal Requirements
 
@@ -224,19 +241,43 @@ We retain your data while your account remains active and as necessary to provid
 
 ### 9.2 Inactive Memberships
 
-When you are removed from a Club or your membership becomes inactive:
+When you leave a group, are removed from a Club, or your membership becomes inactive:
 
-- A **30-day grace period** applies before data deletion
-- During this period, your membership can be reactivated
-- After 30 days, membership data may be permanently deleted
+- Your membership record is **soft-deleted** (marked as inactive)
+- A **30-day grace period** applies, during which a Club administrator can reactivate your membership
+- After 30 days, inactive membership records are permanently deleted by an automated cleanup process
+- Any outstanding membership fees associated with the membership are cancelled upon removal
 
-### 9.3 Deleted Accounts
+### 9.3 Account Deletion ("Delete My Account")
 
-When you delete your account:
+You can delete your own account at any time using the **"Delete My Account"** option in your Profile settings within the app. Account deletion is **immediate and permanent** — there is no recovery period.
 
-- A **30-day recovery period** applies
-- You may reactivate your account during this period
-- After 30 days, account data is permanently deleted
+#### Pre-conditions
+
+Before you can delete your account, you must:
+
+1. **Leave all groups** — you cannot have any active group memberships
+2. **Not hold a club-admin role** — another club admin must remove you as club admin first
+3. **Not be a guardian of active youth players** — contact a club admin to remove the guardian association first
+
+If any of these conditions are not met, the app will inform you of the specific steps required.
+
+#### What is deleted immediately
+
+- Your **Firebase Authentication account** (login credentials)
+- Your **user profile document** (name, email, phone, profile photo reference, preferences)
+- Your **in-app notifications**
+
+#### What is NOT deleted by account deletion
+
+- **Club membership records** — these are managed by the Club (as Data Controller) and follow the inactive membership lifecycle described in Section 9.2. Since you must leave all groups before deleting your account, these records will already be in the soft-deleted state.
+- **Event and attendance data** — historical event responses and attendance records you contributed while active may be retained by the Club for administrative purposes.
+- **Payment and transaction records** — retained as required by law and by our payment processor (Stripe) for financial compliance.
+- **Anonymized usage data** — aggregated, non-identifiable analytics data may be retained.
+
+### 9.3a Admin-Deactivated Accounts
+
+If your account is deactivated by an administrator (rather than self-deleted), a **60-day grace period** applies. During this period, the account may be reactivated. After 60 days, the account is permanently deleted by an automated cleanup process.
 
 ### 9.4 Extended Retention
 
@@ -266,7 +307,7 @@ Request correction of inaccurate or incomplete personal data.
 
 ### 10.3 Right to Erasure
 
-Request deletion of your personal data, subject to legal retention requirements.
+Request deletion of your personal data, subject to legal retention requirements. You can exercise this right directly by using the **"Delete My Account"** feature in the app (see Section 9.3 for details and pre-conditions).
 
 ### 10.4 Right to Restriction
 
@@ -286,9 +327,11 @@ Object to processing based on legitimate interests in certain circumstances.
 
 ### 10.8 How to Exercise Your Rights
 
+**To delete your account:** Use the **"Delete My Account"** option in your Profile settings within the app. This performs an immediate, permanent deletion of your account data (see Section 9.3).
+
 **For Club data:** Contact your Club administrator, who as Data Controller can assist with requests relating to Club membership data.
 
-**For account data:** Contact us directly at **[privacy@clubnizer.com]**. We aim to respond to requests within 30 days.
+**For account data or other requests:** Contact us directly at **[privacy@clubnizer.com]**. We aim to respond to requests within 30 days.
 
 ---
 
@@ -319,6 +362,19 @@ Our security measures include:
 - Regular security reviews
 
 **However, no method of transmission over the Internet or electronic storage is completely secure.** We cannot guarantee absolute security, and you use the Service at your own risk.
+
+---
+
+## 12a. Device Permissions
+
+Clubnizer may request the following device permissions:
+
+| Permission                           | Purpose                                                                                | Required |
+| ------------------------------------ | -------------------------------------------------------------------------------------- | -------- |
+| Camera (`android.permission.CAMERA`) | Allows you to take a photo when uploading a profile picture, club logo, or group image | Optional |
+| Photo Library / Media Access         | Allows you to select an existing image from your device when uploading                 | Optional |
+
+All permissions are requested at the moment you choose to use the relevant feature. You may decline any permission — this will prevent the specific upload feature from working but will not affect other app functionality. You can manage or revoke permissions at any time through your device settings.
 
 ---
 
