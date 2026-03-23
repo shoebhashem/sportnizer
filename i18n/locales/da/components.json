@@ -75,7 +75,8 @@
     "coach": "Træner",
     "admin": "Admin",
     "clubAdmin": "Klubadmin",
-    "guardian": "Værge"
+    "guardian": "Værge",
+    "searchPlaceholder": "Søg efter navn eller e-mail…"
   },
 
   "eventCard": {

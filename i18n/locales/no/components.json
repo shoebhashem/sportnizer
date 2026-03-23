@@ -75,7 +75,8 @@
     "coach": "Trener",
     "admin": "Admin",
     "clubAdmin": "Klubbadmin",
-    "guardian": "Foresatt"
+    "guardian": "Foresatt",
+    "searchPlaceholder": "Søk etter navn eller e-post…"
   },
 
   "eventCard": {

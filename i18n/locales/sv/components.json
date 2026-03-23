@@ -79,7 +79,8 @@
     "coach": "Tränare",
     "admin": "Admin",
     "clubAdmin": "Klubbadmin",
-    "guardian": "Vårdnadshavare"
+    "guardian": "Vårdnadshavare",
+    "searchPlaceholder": "Sök på namn eller e-post…"
   },
 
   "eventCard": {

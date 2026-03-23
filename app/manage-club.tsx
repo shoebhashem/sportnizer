@@ -5,9 +5,9 @@ import DeletionConfirmationModal from "@/components/DeletionConfirmationModal";
 import { NewsEventFAB } from "@/components/FloatingActionButton";
 import MemberContactModal from "@/components/MemberContactModal";
 import MemberFilterBar, {
-    type RoleFilter,
-    type RoleOption,
-    type StatusFilter,
+  type RoleFilter,
+  type RoleOption,
+  type StatusFilter,
 } from "@/components/MemberFilterBar";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
@@ -22,24 +22,24 @@ import type { ClubMemberData } from "@/services/types/club";
 import { isClubAdmin as checkIsClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import {
-    router,
-    useFocusEffect,
-    useLocalSearchParams,
-    useNavigation,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { httpsCallable } from "firebase/functions";
 import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -86,6 +86,7 @@ export default function ManageClubScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const clubRoleOptions: RoleOption[] = useMemo(
     () => [
@@ -123,10 +124,21 @@ export default function ManageClubScreen() {
       result = result.filter((m) => m.roles.includes(roleFilter));
     }
 
-    return result;
-  }, [contextMembers, statusFilter, roleFilter]);
+    // Search filter (name or email)
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (m) =>
+          m.name?.toLowerCase().includes(q) ||
+          m.email?.toLowerCase().includes(q),
+      );
+    }
 
-  const isFilterActive = statusFilter === "inactive" || roleFilter !== "all";
+    return result;
+  }, [contextMembers, statusFilter, roleFilter, searchQuery]);
+
+  const isFilterActive =
+    statusFilter === "inactive" || roleFilter !== "all" || !!searchQuery.trim();
 
   const fetchAllData = useCallback(async () => {
     if (!clubId || typeof clubId !== "string") return;
@@ -610,6 +622,8 @@ export default function ManageClubScreen() {
           roleFilter={roleFilter}
           onRoleChange={setRoleFilter}
           availableRoles={clubRoleOptions}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
       )}
     </>

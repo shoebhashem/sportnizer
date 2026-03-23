@@ -79,7 +79,8 @@
     "coach": "Trainer",
     "admin": "Admin",
     "clubAdmin": "Clubadmin",
-    "guardian": "Erziehungsberechtigter"
+    "guardian": "Erziehungsberechtigter",
+    "searchPlaceholder": "Nach Name oder E-Mail suchen…"
   },
 
   "eventCard": {

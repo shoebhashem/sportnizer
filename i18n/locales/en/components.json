@@ -79,7 +79,8 @@
     "coach": "Coach",
     "admin": "Admin",
     "clubAdmin": "Club Admin",
-    "guardian": "Guardian"
+    "guardian": "Guardian",
+    "searchPlaceholder": "Search by name or email…"
   },
 
   "eventCard": {
