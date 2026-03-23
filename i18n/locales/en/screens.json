@@ -202,7 +202,16 @@
     "confirmPassword": "Confirm new password",
     "enterNewEmail": "Enter new email address",
     "changingPassword": "Changing password...",
-    "requestingEmailChange": "Requesting email change..."
+    "requestingEmailChange": "Requesting email change...",
+    "deleteAccount": "Delete My Account",
+    "deleteAccountConfirm": "This action is permanent and cannot be undone. All your data will be permanently deleted.",
+    "deleteAccountButton": "Delete Permanently",
+    "deletingAccount": "Deleting...",
+    "deleteAccountBlocked": "Cannot Delete Account",
+    "deleteAccountHasGroups": "You must leave all groups first: {{groups}}",
+    "deleteAccountIsClubAdmin": "You must step down as club admin first: {{clubs}}",
+    "deleteAccountHasDependents": "You are a guardian for active youth players. Contact a club admin to remove you as guardian before deleting your account.",
+    "deleteAccountFailed": "Failed to delete account. Please try again."
   },
   "createClubForm": {
     "createYourClub": "Create Your Club",
@@ -550,7 +559,13 @@
     "failedToReactivateGroupRetry": "Failed to reactivate group. Please try again.",
     "failedToLoadGroupData": "Failed to load group data",
     "missingGroupInfo": "Missing group ID, club ID, or user information. Please try again.",
-    "failedToCreateSubgroupWithMsg": "Failed to create subgroup: {{message}}"
+    "failedToCreateSubgroupWithMsg": "Failed to create subgroup: {{message}}",
+    "leaveGroup": "Leave Group",
+    "leaveGroupDesc": "Leave this group and remove yourself from the member list",
+    "leaveGroupConfirm": "Are you sure you want to leave this group? You will need to be re-invited to rejoin.",
+    "leaveGroupSuccess": "You have left the group",
+    "leaveGroupFailed": "Failed to leave group. Please try again.",
+    "leavingGroup": "Leaving..."
   },
   "clubSettings": {
     "loadingClubSettings": "Loading club settings...",
@@ -594,7 +609,13 @@
     "failedToReactivateClub": "Failed to reactivate club. The grace period may have expired.",
     "failedToReactivateClubRetry": "Failed to reactivate club. Please try again.",
     "groupCreated": "Group \"{{name}}\" created successfully!",
-    "failedToCreateGroup": "Failed to create group"
+    "failedToCreateGroup": "Failed to create group",
+    "removeClubAdmin": "Remove Club Admin",
+    "removeClubAdminDesc": "Remove club admin privileges from another admin",
+    "removeClubAdminPickerDesc": "Select a club admin to remove their admin privileges",
+    "removeClubAdminSuccess": "Club admin removed successfully",
+    "removeClubAdminFailed": "Failed to remove club admin",
+    "removingAdmin": "Removing..."
   },
   "clubInfo": {
     "loadingClubInfo": "Loading club info...",

@@ -7,18 +7,18 @@ import { useNavigation, useRouter } from "expo-router";
 import React, { useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -30,17 +30,18 @@ import { getDefaultProfilePicture } from "../constants/profilePictures";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  SUPPORTED_LANGUAGES,
-  SupportedLanguage,
-  useLanguage,
+    SUPPORTED_LANGUAGES,
+    SupportedLanguage,
+    useLanguage,
 } from "../contexts/LanguageContext";
 import { useUser } from "../contexts/UserContext";
 import {
-  changePassword,
-  requestEmailChange,
-  signOutUser,
-  updateUserProfile,
+    changePassword,
+    requestEmailChange,
+    signOutUser,
+    updateUserProfile,
 } from "../services/auth/authService";
+import { memberService } from "../services/member";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -65,6 +66,10 @@ export default function ProfileScreen() {
   const [currentPhotoURL, setCurrentPhotoURL] = useState("");
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  // Delete account state
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   // Security modals state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -389,6 +394,56 @@ export default function ProfileScreen() {
   // ----- Sign Out -----
   const handleSignOutPress = () => setShowSignOutModal(true);
 
+  // ----- Delete Account -----
+  const handleDeleteAccountPress = () => setShowDeleteAccountModal(true);
+
+  const handleDeleteAccountConfirm = async () => {
+    setIsDeletingAccount(true);
+    try {
+      const result = await memberService.deleteUserAccount();
+      if (result.success) {
+        setShowDeleteAccountModal(false);
+        // Account deleted — redirect to login
+        router.replace("/login");
+      } else {
+        setShowDeleteAccountModal(false);
+        // Show specific message based on reason
+        if (result.reason === "has_groups") {
+          const groupList =
+            result.activeGroups
+              ?.map((g) => `${g.groupName} (${g.clubName})`)
+              .join(", ") || "";
+          showAlert(
+            t("screens:profile.deleteAccountBlocked"),
+            t("screens:profile.deleteAccountHasGroups", { groups: groupList }),
+          );
+        } else if (result.reason === "is_club_admin") {
+          const clubList = result.activeClubAdminClubs?.join(", ") || "";
+          showAlert(
+            t("screens:profile.deleteAccountBlocked"),
+            t("screens:profile.deleteAccountIsClubAdmin", { clubs: clubList }),
+          );
+        } else if (result.reason === "has_dependents") {
+          showAlert(
+            t("screens:profile.deleteAccountBlocked"),
+            t("screens:profile.deleteAccountHasDependents"),
+          );
+        } else {
+          showAlert(
+            t("common:error"),
+            result.message || t("screens:profile.deleteAccountFailed"),
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Delete account error:", error);
+      setShowDeleteAccountModal(false);
+      showAlert(t("common:error"), t("screens:profile.deleteAccountFailed"));
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const handleSignOutConfirm = async () => {
     setIsSigningOut(true);
     setShowSignOutModal(false);
@@ -686,6 +741,30 @@ export default function ProfileScreen() {
                   color={theme.colors.textSecondary}
                 />
               </TouchableOpacity>
+
+              {/* Delete Account - danger button */}
+              <TouchableOpacity
+                style={[styles.securityButton, styles.deleteAccountButton]}
+                onPress={handleDeleteAccountPress}
+              >
+                <View style={styles.securityButtonIcon}>
+                  <Ionicons
+                    name="trash-outline"
+                    size={16}
+                    color={theme.colors.error}
+                  />
+                </View>
+                <Text
+                  style={[styles.securityButtonText, styles.deleteAccountText]}
+                >
+                  {t("screens:profile.deleteAccount")}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={theme.colors.error}
+                />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -740,6 +819,22 @@ export default function ProfileScreen() {
         cancelText={t("common:cancel")}
         onConfirm={handleSignOutConfirm}
         onCancel={() => setShowSignOutModal(false)}
+        confirmButtonTheme="primary"
+      />
+
+      {/* Delete Account Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteAccountModal}
+        title={t("screens:profile.deleteAccount")}
+        message={t("screens:profile.deleteAccountConfirm")}
+        confirmText={
+          isDeletingAccount
+            ? t("screens:profile.deletingAccount")
+            : t("screens:profile.deleteAccountButton")
+        }
+        cancelText={t("common:cancel")}
+        onConfirm={handleDeleteAccountConfirm}
+        onCancel={() => !isDeletingAccount && setShowDeleteAccountModal(false)}
         confirmButtonTheme="primary"
       />
 
@@ -1128,6 +1223,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: theme.colors.text,
     marginLeft: 12,
+  },
+  deleteAccountButton: {
+    borderColor: theme.colors.error + "30",
+    backgroundColor: theme.colors.error + "08",
+  },
+  deleteAccountText: {
+    color: theme.colors.error,
   },
   // ---- Custom Form Modals ----
   modalOverlay: {

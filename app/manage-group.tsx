@@ -15,7 +15,7 @@ import { db } from "@/services/core/firebase";
 import { SubGroup } from "@/services/subgroup";
 import { GroupMemberData } from "@/services/types/group";
 import { shouldShowManageGroupLoading } from "@/utils/manageGroupScreenState";
-import { canManageGroup } from "@/utils/permissionHelpers";
+import { canManageGroup, isGroupMember } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -76,6 +76,13 @@ export default function ManageGroupScreen() {
   // Derive permission from userProfile (sync)
   const canManage = useMemo(
     () => canManageGroup(userProfile, clubId as string, groupId as string),
+    [userProfile, clubId, groupId],
+  );
+
+  // Any group member (player/coach/admin) can see the settings cog
+  // Guardians are NOT group members — they access via dependents only
+  const isMember = useMemo(
+    () => isGroupMember(userProfile, clubId as string, groupId as string),
     [userProfile, clubId, groupId],
   );
 
@@ -256,8 +263,8 @@ export default function ManageGroupScreen() {
               />
             )}
           </TouchableOpacity>
-          {/* Settings gear (admin only) */}
-          {canManage && (
+          {/* Settings gear (visible to all group members) */}
+          {isMember && (
             <TouchableOpacity
               onPress={() => {
                 router.push(
@@ -277,7 +284,7 @@ export default function ManageGroupScreen() {
       ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveGroup, canManage, navigation, isFilterActive]);
+  }, [effectiveGroup, canManage, isMember, navigation, isFilterActive]);
 
   const handleSubgroupClick = (subgroupId: string, subgroupName: string) => {
     router.push(

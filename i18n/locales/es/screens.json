@@ -202,7 +202,16 @@
     "confirmPassword": "Confirme la nueva contraseña",
     "enterNewEmail": "Ingrese nueva dirección de correo",
     "changingPassword": "Cambiando contraseña...",
-    "requestingEmailChange": "Solicitando cambio de correo..."
+    "requestingEmailChange": "Solicitando cambio de correo...",
+    "deleteAccount": "Eliminar mi cuenta",
+    "deleteAccountConfirm": "Esta acción es permanente y no se puede deshacer. Todos sus datos se eliminarán permanentemente.",
+    "deleteAccountButton": "Eliminar permanentemente",
+    "deletingAccount": "Eliminando...",
+    "deleteAccountBlocked": "No se puede eliminar la cuenta",
+    "deleteAccountHasGroups": "Primero debe abandonar todos los grupos: {{groups}}",
+    "deleteAccountIsClubAdmin": "Primero debe renunciar como admin del club: {{clubs}}",
+    "deleteAccountHasDependents": "Eres tutor de jugadores juveniles activos. Contacta a un administrador del club para que te eliminen como tutor antes de borrar tu cuenta.",
+    "deleteAccountFailed": "Error al eliminar la cuenta. Por favor intente de nuevo."
   },
   "createClubForm": {
     "createYourClub": "Cree su club",
@@ -550,7 +559,13 @@
     "failedToReactivateGroupRetry": "Error al reactivar grupo. Por favor intente de nuevo.",
     "failedToLoadGroupData": "Error al cargar datos del grupo",
     "missingGroupInfo": "Falta ID de grupo, ID de club o información de usuario. Por favor intente de nuevo.",
-    "failedToCreateSubgroupWithMsg": "Error al crear subgrupo: {{message}}"
+    "failedToCreateSubgroupWithMsg": "Error al crear subgrupo: {{message}}",
+    "leaveGroup": "Abandonar grupo",
+    "leaveGroupDesc": "Abandonar este grupo y eliminarse de la lista de miembros",
+    "leaveGroupConfirm": "¿Está seguro de que desea abandonar este grupo? Necesitará ser reinvitado para volver a unirse.",
+    "leaveGroupSuccess": "Ha abandonado el grupo",
+    "leaveGroupFailed": "Error al abandonar el grupo. Por favor intente de nuevo.",
+    "leavingGroup": "Abandonando..."
   },
   "clubSettings": {
     "loadingClubSettings": "Cargando ajustes del club...",
@@ -594,7 +609,13 @@
     "failedToReactivateClub": "Error al reactivar club. El período de gracia puede haber expirado.",
     "failedToReactivateClubRetry": "Error al reactivar club. Por favor intente de nuevo.",
     "groupCreated": "¡Grupo \"{{name}}\" creado exitosamente!",
-    "failedToCreateGroup": "Error al crear grupo"
+    "failedToCreateGroup": "Error al crear grupo",
+    "removeClubAdmin": "Eliminar admin del club",
+    "removeClubAdminDesc": "Eliminar privilegios de admin de otro administrador",
+    "removeClubAdminPickerDesc": "Seleccione un admin del club para eliminar sus privilegios",
+    "removeClubAdminSuccess": "Admin del club eliminado exitosamente",
+    "removeClubAdminFailed": "Error al eliminar admin del club",
+    "removingAdmin": "Eliminando..."
   },
   "clubInfo": {
     "loadingClubInfo": "Cargando info del club...",

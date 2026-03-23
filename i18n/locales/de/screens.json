@@ -202,7 +202,16 @@
     "confirmPassword": "Neues Passwort bestätigen",
     "enterNewEmail": "Neue E-Mail-Adresse eingeben",
     "changingPassword": "Passwort wird geändert...",
-    "requestingEmailChange": "E-Mail-Änderung wird angefragt..."
+    "requestingEmailChange": "E-Mail-Änderung wird angefragt...",
+    "deleteAccount": "Mein Konto löschen",
+    "deleteAccountConfirm": "Diese Aktion ist permanent und kann nicht rückgängig gemacht werden. Alle Ihre Daten werden dauerhaft gelöscht.",
+    "deleteAccountButton": "Dauerhaft löschen",
+    "deletingAccount": "Löschen...",
+    "deleteAccountBlocked": "Konto kann nicht gelöscht werden",
+    "deleteAccountHasGroups": "Sie müssen zuerst alle Gruppen verlassen: {{groups}}",
+    "deleteAccountIsClubAdmin": "Sie müssen zuerst als Vereinsadmin zurücktreten: {{clubs}}",
+    "deleteAccountHasDependents": "Sie sind Erziehungsberechtigter für aktive Jugendspieler. Kontaktieren Sie einen Vereinsadministrator, um Sie als Erziehungsberechtigter zu entfernen, bevor Sie Ihr Konto löschen können.",
+    "deleteAccountFailed": "Konto konnte nicht gelöscht werden. Bitte versuchen Sie es erneut."
   },
   "createClubForm": {
     "createYourClub": "Erstellen Sie Ihren Verein",
@@ -550,7 +559,13 @@
     "failedToReactivateGroupRetry": "Gruppe konnte nicht reaktiviert werden. Bitte versuchen Sie es erneut.",
     "failedToLoadGroupData": "Gruppendaten konnten nicht geladen werden",
     "missingGroupInfo": "Fehlende Gruppen-ID, Vereins-ID oder Benutzerinformationen. Bitte versuchen Sie es erneut.",
-    "failedToCreateSubgroupWithMsg": "Untergruppe konnte nicht erstellt werden: {{message}}"
+    "failedToCreateSubgroupWithMsg": "Untergruppe konnte nicht erstellt werden: {{message}}",
+    "leaveGroup": "Gruppe verlassen",
+    "leaveGroupDesc": "Diese Gruppe verlassen und sich von der Mitgliederliste entfernen",
+    "leaveGroupConfirm": "Sind Sie sicher, dass Sie diese Gruppe verlassen möchten? Sie müssen erneut eingeladen werden, um wieder beizutreten.",
+    "leaveGroupSuccess": "Sie haben die Gruppe verlassen",
+    "leaveGroupFailed": "Gruppe konnte nicht verlassen werden. Bitte versuchen Sie es erneut.",
+    "leavingGroup": "Verlassen..."
   },
   "clubSettings": {
     "loadingClubSettings": "Vereinseinstellungen werden geladen...",
@@ -594,7 +609,13 @@
     "failedToReactivateClub": "Verein konnte nicht reaktiviert werden. Die Frist ist möglicherweise abgelaufen.",
     "failedToReactivateClubRetry": "Verein konnte nicht reaktiviert werden. Bitte versuchen Sie es erneut.",
     "groupCreated": "Gruppe \"{{name}}\" erfolgreich erstellt!",
-    "failedToCreateGroup": "Gruppe konnte nicht erstellt werden"
+    "failedToCreateGroup": "Gruppe konnte nicht erstellt werden",
+    "removeClubAdmin": "Vereinsadmin entfernen",
+    "removeClubAdminDesc": "Adminrechte von einem anderen Admin entfernen",
+    "removeClubAdminPickerDesc": "Wählen Sie einen Vereinsadmin aus, um seine Adminrechte zu entfernen",
+    "removeClubAdminSuccess": "Vereinsadmin erfolgreich entfernt",
+    "removeClubAdminFailed": "Vereinsadmin konnte nicht entfernt werden",
+    "removingAdmin": "Entfernen..."
   },
   "clubInfo": {
     "loadingClubInfo": "Vereinsinfo wird geladen...",

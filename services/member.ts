@@ -42,6 +42,8 @@ const getMemberContactDetailsFn = httpsCallable(
   functions,
   "getMemberContactDetails",
 );
+const removeClubAdminFn = httpsCallable(functions, "removeClubAdmin");
+const deleteUserAccountFn = httpsCallable(functions, "deleteUserAccount");
 
 export const memberService = {
   /**
@@ -207,6 +209,48 @@ export const memberService = {
         },
         error: error.message,
       };
+    }
+  },
+
+  /**
+   * Remove club-admin role from a user.
+   * Only callable by another club-admin. Blocks if sole club-admin.
+   */
+  async removeClubAdmin(
+    clubId: string,
+    userId: string,
+  ): Promise<{ success: boolean; error?: string; updatedRoles?: string[] }> {
+    try {
+      const result = await removeClubAdminFn({ clubId, userId });
+      return result.data as {
+        success: boolean;
+        error?: string;
+        updatedRoles?: string[];
+      };
+    } catch (error: any) {
+      console.error("❌ Error removing club admin:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Permanently delete the calling user's own account.
+   * Pre-conditions: no active groups, no club-admin role, no active dependents.
+   */
+  async deleteUserAccount(): Promise<{
+    success: boolean;
+    reason?: string;
+    message?: string;
+    activeGroups?: { clubName: string; groupName: string }[];
+    activeClubAdminClubs?: string[];
+    activeDependents?: string;
+  }> {
+    try {
+      const result = await deleteUserAccountFn({});
+      return result.data as any;
+    } catch (error: any) {
+      console.error("❌ Error deleting user account:", error);
+      return { success: false, message: error.message };
     }
   },
 };

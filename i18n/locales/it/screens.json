@@ -202,7 +202,16 @@
     "confirmPassword": "Conferma nuova password",
     "enterNewEmail": "Inserisci nuovo indirizzo email",
     "changingPassword": "Cambio password in corso...",
-    "requestingEmailChange": "Richiesta cambio email in corso..."
+    "requestingEmailChange": "Richiesta cambio email in corso...",
+    "deleteAccount": "Elimina il mio account",
+    "deleteAccountConfirm": "Questa azione è permanente e non può essere annullata. Tutti i tuoi dati verranno eliminati permanentemente.",
+    "deleteAccountButton": "Elimina permanentemente",
+    "deletingAccount": "Eliminazione...",
+    "deleteAccountBlocked": "Impossibile eliminare l'account",
+    "deleteAccountHasGroups": "Devi prima lasciare tutti i gruppi: {{groups}}",
+    "deleteAccountIsClubAdmin": "Devi prima dimetterti da admin del club: {{clubs}}",
+    "deleteAccountHasDependents": "Sei un tutore di giocatori giovanili attivi. Contatta un amministratore del club per rimuoverti come tutore prima di eliminare il tuo account.",
+    "deleteAccountFailed": "Impossibile eliminare l'account. Riprova."
   },
   "createClubForm": {
     "createYourClub": "Crea il tuo club",
@@ -550,7 +559,13 @@
     "failedToReactivateGroupRetry": "Impossibile riattivare il gruppo. Riprova.",
     "failedToLoadGroupData": "Impossibile caricare i dati del gruppo",
     "missingGroupInfo": "ID gruppo, ID club o informazioni utente mancanti. Riprova.",
-    "failedToCreateSubgroupWithMsg": "Impossibile creare il sottogruppo: {{message}}"
+    "failedToCreateSubgroupWithMsg": "Impossibile creare il sottogruppo: {{message}}",
+    "leaveGroup": "Lascia gruppo",
+    "leaveGroupDesc": "Lascia questo gruppo e rimuoviti dalla lista dei membri",
+    "leaveGroupConfirm": "Sei sicuro di voler lasciare questo gruppo? Dovrai essere reinvitato per rientrare.",
+    "leaveGroupSuccess": "Hai lasciato il gruppo",
+    "leaveGroupFailed": "Impossibile lasciare il gruppo. Riprova.",
+    "leavingGroup": "Uscita..."
   },
   "clubSettings": {
     "loadingClubSettings": "Caricamento impostazioni club...",
@@ -594,7 +609,13 @@
     "failedToReactivateClub": "Impossibile riattivare il club. Il periodo di grazia potrebbe essere scaduto.",
     "failedToReactivateClubRetry": "Impossibile riattivare il club. Riprova.",
     "groupCreated": "Gruppo \"{{name}}\" creato con successo!",
-    "failedToCreateGroup": "Impossibile creare il gruppo"
+    "failedToCreateGroup": "Impossibile creare il gruppo",
+    "removeClubAdmin": "Rimuovi admin del club",
+    "removeClubAdminDesc": "Rimuovi i privilegi di admin da un altro amministratore",
+    "removeClubAdminPickerDesc": "Seleziona un admin del club per rimuovere i suoi privilegi",
+    "removeClubAdminSuccess": "Admin del club rimosso con successo",
+    "removeClubAdminFailed": "Impossibile rimuovere l'admin del club",
+    "removingAdmin": "Rimozione..."
   },
   "clubInfo": {
     "loadingClubInfo": "Caricamento info club...",

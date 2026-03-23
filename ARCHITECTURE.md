@@ -2551,8 +2551,9 @@ functions/src/
 │   ├── addMemberToClub.ts
 │   ├── addMemberToGroup.ts
 │   ├── removeGuardianFromYouth.ts  # Unlinks guardian from youth member
+│   ├── removeClubAdmin.ts         # Removes club-admin role from a user (sole-admin guard)
 │   ├── removeMemberFromClub.ts
-│   ├── removeMemberFromGroup.ts
+│   ├── removeMemberFromGroup.ts   # Also handles self-leave + fee cleanup
 │   ├── updateGuardianContactInfo.ts # Guardian/admin edits guardian phone number
 │   ├── updateUserClubInfo.ts      # Updates user document club access
 │   ├── updateUserGroupInfo.ts     # Updates user document group access
@@ -6613,19 +6614,24 @@ export const removeMemberFromSubGroup = onCall(async (request) => {
 export const removeMemberFromGroup = onCall(async (request) => {
   const { clubId, groupId, userId, roleToRemove } = request.data;
 
-  // 1. Verify permissions (coach/admin/club-admin)
+  // 1. Verify permissions (coach/admin/club-admin OR self-leave)
   // 2. Get member from group member list
-  // 3. ROLE HANDLING:
+  // 3. SELF-LEAVE PATH: callingUserId === userId
+  //    - Requires roleToRemove (player/coach/admin only)
+  //    - player-underage cannot self-leave
+  // 4. ROLE HANDLING:
   //    - If roleToRemove specified: Remove ONE instance of that role
   //    - If roleToRemove not specified: Remove ALL roles (legacy)
-  // 4. Check if roles[] is empty → Set isActive: false
-  // 5. 🆕 CASCADE: Apply role removal to all subgroups
-  // 6. 🆕 GUARDIAN CASCADE: If removing 'player-underage' role
+  // 5. Check if roles[] is empty → Set isActive: false
+  // 6. 🆕 CASCADE: Apply role removal to all subgroups
+  // 7. 🆕 GUARDIAN CASCADE: If removing 'player-underage' role
   //    - Remove ONE 'guardian' role from each guardian
   //    - Check if guardian roles[] empty → mark inactive
-  // 7. Update club member list (remove role instances)
-  // 8. Update user document (remove role from groupAccess)
-  // 9. Check club member roles[] → If empty, mark inactive at club level
+  // 8. Update club member list (remove role instances)
+  // 9. Update user document (remove role from groupAccess)
+  // 10. Check club member roles[] → If empty, mark inactive at club level
+  // 11. 🆕 FEE CLEANUP: Remove userId from active membershipFees.includedMembers
+  //     - Decrement totalExpected, clear paymentStatus (best-effort)
 
   // Returns: { success: boolean, message?: string, error?: string }
 });
@@ -6643,6 +6649,38 @@ export const removeMemberFromClub = onCall(async (request) => {
 
   // NOTE: This function does NOT update user document or guardian tracking
   // That's handled by orchestration service layer
+});
+
+// functions/src/members/removeClubAdmin.ts
+// ✅ PRODUCTION - Removes club-admin role from a user
+export const removeClubAdmin = onCall(async (request) => {
+  const { clubId, userId } = request.data;
+
+  // 1. Verify caller is authenticated and is a club-admin
+  // 2. Get club members, count club-admins
+  // 3. SOLE ADMIN GUARD: Reject if only 1 club-admin remains
+  // 4. Remove "club-admin" from target's roles[] in allMembers
+  // 5. If no roles left → mark inactive (soft-delete)
+  // 6. Update user document: downgrade to "member" or mark inactive
+  // Returns: { success: boolean, message?: string }
+});
+
+// functions/src/users/deleteUserAccount.ts
+// ✅ PRODUCTION - Permanently deletes the calling user's account
+export const deleteUserAccount = onCall(async (request) => {
+  // Self-only: caller must be deleting their OWN account
+  // Pre-conditions (all must be true):
+  // 1. No active group memberships (clubAccess[].groupAccess with roles)
+  // 2. No club-admin role in any club
+  // 3. No active dependents (guardian of active youth)
+  //
+  // If blocked, returns { success: false, reason: "has_groups"|"is_club_admin"|"has_dependents" }
+  //
+  // On success:
+  // 1. Delete Firebase Auth user
+  // 2. Delete notifications subcollection
+  // 3. Delete Firestore /users/{uid} document
+  // Returns: { success: true }
 });
 ```
 

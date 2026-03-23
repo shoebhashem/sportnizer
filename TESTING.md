@@ -16,8 +16,8 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 464                                                           |
-| **Test suites**  | 24                                                            |
+| **Total tests**  | 497                                                           |
+| **Test suites**  | 28                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
 | **Backend**      | Firebase Emulator Suite (Auth, Firestore, Functions, Storage) |
@@ -47,6 +47,9 @@
 | Account Security      | `functions/test/account-security.test.ts`             | 16    | Token revocation, email change request/verify, email sync                                                     |
 | Youth Profile Admin   | `functions/test/update-youth-profile.test.ts`         | 11    | Admin update youth name/DOB, sync, guardian phone update, permissions                                         |
 | Sync Event Recipients | `functions/test/sync-event-recipients.test.ts`        | 18    | Preview/confirm sync, permissions, recurring scope, youth/guardian, creator exclusion                         |
+| Self-Leave Flows      | `functions/test/self-leave-flows.test.ts`             | 10    | Player/coach/admin self-leave, roleToRemove validation, fee cleanup on removal                                |
+| Remove Club Admin     | `functions/test/remove-club-admin.test.ts`            | 5     | Remove another club-admin, sole-admin guard, non-admin rejected, unauthenticated                              |
+| Delete User Account   | `functions/test/delete-user-account.test.ts`          | 8     | Happy path deletion, blocked by groups/admin/dependents, inactive access allowed, notifications cleanup       |
 
 ---
 
@@ -780,31 +783,82 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | 10  | club admin can update a guardian phone number     | `users/{guardianUid}.phoneNumber` updated via admin path |
 | 11  | rejects non-admin updating another guardian phone | Non-admin caller → `PERMISSION_DENIED`                   |
 
+### 13. Self-Leave Flows (`self-leave-flows.test.ts`) — 10 tests
+
+> Tests the self-leave path in removeMemberFromGroup and fee cleanup on member removal.
+
+#### Self-Leave (7 tests)
+
+| #   | Test                                           | What it verifies                                                   |
+| --- | ---------------------------------------------- | ------------------------------------------------------------------ |
+| 1   | SL-1: player self-leave succeeds               | Player calls removeMemberFromGroup on themselves with roleToRemove |
+| 2   | SL-2: coach self-leave succeeds                | Coach can self-remove from a group                                 |
+| 3   | SL-3: group admin self-leave succeeds          | Group admin can self-remove                                        |
+| 4   | SL-4: self-leave without roleToRemove rejected | Missing roleToRemove → `invalid-argument`                          |
+| 5   | SL-5: player-underage cannot self-leave        | player-underage role → `permission-denied`                         |
+| 6   | SL-6: self-leave with wrong role rejected      | Specifying a role the user doesn't have → `not-found`              |
+| 7   | SL-7: unauthenticated self-leave rejected      | No auth token → `unauthenticated`                                  |
+
+#### Fee Cleanup on Removal (3 tests)
+
+| #   | Test                               | What it verifies                                   |
+| --- | ---------------------------------- | -------------------------------------------------- |
+| 8   | FC-1: fee cleanup on admin removal | includedMembers updated, totalExpected decremented |
+| 9   | FC-2: fee cleanup on self-leave    | Self-leave also triggers fee cleanup               |
+| 10  | FC-3: non-active fees not affected | Closed/cancelled fees left untouched               |
+
+### 14. Remove Club Admin (`remove-club-admin.test.ts`) — 5 tests
+
+> Tests the removeClubAdmin Cloud Function.
+
+| #   | Test                                     | What it verifies                                                       |
+| --- | ---------------------------------------- | ---------------------------------------------------------------------- |
+| 1   | RCA-1: remove another club-admin         | Roles updated in allMembers, user doc marked inactive (no other roles) |
+| 2   | RCA-2: sole club-admin cannot be removed | `failed-precondition` error when only one admin remains                |
+| 3   | RCA-3: non-admin caller rejected         | Regular member → `permission-denied`                                   |
+| 4   | RCA-4: unauthenticated rejected          | No auth token → `unauthenticated`                                      |
+| 5   | RCA-5: target not a club-admin           | Returns `{ success: false }` gracefully                                |
+
+### 15. Delete User Account (`delete-user-account.test.ts`) — 8 tests
+
+> Tests the deleteUserAccount Cloud Function.
+
+| #   | Test                                        | What it verifies                                        |
+| --- | ------------------------------------------- | ------------------------------------------------------- |
+| 1   | DUA-1: clean user deleted                   | User doc and auth deleted when no blockers              |
+| 2   | DUA-2: notifications cleaned up             | Notifications subcollection deleted on account deletion |
+| 3   | DUA-3: blocked by active groups             | Returns `reason: "has_groups"` with active group list   |
+| 4   | DUA-4: blocked by club-admin role           | Returns `reason: "is_club_admin"` with club list        |
+| 5   | DUA-5: blocked by active dependents         | Returns `reason: "has_dependents"` with dependent names |
+| 6   | DUA-6: inactive club access allows deletion | Inactive clubAccess doesn't block deletion              |
+| 7   | DUA-7: unauthenticated rejected             | No auth token → `unauthenticated`                       |
+| 8   | DUA-8: inactive dependents allow deletion   | Dependents with only inactive club access don't block   |
+
 ---
 
 ## Coverage Gap Analysis
 
 ### Backend Cloud Functions — Current Coverage
 
-| Domain            | Functions | Tested                                                                                                                                                                                                                   | Coverage |
-| ----------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| **Clubs**         | 9         | 4 (`createClub`, `getClub`, `updateClub`, `deleteClub`)                                                                                                                                                                  | 44%      |
-| **Groups**        | 14        | 7 (`createGroup`, `getGroup`, `updateGroup`, `deleteGroup`, `createSubGroup`, `updateSubGroup`, `deleteSubGroup`)                                                                                                        | 50%      |
-| **Members**       | 16        | 8 (`addMemberToClub`, `addMemberToGroup`, `removeMemberFromClub`, `updateMemberRole`, `updateClubMemberRole`, `addMemberToSubGroup`, `removeMemberFromSubGroup`)                                                         | 50%      |
-| **Payments**      | 3         | 2 (`createMembershipFee`, `getMembershipFees`)                                                                                                                                                                           | 67%      |
-| **Auth**          | 10        | 7 (`createUserAccount`, `getUserProfile`, `updateUserProfile`, `sendEmailVerification`, `revokeUserTokens`, `requestEmailChange`, `verifyEmailChange`)                                                                   | 70%      |
-| **Events**        | 13        | 10 (`createEventV2`, `getEvent`, `updateEvent`, `deleteEvent`, `updateEventResponse`, `recordAttendance`, `getStatistics`, `cancelEvent`, `createRecurringEvent`, `editRecurringEvent`) — 46 automated integration tests | 77%      |
-| **Invitations**   | 6         | 4 (`sendGroupInvitation`, `validateInvitationToken`, `markInvitationUsed`, `respondToEmailInvite`)                                                                                                                       | 67%      |
-| **Users**         | 5         | 0                                                                                                                                                                                                                        | 0%       |
-| **Notifications** | 1         | 0                                                                                                                                                                                                                        | 0%       |
-| **Stripe**        | 6         | 0                                                                                                                                                                                                                        | 0% ★     |
-| **Subscriptions** | 5         | 0                                                                                                                                                                                                                        | 0% ★     |
-| **News**          | 1         | 0                                                                                                                                                                                                                        | 0%       |
-| **Legal**         | 2         | 0                                                                                                                                                                                                                        | 0%       |
-| **LOK/RF**        | 11        | 0                                                                                                                                                                                                                        | 0%       |
-| **Profile**       | 2         | 0                                                                                                                                                                                                                        | 0%       |
-| **Scheduled**     | 2         | 0                                                                                                                                                                                                                        | 0%       |
-| **TOTAL**         | **~103**  | **42**                                                                                                                                                                                                                   | **~41%** |
+| Domain            | Functions | Tested                                                                                                                                                                                                                                   | Coverage |
+| ----------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **Clubs**         | 9         | 4 (`createClub`, `getClub`, `updateClub`, `deleteClub`)                                                                                                                                                                                  | 44%      |
+| **Groups**        | 14        | 7 (`createGroup`, `getGroup`, `updateGroup`, `deleteGroup`, `createSubGroup`, `updateSubGroup`, `deleteSubGroup`)                                                                                                                        | 50%      |
+| **Members**       | 16        | 10 (`addMemberToClub`, `addMemberToGroup`, `removeMemberFromClub`, `removeMemberFromGroup` (self-leave + fee cleanup), `removeClubAdmin`, `updateMemberRole`, `updateClubMemberRole`, `addMemberToSubGroup`, `removeMemberFromSubGroup`) | 63%      |
+| **Payments**      | 3         | 2 (`createMembershipFee`, `getMembershipFees`)                                                                                                                                                                                           | 67%      |
+| **Auth**          | 10        | 7 (`createUserAccount`, `getUserProfile`, `updateUserProfile`, `sendEmailVerification`, `revokeUserTokens`, `requestEmailChange`, `verifyEmailChange`)                                                                                   | 70%      |
+| **Events**        | 13        | 10 (`createEventV2`, `getEvent`, `updateEvent`, `deleteEvent`, `updateEventResponse`, `recordAttendance`, `getStatistics`, `cancelEvent`, `createRecurringEvent`, `editRecurringEvent`) — 46 automated integration tests                 | 77%      |
+| **Invitations**   | 6         | 4 (`sendGroupInvitation`, `validateInvitationToken`, `markInvitationUsed`, `respondToEmailInvite`)                                                                                                                                       | 67%      |
+| **Users**         | 5         | 1 (`deleteUserAccount`)                                                                                                                                                                                                                  | 20%      |
+| **Notifications** | 1         | 0                                                                                                                                                                                                                                        | 0%       |
+| **Stripe**        | 6         | 0                                                                                                                                                                                                                                        | 0% ★     |
+| **Subscriptions** | 5         | 0                                                                                                                                                                                                                                        | 0% ★     |
+| **News**          | 1         | 0                                                                                                                                                                                                                                        | 0%       |
+| **Legal**         | 2         | 0                                                                                                                                                                                                                                        | 0%       |
+| **LOK/RF**        | 11        | 0                                                                                                                                                                                                                                        | 0%       |
+| **Profile**       | 2         | 0                                                                                                                                                                                                                                        | 0%       |
+| **Scheduled**     | 2         | 0                                                                                                                                                                                                                                        | 0%       |
+| **TOTAL**         | **~103**  | **42**                                                                                                                                                                                                                                   | **~41%** |
 
 ★ Stripe/Subscription functions require external Stripe API — need mocking strategy
 

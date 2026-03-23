@@ -184,7 +184,16 @@
     "signingOut": "Logger ud...",
     "language": "Sprog",
     "languageDescription": "Vælg dit foretrukne sprog",
-    "selectLanguage": "Vælg sprog"
+    "selectLanguage": "Vælg sprog",
+    "deleteAccount": "Slet min konto",
+    "deleteAccountConfirm": "Denne handling er permanent og kan ikke fortrydes. Alle dine data vil blive permanent slettet.",
+    "deleteAccountButton": "Slet permanent",
+    "deletingAccount": "Sletter...",
+    "deleteAccountBlocked": "Kan ikke slette konto",
+    "deleteAccountHasGroups": "Du skal forlade alle grupper først: {{groups}}",
+    "deleteAccountIsClubAdmin": "Du skal fratræde som klubadministrator først: {{clubs}}",
+    "deleteAccountHasDependents": "Du er værge for aktive ungdomsspillere. Kontakt en klubadministrator for at blive fjernet som værge, før du kan slette din konto.",
+    "deleteAccountFailed": "Kunne ikke slette konto. Prøv venligst igen."
   },
   "createClubForm": {
     "createYourClub": "Opret din klub",
@@ -532,7 +541,13 @@
     "failedToReactivateGroupRetry": "Kunne ikke genaktivere gruppe. Prøv venligst igen.",
     "failedToLoadGroupData": "Kunne ikke indlæse gruppedata",
     "missingGroupInfo": "Manglende gruppe-ID, klub-ID eller brugeroplysninger. Prøv venligst igen.",
-    "failedToCreateSubgroupWithMsg": "Kunne ikke oprette undergruppe: {{message}}"
+    "failedToCreateSubgroupWithMsg": "Kunne ikke oprette undergruppe: {{message}}",
+    "leaveGroup": "Forlad gruppe",
+    "leaveGroupDesc": "Forlad denne gruppe og fjern dig fra medlemslisten",
+    "leaveGroupConfirm": "Er du sikker på, at du vil forlade denne gruppe? Du skal inviteres igen for at deltage.",
+    "leaveGroupSuccess": "Du har forladt gruppen",
+    "leaveGroupFailed": "Kunne ikke forlade gruppen. Prøv venligst igen.",
+    "leavingGroup": "Forlader..."
   },
   "clubSettings": {
     "loadingClubSettings": "Indlæser klubindstillinger...",
@@ -576,7 +591,13 @@
     "failedToReactivateClub": "Kunne ikke genaktivere klub. Fristen er muligvis udløbet.",
     "failedToReactivateClubRetry": "Kunne ikke genaktivere klub. Prøv venligst igen.",
     "groupCreated": "Gruppen \"{{name}}\" er oprettet!",
-    "failedToCreateGroup": "Kunne ikke oprette gruppe"
+    "failedToCreateGroup": "Kunne ikke oprette gruppe",
+    "removeClubAdmin": "Fjern klubadministrator",
+    "removeClubAdminDesc": "Fjern administratorrettigheder fra en anden admin",
+    "removeClubAdminPickerDesc": "Vælg en klubadministrator at fjerne rettighederne fra",
+    "removeClubAdminSuccess": "Klubadministrator fjernet",
+    "removeClubAdminFailed": "Kunne ikke fjerne klubadministrator",
+    "removingAdmin": "Fjerner..."
   },
   "clubInfo": {
     "loadingClubInfo": "Indlæser klubinfo...",

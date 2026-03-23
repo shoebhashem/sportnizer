@@ -206,7 +206,16 @@
     "confirmPassword": "Bekräfta nytt lösenord",
     "enterNewEmail": "Ange ny e-postadress",
     "changingPassword": "Byter lösenord...",
-    "requestingEmailChange": "Begär byte av e-post..."
+    "requestingEmailChange": "Begär byte av e-post...",
+    "deleteAccount": "Radera mitt konto",
+    "deleteAccountConfirm": "Denna åtgärd är permanent och kan inte ångras. All din data kommer att raderas permanent.",
+    "deleteAccountButton": "Radera permanent",
+    "deletingAccount": "Raderar...",
+    "deleteAccountBlocked": "Kan inte radera konto",
+    "deleteAccountHasGroups": "Du måste lämna alla grupper först: {{groups}}",
+    "deleteAccountIsClubAdmin": "Du måste avgå som klubbadministratör först: {{clubs}}",
+    "deleteAccountHasDependents": "Du är vårdnadshavare för aktiva ungdomsspelare. Kontakta en klubbadministratör för att ta bort dig som vårdnadshavare innan du kan radera ditt konto.",
+    "deleteAccountFailed": "Kunde inte radera konto. Försök igen."
   },
 
   "createClubForm": {
@@ -531,7 +540,13 @@
     "subgroupCreated": "Undergruppen \"{{name}}\" skapades!",
     "subgroupDeleted": "Undergruppen \"{{name}}\" togs bort!",
     "failedToCreateSubgroup": "Kunde inte skapa undergrupp",
-    "failedToDeleteSubgroup": "Kunde inte ta bort undergrupp. Försök igen."
+    "failedToDeleteSubgroup": "Kunde inte ta bort undergrupp. Försök igen.",
+    "leaveGroup": "Lämna grupp",
+    "leaveGroupDesc": "Lämna denna grupp och ta bort dig från medlemslistan",
+    "leaveGroupConfirm": "Är du säker på att du vill lämna gruppen? Du måste bli inbjuden igen för att gå med.",
+    "leaveGroupSuccess": "Du har lämnat gruppen",
+    "leaveGroupFailed": "Kunde inte lämna gruppen. Försök igen.",
+    "leavingGroup": "Lämnar..."
   },
 
   "clubSettings": {
@@ -567,7 +582,15 @@
       "groupNamePlaceholder": "Ange gruppnamn",
       "sportType": "Sporttyp",
       "sportTypePlaceholder": "t.ex. Fotboll, Basket, Simning"
-    }
+    },
+    "removeClubAdmin": "Ta bort klubbadministratör",
+    "removeClubAdminDesc": "Ta bort administratörsbehörighet från en annan admin",
+    "removeClubAdminPickerDesc": "Välj en klubbadministratör att ta bort behörighet från",
+    "removeClubAdminSuccess": "Klubbadministratör borttagen",
+    "removeClubAdminFailed": "Kunde inte ta bort klubbadministratör",
+    "removingAdmin": "Tar bort...",
+    "addClubAdmin": "Lägg till klubbadministratör",
+    "addClubAdminDesc": "Bjud in en klubbadministratör"
   },
 
   "clubInfo": {
@@ -673,7 +696,7 @@
     "addPlayer": "Lägg till spelare",
     "addCoach": "Lägg till tränare",
     "addAdmin": "Lägg till admin",
-    "addClubAdmin": "Lägg till klubbadmin",
+    "addClubAdmin": "Lägg till klubbadministratör",
     "addGuardian": "Lägg till vårdnadshavare",
     "inviteAdultsAsPlayer": "Bjud in vuxna att gå med som spelare",
     "inviteAdultsAsCoach": "Bjud in tränare att gå med",

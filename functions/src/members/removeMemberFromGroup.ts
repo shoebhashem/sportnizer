@@ -2,14 +2,14 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
-    RemoveMemberFromGroupRequest,
-    RemoveMemberFromGroupResponse,
+  RemoveMemberFromGroupRequest,
+  RemoveMemberFromGroupResponse,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import {
-    collectDependentGroupIds,
-    flatArrayFieldsFromClubAccess,
-    removeGuardianOfGroupField,
+  collectDependentGroupIds,
+  flatArrayFieldsFromClubAccess,
+  removeGuardianOfGroupField,
 } from "../utils/flatArrayHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
@@ -35,9 +35,10 @@ export const removeMemberFromGroup = onCall(
       }
 
       const callingUserId = request.auth.uid;
+      const isSelfLeave = callingUserId === userId;
 
       console.log(
-        `User ${callingUserId} attempting to remove user ${userId} from group ${groupId} in club ${clubId}`,
+        `User ${callingUserId} attempting to remove user ${userId} from group ${groupId} in club ${clubId}${isSelfLeave ? " (self-leave)" : ""}`,
       );
 
       // Validate permissions: Check if calling user has admin/coach/club-admin role
@@ -64,9 +65,10 @@ export const removeMemberFromGroup = onCall(
 
       // Check if user is club-admin OR has admin role in this specific group
       // Permission rules:
+      // - Self-leave: player/coach can remove themselves (roleToRemove must match their own role)
       // - club-admin: Can remove any member type (player, youth, coach, admin)
       // - admin (in group): Can remove players and youth players only
-      // - coach: Cannot remove members
+      // - coach: Cannot remove members (except self-leave)
       const isClubAdmin = userClubAccess.role === "club-admin";
       const groupAccess = userClubAccess.groupAccess || [];
       const userGroupAccess = groupAccess.find(
@@ -104,8 +106,39 @@ export const removeMemberFromGroup = onCall(
         ["admin", "coach"].includes(role),
       );
 
-      // Permission check based on what's being removed
-      if (
+      // ── Permission check ──
+      if (isSelfLeave) {
+        // Self-leave: players and coaches can remove themselves
+        // Admins can also self-remove — the club-admin can always manage the group
+        const selfRole = roleToRemove;
+        if (!selfRole) {
+          throw new HttpsError(
+            "invalid-argument",
+            "roleToRemove is required for self-leave. Specify which role to remove.",
+          );
+        }
+
+        // Only allow self-leave for player, coach, and admin roles
+        const allowedSelfLeaveRoles = ["player", "coach", "admin"];
+        if (!allowedSelfLeaveRoles.includes(selfRole)) {
+          throw new HttpsError(
+            "permission-denied",
+            `Self-leave is not allowed for the '${selfRole}' role. Contact an admin for assistance.`,
+          );
+        }
+
+        // Verify the user actually has this role
+        if (!memberRolesBeingRemoved.includes(selfRole)) {
+          throw new HttpsError(
+            "not-found",
+            `You do not have the '${selfRole}' role in this group.`,
+          );
+        }
+
+        console.log(
+          `✅ Self-leave permission granted for user ${callingUserId} removing own '${selfRole}' role`,
+        );
+      } else if (
         isRemovingStaffRole ||
         roleToRemove === "admin" ||
         roleToRemove === "coach"
@@ -128,7 +161,7 @@ export const removeMemberFromGroup = onCall(
       }
 
       console.log(
-        `Permission validated for user ${callingUserId} (${isClubAdmin ? "club-admin" : "group admin"})`,
+        `Permission validated for user ${callingUserId} (${isSelfLeave ? "self-leave" : isClubAdmin ? "club-admin" : "group admin"})`,
       );
       console.log(
         `Removing user ${userId} from group ${groupId} in club ${clubId}`,
@@ -689,6 +722,84 @@ export const removeMemberFromGroup = onCall(
           userUpdateError,
         );
         // Don't fail the entire operation if user update fails
+      }
+
+      // ── Fee cleanup ──
+      // When a member is removed from a group, cancel any pending fees targeting them.
+      // This is best-effort — failure should NOT block the removal.
+      try {
+        console.log(
+          `💰 Checking for pending fees to clean up for user ${userId}...`,
+        );
+        const db = admin.firestore();
+
+        // Query all active fees for this group
+        const feesSnapshot = await db
+          .collection("membershipFees")
+          .where("clubId", "==", clubId)
+          .where("groupId", "==", groupId)
+          .where("status", "==", "active")
+          .get();
+
+        if (!feesSnapshot.empty) {
+          console.log(
+            `  Found ${feesSnapshot.size} active fee(s) in this group`,
+          );
+
+          for (const feeDoc of feesSnapshot.docs) {
+            const feeData = feeDoc.data();
+            const includedMembers: string[] = feeData.includedMembers || [];
+
+            if (includedMembers.includes(userId)) {
+              // Remove the member from this fee's includedMembers
+              const updatedIncludedMembers = includedMembers.filter(
+                (id: string) => id !== userId,
+              );
+
+              await feeDoc.ref.update({
+                includedMembers: updatedIncludedMembers,
+                totalExpected: Math.max(0, (feeData.totalExpected || 1) - 1),
+                lastModifiedAt: FieldValue.serverTimestamp(),
+              });
+
+              console.log(
+                `  ✅ Removed user ${userId} from fee ${feeDoc.id} (${feeData.title || "untitled"})`,
+              );
+            }
+          }
+
+          // Also clear the member's paymentStatus in the group allMembers doc
+          const groupMembersRefForFee = db
+            .collection("clubs")
+            .doc(clubId)
+            .collection("groups")
+            .doc(groupId)
+            .collection("allMembers")
+            .doc("members");
+
+          const groupMembersDocForFee = await groupMembersRefForFee.get();
+          if (groupMembersDocForFee.exists) {
+            const membersForFee = groupMembersDocForFee.data()?.members || [];
+            const feeIdx = membersForFee.findIndex(
+              (m: any) => m.userId === userId,
+            );
+
+            if (feeIdx >= 0 && membersForFee[feeIdx].paymentStatus) {
+              membersForFee[feeIdx].paymentStatus = null;
+              await groupMembersRefForFee.update({
+                members: membersForFee,
+              });
+              console.log(
+                `  ✅ Cleared paymentStatus for user ${userId} in group members`,
+              );
+            }
+          }
+        } else {
+          console.log(`  No active fees found for this group`);
+        }
+      } catch (feeCleanupError) {
+        console.warn("⚠️ Fee cleanup failed (non-blocking):", feeCleanupError);
+        // Don't fail the entire operation if fee cleanup fails
       }
 
       return {

@@ -77,12 +77,13 @@ export function canManageGroup(
   return roles.some((r) => r === "admin" || r === "coach");
 }
 
-/** True when the user has any role in the given group. */
+/** True when the user has any role in the given group, OR is a club-admin. */
 export function isGroupMember(
   userProfile: UserProfile | null | undefined,
   clubId: string,
   groupId: string,
 ): boolean {
+  if (isClubAdmin(userProfile, clubId)) return true;
   return getGroupRoles(userProfile, clubId, groupId).length > 0;
 }
 

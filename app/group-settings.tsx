@@ -26,10 +26,11 @@ import { useUser } from "../contexts/UserContext";
 
 // Import services for mutations only
 import { groupService } from "../services/group";
+import { memberService } from "../services/member";
 import { subgroupService } from "../services/subgroup";
 import {
     isClubAdmin as checkIsClubAdmin,
-    getGroupRoles
+    getGroupRoles,
 } from "../utils/permissionHelpers";
 
 // interface UnconfirmedMember {
@@ -86,6 +87,8 @@ export default function GroupSettingsScreen() {
   const [isDeletingSubgroup, setIsDeletingSubgroup] = useState(false);
   const [addMembersExpanded, setAddMembersExpanded] = useState(false);
   const [removeMembersExpanded, setRemoveMembersExpanded] = useState(false);
+  const [showLeaveGroupModal, setShowLeaveGroupModal] = useState(false);
+  const [isLeavingGroup, setIsLeavingGroup] = useState(false);
 
   // Set dynamic header with group name
   useLayoutEffect(() => {
@@ -408,6 +411,44 @@ export default function GroupSettingsScreen() {
   };
 
   const isGroupCreator = group?.createdBy === user?.uid;
+
+  // Can the current user self-leave? Only players and coaches see the "Leave Group" button.
+  // Admins self-remove via Remove Members → Remove Admin.
+  // Guardians-only don't self-leave (they must contact admin to remove youth link).
+  const canSelfLeave = userRole === "player" || userRole === "coach";
+
+  const handleLeaveGroup = async () => {
+    setShowLeaveGroupModal(false);
+    setIsLeavingGroup(true);
+
+    if (!clubId || !groupId || !user?.uid) return;
+
+    try {
+      const roleToRemove = userRole === "coach" ? "coach" : "player";
+      const result = await memberService.removeMemberFromGroup(
+        clubId as string,
+        groupId as string,
+        user.uid,
+        roleToRemove,
+      );
+
+      if (result.success) {
+        setSuccessMessage(t("screens:groupSettings.leaveGroupSuccess"));
+        setShowSuccessModal(true);
+      } else {
+        setErrorMessage(
+          result.error || t("screens:groupSettings.leaveGroupFailed"),
+        );
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error leaving group:", error);
+      setErrorMessage(t("screens:groupSettings.leaveGroupFailed"));
+      setShowErrorModal(true);
+    } finally {
+      setIsLeavingGroup(false);
+    }
+  };
 
   // Permission levels:
   // - canManageMembers: Can add/remove players (club-admin, admin)
@@ -922,8 +963,58 @@ export default function GroupSettingsScreen() {
                 />
               </TouchableOpacity>
             )}
+
+          {/* Leave Group — only for players and coaches */}
+          {canSelfLeave && (
+            <TouchableOpacity
+              style={[
+                styles.optionItem,
+                styles.dangerOption,
+                { marginTop: 24 },
+              ]}
+              onPress={() => setShowLeaveGroupModal(true)}
+              disabled={isLeavingGroup}
+            >
+              <View style={[styles.optionIcon, styles.dangerIconBg]}>
+                <Ionicons
+                  name="exit-outline"
+                  size={24}
+                  color={theme.colors.error}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={[styles.optionTitle, styles.dangerText]}>
+                  {isLeavingGroup
+                    ? t("screens:groupSettings.leavingGroup")
+                    : t("screens:groupSettings.leaveGroup")}
+                </Text>
+                <Text style={styles.optionDescription}>
+                  {t("screens:groupSettings.leaveGroupDesc")}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.error}
+              />
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
+
+      {/* Leave Group Confirmation Modal */}
+      <ConfirmationModal
+        visible={showLeaveGroupModal}
+        title={t("screens:groupSettings.leaveGroup")}
+        message={t("screens:groupSettings.leaveGroupConfirm", {
+          groupName: group?.name || "this group",
+        })}
+        confirmText={t("screens:groupSettings.leaveGroup")}
+        cancelText={t("common:cancel")}
+        onConfirm={handleLeaveGroup}
+        onCancel={() => setShowLeaveGroupModal(false)}
+        confirmButtonTheme="primary"
+      />
 
       {/* Undo Deletion Confirmation Modal */}
       <ConfirmationModal

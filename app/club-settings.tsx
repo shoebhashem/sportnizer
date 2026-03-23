@@ -6,17 +6,14 @@ import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useUser } from "@/contexts/UserContext";
 import { clubService } from "@/services/club";
+import { memberService } from "@/services/member";
 import { createNewGroupInExistingClub } from "@/services/orchestration/createNewGroupInExistingClub";
 import { paymentService } from "@/services/paymentService";
 import { isClubAdmin as checkClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, {
-  useEffect,
-  useLayoutEffect,
-  useState
-} from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -35,7 +32,7 @@ export default function ClubSettingsScreen() {
   const { t } = useTranslation(["screens", "common"]);
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
-  const { getClub, isLoading: isClubLoading } = useClubData();
+  const { getClub, getClubMembers, isLoading: isClubLoading } = useClubData();
   const navigation = useNavigation();
 
   // Club data from context (real-time listener — no manual fetch needed)
@@ -53,6 +50,11 @@ export default function ClubSettingsScreen() {
   const [groupName, setGroupName] = useState("");
   const [sportType, setSportType] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
+
+  // Remove Club Admin state
+  const [showRemoveAdminModal, setShowRemoveAdminModal] = useState(false);
+  const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null);
+  const [isRemovingAdmin, setIsRemovingAdmin] = useState(false);
 
   // Stripe payment state
   const [stripeAccountStatus, setStripeAccountStatus] = useState<string | null>(
@@ -225,6 +227,52 @@ export default function ClubSettingsScreen() {
   const isScheduledForDeletion = !club?.isActive && club?.deletionScheduledAt;
   const isClubAdmin = checkClubAdmin(userProfile, clubId as string);
 
+  // Build list of other club-admins (exclude self) from allMembers data
+  const otherClubAdmins = useMemo(() => {
+    if (!firebaseUser?.uid || typeof clubId !== "string") return [];
+    const members = getClubMembers(clubId);
+    return members
+      .filter(
+        (m) =>
+          m.userId !== firebaseUser.uid &&
+          m.isActive !== false &&
+          m.roles?.includes("club-admin"),
+      )
+      .map((m) => ({
+        uid: m.userId,
+        name: m.name || m.userId,
+        email: m.email || "",
+      }));
+  }, [firebaseUser?.uid, clubId, getClubMembers]);
+
+  const handleRemoveClubAdmin = async () => {
+    if (!selectedAdminId || typeof clubId !== "string") return;
+    setIsRemovingAdmin(true);
+    try {
+      const result = await memberService.removeClubAdmin(
+        clubId,
+        selectedAdminId,
+      );
+      if (result.success) {
+        setShowRemoveAdminModal(false);
+        setSelectedAdminId(null);
+        setSuccessMessage(t("screens:clubSettings.removeClubAdminSuccess"));
+        setShowSuccessModal(true);
+      } else {
+        setErrorMessage(
+          result.error || t("screens:clubSettings.removeClubAdminFailed"),
+        );
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error removing club admin:", error);
+      setErrorMessage(t("screens:clubSettings.removeClubAdminFailed"));
+      setShowErrorModal(true);
+    } finally {
+      setIsRemovingAdmin(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -370,6 +418,38 @@ export default function ClubSettingsScreen() {
                 name="chevron-forward"
                 size={20}
                 color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Remove Club Admin Option - Only for Club Admin with other admins */}
+          {isClubAdmin && otherClubAdmins.length > 0 && (
+            <TouchableOpacity
+              style={[styles.optionItem, styles.dangerOption]}
+              onPress={() => {
+                setSelectedAdminId(null);
+                setShowRemoveAdminModal(true);
+              }}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="person-remove-outline"
+                  size={24}
+                  color={theme.colors.error}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={[styles.optionTitle, styles.dangerText]}>
+                  {t("screens:clubSettings.removeClubAdmin")}
+                </Text>
+                <Text style={styles.optionDescription}>
+                  {t("screens:clubSettings.removeClubAdminDesc")}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.error}
               />
             </TouchableOpacity>
           )}
@@ -639,6 +719,89 @@ export default function ClubSettingsScreen() {
         confirmButtonTheme="primary"
       />
 
+      {/* Remove Club Admin Picker Modal */}
+      <Modal
+        visible={showRemoveAdminModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() =>
+          !isRemovingAdmin && setShowRemoveAdminModal(false)
+        }
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => !isRemovingAdmin && setShowRemoveAdminModal(false)}
+        >
+          <View style={styles.modalContainer}>
+            <Pressable onPress={() => {}} style={styles.modal}>
+              <Text style={styles.modalTitle}>
+                {t("screens:clubSettings.removeClubAdmin")}
+              </Text>
+              <Text style={styles.modalDescription}>
+                {t("screens:clubSettings.removeClubAdminPickerDesc")}
+              </Text>
+
+              {otherClubAdmins.map((admin) => (
+                <TouchableOpacity
+                  key={admin.uid}
+                  style={[
+                    styles.adminPickerItem,
+                    selectedAdminId === admin.uid &&
+                      styles.adminPickerItemSelected,
+                  ]}
+                  onPress={() => setSelectedAdminId(admin.uid)}
+                  disabled={isRemovingAdmin}
+                >
+                  <Ionicons
+                    name={
+                      selectedAdminId === admin.uid
+                        ? "radio-button-on"
+                        : "radio-button-off"
+                    }
+                    size={22}
+                    color={
+                      selectedAdminId === admin.uid
+                        ? theme.colors.error
+                        : theme.colors.textSecondary
+                    }
+                    style={{ marginRight: theme.spacing.sm }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.adminPickerName}>{admin.name}</Text>
+                    {admin.email ? (
+                      <Text style={styles.adminPickerEmail}>{admin.email}</Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              <View style={styles.modalButtons}>
+                <View style={styles.modalButton}>
+                  <Button
+                    label={t("common:cancel")}
+                    onPress={() => setShowRemoveAdminModal(false)}
+                    theme="secondary"
+                    disabled={isRemovingAdmin}
+                  />
+                </View>
+                <View style={styles.modalButton}>
+                  <Button
+                    label={
+                      isRemovingAdmin
+                        ? t("screens:clubSettings.removingAdmin")
+                        : t("common:remove")
+                    }
+                    onPress={handleRemoveClubAdmin}
+                    theme="primary"
+                    disabled={isRemovingAdmin || !selectedAdminId}
+                  />
+                </View>
+              </View>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
       {/* Add Group Modal */}
       <Modal
         visible={showAddGroupModal}
@@ -821,6 +984,29 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: theme.colors.error,
+  },
+  adminPickerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    marginBottom: theme.spacing.sm,
+  },
+  adminPickerItemSelected: {
+    borderColor: theme.colors.error,
+    backgroundColor: theme.colors.error + "10",
+  },
+  adminPickerName: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.medium as any,
+    color: theme.colors.text,
+  },
+  adminPickerEmail: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   deletionBanner: {
     backgroundColor: theme.colors.error + "15",

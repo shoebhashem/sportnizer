@@ -184,7 +184,16 @@
     "signingOut": "Déconnexion...",
     "language": "Langue",
     "languageDescription": "Choisissez votre langue préférée",
-    "selectLanguage": "Sélectionner la langue"
+    "selectLanguage": "Sélectionner la langue",
+    "deleteAccount": "Supprimer mon compte",
+    "deleteAccountConfirm": "Cette action est permanente et ne peut pas être annulée. Toutes vos données seront définitivement supprimées.",
+    "deleteAccountButton": "Supprimer définitivement",
+    "deletingAccount": "Suppression...",
+    "deleteAccountBlocked": "Impossible de supprimer le compte",
+    "deleteAccountHasGroups": "Vous devez d'abord quitter tous les groupes : {{groups}}",
+    "deleteAccountIsClubAdmin": "Vous devez d'abord renoncer au rôle d'admin du club : {{clubs}}",
+    "deleteAccountHasDependents": "Vous êtes tuteur de joueurs juniors actifs. Contactez un administrateur du club pour vous retirer en tant que tuteur avant de supprimer votre compte.",
+    "deleteAccountFailed": "Échec de la suppression du compte. Veuillez réessayer."
   },
   "createClubForm": {
     "createYourClub": "Créez votre club",
@@ -532,7 +541,13 @@
     "failedToReactivateGroupRetry": "Échec de la réactivation du groupe. Veuillez réessayer.",
     "failedToLoadGroupData": "Échec du chargement des données du groupe",
     "missingGroupInfo": "ID du groupe, ID du club ou informations utilisateur manquantes. Veuillez réessayer.",
-    "failedToCreateSubgroupWithMsg": "Échec de la création du sous-groupe : {{message}}"
+    "failedToCreateSubgroupWithMsg": "Échec de la création du sous-groupe : {{message}}",
+    "leaveGroup": "Quitter le groupe",
+    "leaveGroupDesc": "Quitter ce groupe et se retirer de la liste des membres",
+    "leaveGroupConfirm": "Êtes-vous sûr de vouloir quitter ce groupe ? Vous devrez être réinvité pour rejoindre.",
+    "leaveGroupSuccess": "Vous avez quitté le groupe",
+    "leaveGroupFailed": "Échec pour quitter le groupe. Veuillez réessayer.",
+    "leavingGroup": "Départ..."
   },
   "clubSettings": {
     "loadingClubSettings": "Chargement des paramètres du club...",
@@ -576,7 +591,13 @@
     "failedToReactivateClub": "Échec de la réactivation du club. Le délai de grâce a peut-être expiré.",
     "failedToReactivateClubRetry": "Échec de la réactivation du club. Veuillez réessayer.",
     "groupCreated": "Groupe \"{{name}}\" créé avec succès !",
-    "failedToCreateGroup": "Échec de la création du groupe"
+    "failedToCreateGroup": "Échec de la création du groupe",
+    "removeClubAdmin": "Supprimer admin du club",
+    "removeClubAdminDesc": "Retirer les privilèges d'admin à un autre administrateur",
+    "removeClubAdminPickerDesc": "Sélectionnez un admin du club pour retirer ses privilèges",
+    "removeClubAdminSuccess": "Admin du club supprimé avec succès",
+    "removeClubAdminFailed": "Échec de la suppression de l'admin du club",
+    "removingAdmin": "Suppression..."
   },
   "clubInfo": {
     "loadingClubInfo": "Chargement des infos du club...",
