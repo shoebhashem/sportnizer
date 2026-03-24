@@ -211,7 +211,9 @@
     "deleteAccountHasGroups": "You must leave all groups first: {{groups}}",
     "deleteAccountIsClubAdmin": "You must step down as club admin first: {{clubs}}",
     "deleteAccountHasDependents": "You are a guardian for active youth players. Contact a club admin to remove you as guardian before deleting your account.",
-    "deleteAccountFailed": "Failed to delete account. Please try again."
+    "deleteAccountFailed": "Failed to delete account. Please try again.",
+    "createClub": "Create a Club",
+    "createClubDesc": "Start your own sports organization"
   },
   "createClubForm": {
     "createYourClub": "Create Your Club",
@@ -235,7 +237,7 @@
       "sportTypeRequired": "Please select a sport type",
       "groupNameRequired": "Please enter a group name",
       "clubLimitReached": "Club Limit Reached",
-      "clubLimitReachedMessage": "You have reached your club creation limit. Please contact support@clubnizer.com to upgrade your plan.",
+      "clubLimitReachedMessage": "You can only be the admin of one club. If you need to manage multiple clubs, please contact support@clubnizer.com.",
       "createFailed": "Failed to create club. Please try again."
     }
   },

@@ -193,7 +193,9 @@
     "deleteAccountHasGroups": "Du må forlate alle grupper først: {{groups}}",
     "deleteAccountIsClubAdmin": "Du må fratre som klubbadministrator først: {{clubs}}",
     "deleteAccountHasDependents": "Du er foresatt for aktive ungdomsspillere. Kontakt en klubbadministrator for å bli fjernet som foresatt før du kan slette kontoen din.",
-    "deleteAccountFailed": "Kunne ikke slette konto. Vennligst prøv igjen."
+    "deleteAccountFailed": "Kunne ikke slette konto. Vennligst prøv igjen.",
+    "createClub": "Opprett en klubb",
+    "createClubDesc": "Start din egen sportsorganisasjon"
   },
   "createClubForm": {
     "createYourClub": "Opprett klubben din",
@@ -217,7 +219,7 @@
       "sportTypeRequired": "Vennligst velg en idrettstype",
       "groupNameRequired": "Vennligst skriv inn et gruppenavn",
       "clubLimitReached": "Klubbgrense nådd",
-      "clubLimitReachedMessage": "Du har nådd grensen for antall klubber. Kontakt support@clubnizer.com for å oppgradere abonnementet ditt.",
+      "clubLimitReachedMessage": "Du kan bare være administrator for én klubb. Hvis du trenger å administrere flere klubber, kontakt support@clubnizer.com.",
       "createFailed": "Kunne ikke opprette klubb. Vennligst prøv igjen."
     }
   },

@@ -367,14 +367,15 @@ Our security measures include:
 
 ## 12a. Device Permissions
 
-Clubnizer may request the following device permissions:
+Clubnizer may request the following device permissions. The specific permission identifiers differ by platform but serve the same purpose.
 
-| Permission                           | Purpose                                                                                | Required |
-| ------------------------------------ | -------------------------------------------------------------------------------------- | -------- |
-| Camera (`android.permission.CAMERA`) | Allows you to take a photo when uploading a profile picture, club logo, or group image | Optional |
-| Photo Library / Media Access         | Allows you to select an existing image from your device when uploading                 | Optional |
+| Permission         | Android                                    | iOS                              | Purpose                                                                                | Required |
+| ------------------ | ------------------------------------------ | -------------------------------- | -------------------------------------------------------------------------------------- | -------- |
+| Camera             | `android.permission.CAMERA`                | `NSCameraUsageDescription`       | Allows you to take a photo when uploading a profile picture, club logo, or group image | Optional |
+| Photo Library      | `android.permission.READ_EXTERNAL_STORAGE` | `NSPhotoLibraryUsageDescription` | Allows you to select an existing image from your device photo library when uploading   | Optional |
+| Push Notifications | `android.permission.POST_NOTIFICATIONS`    | Prompted at runtime by iOS       | Allows the app to send you notifications about events and club activities              | Optional |
 
-All permissions are requested at the moment you choose to use the relevant feature. You may decline any permission — this will prevent the specific upload feature from working but will not affect other app functionality. You can manage or revoke permissions at any time through your device settings.
+All permissions are requested at the moment you choose to use the relevant feature, or (for notifications) when you first enable them in the app. You may decline any permission — this will prevent the specific feature from working but will not affect other app functionality. You can manage or revoke permissions at any time through your device settings.
 
 ---
 

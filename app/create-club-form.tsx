@@ -6,10 +6,11 @@ import { useUser } from "@/contexts/UserContext";
 import { functions } from "@/services/core/firebase";
 import { router } from "expo-router";
 import { httpsCallable } from "firebase/functions";
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
+    Linking,
     ScrollView,
     StyleSheet,
     Text,
@@ -24,12 +25,14 @@ export default function CreateClubForm() {
   const { user } = useAuth();
   const { userProfile } = useUser();
 
-  // Redirect users who already have clubs to home
-  useEffect(() => {
-    if (userProfile?.clubAccess && userProfile.clubAccess.length > 0) {
-      router.replace("/(tabs)");
-    }
-  }, [userProfile]);
+  // Check if user is already a club-admin (limit: 1 club as admin)
+  const isAlreadyClubAdmin = useMemo(
+    () =>
+      userProfile?.clubAccess?.some(
+        (ca) => ca.role === "club-admin" && ca.isActive !== false,
+      ) ?? false,
+    [userProfile],
+  );
 
   const [clubName, setClubName] = useState("");
   const [description, setDescription] = useState("");
@@ -213,85 +216,118 @@ export default function CreateClubForm() {
           </Text>
         </View>
 
-        <View style={styles.form}>
-          {/* Club Name */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              {t("screens:createClubForm.clubName")}{" "}
-              <Text style={styles.required}>*</Text>
-            </Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t("screens:createClubForm.clubNamePlaceholder")}
-              placeholderTextColor={theme.colors.textSecondary}
-              value={clubName}
-              onChangeText={setClubName}
-              autoCapitalize="words"
-              editable={!loading}
-            />
-          </View>
+        {/* Guard: user is already a club-admin */}
+        {isAlreadyClubAdmin ? (
+          <View style={styles.form}>
+            <View style={styles.limitReachedContainer}>
+              <Text style={styles.limitReachedTitle}>
+                {t("screens:createClubForm.errors.clubLimitReached")}
+              </Text>
+              <Text style={styles.limitReachedMessage}>
+                {t("screens:createClubForm.errors.clubLimitReachedMessage")}
+              </Text>
+              <TouchableOpacity
+                style={styles.contactSupportButton}
+                onPress={() => Linking.openURL("mailto:support@clubnizer.com")}
+              >
+                <Text style={styles.contactSupportText}>
+                  support@clubnizer.com
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* Description */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              {t("screens:createClubForm.clubDescription")}
-            </Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder={t(
-                "screens:createClubForm.clubDescriptionPlaceholder",
-              )}
-              placeholderTextColor={theme.colors.textSecondary}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              editable={!loading}
-            />
-          </View>
-
-          {/* Location */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t("common:location")}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t("screens:clubInfo.locationPlaceholder")}
-              placeholderTextColor={theme.colors.textSecondary}
-              value={location}
-              onChangeText={setLocation}
-              autoCapitalize="words"
-              editable={!loading}
-            />
-          </View>
-
-          {/* Create Button */}
-          <View style={styles.buttonContainer}>
-            {loading ? (
-              <ActivityIndicator size="large" color={theme.colors.secondary} />
-            ) : (
+            <View style={styles.buttonContainer}>
               <Button
-                label={t("screens:createClubForm.createClub")}
-                theme="primary"
-                onPress={handleCreateClub}
+                label={t("common:goBack")}
+                theme="secondary"
+                onPress={() => router.back()}
               />
-            )}
+            </View>
           </View>
+        ) : (
+          <View style={styles.form}>
+            {/* Club Name */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                {t("screens:createClubForm.clubName")}{" "}
+                <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("screens:createClubForm.clubNamePlaceholder")}
+                placeholderTextColor={theme.colors.textSecondary}
+                value={clubName}
+                onChangeText={setClubName}
+                autoCapitalize="words"
+                editable={!loading}
+              />
+            </View>
 
-          {/* Skip Option */}
-          <TouchableOpacity
-            style={styles.skipContainer}
-            onPress={() => router.replace("/(tabs)")}
-            disabled={loading}
-          >
-            <Text style={styles.skipText}>
-              {t("screens:createClubForm.skipForNow")}
-            </Text>
-            <Text style={styles.skipSubtext}>
-              {t("screens:createClubForm.skipSubtext")}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {/* Description */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                {t("screens:createClubForm.clubDescription")}
+              </Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder={t(
+                  "screens:createClubForm.clubDescriptionPlaceholder",
+                )}
+                placeholderTextColor={theme.colors.textSecondary}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                editable={!loading}
+              />
+            </View>
+
+            {/* Location */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>{t("common:location")}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("screens:clubInfo.locationPlaceholder")}
+                placeholderTextColor={theme.colors.textSecondary}
+                value={location}
+                onChangeText={setLocation}
+                autoCapitalize="words"
+                editable={!loading}
+              />
+            </View>
+
+            {/* Create Button */}
+            <View style={styles.buttonContainer}>
+              {loading ? (
+                <ActivityIndicator
+                  size="large"
+                  color={theme.colors.secondary}
+                />
+              ) : (
+                <Button
+                  label={t("screens:createClubForm.createClub")}
+                  theme="primary"
+                  onPress={handleCreateClub}
+                />
+              )}
+            </View>
+
+            {/* Skip Option */}
+            <TouchableOpacity
+              style={styles.skipContainer}
+              onPress={() => router.replace("/(tabs)")}
+              disabled={loading}
+            >
+              <Text style={styles.skipText}>
+                {t("screens:createClubForm.skipForNow")}
+              </Text>
+              <Text style={styles.skipSubtext}>
+                {t("screens:createClubForm.skipSubtext")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       <ConfirmationModal
@@ -385,5 +421,33 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.xs,
+  },
+  limitReachedContainer: {
+    alignItems: "center",
+    paddingVertical: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.md,
+  },
+  limitReachedTitle: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.warning || theme.colors.secondary,
+    marginBottom: theme.spacing.md,
+    textAlign: "center",
+  },
+  limitReachedMessage: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: theme.spacing.lg,
+  },
+  contactSupportButton: {
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  contactSupportText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.secondary,
+    textDecorationLine: "underline",
   },
 });

@@ -215,7 +215,9 @@
     "deleteAccountHasGroups": "Du måste lämna alla grupper först: {{groups}}",
     "deleteAccountIsClubAdmin": "Du måste avgå som klubbadministratör först: {{clubs}}",
     "deleteAccountHasDependents": "Du är vårdnadshavare för aktiva ungdomsspelare. Kontakta en klubbadministratör för att ta bort dig som vårdnadshavare innan du kan radera ditt konto.",
-    "deleteAccountFailed": "Kunde inte radera konto. Försök igen."
+    "deleteAccountFailed": "Kunde inte radera konto. Försök igen.",
+    "createClub": "Skapa en klubb",
+    "createClubDesc": "Starta din egen sportorganisation"
   },
 
   "createClubForm": {
@@ -235,7 +237,10 @@
     "errors": {
       "clubNameRequired": "Ange ett klubbnamn",
       "sportTypeRequired": "Välj en sporttyp",
-      "groupNameRequired": "Ange ett gruppnamn"
+      "groupNameRequired": "Ange ett gruppnamn",
+      "clubLimitReached": "Klubbgräns nådd",
+      "clubLimitReachedMessage": "Du kan bara vara administratör för en klubb. Kontakta support@clubnizer.com om du behöver hantera fler klubbar.",
+      "createFailed": "Kunde inte skapa klubb. Försök igen."
     }
   },
 

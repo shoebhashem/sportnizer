@@ -7,18 +7,18 @@ import { useNavigation, useRouter } from "expo-router";
 import React, { useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -30,16 +30,16 @@ import { getDefaultProfilePicture } from "../constants/profilePictures";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
 import {
-    SUPPORTED_LANGUAGES,
-    SupportedLanguage,
-    useLanguage,
+  SUPPORTED_LANGUAGES,
+  SupportedLanguage,
+  useLanguage,
 } from "../contexts/LanguageContext";
 import { useUser } from "../contexts/UserContext";
 import {
-    changePassword,
-    requestEmailChange,
-    signOutUser,
-    updateUserProfile,
+  changePassword,
+  requestEmailChange,
+  signOutUser,
+  updateUserProfile,
 } from "../services/auth/authService";
 import { memberService } from "../services/member";
 
@@ -778,6 +778,46 @@ export default function ProfileScreen() {
               placeholder={t("screens:profile.selectLanguage")}
             />
           </View>
+
+          {/* ---- Create a Club (only if not already a club-admin) ---- */}
+          {!isEditing &&
+            !userProfile?.clubAccess?.some(
+              (ca) => ca.role === "club-admin" && ca.isActive !== false,
+            ) && (
+              <View style={styles.securitySection}>
+                <TouchableOpacity
+                  style={styles.securityButton}
+                  onPress={() => router.push("/create-club-form")}
+                >
+                  <View style={styles.securityButtonIcon}>
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={16}
+                      color={theme.colors.secondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.securityButtonText}>
+                      {t("screens:profile.createClub")}
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.colors.textSecondary,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      {t("screens:profile.createClubDesc")}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={theme.colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
 
           {/* ---- Sign Out ---- */}
           <View style={styles.signOutSection}>

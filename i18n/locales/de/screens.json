@@ -211,7 +211,9 @@
     "deleteAccountHasGroups": "Sie müssen zuerst alle Gruppen verlassen: {{groups}}",
     "deleteAccountIsClubAdmin": "Sie müssen zuerst als Vereinsadmin zurücktreten: {{clubs}}",
     "deleteAccountHasDependents": "Sie sind Erziehungsberechtigter für aktive Jugendspieler. Kontaktieren Sie einen Vereinsadministrator, um Sie als Erziehungsberechtigter zu entfernen, bevor Sie Ihr Konto löschen können.",
-    "deleteAccountFailed": "Konto konnte nicht gelöscht werden. Bitte versuchen Sie es erneut."
+    "deleteAccountFailed": "Konto konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+    "createClub": "Verein erstellen",
+    "createClubDesc": "Gründen Sie Ihre eigene Sportorganisation"
   },
   "createClubForm": {
     "createYourClub": "Erstellen Sie Ihren Verein",
@@ -235,7 +237,7 @@
       "sportTypeRequired": "Bitte wählen Sie eine Sportart",
       "groupNameRequired": "Bitte geben Sie einen Gruppennamen ein",
       "clubLimitReached": "Vereinslimit erreicht",
-      "clubLimitReachedMessage": "Sie haben Ihr Vereinserstellungslimit erreicht. Bitte kontaktieren Sie support@clubnizer.com für ein Upgrade.",
+      "clubLimitReachedMessage": "Sie können nur Administrator eines Vereins sein. Wenn Sie mehrere Vereine verwalten müssen, kontaktieren Sie bitte support@clubnizer.com.",
       "createFailed": "Verein konnte nicht erstellt werden. Bitte versuchen Sie es erneut."
     }
   },

@@ -193,7 +193,9 @@
     "deleteAccountHasGroups": "Vous devez d'abord quitter tous les groupes : {{groups}}",
     "deleteAccountIsClubAdmin": "Vous devez d'abord renoncer au rôle d'admin du club : {{clubs}}",
     "deleteAccountHasDependents": "Vous êtes tuteur de joueurs juniors actifs. Contactez un administrateur du club pour vous retirer en tant que tuteur avant de supprimer votre compte.",
-    "deleteAccountFailed": "Échec de la suppression du compte. Veuillez réessayer."
+    "deleteAccountFailed": "Échec de la suppression du compte. Veuillez réessayer.",
+    "createClub": "Créer un club",
+    "createClubDesc": "Lancez votre propre organisation sportive"
   },
   "createClubForm": {
     "createYourClub": "Créez votre club",
@@ -217,7 +219,7 @@
       "sportTypeRequired": "Veuillez sélectionner un type de sport",
       "groupNameRequired": "Veuillez entrer un nom de groupe",
       "clubLimitReached": "Limite de clubs atteinte",
-      "clubLimitReachedMessage": "Vous avez atteint votre limite de création de clubs. Veuillez contacter support@clubnizer.com pour mettre à niveau votre forfait.",
+      "clubLimitReachedMessage": "Vous ne pouvez être administrateur que d'un seul club. Si vous devez gérer plusieurs clubs, contactez support@clubnizer.com.",
       "createFailed": "Échec de la création du club. Veuillez réessayer."
     }
   },
