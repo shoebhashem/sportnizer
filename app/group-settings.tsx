@@ -25,6 +25,7 @@ import { useGroupData } from "../contexts/GroupDataContext";
 import { useUser } from "../contexts/UserContext";
 
 // Import services for mutations only
+import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { groupService } from "../services/group";
 import { memberService } from "../services/member";
 import { subgroupService } from "../services/subgroup";
@@ -47,6 +48,7 @@ export default function GroupSettingsScreen() {
   const { groupId, clubId } = useLocalSearchParams();
   const { user } = useAuth();
   const { userProfile } = useUser();
+  useTrackFeatureOnMount("group-settings-viewed");
   const { getGroup: getGroupFromCtx } = useGroupData();
   const { getClub } = useClubData();
   const navigation = useNavigation();

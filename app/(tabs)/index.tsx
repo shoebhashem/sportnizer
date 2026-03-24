@@ -5,31 +5,34 @@ import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Image,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 import ConfirmationModal from "../../components/ConfirmationModal";
 import EventCard from "../../components/EventCard";
 import InvitationModal from "../../components/InvitationModal";
+import { PulsingDot, ScreenTooltipManager } from "../../components/onboarding";
 import PaymentCard from "../../components/PaymentCard";
 import { useAuth } from "../../contexts/AuthContext";
 import { useClubData } from "../../contexts/ClubDataContext";
 import { useEvents } from "../../contexts/EventContext";
+import { useOnboarding } from "../../contexts/OnboardingContext";
 import { useUser } from "../../contexts/UserContext";
+import { useHasSeenFeature } from "../../hooks/useOnboardingFeatureTracker";
 import { getCurrentUser } from "../../services/auth/authService";
 import { fetchDependentProfiles } from "../../services/fetchDependentProfiles";
 import {
-  acceptGroupInvite,
-  fetchGroupInvites,
-  GroupInviteInfo,
-  rejectGroupInvite,
+    acceptGroupInvite,
+    fetchGroupInvites,
+    GroupInviteInfo,
+    rejectGroupInvite,
 } from "../../services/fetchGroupInvites";
 import { paymentService, PendingPayment } from "../../services/paymentService";
 import { NewsFlowItem } from "../../services/types";
@@ -58,9 +61,11 @@ interface ModalState {
 
 export default function Index() {
   const router = useRouter();
-  const { t } = useTranslation(["screens", "common"]);
+  const { t } = useTranslation(["screens", "common", "components"]);
   const { user } = useAuth();
   const { userProfile } = useUser();
+  const hasSeenClubCard = useHasSeenFeature("club-card-tapped");
+  const { markFeatureSeen } = useOnboarding();
   const {
     events: contextEvents,
     refreshEvents,
@@ -801,77 +806,112 @@ export default function Index() {
           <>
             {userProfile.clubAccess.map((club) => {
               const isAdmin = club.role === "club-admin";
+              const showPulse = isAdmin && !hasSeenClubCard;
               return (
-                <TouchableOpacity
-                  key={club.clubId}
-                  style={styles.clubContainer}
-                  onPress={() => {
-                    if (isAdmin) {
-                      router.push(`/manage-club?clubId=${club.clubId}`);
-                    }
-                  }}
-                  disabled={!isAdmin}
-                  activeOpacity={isAdmin ? 0.7 : 1}
-                >
-                  <View style={styles.clubHeader}>
-                    <View style={styles.clubIcon}>
-                      {clubLogos[club.clubId] ? (
-                        <Image
-                          source={{ uri: clubLogos[club.clubId]! }}
-                          style={styles.clubLogoImage}
-                        />
-                      ) : (
-                        <Ionicons
-                          name="trophy"
-                          size={24}
-                          color={theme.colors.secondary}
-                        />
-                      )}
-                    </View>
-                    <View style={styles.clubInfo}>
-                      <Text style={styles.clubName}>{club.clubName}</Text>
-                      {isAdmin ? (
-                        <View style={styles.adminBadge}>
+                <View key={club.clubId} style={{ position: "relative" }}>
+                  <TouchableOpacity
+                    style={styles.clubContainer}
+                    onPress={() => {
+                      if (isAdmin) {
+                        markFeatureSeen("club-card-tapped");
+                        router.push(`/manage-club?clubId=${club.clubId}`);
+                      }
+                    }}
+                    disabled={!isAdmin}
+                    activeOpacity={isAdmin ? 0.7 : 1}
+                  >
+                    <View style={styles.clubHeader}>
+                      <View style={styles.clubIcon}>
+                        {clubLogos[club.clubId] ? (
+                          <Image
+                            source={{ uri: clubLogos[club.clubId]! }}
+                            style={styles.clubLogoImage}
+                          />
+                        ) : (
                           <Ionicons
-                            name="shield-checkmark"
-                            size={12}
+                            name="trophy"
+                            size={24}
                             color={theme.colors.secondary}
                           />
-                          <Text style={styles.adminText}>
-                            Admin • Tap to manage
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text style={styles.clubSubtext}>Member</Text>
+                        )}
+                      </View>
+                      <View style={styles.clubInfo}>
+                        <Text style={styles.clubName}>{club.clubName}</Text>
+                        {isAdmin ? (
+                          <View style={styles.adminBadge}>
+                            <Ionicons
+                              name="shield-checkmark"
+                              size={12}
+                              color={theme.colors.secondary}
+                            />
+                            <Text style={styles.adminText}>
+                              Admin • Tap to manage
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.clubSubtext}>Member</Text>
+                        )}
+                      </View>
+                      {/* Info icon for all users */}
+                      <TouchableOpacity
+                        style={styles.infoIconButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          router.push(
+                            `/club-info?clubId=${club.clubId}&mode=${isAdmin ? "edit" : "view"}`,
+                          );
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={24}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                      {isAdmin && (
+                        <Ionicons
+                          name="chevron-forward"
+                          size={20}
+                          color={theme.colors.textSecondary}
+                          style={{ marginLeft: 4 }}
+                        />
                       )}
                     </View>
-                    {/* Info icon for all users */}
+                  </TouchableOpacity>
+                  {/* Pulsing dot + coach mark for admin who hasn't visited */}
+                  {showPulse && (
+                    <View style={{ position: "absolute", top: 12, right: 12 }}>
+                      <PulsingDot active size={8} />
+                    </View>
+                  )}
+                  {showPulse && (
                     <TouchableOpacity
-                      style={styles.infoIconButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        router.push(
-                          `/club-info?clubId=${club.clubId}&mode=${isAdmin ? "edit" : "view"}`,
-                        );
+                      onPress={() => markFeatureSeen("club-card-tapped")}
+                      style={{
+                        alignSelf: "center",
+                        backgroundColor: theme.colors.primary,
+                        borderWidth: 1,
+                        borderColor: theme.colors.secondary,
+                        borderRadius: 8,
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        marginTop: -4,
+                        marginBottom: 4,
                       }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons
-                        name="information-circle-outline"
-                        size={24}
-                        color={theme.colors.textSecondary}
-                      />
+                      <Text
+                        style={{
+                          color: theme.colors.secondary,
+                          fontSize: 12,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {t("components:onboarding.coachMarks.clubCard")} ✕
+                      </Text>
                     </TouchableOpacity>
-                    {isAdmin && (
-                      <Ionicons
-                        name="chevron-forward"
-                        size={20}
-                        color={theme.colors.textSecondary}
-                        style={{ marginLeft: 4 }}
-                      />
-                    )}
-                  </View>
-                </TouchableOpacity>
+                  )}
+                </View>
               );
             })}
           </>
@@ -1029,6 +1069,9 @@ export default function Index() {
           metadata={currentInvite.metadata}
         />
       )}
+
+      {/* Onboarding: Contextual tooltips for home screen */}
+      <ScreenTooltipManager screen="home" />
     </View>
   );
 }

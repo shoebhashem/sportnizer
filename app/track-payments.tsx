@@ -3,12 +3,14 @@
 
 import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import { ScreenTooltipManager } from "@/components/onboarding";
 import PaymentStatusBadge, {
     PaymentStatus,
 } from "@/components/PaymentStatusBadge";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useGroupData } from "@/contexts/GroupDataContext";
+import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { MembershipFee, paymentService } from "@/services/paymentService";
 import { GroupMemberData } from "@/services/types/group";
 import { Ionicons } from "@expo/vector-icons";
@@ -65,6 +67,7 @@ export default function TrackPaymentsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { clubId, groupId, groupName } = useLocalSearchParams();
+  useTrackFeatureOnMount("payments-viewed");
   const { getGroupMembers } = useGroupData();
 
   // Get members from real-time context
@@ -553,6 +556,7 @@ export default function TrackPaymentsScreen() {
         onCancel={() => setShowErrorModal(false)}
         confirmButtonTheme="primary"
       />
+      <ScreenTooltipManager screen="track-payments" />
     </View>
   );
 }

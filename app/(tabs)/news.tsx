@@ -2,11 +2,13 @@
 // Simple chronological list with read status
 
 import NewsCard from "@/components/NewsCard";
+import { ScreenTooltipManager } from "@/components/onboarding";
 import PaymentCard from "@/components/PaymentCard";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNews } from "@/contexts/NewsContext";
 import { useUser } from "@/contexts/UserContext";
+import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { fetchDependentProfiles } from "@/services/fetchDependentProfiles";
 import { hasUserReadNews, News } from "@/services/news";
 import { paymentService, PendingPayment } from "@/services/paymentService";
@@ -38,6 +40,7 @@ export default function NewsTab() {
   const router = useRouter();
   const { user } = useAuth();
   const { userProfile } = useUser();
+  useTrackFeatureOnMount("news-viewed");
   const {
     news: contextNews,
     refreshNews,
@@ -157,7 +160,9 @@ export default function NewsTab() {
             color={theme.colors.secondary}
           />
           <Text style={styles.paymentsSectionTitle}>
-            {t("screens:news.pendingPayments", { count: pendingPayments.length })}
+            {t("screens:news.pendingPayments", {
+              count: pendingPayments.length,
+            })}
           </Text>
         </View>
         {pendingPayments.map((payment) => (
@@ -215,7 +220,9 @@ export default function NewsTab() {
         color={theme.colors.textSecondary}
       />
       <Text style={styles.emptyTitle}>
-        {readFilter === "unread" ? t("screens:news.allCaughtUp") : t("screens:news.noNews")}
+        {readFilter === "unread"
+          ? t("screens:news.allCaughtUp")
+          : t("screens:news.noNews")}
       </Text>
       <Text style={styles.emptySubtitle}>
         {readFilter === "unread"
@@ -277,7 +284,9 @@ export default function NewsTab() {
       {newsLoading && expandedNews.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>{t("screens:news.loadingNews")}</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:news.loadingNews")}
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -300,6 +309,9 @@ export default function NewsTab() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      {/* Onboarding: Contextual tooltips for news screen */}
+      <ScreenTooltipManager screen="news" />
     </View>
   );
 }

@@ -5,6 +5,7 @@ import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useUser } from "@/contexts/UserContext";
+import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { clubService } from "@/services/club";
 import { memberService } from "@/services/member";
 import { createNewGroupInExistingClub } from "@/services/orchestration/createNewGroupInExistingClub";
@@ -30,6 +31,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function ClubSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(["screens", "common"]);
+  useTrackFeatureOnMount("club-settings-viewed");
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
   const { getClub, getClubMembers, isLoading: isClubLoading } = useClubData();

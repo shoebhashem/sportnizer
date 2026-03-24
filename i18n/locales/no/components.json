@@ -2,13 +2,11 @@
   "confirmationModal": {
     "confirm": "Bekreft"
   },
-
   "deletionConfirmationModal": {
     "gracePeriodNote": "{{gracePeriodDays}}-dagers angrefrist – Du kan angre dette!",
     "deletionMessage": "Er du sikker på at du vil slette «{{entityName}}»? Dette vil påvirke {{affectedCount}} medlemmer.",
     "deleting": "Sletter..."
   },
-
   "invitationModal": {
     "roleUpdate": "Rolleoppdatering",
     "clubAdminInvitation": "Klubbadmin-invitasjon",
@@ -26,7 +24,6 @@
     "acceptRole": "Godta rolle",
     "acceptAndJoin": "Godta og bli med"
   },
-
   "roleFilterModal": {
     "filterByRole": "Filtrer etter rolle",
     "apply": "Bruk",
@@ -51,7 +48,6 @@
       "guardiansDesc": "Foreldre/foresatte til ungdomsmedlemmer"
     }
   },
-
   "memberContactModal": {
     "contactDetails": "Kontaktdetaljer",
     "loadingDetails": "Laster detaljer...",
@@ -65,7 +61,6 @@
     "inactiveMember": "Inaktivt medlem",
     "scheduledDeletion": "Kontodata slettes permanent den {{date}}."
   },
-
   "memberFilterBar": {
     "all": "Alle",
     "active": "Aktive",
@@ -78,7 +73,6 @@
     "guardian": "Foresatt",
     "searchPlaceholder": "Søk etter navn eller e-post…"
   },
-
   "eventCard": {
     "today": "I dag",
     "tomorrow": "I morgen",
@@ -92,7 +86,6 @@
     "recurring": "Gjentakende",
     "organizer": "Arrangør"
   },
-
   "newsCard": {
     "you": "Du",
     "new": "Ny",
@@ -102,7 +95,6 @@
     "hoursAgo": "{{count}}t siden",
     "daysAgo": "{{count}}d siden"
   },
-
   "paymentCard": {
     "dueToday": "Forfaller i dag",
     "dueTomorrow": "Forfaller i morgen",
@@ -117,14 +109,12 @@
     "paid": "Betalt",
     "noDueDate": "Ingen forfallsdato"
   },
-
   "paymentStatusBadge": {
     "paid": "Betalt",
     "notPaid": "Ikke betalt",
     "overdue": "Forfalt",
     "paidBy": "av {{paidBy}}"
   },
-
   "notificationBell": {
     "notifications": "Varsler",
     "markAllRead": "Merk alle som lest",
@@ -136,11 +126,9 @@
     "later": "Senere",
     "paymentError": "Betalingsfeil"
   },
-
   "dropdownInput": {
     "selectAnOption": "Velg et alternativ"
   },
-
   "genderPicker": {
     "male": "Mann",
     "female": "Kvinne",
@@ -149,13 +137,11 @@
     "selectGender": "Velg kjønn",
     "selectLabel": "Velg {{label}}"
   },
-
   "floatingActionButton": {
     "newEvent": "Nytt arrangement",
     "news": "Nyheter",
     "event": "Arrangement"
   },
-
   "profilePictureUpload": {
     "uploadMemberPhoto": "Last opp medlemsbilde",
     "uploadProfilePicture": "Last opp profilbilde",
@@ -172,7 +158,6 @@
     "failedToUploadProfilePicture": "Kunne ikke laste opp profilbilde",
     "unexpectedError": "En uventet feil oppstod"
   },
-
   "legalAcceptanceScreen": {
     "updatedTermsTitle": "Oppdaterte vilkår og personvernregler",
     "termsTitle": "Tjenestevilkår og personvernregler",
@@ -204,7 +189,6 @@
     "agreeAndContinue": "Godta og fortsett",
     "pleaseWait": "Vennligst vent..."
   },
-
   "legalSettingsSection": {
     "legal": "Juridisk",
     "termsOfService": "Tjenestevilkår",
@@ -214,7 +198,6 @@
     "updateRequired": "Oppdatering kreves",
     "lastAcceptedOn": "Sist godtatt den {{date}}"
   },
-
   "subscriptionWarningBanner": {
     "memberLimitReached": "Medlemsgrensen er nådd",
     "approachingMemberLimit": "Nærmer seg medlemsgrensen",
@@ -222,7 +205,6 @@
     "approachingLimitMessage": "Bare {{remaining}} medlemsplass(er) igjen på {{tier}}-planen.",
     "upgrade": "Oppgrader"
   },
-
   "countdownTimer": {
     "expired": "Utløpt",
     "gracePeriodExpired": "Angrefristen er utløpt",
@@ -230,7 +212,6 @@
     "fullFormat": "{{days}} dager, {{hours}} timer, {{minutes}} minutter",
     "remaining": "igjen"
   },
-
   "pushNotifications": {
     "channels": {
       "default": "Generelt",
@@ -243,6 +224,55 @@
       "title": "Hold deg oppdatert",
       "message": "Aktiver varsler for å motta oppdateringer om arrangementer, invitasjoner og betalinger.",
       "openSettings": "Åpne innstillinger"
+    }
+  },
+  "onboarding": {
+    "tooltips": {
+      "attendance": {
+        "title": "Registrer oppmøte",
+        "body": "Trykk på medlemmer for å markere dem som til stede eller fraværende. Registreringene lagres automatisk."
+      },
+      "payments": {
+        "title": "Betalingsoversikt",
+        "body": "Her kan du se hvem som har betalt og hvem som ikke har det. Send påminnelser til medlemmer med utestående avgifter."
+      },
+      "createEvent": {
+        "title": "Opprett ditt første arrangement",
+        "body": "Trykk på +-knappen for å opprette en trening eller kamp. Medlemmer varsles automatisk."
+      },
+      "manageGroup": {
+        "title": "Gruppeadministrasjon",
+        "body": "Her kan du legge til eller fjerne medlemmer, tildele roller og organisere undergrupper."
+      },
+      "news": {
+        "title": "Klubbnyheter",
+        "body": "Hold deg oppdatert med de siste kunnjøringene og oppdateringene fra klubben og gruppene dine."
+      },
+      "eventResponse": {
+        "title": "Svar på arrangementer",
+        "body": "Gi treneren beskjed om du kan delta ved å trykke på svarknappene nedenfor."
+      },
+      "statistics": {
+        "title": "Oppmøtestatistikk",
+        "body": "Se detaljerte oppmøtemønstre for å forstå deltakelsestrender over tid."
+      },
+      "createNews": {
+        "title": "Del nyheter",
+        "body": "Trykk på +-knappen for å opprette et nyhetsinnlegg. Alle gruppemedlemmer varsles."
+      },
+      "subgroups": {
+        "title": "Undergrupper",
+        "body": "Opprett undergrupper for å organisere medlemmer i gruppen din – for eksempel etter alder eller nivå."
+      }
+    },
+    "coachMarks": {
+      "clubSettings": "Innstillinger, betalinger og invitasjoner",
+      "groupSettings": "Roller, invitasjoner og innstillinger",
+      "clubEventFab": "Opprett treninger og kamper",
+      "clubNewsFab": "Del oppdateringer med klubben",
+      "groupEventFab": "Planlegg hendelser for gruppen",
+      "groupNewsFab": "Post nyheter i gruppen",
+      "clubCard": "Trykk for å administrere medlemmer og grupper"
     }
   }
 }

@@ -28,6 +28,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTrackFeatureOnAction } from "@/hooks/useOnboardingFeatureTracker";
 import ConfirmationModal from "../components/ConfirmationModal";
 import RoleFilterModal, { ClubRole } from "../components/RoleFilterModal";
 import { theme } from "../constants/theme";
@@ -70,6 +71,7 @@ export default function CreateNewsScreen() {
   const { userProfile } = useUser();
   const { getClubMembers } = useClubData();
   const { getGroupMembers, getSubgroupMembers } = useGroupData();
+  const trackNewsCreated = useTrackFeatureOnAction("news-created");
 
   console.log("🔍 CreateNews - Received Params:", params);
 
@@ -301,6 +303,7 @@ export default function CreateNewsScreen() {
       });
 
       if (response.success) {
+        trackNewsCreated();
         setModal({
           visible: true,
           title: t("common:success"),

@@ -6,6 +6,7 @@ import { EventProvider } from "@/contexts/EventContext";
 import { GroupDataProvider } from "@/contexts/GroupDataContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { NewsProvider } from "@/contexts/NewsContext";
+import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { UserProvider } from "@/contexts/UserContext";
 import "@/i18n";
 import { setupNotificationChannels } from "@/services/pushNotificationService";
@@ -36,8 +37,10 @@ export default function RootLayout() {
               <EventProvider>
                 <NewsProvider>
                   <AuthProvider>
-                    <StatusBar style="light" />
-                    <RootLayoutNav />
+                    <OnboardingProvider>
+                      <StatusBar style="light" />
+                      <RootLayoutNav />
+                    </OnboardingProvider>
                   </AuthProvider>
                 </NewsProvider>
               </EventProvider>

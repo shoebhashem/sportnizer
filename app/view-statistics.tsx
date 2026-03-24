@@ -5,7 +5,9 @@
  * Accessible to club-admin, admin, and coach roles
  */
 
+import { ScreenTooltipManager } from "@/components/onboarding";
 import { useGroupData } from "@/contexts/GroupDataContext";
+import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { Ionicons } from "@expo/vector-icons";
 import {
     useFocusEffect,
@@ -46,6 +48,7 @@ export default function ViewStatisticsScreen() {
   const params = useLocalSearchParams();
   const navigation = useNavigation();
   const { getGroupMembers } = useGroupData();
+  useTrackFeatureOnMount("statistics-viewed");
 
   const groupId = params.groupId as string;
   const clubId = params.clubId as string;
@@ -409,6 +412,7 @@ export default function ViewStatisticsScreen() {
       ) : (
         renderEmptyState()
       )}
+      <ScreenTooltipManager screen="view-statistics" />
     </View>
   );
 }

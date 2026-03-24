@@ -6,6 +6,7 @@ import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGroupData } from "@/contexts/GroupDataContext";
 import { useUser } from "@/contexts/UserContext";
+import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { GroupMemberData } from "@/services/types/group";
 import { canManageGroup } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,6 +31,7 @@ export default function ManageSubgroupScreen() {
   const { groupId, subgroupId, clubId, subgroupName } = useLocalSearchParams();
   const { user } = useAuth();
   const { userProfile } = useUser();
+  useTrackFeatureOnMount("subgroup-viewed");
   const { getGroup, getSubgroupMembers: getSubgroupMembersFromCtx } =
     useGroupData();
   const navigation = useNavigation();

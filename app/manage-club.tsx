@@ -5,16 +5,19 @@ import DeletionConfirmationModal from "@/components/DeletionConfirmationModal";
 import { NewsEventFAB } from "@/components/FloatingActionButton";
 import MemberContactModal from "@/components/MemberContactModal";
 import MemberFilterBar, {
-  type RoleFilter,
-  type RoleOption,
-  type StatusFilter,
+    type RoleFilter,
+    type RoleOption,
+    type StatusFilter,
 } from "@/components/MemberFilterBar";
+import { FeatureHighlight } from "@/components/onboarding";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useDataCache } from "@/contexts/DataCacheContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useUser } from "@/contexts/UserContext";
+import { useHasSeenFeature } from "@/hooks/useOnboardingFeatureTracker";
 import { functions } from "@/services/core/firebase";
 import { ClubGroupData, fetchClubGroups } from "@/services/fetchClubGroups";
 import { groupService } from "@/services/group";
@@ -22,24 +25,24 @@ import type { ClubMemberData } from "@/services/types/club";
 import { isClubAdmin as checkIsClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-  useNavigation,
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { httpsCallable } from "firebase/functions";
 import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Image,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -60,6 +63,10 @@ export default function ManageClubScreen() {
     () => checkIsClubAdmin(userProfile, clubId as string),
     [userProfile, clubId],
   );
+  const hasSeenClubSettings = useHasSeenFeature("club-settings-viewed");
+  const hasSeenClubEvents = useHasSeenFeature("club-events-fab-seen");
+  const hasSeenClubNews = useHasSeenFeature("club-news-fab-seen");
+  const { markFeatureSeen } = useOnboarding();
 
   const [groups, setGroups] = useState<ClubGroupData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -320,18 +327,30 @@ export default function ManageClubScreen() {
           </TouchableOpacity>
           {/* Settings gear (admin only) */}
           {isAdmin && (
-            <TouchableOpacity
-              onPress={() => {
-                router.push(`/club-settings?clubId=${clubId}` as any);
-              }}
-              style={{ marginRight: 8, padding: 8 }}
+            <FeatureHighlight
+              active={!hasSeenClubSettings}
+              borderRadius={20}
+              coachMark={
+                !hasSeenClubSettings
+                  ? t("components:onboarding.coachMarks.clubSettings")
+                  : undefined
+              }
+              coachMarkPosition="left"
+              onDismiss={() => markFeatureSeen("club-settings-viewed")}
             >
-              <Ionicons
-                name="settings-outline"
-                size={24}
-                color={theme.colors.secondary}
-              />
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  router.push(`/club-settings?clubId=${clubId}` as any);
+                }}
+                style={{ marginRight: 8, padding: 8 }}
+              >
+                <Ionicons
+                  name="settings-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </TouchableOpacity>
+            </FeatureHighlight>
           )}
         </View>
       ),
@@ -757,6 +776,16 @@ export default function ManageClubScreen() {
                 memberCount: contextMembers.length,
               },
             });
+          }}
+          newsHighlight={{
+            active: !hasSeenClubNews,
+            coachMark: t("components:onboarding.coachMarks.clubNewsFab"),
+            onDismiss: () => markFeatureSeen("club-news-fab-seen"),
+          }}
+          eventHighlight={{
+            active: !hasSeenClubEvents,
+            coachMark: t("components:onboarding.coachMarks.clubEventFab"),
+            onDismiss: () => markFeatureSeen("club-events-fab-seen"),
           }}
         />
       )}

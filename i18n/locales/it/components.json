@@ -2,13 +2,11 @@
   "confirmationModal": {
     "confirm": "Conferma"
   },
-
   "deletionConfirmationModal": {
     "gracePeriodNote": "Periodo di grazia di {{gracePeriodDays}} giorni - Puoi annullare questa azione!",
     "deletionMessage": "Sei sicuro di voler eliminare \"{{entityName}}\"? Questo interesserà {{affectedCount}} membri.",
     "deleting": "Eliminazione..."
   },
-
   "invitationModal": {
     "roleUpdate": "Aggiornamento ruolo",
     "clubAdminInvitation": "Invito amministratore club",
@@ -26,7 +24,6 @@
     "acceptRole": "Accetta ruolo",
     "acceptAndJoin": "Accetta e unisciti"
   },
-
   "roleFilterModal": {
     "filterByRole": "Filtra per ruolo",
     "apply": "Applica",
@@ -51,7 +48,6 @@
       "guardiansDesc": "Genitori/tutori dei membri minorenni"
     }
   },
-
   "memberContactModal": {
     "contactDetails": "Dettagli di contatto",
     "loadingDetails": "Caricamento dettagli...",
@@ -69,7 +65,6 @@
     "inactiveMember": "Membro inattivo",
     "scheduledDeletion": "I dati dell'account verranno eliminati definitivamente il {{date}}."
   },
-
   "memberFilterBar": {
     "all": "Tutti",
     "active": "Attivi",
@@ -82,7 +77,6 @@
     "guardian": "Tutore",
     "searchPlaceholder": "Cerca per nome o email…"
   },
-
   "eventCard": {
     "today": "Oggi",
     "tomorrow": "Domani",
@@ -96,7 +90,6 @@
     "recurring": "Ricorrente",
     "organizer": "Organizzatore"
   },
-
   "newsCard": {
     "you": "Tu",
     "new": "Nuovo",
@@ -106,7 +99,6 @@
     "hoursAgo": "{{count}}h fa",
     "daysAgo": "{{count}}g fa"
   },
-
   "paymentCard": {
     "dueToday": "Scadenza oggi",
     "dueTomorrow": "Scadenza domani",
@@ -121,14 +113,12 @@
     "paid": "Pagato",
     "noDueDate": "Nessuna data di scadenza"
   },
-
   "paymentStatusBadge": {
     "paid": "Pagato",
     "notPaid": "Non pagato",
     "overdue": "Scaduto",
     "paidBy": "da {{paidBy}}"
   },
-
   "notificationBell": {
     "notifications": "Notifiche",
     "markAllRead": "Segna tutto come letto",
@@ -140,11 +130,9 @@
     "later": "Più tardi",
     "paymentError": "Errore di pagamento"
   },
-
   "dropdownInput": {
     "selectAnOption": "Seleziona un'opzione"
   },
-
   "genderPicker": {
     "male": "Maschio",
     "female": "Femmina",
@@ -153,13 +141,11 @@
     "selectGender": "Seleziona genere",
     "selectLabel": "Seleziona {{label}}"
   },
-
   "floatingActionButton": {
     "newEvent": "Nuovo evento",
     "news": "Notizie",
     "event": "Evento"
   },
-
   "profilePictureUpload": {
     "uploadMemberPhoto": "Carica foto membro",
     "uploadProfilePicture": "Carica foto profilo",
@@ -176,7 +162,6 @@
     "failedToUploadProfilePicture": "Impossibile caricare la foto del profilo",
     "unexpectedError": "Si è verificato un errore imprevisto"
   },
-
   "legalAcceptanceScreen": {
     "updatedTermsTitle": "Termini e informativa sulla privacy aggiornati",
     "termsTitle": "Termini di servizio e informativa sulla privacy",
@@ -208,7 +193,6 @@
     "agreeAndContinue": "Accetto e continuo",
     "pleaseWait": "Attendere prego..."
   },
-
   "legalSettingsSection": {
     "legal": "Legale",
     "termsOfService": "Termini di servizio",
@@ -218,7 +202,6 @@
     "updateRequired": "Aggiornamento richiesto",
     "lastAcceptedOn": "Ultimo accettato il {{date}}"
   },
-
   "subscriptionWarningBanner": {
     "memberLimitReached": "Limite membri raggiunto",
     "approachingMemberLimit": "Limite membri in avvicinamento",
@@ -226,7 +209,6 @@
     "approachingLimitMessage": "Solo {{remaining}} posto/i membro rimanente/i nel piano {{tier}}.",
     "upgrade": "Aggiorna"
   },
-
   "countdownTimer": {
     "expired": "Scaduto",
     "gracePeriodExpired": "Periodo di grazia scaduto",
@@ -234,7 +216,6 @@
     "fullFormat": "{{days}} giorni, {{hours}} ore, {{minutes}} minuti",
     "remaining": "rimanente"
   },
-
   "pushNotifications": {
     "channels": {
       "default": "Generale",
@@ -247,6 +228,55 @@
       "title": "Resta aggiornato",
       "message": "Abilita le notifiche per ricevere aggiornamenti su eventi, inviti e pagamenti.",
       "openSettings": "Apri impostazioni"
+    }
+  },
+  "onboarding": {
+    "tooltips": {
+      "attendance": {
+        "title": "Registra le presenze",
+        "body": "Tocca i membri per segnarli come presenti o assenti. I tuoi registri vengono salvati automaticamente."
+      },
+      "payments": {
+        "title": "Monitoraggio pagamenti",
+        "body": "Qui puoi vedere chi ha pagato e chi no. Invia promemoria ai membri con quote in sospeso."
+      },
+      "createEvent": {
+        "title": "Crea il tuo primo evento",
+        "body": "Tocca il pulsante + per creare un allenamento o una partita. I membri verranno notificati automaticamente."
+      },
+      "manageGroup": {
+        "title": "Gestione del gruppo",
+        "body": "Qui puoi aggiungere o rimuovere membri, assegnare ruoli e organizzare sottogruppi."
+      },
+      "news": {
+        "title": "Notizie del club",
+        "body": "Resta aggiornato con gli ultimi annunci e aggiornamenti dal tuo club e dai tuoi gruppi."
+      },
+      "eventResponse": {
+        "title": "Rispondi agli eventi",
+        "body": "Informa il tuo allenatore sulla tua disponibilità toccando i pulsanti di risposta qui sotto."
+      },
+      "statistics": {
+        "title": "Statistiche di presenza",
+        "body": "Consulta i pattern dettagliati di presenza per comprendere le tendenze di partecipazione."
+      },
+      "createNews": {
+        "title": "Condividi notizie",
+        "body": "Tocca il pulsante + per creare un post. Tutti i membri del gruppo verranno notificati."
+      },
+      "subgroups": {
+        "title": "Sottogruppi",
+        "body": "Crea sottogruppi per organizzare i membri nel tuo gruppo — per esempio, per età o livello."
+      }
+    },
+    "coachMarks": {
+      "clubSettings": "Impostazioni, pagamenti e inviti",
+      "groupSettings": "Ruoli, inviti e impostazioni",
+      "clubEventFab": "Crea allenamenti e partite",
+      "clubNewsFab": "Condividi aggiornamenti con il club",
+      "groupEventFab": "Pianifica eventi per il gruppo",
+      "groupNewsFab": "Pubblica notizie nel gruppo",
+      "clubCard": "Tocca per gestire membri e gruppi"
     }
   }
 }

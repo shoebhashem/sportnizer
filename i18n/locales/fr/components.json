@@ -2,13 +2,11 @@
   "confirmationModal": {
     "confirm": "Confirmer"
   },
-
   "deletionConfirmationModal": {
     "gracePeriodNote": "Délai de grâce de {{gracePeriodDays}} jours - Vous pouvez annuler !",
     "deletionMessage": "Êtes-vous sûr de vouloir supprimer \"{{entityName}}\" ? Cela affectera {{affectedCount}} membres.",
     "deleting": "Suppression..."
   },
-
   "invitationModal": {
     "roleUpdate": "Mise à jour du rôle",
     "clubAdminInvitation": "Invitation d'administrateur de club",
@@ -26,7 +24,6 @@
     "acceptRole": "Accepter le rôle",
     "acceptAndJoin": "Accepter et rejoindre"
   },
-
   "roleFilterModal": {
     "filterByRole": "Filtrer par rôle",
     "apply": "Appliquer",
@@ -51,7 +48,6 @@
       "guardiansDesc": "Parents/tuteurs des membres juniors"
     }
   },
-
   "memberContactModal": {
     "contactDetails": "Coordonnées",
     "loadingDetails": "Chargement des détails...",
@@ -65,7 +61,6 @@
     "inactiveMember": "Membre inactif",
     "scheduledDeletion": "Les données du compte seront définitivement supprimées le {{date}}."
   },
-
   "memberFilterBar": {
     "all": "Tous",
     "active": "Actifs",
@@ -78,7 +73,6 @@
     "guardian": "Tuteur",
     "searchPlaceholder": "Rechercher par nom ou e-mail…"
   },
-
   "eventCard": {
     "today": "Aujourd'hui",
     "tomorrow": "Demain",
@@ -92,7 +86,6 @@
     "recurring": "Récurrent",
     "organizer": "Organisateur"
   },
-
   "newsCard": {
     "you": "Vous",
     "new": "Nouveau",
@@ -102,7 +95,6 @@
     "hoursAgo": "il y a {{count}}h",
     "daysAgo": "il y a {{count}}j"
   },
-
   "paymentCard": {
     "dueToday": "Échéance aujourd'hui",
     "dueTomorrow": "Échéance demain",
@@ -117,14 +109,12 @@
     "paid": "Payé",
     "noDueDate": "Pas de date d'échéance"
   },
-
   "paymentStatusBadge": {
     "paid": "Payé",
     "notPaid": "Non payé",
     "overdue": "En retard",
     "paidBy": "par {{paidBy}}"
   },
-
   "notificationBell": {
     "notifications": "Notifications",
     "markAllRead": "Tout marquer comme lu",
@@ -136,11 +126,9 @@
     "later": "Plus tard",
     "paymentError": "Erreur de paiement"
   },
-
   "dropdownInput": {
     "selectAnOption": "Sélectionner une option"
   },
-
   "genderPicker": {
     "male": "Homme",
     "female": "Femme",
@@ -149,13 +137,11 @@
     "selectGender": "Sélectionner le genre",
     "selectLabel": "Sélectionner {{label}}"
   },
-
   "floatingActionButton": {
     "newEvent": "Nouvel événement",
     "news": "Actualité",
     "event": "Événement"
   },
-
   "profilePictureUpload": {
     "uploadMemberPhoto": "Téléverser la photo du membre",
     "uploadProfilePicture": "Téléverser la photo de profil",
@@ -172,7 +158,6 @@
     "failedToUploadProfilePicture": "Échec du téléversement de la photo de profil",
     "unexpectedError": "Une erreur inattendue s'est produite"
   },
-
   "legalAcceptanceScreen": {
     "updatedTermsTitle": "Conditions générales et politique de confidentialité mises à jour",
     "termsTitle": "Conditions d'utilisation et politique de confidentialité",
@@ -204,7 +189,6 @@
     "agreeAndContinue": "J'accepte et je continue",
     "pleaseWait": "Veuillez patienter..."
   },
-
   "legalSettingsSection": {
     "legal": "Juridique",
     "termsOfService": "Conditions d'utilisation",
@@ -214,7 +198,6 @@
     "updateRequired": "Mise à jour requise",
     "lastAcceptedOn": "Dernière acceptation le {{date}}"
   },
-
   "subscriptionWarningBanner": {
     "memberLimitReached": "Limite de membres atteinte",
     "approachingMemberLimit": "Limite de membres bientôt atteinte",
@@ -222,7 +205,6 @@
     "approachingLimitMessage": "Il ne reste que {{remaining}} place(s) de membre sur le forfait {{tier}}.",
     "upgrade": "Mettre à niveau"
   },
-
   "countdownTimer": {
     "expired": "Expiré",
     "gracePeriodExpired": "Délai de grâce expiré",
@@ -230,7 +212,6 @@
     "fullFormat": "{{days}} jours, {{hours}} heures, {{minutes}} minutes",
     "remaining": "restant"
   },
-
   "pushNotifications": {
     "channels": {
       "default": "Général",
@@ -243,6 +224,55 @@
       "title": "Restez informé",
       "message": "Activez les notifications pour recevoir des mises à jour sur les événements, invitations et paiements.",
       "openSettings": "Ouvrir les paramètres"
+    }
+  },
+  "onboarding": {
+    "tooltips": {
+      "attendance": {
+        "title": "Enregistrer la présence",
+        "body": "Appuyez sur les membres pour les marquer présents ou absents. Vos enregistrements sont sauvegardés automatiquement."
+      },
+      "payments": {
+        "title": "Suivi des paiements",
+        "body": "Ici vous pouvez voir qui a payé et qui ne l'a pas fait. Envoyez des rappels aux membres avec des cotisations en attente."
+      },
+      "createEvent": {
+        "title": "Créez votre premier événement",
+        "body": "Appuyez sur le bouton + pour créer un entraînement ou un match. Les membres seront notifiés automatiquement."
+      },
+      "manageGroup": {
+        "title": "Gestion du groupe",
+        "body": "Ici vous pouvez ajouter ou supprimer des membres, assigner des rôles et organiser des sous-groupes."
+      },
+      "news": {
+        "title": "Actualités du club",
+        "body": "Restez à jour avec les dernières annonces et mises à jour de votre club et de vos groupes."
+      },
+      "eventResponse": {
+        "title": "Répondre aux événements",
+        "body": "Informez votre entraîneur de votre disponibilité en appuyant sur les boutons de réponse ci-dessous."
+      },
+      "statistics": {
+        "title": "Statistiques de présence",
+        "body": "Consultez les tendances détaillées de présence pour comprendre les patterns de participation."
+      },
+      "createNews": {
+        "title": "Partager des actualités",
+        "body": "Appuyez sur le bouton + pour créer un article. Tous les membres du groupe seront notifiés."
+      },
+      "subgroups": {
+        "title": "Sous-groupes",
+        "body": "Créez des sous-groupes pour organiser les membres au sein de votre groupe — par âge ou niveau par exemple."
+      }
+    },
+    "coachMarks": {
+      "clubSettings": "Paramètres, paiements et invitations",
+      "groupSettings": "Rôles, invitations et paramètres",
+      "clubEventFab": "Créer des entraînements et matchs",
+      "clubNewsFab": "Partager des actualités avec le club",
+      "groupEventFab": "Planifier des événements pour le groupe",
+      "groupNewsFab": "Publier des nouvelles dans le groupe",
+      "clubCard": "Appuyez pour gérer les membres et groupes"
     }
   }
 }

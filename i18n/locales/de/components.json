@@ -2,13 +2,11 @@
   "confirmationModal": {
     "confirm": "Bestätigen"
   },
-
   "deletionConfirmationModal": {
     "gracePeriodNote": "{{gracePeriodDays}}-tägige Frist – Sie können dies rückgängig machen!",
     "deletionMessage": "Sind Sie sicher, dass Sie \"{{entityName}}\" löschen möchten? Dies betrifft {{affectedCount}} Mitglieder.",
     "deleting": "Wird gelöscht..."
   },
-
   "invitationModal": {
     "roleUpdate": "Rollenaktualisierung",
     "clubAdminInvitation": "Vereinsadministrator-Einladung",
@@ -26,7 +24,6 @@
     "acceptRole": "Rolle annehmen",
     "acceptAndJoin": "Annehmen & Beitreten"
   },
-
   "roleFilterModal": {
     "filterByRole": "Nach Rolle filtern",
     "apply": "Anwenden",
@@ -51,7 +48,6 @@
       "guardiansDesc": "Eltern/Erziehungsberechtigte von Jugendmitgliedern"
     }
   },
-
   "memberContactModal": {
     "contactDetails": "Kontaktdaten",
     "loadingDetails": "Details werden geladen...",
@@ -69,7 +65,6 @@
     "inactiveMember": "Inaktives Mitglied",
     "scheduledDeletion": "Kontodaten werden am {{date}} endgültig gelöscht."
   },
-
   "memberFilterBar": {
     "all": "Alle",
     "active": "Aktiv",
@@ -82,7 +77,6 @@
     "guardian": "Erziehungsberechtigter",
     "searchPlaceholder": "Nach Name oder E-Mail suchen…"
   },
-
   "eventCard": {
     "today": "Heute",
     "tomorrow": "Morgen",
@@ -96,7 +90,6 @@
     "recurring": "Wiederkehrend",
     "organizer": "Organisator"
   },
-
   "newsCard": {
     "you": "Du",
     "new": "Neu",
@@ -106,7 +99,6 @@
     "hoursAgo": "vor {{count}} Std.",
     "daysAgo": "vor {{count}} T."
   },
-
   "paymentCard": {
     "dueToday": "Fällig heute",
     "dueTomorrow": "Fällig morgen",
@@ -121,14 +113,12 @@
     "paid": "Bezahlt",
     "noDueDate": "Kein Fälligkeitsdatum"
   },
-
   "paymentStatusBadge": {
     "paid": "Bezahlt",
     "notPaid": "Nicht bezahlt",
     "overdue": "Überfällig",
     "paidBy": "von {{paidBy}}"
   },
-
   "notificationBell": {
     "notifications": "Benachrichtigungen",
     "markAllRead": "Alle als gelesen markieren",
@@ -140,11 +130,9 @@
     "later": "Später",
     "paymentError": "Zahlungsfehler"
   },
-
   "dropdownInput": {
     "selectAnOption": "Option auswählen"
   },
-
   "genderPicker": {
     "male": "Männlich",
     "female": "Weiblich",
@@ -153,13 +141,11 @@
     "selectGender": "Geschlecht wählen",
     "selectLabel": "{{label}} wählen"
   },
-
   "floatingActionButton": {
     "newEvent": "Neuer Termin",
     "news": "Neuigkeit",
     "event": "Termin"
   },
-
   "profilePictureUpload": {
     "uploadMemberPhoto": "Mitgliederfoto hochladen",
     "uploadProfilePicture": "Profilbild hochladen",
@@ -176,7 +162,6 @@
     "failedToUploadProfilePicture": "Profilbild konnte nicht hochgeladen werden",
     "unexpectedError": "Ein unerwarteter Fehler ist aufgetreten"
   },
-
   "legalAcceptanceScreen": {
     "updatedTermsTitle": "Aktualisierte AGB & Datenschutzrichtlinie",
     "termsTitle": "Nutzungsbedingungen & Datenschutzrichtlinie",
@@ -208,7 +193,6 @@
     "agreeAndContinue": "Zustimmen & Fortfahren",
     "pleaseWait": "Bitte warten..."
   },
-
   "legalSettingsSection": {
     "legal": "Rechtliches",
     "termsOfService": "Nutzungsbedingungen",
@@ -218,7 +202,6 @@
     "updateRequired": "Aktualisierung erforderlich",
     "lastAcceptedOn": "Zuletzt akzeptiert am {{date}}"
   },
-
   "subscriptionWarningBanner": {
     "memberLimitReached": "Mitgliederlimit erreicht",
     "approachingMemberLimit": "Mitgliederlimit fast erreicht",
@@ -226,7 +209,6 @@
     "approachingLimitMessage": "Nur noch {{remaining}} Mitgliederplatz/-plätze im {{tier}}-Plan verfügbar.",
     "upgrade": "Upgrade"
   },
-
   "countdownTimer": {
     "expired": "Abgelaufen",
     "gracePeriodExpired": "Frist abgelaufen",
@@ -234,7 +216,6 @@
     "fullFormat": "{{days}} Tage, {{hours}} Stunden, {{minutes}} Minuten",
     "remaining": "verbleibend"
   },
-
   "pushNotifications": {
     "channels": {
       "default": "Allgemein",
@@ -247,6 +228,55 @@
       "title": "Bleib auf dem Laufenden",
       "message": "Aktiviere Benachrichtigungen, um Updates zu Veranstaltungen, Einladungen und Zahlungen zu erhalten.",
       "openSettings": "Einstellungen öffnen"
+    }
+  },
+  "onboarding": {
+    "tooltips": {
+      "attendance": {
+        "title": "Anwesenheit erfassen",
+        "body": "Tippe auf Mitglieder, um sie als anwesend oder abwesend zu markieren. Deine Einträge werden automatisch gespeichert."
+      },
+      "payments": {
+        "title": "Zahlungsübersicht",
+        "body": "Hier siehst du, wer bezahlt hat und wer nicht. Sende Erinnerungen an Mitglieder mit offenen Beiträgen."
+      },
+      "createEvent": {
+        "title": "Erste Veranstaltung erstellen",
+        "body": "Tippe auf den +-Button, um ein Training oder Spiel zu erstellen. Mitglieder werden automatisch benachrichtigt."
+      },
+      "manageGroup": {
+        "title": "Gruppenverwaltung",
+        "body": "Hier kannst du Mitglieder hinzufügen oder entfernen, Rollen zuweisen und Untergruppen organisieren."
+      },
+      "news": {
+        "title": "Vereinsnachrichten",
+        "body": "Bleib mit den neuesten Ankündigungen und Updates deines Vereins und deiner Gruppen auf dem Laufenden."
+      },
+      "eventResponse": {
+        "title": "Auf Veranstaltungen antworten",
+        "body": "Teile deinem Trainer mit, ob du teilnehmen kannst, indem du die Antwortbuttons unten nutzt."
+      },
+      "statistics": {
+        "title": "Anwesenheitsstatistik",
+        "body": "Sieh dir detaillierte Anwesenheitsmuster an, um Teilnahmetrends über die Zeit zu verstehen."
+      },
+      "createNews": {
+        "title": "Neuigkeiten teilen",
+        "body": "Tippe auf den +-Button, um einen Nachrichtenbeitrag zu erstellen. Alle Gruppenmitglieder werden benachrichtigt."
+      },
+      "subgroups": {
+        "title": "Untergruppen",
+        "body": "Erstelle Untergruppen, um Mitglieder innerhalb deiner Gruppe zu organisieren – z.B. nach Alter oder Niveau."
+      }
+    },
+    "coachMarks": {
+      "clubSettings": "Einstellungen, Zahlungen & Einladungen",
+      "groupSettings": "Rollen, Einladungen & Einstellungen",
+      "clubEventFab": "Trainings & Spiele erstellen",
+      "clubNewsFab": "Updates mit deinem Verein teilen",
+      "groupEventFab": "Veranstaltungen für die Gruppe planen",
+      "groupNewsFab": "Neuigkeiten in der Gruppe posten",
+      "clubCard": "Tippen, um Mitglieder & Gruppen zu verwalten"
     }
   }
 }

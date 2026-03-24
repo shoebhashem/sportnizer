@@ -248,5 +248,56 @@
       "message": "Enable notifications to get updates on events, invitations and payments.",
       "openSettings": "Open Settings"
     }
+  },
+
+  "onboarding": {
+    "tooltips": {
+      "attendance": {
+        "title": "Record Attendance",
+        "body": "Tap on members to mark them as attended or absent. Your records will be saved automatically."
+      },
+      "payments": {
+        "title": "Payment Tracking",
+        "body": "Here you can see who has paid and who hasn't. Send reminders to members with outstanding fees."
+      },
+      "createEvent": {
+        "title": "Create Your First Event",
+        "body": "Tap the + button to create a training session or match. Members will be notified automatically."
+      },
+      "manageGroup": {
+        "title": "Group Management",
+        "body": "Here you can add or remove members, assign roles, and organize subgroups."
+      },
+      "news": {
+        "title": "Club News",
+        "body": "Stay up to date with the latest announcements and updates from your club and groups."
+      },
+      "eventResponse": {
+        "title": "Respond to Events",
+        "body": "Let your coach know if you can attend by tapping the response buttons below."
+      },
+      "statistics": {
+        "title": "Attendance Statistics",
+        "body": "View detailed attendance patterns to understand participation trends over time."
+      },
+      "createNews": {
+        "title": "Share News",
+        "body": "Tap the + button to create a news post. All group members will be notified."
+      },
+      "subgroups": {
+        "title": "Subgroups",
+        "body": "Create subgroups to organize members within your group — for example, by age or skill level."
+      }
+    },
+
+    "coachMarks": {
+      "clubSettings": "Settings, payments & invites",
+      "groupSettings": "Roles, invitations & settings",
+      "clubEventFab": "Create training sessions & matches",
+      "clubNewsFab": "Share updates with your club",
+      "groupEventFab": "Schedule events for this group",
+      "groupNewsFab": "Post news to this group",
+      "clubCard": "Tap to manage members & groups"
+    }
   }
 }

@@ -8,6 +8,7 @@ import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useGroupData } from "@/contexts/GroupDataContext";
+import { useTrackFeatureOnAction } from "@/hooks/useOnboardingFeatureTracker";
 import { fetchClubGroups } from "@/services/fetchClubGroups";
 import { paymentService } from "@/services/paymentService";
 import { Ionicons } from "@expo/vector-icons";
@@ -51,6 +52,7 @@ export default function CreateMembershipFeeScreen() {
   const { clubId, groupId: preselectedGroupId } = useLocalSearchParams();
   const { getClub } = useClubData();
   const { getGroupMembers } = useGroupData();
+  const trackFeeCreated = useTrackFeatureOnAction("fee-created");
 
   // Form state
   const [title, setTitle] = useState("");
@@ -235,6 +237,7 @@ export default function CreateMembershipFeeScreen() {
       }
 
       if (successCount > 0) {
+        trackFeeCreated();
         const groupWord = successCount === 1 ? "group" : "groups";
         setSuccessMessage(
           `Fee created for ${successCount} ${groupWord}!\n\n${totalMembersNotified} members will receive a payment request.${

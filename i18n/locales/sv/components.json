@@ -2,13 +2,11 @@
   "confirmationModal": {
     "confirm": "Bekräfta"
   },
-
   "deletionConfirmationModal": {
     "gracePeriodNote": "{{gracePeriodDays}} dagars ångerperiod - Du kan ångra detta!",
     "deletionMessage": "Är du säker på att du vill ta bort \"{{entityName}}\"? Detta påverkar {{affectedCount}} medlemmar.",
     "deleting": "Tar bort..."
   },
-
   "invitationModal": {
     "roleUpdate": "Rolluppdatering",
     "clubAdminInvitation": "Klubbadmin-inbjudan",
@@ -26,7 +24,6 @@
     "acceptRole": "Acceptera roll",
     "acceptAndJoin": "Acceptera & gå med"
   },
-
   "roleFilterModal": {
     "filterByRole": "Filtrera efter roll",
     "apply": "Tillämpa",
@@ -51,7 +48,6 @@
       "guardiansDesc": "Föräldrar/vårdnadshavare till ungdomsmedlemmar"
     }
   },
-
   "memberContactModal": {
     "contactDetails": "Kontaktuppgifter",
     "loadingDetails": "Laddar uppgifter...",
@@ -69,7 +65,6 @@
     "inactiveMember": "Inaktiv medlem",
     "scheduledDeletion": "Kontodata raderas permanent den {{date}}."
   },
-
   "memberFilterBar": {
     "all": "Alla",
     "active": "Aktiva",
@@ -82,7 +77,6 @@
     "guardian": "Vårdnadshavare",
     "searchPlaceholder": "Sök på namn eller e-post…"
   },
-
   "eventCard": {
     "today": "Idag",
     "tomorrow": "Imorgon",
@@ -96,7 +90,6 @@
     "recurring": "Återkommande",
     "organizer": "Organisatör"
   },
-
   "newsCard": {
     "you": "Du",
     "new": "Ny",
@@ -106,7 +99,6 @@
     "hoursAgo": "{{count}}t sedan",
     "daysAgo": "{{count}}d sedan"
   },
-
   "paymentCard": {
     "dueToday": "Förfaller idag",
     "dueTomorrow": "Förfaller imorgon",
@@ -121,14 +113,12 @@
     "paid": "Betald",
     "noDueDate": "Inget förfallodatum"
   },
-
   "paymentStatusBadge": {
     "paid": "Betald",
     "notPaid": "Ej betald",
     "overdue": "Försenad",
     "paidBy": "av {{paidBy}}"
   },
-
   "notificationBell": {
     "notifications": "Aviseringar",
     "markAllRead": "Markera alla som lästa",
@@ -140,11 +130,9 @@
     "later": "Senare",
     "paymentError": "Betalningsfel"
   },
-
   "dropdownInput": {
     "selectAnOption": "Välj ett alternativ"
   },
-
   "genderPicker": {
     "male": "Man",
     "female": "Kvinna",
@@ -153,13 +141,11 @@
     "selectGender": "Välj kön",
     "selectLabel": "Välj {{label}}"
   },
-
   "floatingActionButton": {
     "newEvent": "Ny händelse",
     "news": "Nyhet",
     "event": "Händelse"
   },
-
   "profilePictureUpload": {
     "uploadMemberPhoto": "Ladda upp medlemsfoto",
     "uploadProfilePicture": "Ladda upp profilbild",
@@ -176,7 +162,6 @@
     "failedToUploadProfilePicture": "Kunde inte ladda upp profilbild",
     "unexpectedError": "Ett oväntat fel uppstod"
   },
-
   "legalAcceptanceScreen": {
     "updatedTermsTitle": "Uppdaterade villkor & integritetspolicy",
     "termsTitle": "Användarvillkor & integritetspolicy",
@@ -208,7 +193,6 @@
     "agreeAndContinue": "Jag godkänner & fortsätt",
     "pleaseWait": "Vänligen vänta..."
   },
-
   "legalSettingsSection": {
     "legal": "Juridiskt",
     "termsOfService": "Användarvillkor",
@@ -218,7 +202,6 @@
     "updateRequired": "Uppdatering krävs",
     "lastAcceptedOn": "Senast godkänd {{date}}"
   },
-
   "subscriptionWarningBanner": {
     "memberLimitReached": "Medlemsgräns nådd",
     "approachingMemberLimit": "Närmar sig medlemsgräns",
@@ -226,7 +209,6 @@
     "approachingLimitMessage": "Bara {{remaining}} medlemsplats(er) kvar i {{tier}}-planen.",
     "upgrade": "Uppgradera"
   },
-
   "countdownTimer": {
     "expired": "Utgått",
     "gracePeriodExpired": "Ångerperioden har gått ut",
@@ -234,7 +216,6 @@
     "fullFormat": "{{days}} dagar, {{hours}} timmar, {{minutes}} minuter",
     "remaining": "kvar"
   },
-
   "pushNotifications": {
     "channels": {
       "default": "Allmänt",
@@ -247,6 +228,55 @@
       "title": "Håll dig uppdaterad",
       "message": "Aktivera notifieringar för att få uppdateringar om händelser, inbjudningar och betalningar.",
       "openSettings": "Öppna inställningar"
+    }
+  },
+  "onboarding": {
+    "tooltips": {
+      "attendance": {
+        "title": "Registrera närvaro",
+        "body": "Tryck på medlemmar för att markera dem som närvarande eller frånvarande. Dina registreringar sparas automatiskt."
+      },
+      "payments": {
+        "title": "Betalningsöversikt",
+        "body": "Här kan du se vem som har betalat och vem som inte har det. Skicka påminnelser till medlemmar med utestående avgifter."
+      },
+      "createEvent": {
+        "title": "Skapa ditt första evenemang",
+        "body": "Tryck på +-knappen för att skapa ett träningspass eller en match. Medlemmar meddelas automatiskt."
+      },
+      "manageGroup": {
+        "title": "Grupphantering",
+        "body": "Här kan du lägga till eller ta bort medlemmar, tilldela roller och organisera undergrupper."
+      },
+      "news": {
+        "title": "Klubbnyheter",
+        "body": "Håll dig uppdaterad med de senaste meddelandena och uppdateringarna från din klubb och dina grupper."
+      },
+      "eventResponse": {
+        "title": "Svara på evenemang",
+        "body": "Meddela din tränare om du kan närvara genom att trycka på svarsknapparna nedan."
+      },
+      "statistics": {
+        "title": "Närvarostatistik",
+        "body": "Se detaljerade närvaromönster för att förstå deltagartrender över tid."
+      },
+      "createNews": {
+        "title": "Dela nyheter",
+        "body": "Tryck på +-knappen för att skapa ett nyhetsinlägg. Alla gruppmedlemmar meddelas."
+      },
+      "subgroups": {
+        "title": "Undergrupper",
+        "body": "Skapa undergrupper för att organisera medlemmar inom din grupp – till exempel efter ålder eller nivå."
+      }
+    },
+    "coachMarks": {
+      "clubSettings": "Inställningar, betalningar & inbjudningar",
+      "groupSettings": "Roller, inbjudningar & inställningar",
+      "clubEventFab": "Skapa träningar & matcher",
+      "clubNewsFab": "Dela uppdateringar med din klubb",
+      "groupEventFab": "Schemalägg evenemang för gruppen",
+      "groupNewsFab": "Publicera nyheter i gruppen",
+      "clubCard": "Tryck för att hantera medlemmar & grupper"
     }
   }
 }

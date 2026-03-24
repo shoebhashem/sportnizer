@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTrackFeatureOnAction } from "@/hooks/useOnboardingFeatureTracker";
 import Button from "../components/Button";
 import ConfirmationModal from "../components/ConfirmationModal";
 import CustomDateTimePicker from "../components/DateTimePicker";
@@ -73,6 +74,7 @@ export default function CreateEventScreen() {
   const { user } = useAuth();
   const { userProfile } = useUser();
   const { getGroupMembers, getSubgroupMembers } = useGroupData();
+  const trackEventCreated = useTrackFeatureOnAction("event-created");
 
   // DEBUG: Log received params
   console.log("🔍 CreateEvent - Received Params:", {
@@ -647,6 +649,7 @@ export default function CreateEventScreen() {
           }),
           type: "success",
         });
+        trackEventCreated();
       } else {
         // Create single event
         const result = await eventCreationService.createEvent(request);
@@ -665,6 +668,7 @@ export default function CreateEventScreen() {
           }),
           type: "success",
         });
+        trackEventCreated();
       }
     } catch (error) {
       console.error("Error creating event:", error);

@@ -24,6 +24,7 @@ import {
 } from "react-native";
 
 import ConfirmationModal from "@/components/ConfirmationModal";
+import { ScreenTooltipManager } from "@/components/onboarding";
 
 type EventFilter = "all" | "training" | "match" | "other";
 type TimeFilter = "upcoming" | "past";
@@ -445,6 +446,9 @@ export default function EventsTab() {
         onConfirm={hideAlert}
         onCancel={hideAlert}
       />
+
+      {/* Onboarding: Contextual tooltips for events screen */}
+      <ScreenTooltipManager screen="events" />
     </View>
   );
 }

@@ -2,13 +2,11 @@
   "confirmationModal": {
     "confirm": "Bekræft"
   },
-
   "deletionConfirmationModal": {
     "gracePeriodNote": "{{gracePeriodDays}}-dages henstandsperiode – Du kan fortryde!",
     "deletionMessage": "Er du sikker på, at du vil slette \"{{entityName}}\"? Dette vil påvirke {{affectedCount}} medlemmer.",
     "deleting": "Sletter..."
   },
-
   "invitationModal": {
     "roleUpdate": "Rolleopdatering",
     "clubAdminInvitation": "Klubadministrator-invitation",
@@ -26,7 +24,6 @@
     "acceptRole": "Accepter rolle",
     "acceptAndJoin": "Accepter & tilmeld"
   },
-
   "roleFilterModal": {
     "filterByRole": "Filtrer efter rolle",
     "apply": "Anvend",
@@ -51,7 +48,6 @@
       "guardiansDesc": "Forældre/værger til ungdomsmedlemmer"
     }
   },
-
   "memberContactModal": {
     "contactDetails": "Kontaktoplysninger",
     "loadingDetails": "Indlæser oplysninger...",
@@ -65,7 +61,6 @@
     "inactiveMember": "Inaktivt medlem",
     "scheduledDeletion": "Kontodata slettes permanent den {{date}}."
   },
-
   "memberFilterBar": {
     "all": "Alle",
     "active": "Aktive",
@@ -78,7 +73,6 @@
     "guardian": "Værge",
     "searchPlaceholder": "Søg efter navn eller e-mail…"
   },
-
   "eventCard": {
     "today": "I dag",
     "tomorrow": "I morgen",
@@ -92,7 +86,6 @@
     "recurring": "Tilbagevendende",
     "organizer": "Arrangør"
   },
-
   "newsCard": {
     "you": "Dig",
     "new": "Ny",
@@ -102,7 +95,6 @@
     "hoursAgo": "{{count}}t siden",
     "daysAgo": "{{count}}d siden"
   },
-
   "paymentCard": {
     "dueToday": "Forfalder i dag",
     "dueTomorrow": "Forfalder i morgen",
@@ -117,14 +109,12 @@
     "paid": "Betalt",
     "noDueDate": "Ingen forfaldsdato"
   },
-
   "paymentStatusBadge": {
     "paid": "Betalt",
     "notPaid": "Ikke betalt",
     "overdue": "Forsinket",
     "paidBy": "af {{paidBy}}"
   },
-
   "notificationBell": {
     "notifications": "Notifikationer",
     "markAllRead": "Markér alle som læst",
@@ -136,11 +126,9 @@
     "later": "Senere",
     "paymentError": "Betalingsfejl"
   },
-
   "dropdownInput": {
     "selectAnOption": "Vælg en mulighed"
   },
-
   "genderPicker": {
     "male": "Mand",
     "female": "Kvinde",
@@ -149,13 +137,11 @@
     "selectGender": "Vælg køn",
     "selectLabel": "Vælg {{label}}"
   },
-
   "floatingActionButton": {
     "newEvent": "Ny begivenhed",
     "news": "Nyheder",
     "event": "Begivenhed"
   },
-
   "profilePictureUpload": {
     "uploadMemberPhoto": "Upload medlemsfoto",
     "uploadProfilePicture": "Upload profilbillede",
@@ -172,7 +158,6 @@
     "failedToUploadProfilePicture": "Kunne ikke uploade profilbillede",
     "unexpectedError": "Der opstod en uventet fejl"
   },
-
   "legalAcceptanceScreen": {
     "updatedTermsTitle": "Opdaterede vilkår & privatlivspolitik",
     "termsTitle": "Servicevilkår & privatlivspolitik",
@@ -204,7 +189,6 @@
     "agreeAndContinue": "Jeg accepterer & fortsæt",
     "pleaseWait": "Vent venligst..."
   },
-
   "legalSettingsSection": {
     "legal": "Juridisk",
     "termsOfService": "Servicevilkår",
@@ -214,7 +198,6 @@
     "updateRequired": "Opdatering påkrævet",
     "lastAcceptedOn": "Sidst accepteret den {{date}}"
   },
-
   "subscriptionWarningBanner": {
     "memberLimitReached": "Medlemsgrænse nået",
     "approachingMemberLimit": "Nærmer sig medlemsgrænsen",
@@ -222,7 +205,6 @@
     "approachingLimitMessage": "Kun {{remaining}} medlemsplads(er) tilbage på {{tier}}-planen.",
     "upgrade": "Opgrader"
   },
-
   "countdownTimer": {
     "expired": "Udløbet",
     "gracePeriodExpired": "Henstandsperiode udløbet",
@@ -230,7 +212,6 @@
     "fullFormat": "{{days}} dage, {{hours}} timer, {{minutes}} minutter",
     "remaining": "tilbage"
   },
-
   "pushNotifications": {
     "channels": {
       "default": "Generelt",
@@ -243,6 +224,55 @@
       "title": "Hold dig opdateret",
       "message": "Aktivér notifikationer for at modtage opdateringer om begivenheder, invitationer og betalinger.",
       "openSettings": "Åbn indstillinger"
+    }
+  },
+  "onboarding": {
+    "tooltips": {
+      "attendance": {
+        "title": "Registrer fremmøde",
+        "body": "Tryk på medlemmer for at markere dem som til stede eller fraværende. Dine registreringer gemmes automatisk."
+      },
+      "payments": {
+        "title": "Betalingsoversigt",
+        "body": "Her kan du se hvem der har betalt og hvem der ikke har. Send påmindelser til medlemmer med udestående kontingenter."
+      },
+      "createEvent": {
+        "title": "Opret din første begivenhed",
+        "body": "Tryk på +-knappen for at oprette en træning eller kamp. Medlemmer får automatisk besked."
+      },
+      "manageGroup": {
+        "title": "Gruppeadministration",
+        "body": "Her kan du tilføje eller fjerne medlemmer, tildele roller og organisere undergrupper."
+      },
+      "news": {
+        "title": "Klubnyheder",
+        "body": "Hold dig opdateret med de seneste meddelelser og opdateringer fra din klub og dine grupper."
+      },
+      "eventResponse": {
+        "title": "Svar på begivenheder",
+        "body": "Giv din træner besked om du kan deltage ved at trykke på svarknapperne nedenfor."
+      },
+      "statistics": {
+        "title": "Fremmødestatistik",
+        "body": "Se detaljerede fremmødemønstre for at forstå deltagelsestendenser over tid."
+      },
+      "createNews": {
+        "title": "Del nyheder",
+        "body": "Tryk på +-knappen for at oprette et nyhedsopslag. Alle gruppemedlemmer får besked."
+      },
+      "subgroups": {
+        "title": "Undergrupper",
+        "body": "Opret undergrupper for at organisere medlemmer i din gruppe – for eksempel efter alder eller niveau."
+      }
+    },
+    "coachMarks": {
+      "clubSettings": "Indstillinger, betalinger og invitationer",
+      "groupSettings": "Roller, invitationer og indstillinger",
+      "clubEventFab": "Opret træninger og kampe",
+      "clubNewsFab": "Del opdateringer med din klub",
+      "groupEventFab": "Planlæg begivenheder for gruppen",
+      "groupNewsFab": "Post nyheder i gruppen",
+      "clubCard": "Tryk for at administrere medlemmer og grupper"
     }
   }
 }

@@ -1,8 +1,10 @@
+import { FeatureHighlight } from "@/components/onboarding";
 import { theme } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -91,40 +93,91 @@ export function NewsEventFAB({
   onNewsPress,
   onEventPress,
   style,
+  newsHighlight,
+  eventHighlight,
 }: {
   onNewsPress: () => void;
   onEventPress: () => void;
   style?: ViewStyle;
+  /** Coach mark config for the News FAB */
+  newsHighlight?: {
+    active: boolean;
+    coachMark?: string;
+    onDismiss?: () => void;
+  };
+  /** Coach mark config for the Event FAB */
+  eventHighlight?: {
+    active: boolean;
+    coachMark?: string;
+    onDismiss?: () => void;
+  };
 }) {
   const { t } = useTranslation(["components", "common"]);
+
+  const newsFab = (
+    <TouchableOpacity
+      onPress={onNewsPress}
+      style={[styles.fab, styles.newsFab]}
+    >
+      <Text style={[styles.fabText, styles.newsText]}>
+        {t("components:floatingActionButton.news")}
+      </Text>
+      <Ionicons
+        name="newspaper-outline"
+        size={22}
+        color={theme.colors.badge.child}
+      />
+    </TouchableOpacity>
+  );
+
+  const eventFab = (
+    <TouchableOpacity
+      onPress={onEventPress}
+      style={[styles.fab, styles.eventFab]}
+    >
+      <Text style={[styles.fabText, styles.eventText]}>
+        {t("components:floatingActionButton.event")}
+      </Text>
+      <Ionicons
+        name="calendar-outline"
+        size={22}
+        color={theme.colors.secondary}
+      />
+    </TouchableOpacity>
+  );
 
   return (
     <View style={[styles.dualFabContainer, style]}>
       {/* News FAB (Blue) - Top */}
-      <TouchableOpacity
-        onPress={onNewsPress}
-        style={[styles.fab, styles.newsFab]}
-      >
-        <Text style={[styles.fabText, styles.newsText]}>{t("components:floatingActionButton.news")}</Text>
-        <Ionicons
-          name="newspaper-outline"
-          size={22}
+      {newsHighlight?.active ? (
+        <FeatureHighlight
+          active
+          borderRadius={28}
           color={theme.colors.badge.child}
-        />
-      </TouchableOpacity>
+          coachMark={newsHighlight.coachMark}
+          coachMarkPosition="left"
+          onDismiss={newsHighlight.onDismiss}
+        >
+          {newsFab}
+        </FeatureHighlight>
+      ) : (
+        newsFab
+      )}
 
       {/* Event FAB (Yellow) - Bottom */}
-      <TouchableOpacity
-        onPress={onEventPress}
-        style={[styles.fab, styles.eventFab]}
-      >
-        <Text style={[styles.fabText, styles.eventText]}>{t("components:floatingActionButton.event")}</Text>
-        <Ionicons
-          name="calendar-outline"
-          size={22}
-          color={theme.colors.secondary}
-        />
-      </TouchableOpacity>
+      {eventHighlight?.active ? (
+        <FeatureHighlight
+          active
+          borderRadius={28}
+          coachMark={eventHighlight.coachMark}
+          coachMarkPosition="left"
+          onDismiss={eventHighlight.onDismiss}
+        >
+          {eventFab}
+        </FeatureHighlight>
+      ) : (
+        eventFab
+      )}
     </View>
   );
 }
@@ -172,7 +225,7 @@ const styles = StyleSheet.create({
   },
   dualFabContainer: {
     position: "absolute",
-    bottom: 80,
+    bottom: Platform.OS === "android" ? 80 : 80,
     right: 24,
     alignItems: "center",
     zIndex: 10,

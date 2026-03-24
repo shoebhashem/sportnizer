@@ -2,9 +2,11 @@
 // Features: Event info, user response, responses list, edit button
 
 import ConfirmationModal from "@/components/ConfirmationModal";
+import { ScreenTooltipManager } from "@/components/onboarding";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserContext";
+import { useTrackFeatureOnAction } from "@/hooks/useOnboardingFeatureTracker";
 import {
     recordEventAttendance,
     type AttendanceRecord,
@@ -49,6 +51,10 @@ export default function EventDetailsScreen() {
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
   const params = useLocalSearchParams();
+  const trackAttendanceRecorded = useTrackFeatureOnAction(
+    "attendance-recorded",
+  );
+  const trackEventResponded = useTrackFeatureOnAction("event-responded");
 
   const eventId = params.eventId as string;
   const clubId = params.clubId as string;
@@ -267,6 +273,7 @@ export default function EventDetailsScreen() {
       );
 
       if (success) {
+        trackEventResponded();
         // Reload event details to show updated response
         await loadEventDetails();
 
@@ -707,6 +714,7 @@ export default function EventDetailsScreen() {
       setIsRecordingAttendance(false);
       setAttendanceData(new Map());
 
+      trackAttendanceRecorded();
       setConfirmModal({
         visible: true,
         title: t("common:success"),
@@ -2571,6 +2579,7 @@ export default function EventDetailsScreen() {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
       />
+      <ScreenTooltipManager screen="event-details" />
     </View>
   );
 }

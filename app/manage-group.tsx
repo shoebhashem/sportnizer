@@ -6,11 +6,20 @@ import MemberFilterBar, {
     type RoleOption,
     type StatusFilter,
 } from "@/components/MemberFilterBar";
+import {
+    FeatureHighlight,
+    ScreenTooltipManager,
+} from "@/components/onboarding";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGroupData } from "@/contexts/GroupDataContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useUser } from "@/contexts/UserContext";
+import {
+    useHasSeenFeature,
+    useTrackFeatureOnMount,
+} from "@/hooks/useOnboardingFeatureTracker";
 import { db } from "@/services/core/firebase";
 import { SubGroup } from "@/services/subgroup";
 import { GroupMemberData } from "@/services/types/group";
@@ -39,6 +48,11 @@ export default function ManageGroupScreen() {
   const { groupId, clubId, clubName, tab } = useLocalSearchParams();
   const { user } = useAuth();
   const { userProfile } = useUser();
+  useTrackFeatureOnMount("group-managed");
+  const hasSeenGroupSettings = useHasSeenFeature("group-settings-viewed");
+  const hasSeenGroupEvents = useHasSeenFeature("group-events-fab-seen");
+  const hasSeenGroupNews = useHasSeenFeature("group-news-fab-seen");
+  const { markFeatureSeen } = useOnboarding();
   const {
     getGroup,
     getGroupMembers,
@@ -265,20 +279,32 @@ export default function ManageGroupScreen() {
           </TouchableOpacity>
           {/* Settings gear (visible to all group members) */}
           {isMember && (
-            <TouchableOpacity
-              onPress={() => {
-                router.push(
-                  `/group-settings?groupId=${groupId}&clubId=${clubId}` as any,
-                );
-              }}
-              style={{ marginRight: 8, padding: 8 }}
+            <FeatureHighlight
+              active={!hasSeenGroupSettings}
+              borderRadius={20}
+              coachMark={
+                !hasSeenGroupSettings
+                  ? t("components:onboarding.coachMarks.groupSettings")
+                  : undefined
+              }
+              coachMarkPosition="left"
+              onDismiss={() => markFeatureSeen("group-settings-viewed")}
             >
-              <Ionicons
-                name="settings-outline"
-                size={24}
-                color={theme.colors.secondary}
-              />
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  router.push(
+                    `/group-settings?groupId=${groupId}&clubId=${clubId}` as any,
+                  );
+                }}
+                style={{ marginRight: 8, padding: 8 }}
+              >
+                <Ionicons
+                  name="settings-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </TouchableOpacity>
+            </FeatureHighlight>
           )}
         </View>
       ),
@@ -538,6 +564,16 @@ export default function ManageGroupScreen() {
               },
             });
           }}
+          newsHighlight={{
+            active: !hasSeenGroupNews,
+            coachMark: t("components:onboarding.coachMarks.groupNewsFab"),
+            onDismiss: () => markFeatureSeen("group-news-fab-seen"),
+          }}
+          eventHighlight={{
+            active: !hasSeenGroupEvents,
+            coachMark: t("components:onboarding.coachMarks.groupEventFab"),
+            onDismiss: () => markFeatureSeen("group-events-fab-seen"),
+          }}
         />
       )}
 
@@ -561,6 +597,7 @@ export default function ManageGroupScreen() {
           scheduledForDeletion={selectedMember.scheduledForDeletion}
         />
       )}
+      <ScreenTooltipManager screen="manage-group" />
     </View>
   );
 }
