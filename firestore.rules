@@ -263,10 +263,15 @@ service cloud.firestore {
       allow read: if isSignedIn();
       
       // Create: Any authenticated user can create a club
+      // (platformFeePercent is set by the Cloud Function, not the client)
       allow create: if isSignedIn();
       
       // Update/Delete: Only club admins or club creator
-      allow update, delete: if isClubAdmin(clubId) || isClubCreator(clubId);
+      // SECURITY: platformFeePercent can ONLY be changed via Cloud Functions (Admin SDK).
+      // Client-side updates that attempt to modify platformFeePercent are rejected.
+      allow update: if (isClubAdmin(clubId) || isClubCreator(clubId)) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['platformFeePercent']);
+      allow delete: if isClubAdmin(clubId) || isClubCreator(clubId);
 
       // All Members subcollection at club level - contains member documents/arrays for the club
       match /allMembers/{memberId} {

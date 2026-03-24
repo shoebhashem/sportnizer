@@ -13,10 +13,11 @@
 
 export const STRIPE_CONFIG = {
   /**
-   * Platform takes 1.5% of each payment
-   * This is Clubnizer's commission on every transaction
+   * Default platform fee percentage for new clubs.
+   * Individual clubs can override this via the `platformFeePercent` field
+   * on their Firestore club document (set by Clubnizer support only).
    */
-  platformFeePercent: 1.5,
+  platformFeePercent: 0,
 
   /**
    * Default currency (fallback only - each club uses their own based on country)
@@ -55,15 +56,22 @@ export const STRIPE_CONFIG = {
  * Calculate platform fee in smallest currency unit (öre/cents)
  *
  * @param amountInSmallestUnit - Amount in öre/cents (e.g., 150000 = 1500.00 SEK)
+ * @param overridePercent - Optional per-club fee percentage. If provided, overrides the global default.
  * @returns Platform fee in öre/cents (rounded down to avoid overcharging)
  *
  * @example
- * calculatePlatformFee(150000) // Returns 2250 (22.50 SEK = 1.5% of 1500 SEK)
+ * calculatePlatformFee(150000)      // Uses global default (currently 0%)
+ * calculatePlatformFee(150000, 1.5)  // Returns 2250 (22.50 SEK = 1.5% of 1500 SEK)
  */
-export function calculatePlatformFee(amountInSmallestUnit: number): number {
-  return Math.floor(
-    amountInSmallestUnit * (STRIPE_CONFIG.platformFeePercent / 100),
-  );
+export function calculatePlatformFee(
+  amountInSmallestUnit: number,
+  overridePercent?: number,
+): number {
+  const feePercent =
+    overridePercent !== undefined && overridePercent !== null
+      ? overridePercent
+      : STRIPE_CONFIG.platformFeePercent;
+  return Math.floor(amountInSmallestUnit * (feePercent / 100));
 }
 
 /**

@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { STRIPE_CONFIG } from "../config/stripe";
 import { config } from "../utils/config";
 import { checkClubLimit, DEFAULT_LIMITS } from "../utils/limits";
 import { validateRequiredFields } from "../utils/validation";
@@ -81,6 +82,8 @@ export const createClub = onCall(
         // Subscription limits (usage tracking)
         activeGroupCount: 0, // No groups yet
         maxGroups: DEFAULT_LIMITS.maxGroups, // Free tier default: 10
+        // Platform fee — defaults to global value; can be overridden per-club by Clubnizer support
+        platformFeePercent: STRIPE_CONFIG.platformFeePercent,
       });
 
       // Initialize the allMembers document to ensure it exists for future operations

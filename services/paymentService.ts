@@ -112,7 +112,13 @@ const STRIPE_FEE_ESTIMATES: Record<
   US: { percentage: 2.9, fixed: 30 },
 };
 
-const PLATFORM_FEE_PERCENT = 1.5;
+/**
+ * Default platform fee percentage.
+ * The actual fee for each club is stored in its Firestore document
+ * (club.platformFeePercent) and should be passed to estimateFees().
+ * This constant is only used as a fallback when club data is unavailable.
+ */
+const DEFAULT_PLATFORM_FEE_PERCENT = 0;
 
 export const paymentService = {
   // ---------------------------
@@ -393,8 +399,16 @@ export const paymentService = {
   /**
    * Estimate fees for a given amount (for display to club admin)
    * This is calculated client-side for immediate feedback
+   *
+   * @param amount - Amount in smallest currency unit
+   * @param country - Country code for Stripe fee estimation
+   * @param platformFeePercent - Per-club platform fee percentage (from club doc)
    */
-  estimateFees(amount: number, country: string = "SE"): FeeEstimate {
+  estimateFees(
+    amount: number,
+    country: string = "SE",
+    platformFeePercent?: number,
+  ): FeeEstimate {
     const feeStructure =
       STRIPE_FEE_ESTIMATES[country] || STRIPE_FEE_ESTIMATES["SE"];
 
@@ -403,8 +417,12 @@ export const paymentService = {
       amount * (feeStructure.percentage / 100) + feeStructure.fixed,
     );
 
-    // Calculate platform fee (1.5%)
-    const platformFee = Math.floor(amount * (PLATFORM_FEE_PERCENT / 100));
+    // Calculate platform fee (use per-club value or global default)
+    const feePercent =
+      platformFeePercent !== undefined && platformFeePercent !== null
+        ? platformFeePercent
+        : DEFAULT_PLATFORM_FEE_PERCENT;
+    const platformFee = Math.floor(amount * (feePercent / 100));
 
     // Calculate club receives
     const clubReceivesEstimate = amount - stripeFeeEstimate - platformFee;

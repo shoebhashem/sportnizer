@@ -188,7 +188,7 @@ export interface FeeEstimate {
   memberPays: number;
   /** Estimated Stripe fee (charged to club) */
   stripeFeeEstimate: number;
-  /** Platform fee (1.5% to Clubnizer) */
+  /** Platform fee (configured per-club, default 0%) */
   platformFee: number;
   /** Estimated amount club receives after all fees */
   clubReceivesEstimate: number;
@@ -203,24 +203,17 @@ export interface FeeEstimate {
  *
  * @param countryCode - ISO 3166-1 alpha-2 country code (e.g., 'SE', 'NO')
  * @param amount - Amount in smallest currency unit (öre/cents)
+ * @param platformFeeOverride - Optional per-club platform fee percentage. Falls back to global default.
  * @returns Fee breakdown estimate
  *
  * @example
  * // Member pays 1500 SEK (150000 öre)
  * const estimate = estimateStripeFee('SE', 150000);
- * // Returns:
- * // {
- * //   memberPays: 150000,
- * //   stripeFeeEstimate: 2430,    // ~24.30 SEK (1.5% + 1.80)
- * //   platformFee: 2250,          // 22.50 SEK (1.5%)
- * //   clubReceivesEstimate: 143070, // ~1430.70 SEK
- * //   currency: 'sek',
- * //   feeDescription: '1.5% + 1.80 kr'
- * // }
  */
 export function estimateStripeFee(
   countryCode: string,
   amount: number,
+  platformFeeOverride?: number,
 ): FeeEstimate {
   // Default to Sweden if country not found
   const feeStructure =
@@ -232,9 +225,13 @@ export function estimateStripeFee(
     amount * (feeStructure.percentageFee / 100) + feeStructure.fixedFee,
   );
 
-  // Calculate platform fee (1.5%)
+  // Calculate platform fee (per-club override or global default)
   const platformFee = Math.floor(
-    amount * (STRIPE_CONFIG.platformFeePercent / 100),
+    amount *
+      ((platformFeeOverride !== undefined && platformFeeOverride !== null
+        ? platformFeeOverride
+        : STRIPE_CONFIG.platformFeePercent) /
+        100),
   );
 
   // Calculate what club receives

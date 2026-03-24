@@ -10,7 +10,7 @@ import { config } from "../utils/config";
  *
  * This creates a payment session that:
  * 1. Charges the member the full fee amount
- * 2. Sends the platform fee (1.5%) to Clubnizer
+ * 2. Sends the platform fee (configured per-club, default 0%) to Clubnizer
  * 3. Sends the rest to the club's connected account
  * 4. Club pays the Stripe processing fees (via on_behalf_of)
  *
@@ -171,9 +171,10 @@ export const createCheckoutSession = onCall(
           ? payerName
           : beneficiaryData?.displayName || beneficiaryData?.name || "Unknown";
 
-      // 9. Calculate fees
+      // 9. Calculate fees (use per-club override if set, otherwise global default)
       const amount = feeData.amount; // In smallest unit (öre/cents)
-      const platformFee = calculatePlatformFee(amount);
+      const clubFeePercent = clubData.platformFeePercent;
+      const platformFee = calculatePlatformFee(amount, clubFeePercent);
 
       // 10. Create payment record (pending status)
       const paymentRef = db.collection("payments").doc();
@@ -215,7 +216,7 @@ export const createCheckoutSession = onCall(
             quantity: 1,
           },
         ],
-        // Platform fee goes to Clubnizer
+        // Platform fee goes to Clubnizer (0 if club has no fee configured)
         payment_intent_data: {
           application_fee_amount: platformFee,
           // on_behalf_of makes the club the settlement merchant

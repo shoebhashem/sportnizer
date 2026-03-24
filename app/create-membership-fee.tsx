@@ -15,22 +15,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -69,6 +69,8 @@ export default function CreateMembershipFeeScreen() {
   const [roleCounts, setRoleCounts] = useState<RoleCount[]>([]);
   const [clubCountry, setClubCountry] = useState("SE");
   const [clubCurrency, setClubCurrency] = useState("sek");
+  const [clubPlatformFeePercent, setClubPlatformFeePercent] =
+    useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -143,6 +145,12 @@ export default function CreateMembershipFeeScreen() {
       if (club) {
         setClubCountry(club.stripe?.country || "SE");
         setClubCurrency(club.stripe?.currency || "sek");
+        // Read per-club platform fee (set by Clubnizer support); default to 0 if not set
+        setClubPlatformFeePercent(
+          typeof club.platformFeePercent === "number"
+            ? club.platformFeePercent
+            : 0,
+        );
       }
 
       // Fetch groups
@@ -193,6 +201,7 @@ export default function CreateMembershipFeeScreen() {
   const feeEstimate = paymentService.estimateFees(
     amountInSmallestUnit,
     clubCountry,
+    clubPlatformFeePercent,
   );
   const totalExpected = totalMembers * amountInSmallestUnit;
 
@@ -573,7 +582,9 @@ export default function CreateMembershipFeeScreen() {
 
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>
-                  {t("screens:createMembershipFee.clubnizerFee")}
+                  {t("screens:createMembershipFee.clubnizerFee", {
+                    feePercent: clubPlatformFeePercent,
+                  })}
                 </Text>
                 <Text style={styles.breakdownValueMuted}>
                   -{formatCurrency(feeEstimate.platformFee)}
