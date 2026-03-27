@@ -655,8 +655,9 @@ export const addRegularMemberToGroupService = {
         );
       }
 
-      // 👤 STEP 3.5: Fetch user's actual display name from Firestore
+      // 👤 STEP 3.5: Fetch user's actual display name and photoURL from Firestore
       let displayName = "Unknown User";
+      let userPhotoURL = "";
       if (!isYouthRole) {
         try {
           const { getFirestore, doc, getDoc } =
@@ -671,7 +672,10 @@ export const addRegularMemberToGroupService = {
               userData.displayName ||
               userData.email?.split("@")[0] ||
               "Unknown User";
-            console.log(`✅ Fetched display name: ${displayName}`);
+            userPhotoURL = userData.photoURL || "";
+            console.log(
+              `✅ Fetched display name: ${displayName}, has custom photo: ${!!userPhotoURL}`,
+            );
           } else {
             // Fallback to email prefix if user document doesn't exist yet
             displayName = invitationData.email?.split("@")[0] || "Unknown User";
@@ -685,6 +689,23 @@ export const addRegularMemberToGroupService = {
             error.message,
           );
           displayName = invitationData.email?.split("@")[0] || "Unknown User";
+        }
+      } else if (isExistingYouthFlow) {
+        // For existing youth, fetch their doc to get photoURL
+        try {
+          const { getFirestore, doc, getDoc } =
+            await import("firebase/firestore");
+          const db = getFirestore();
+          const youthDocRef = doc(db, "users", youthUserId);
+          const youthDocSnap = await getDoc(youthDocRef);
+          if (youthDocSnap.exists()) {
+            userPhotoURL = youthDocSnap.data().photoURL || "";
+            console.log(
+              `✅ Fetched existing youth photoURL: ${!!userPhotoURL}`,
+            );
+          }
+        } catch (error: any) {
+          console.warn(`⚠️ Error fetching youth photoURL:`, error.message);
         }
       }
 
@@ -700,9 +721,11 @@ export const addRegularMemberToGroupService = {
         ...(isYouthRole ? {} : { email: invitationData.email }),
         roles: [role], // ✅ Use role from invitation document
         joinedAt: new Date(), // When they joined (right now)
-        photoURL: isYouthRole
-          ? "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fchild_profile_icon.png?alt=media"
-          : "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media", // Default profile icons
+        photoURL:
+          userPhotoURL ||
+          (isYouthRole
+            ? "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fchild_profile_icon.png?alt=media"
+            : "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media"), // Custom photo or default profile icons
         addedBy: invitationData.inviterUid, // Who invited them
         needsGuardian: isYouthRole, // Youth members need a guardian
         guardiansContacts: guardiansContacts, // Guardian contacts from youth's guardians array
@@ -1038,6 +1061,7 @@ export const addRegularMemberToGroupService = {
           roles: ["club-admin"],
           joinedAt: new Date(),
           photoURL:
+            memberData.photoURL ||
             "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
           addedBy: invitationData.inviterUid,
           needsGuardian: false,
@@ -1459,6 +1483,23 @@ export const addRegularMemberToGroupService = {
         // Guardian not in club — add them as new member
         console.log("📞 Adding guardian to club...");
 
+        // Fetch guardian's photoURL if they're an existing user
+        let guardianPhotoURL = "";
+        if (shouldCheckMembership) {
+          try {
+            const { getFirestore, doc, getDoc } =
+              await import("firebase/firestore");
+            const db = getFirestore();
+            const guardianDocRef = doc(db, "users", guardian.guardianUid);
+            const guardianDocSnap = await getDoc(guardianDocRef);
+            if (guardianDocSnap.exists()) {
+              guardianPhotoURL = guardianDocSnap.data().photoURL || "";
+            }
+          } catch (error: any) {
+            console.warn(`⚠️ Error fetching guardian photoURL:`, error.message);
+          }
+        }
+
         const guardianMemberData = {
           userId: guardian.guardianUid,
           name: guardian.guardianName,
@@ -1466,6 +1507,7 @@ export const addRegularMemberToGroupService = {
           roles: ["guardian"],
           joinedAt: new Date(),
           photoURL:
+            guardianPhotoURL ||
             "https://firebasestorage.googleapis.com/v0/b/sportnizer.firebasestorage.app/o/defaults%2Fadult_profile_icon.png?alt=media",
           addedBy: invitationData.inviterUid,
           needsGuardian: false,

@@ -12602,6 +12602,13 @@ Firestore Root
 │   ├── dateOfBirth?: Timestamp | null                          # Date of birth
 │   ├── emailVerified?: boolean                                 # Custom email verification flag
 │   ├── verificationStatus?: "pending" | "verified" | "rejected"
+│   ├── adminOfClubs: []
+│   ├── memberOfClubs: []
+│   ├── memberOfGroups: []
+│   ├── adminOfGroups: []
+│   ├── coachOfGroups: []
+│   ├── guardianOfGroups: []
+│   ├── adminOfGroups: []
 │   ├── personalNumber?: {                                      # Swedish personnummer for LOK-stöd (encrypted)
 │   │   ├── encrypted: string                                   # AES-256 encrypted (YYYYMMDDXXXX)
 │   │   ├── lastFour: string                                    # Last 4 digits for masked display
