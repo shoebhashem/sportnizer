@@ -47,6 +47,7 @@
     "join": "Gruppe beitreten",
     "invitationAccept": "Einladung annehmen",
     "invitationReject": "Einladung ablehnen",
-    "about": "Über uns"
+    "about": "Über uns",
+    "selectEventMembers": "Mitglieder auswählen"
   }
 }

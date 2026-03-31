@@ -348,7 +348,16 @@
     "recurringSummary": "{{count}} tillfällen, {{frequency}} på {{day}}",
     "creatingRecurringEvent": "Skapar återkommande event...",
     "createRecurringEvent": "Skapa serie ({{count}} event)",
-    "recurringEventCreatedMessage": "Återkommande event \"{{title}}\" skapat med {{count}} tillfällen för {{recipients}} mottagare."
+    "recurringEventCreatedMessage": "Återkommande event \"{{title}}\" skapat med {{count}} tillfällen för {{recipients}} mottagare.",
+    "selectMembers": "Välj medlemmar",
+    "membersSelected": "{{count}} valda",
+    "selectAll": "Välj alla",
+    "totalMembers": "{{count}} medlemmar",
+    "searchMembersPlaceholder": "Sök medlemmar...",
+    "clearSelection": "Rensa",
+    "confirmSelection": "Bekräfta ({{count}})",
+    "noMembersMatchSearch": "Inga medlemmar matchar din sökning",
+    "noMembersAvailable": "Inga medlemmar tillgängliga"
   },
 
   "eventDetails": {

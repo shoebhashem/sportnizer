@@ -246,7 +246,7 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ---
 
-### 5. Events & Attendance (`events.test.ts`) — 23 tests
+### 5. Events & Attendance (`events.test.ts`) — 27 tests
 
 #### createEventV2 (6 tests)
 
@@ -305,6 +305,15 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | 21  | should return statistics for empty group       | Returns stats object (zero counts)            |
 | 22  | should handle missing required fields          | Missing groupId → `invalid-argument` or error |
 | 23  | should reject non-member requesting statistics | Non-member → `permission-denied`              |
+
+#### createEventV2 – selectedMemberIds (4 tests)
+
+| #   | Test                                                              | What it verifies                                                               |
+| --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 24  | should invite only selected members when selectedMemberIds given  | Only selected member UIDs appear in responses; creator still in invitedUserIds |
+| 25  | should invite all members when selectedMemberIds is empty/omitted | All 4 group members appear in responses                                        |
+| 26  | should ignore invalid selectedMemberIds (not in group)            | Non-existent UIDs silently filtered out                                        |
+| 27  | should combine selectedMemberIds with roleFilter                  | roleFilter narrows first, then selectedMemberIds narrows further               |
 
 ---
 

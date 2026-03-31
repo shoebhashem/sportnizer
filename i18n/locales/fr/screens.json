@@ -327,7 +327,16 @@
     "recurringSummary": "{{count}} occurrences, {{frequency}} le {{day}}",
     "creatingRecurringEvent": "Création de l'événement récurrent...",
     "createRecurringEvent": "Créer série ({{count}} événements)",
-    "recurringEventCreatedMessage": "Événement récurrent \"{{title}}\" créé avec {{count}} occurrences pour {{recipients}} destinataires."
+    "recurringEventCreatedMessage": "Événement récurrent \"{{title}}\" créé avec {{count}} occurrences pour {{recipients}} destinataires.",
+    "selectMembers": "Sélectionner les membres",
+    "membersSelected": "{{count}} sélectionnés",
+    "selectAll": "Tout sélectionner",
+    "totalMembers": "{{count}} membres",
+    "searchMembersPlaceholder": "Rechercher des membres...",
+    "clearSelection": "Effacer",
+    "confirmSelection": "Confirmer ({{count}})",
+    "noMembersMatchSearch": "Aucun membre ne correspond à votre recherche",
+    "noMembersAvailable": "Aucun membre disponible"
   },
   "eventDetails": {
     "loadingEvent": "Chargement des détails de l'événement...",

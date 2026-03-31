@@ -47,6 +47,7 @@
     "join": "Gå med i grupp",
     "invitationAccept": "Acceptera inbjudan",
     "invitationReject": "Avböj inbjudan",
-    "about": "Om"
+    "about": "Om",
+    "selectEventMembers": "Välj medlemmar"
   }
 }

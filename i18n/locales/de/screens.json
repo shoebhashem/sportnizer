@@ -345,7 +345,16 @@
     "recurringSummary": "{{count}} Termine, {{frequency}} am {{day}}",
     "creatingRecurringEvent": "Wiederkehrendes Event wird erstellt...",
     "createRecurringEvent": "Serie erstellen ({{count}} Events)",
-    "recurringEventCreatedMessage": "Wiederkehrendes Event \"{{title}}\" mit {{count}} Terminen für {{recipients}} Empfänger erstellt."
+    "recurringEventCreatedMessage": "Wiederkehrendes Event \"{{title}}\" mit {{count}} Terminen für {{recipients}} Empfänger erstellt.",
+    "selectMembers": "Mitglieder auswählen",
+    "membersSelected": "{{count}} ausgewählt",
+    "selectAll": "Alle auswählen",
+    "totalMembers": "{{count}} Mitglieder",
+    "searchMembersPlaceholder": "Mitglieder suchen...",
+    "clearSelection": "Löschen",
+    "confirmSelection": "Bestätigen ({{count}})",
+    "noMembersMatchSearch": "Keine Mitglieder entsprechen Ihrer Suche",
+    "noMembersAvailable": "Keine Mitglieder verfügbar"
   },
   "eventDetails": {
     "loadingEvent": "Termindetails werden geladen...",

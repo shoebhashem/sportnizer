@@ -52,6 +52,9 @@ export interface CreateEventV2Request {
     | "club-admin"
   )[];
 
+  // Optional member selection (subset of members to target)
+  selectedMemberIds?: string[];
+
   // Optional capacity
   capacityLimit?: number;
 

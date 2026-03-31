@@ -327,7 +327,16 @@
     "recurringSummary": "{{count}} forekomster, {{frequency}} på {{day}}",
     "creatingRecurringEvent": "Oppretter gjentakende arrangement...",
     "createRecurringEvent": "Opprett serie ({{count}} arrangementer)",
-    "recurringEventCreatedMessage": "Gjentakende arrangement \"{{title}}\" opprettet med {{count}} forekomster for {{recipients}} mottakere."
+    "recurringEventCreatedMessage": "Gjentakende arrangement \"{{title}}\" opprettet med {{count}} forekomster for {{recipients}} mottakere.",
+    "selectMembers": "Velg medlemmer",
+    "membersSelected": "{{count}} valgte",
+    "selectAll": "Velg alle",
+    "totalMembers": "{{count}} medlemmer",
+    "searchMembersPlaceholder": "Søk medlemmer...",
+    "clearSelection": "Fjern",
+    "confirmSelection": "Bekreft ({{count}})",
+    "noMembersMatchSearch": "Ingen medlemmer matcher søket ditt",
+    "noMembersAvailable": "Ingen medlemmer tilgjengelig"
   },
   "eventDetails": {
     "loadingEvent": "Laster arrangementsdetaljer...",

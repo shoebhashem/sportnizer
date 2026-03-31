@@ -327,7 +327,16 @@
     "recurringSummary": "{{count}} begivenheder, {{frequency}} på {{day}}",
     "creatingRecurringEvent": "Opretter tilbagevendende begivenhed...",
     "createRecurringEvent": "Opret serie ({{count}} begivenheder)",
-    "recurringEventCreatedMessage": "Tilbagevendende begivenhed \"{{title}}\" oprettet med {{count}} begivenheder for {{recipients}} modtagere."
+    "recurringEventCreatedMessage": "Tilbagevendende begivenhed \"{{title}}\" oprettet med {{count}} begivenheder for {{recipients}} modtagere.",
+    "selectMembers": "Vælg medlemmer",
+    "membersSelected": "{{count}} valgte",
+    "selectAll": "Vælg alle",
+    "totalMembers": "{{count}} medlemmer",
+    "searchMembersPlaceholder": "Søg medlemmer...",
+    "clearSelection": "Ryd",
+    "confirmSelection": "Bekræft ({{count}})",
+    "noMembersMatchSearch": "Ingen medlemmer matcher din søgning",
+    "noMembersAvailable": "Ingen medlemmer tilgængelige"
   },
   "eventDetails": {
     "loadingEvent": "Indlæser begivenhedsdetaljer...",

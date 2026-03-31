@@ -743,6 +743,9 @@ export interface CreateEventRequestV2 {
     | "club-admin"
   )[];
 
+  // Optional member selection (subset of members to target)
+  selectedMemberIds?: string[];
+
   // Optional capacity limits
   capacity?: {
     min?: number;
@@ -882,6 +885,7 @@ export interface CreateRecurringEventRequest {
     | "guardian"
     | "club-admin"
   )[];
+  selectedMemberIds?: string[];
   capacityLimit?: number;
   responseDeadline?: string; // ISO string - for first occurrence; offset calculated from this
 

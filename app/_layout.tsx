@@ -188,6 +188,18 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="select-event-members"
+        options={{
+          headerShown: true,
+          title: t("screens.selectEventMembers"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.white,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
         name="event-details"
         options={{
           headerShown: true,

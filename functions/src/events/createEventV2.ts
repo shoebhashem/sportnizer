@@ -3,10 +3,10 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
-  CreateEventRequestV2,
-  CreateEventResponse,
-  EventDocument,
-  EventResponse,
+    CreateEventRequestV2,
+    CreateEventResponse,
+    EventDocument,
+    EventResponse,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
@@ -229,6 +229,13 @@ export const createEventV2 = onCall(
       if (data.roleFilter && data.roleFilter.length > 0) {
         members = members.filter((m: any) =>
           m.roles?.some((role: any) => data.roleFilter!.includes(role as any)),
+        );
+      }
+
+      // Apply selected member filter if specified
+      if (data.selectedMemberIds && data.selectedMemberIds.length > 0) {
+        members = members.filter((m: any) =>
+          data.selectedMemberIds!.includes(m.userId),
         );
       }
 

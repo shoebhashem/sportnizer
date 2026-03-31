@@ -172,6 +172,7 @@ export default function CreateEventScreen() {
   const eventId = params.eventId as string | undefined;
 
   const [selectedRoles, setSelectedRoles] = useState<ClubRole[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   // Use memberCount from params if present, else default to 0
   const initialMemberCount =
     typeof params.memberCount === "string"
@@ -217,6 +218,17 @@ export default function CreateEventScreen() {
     useState<number>(10);
   const [showRecurringEndDatePicker, setShowRecurringEndDatePicker] =
     useState(false);
+
+  // Read selectedMemberIds from navigation params (returned from select-event-members screen)
+  useEffect(() => {
+    if (params.selectedMemberIds) {
+      const ids =
+        typeof params.selectedMemberIds === "string"
+          ? params.selectedMemberIds.split(",").filter(Boolean)
+          : [];
+      setSelectedMemberIds(ids);
+    }
+  }, [params.selectedMemberIds]);
 
   // Load event data if in edit mode
   useEffect(() => {
@@ -575,6 +587,8 @@ export default function CreateEventScreen() {
         location: eventData.location,
         targetScope,
         roleFilter: selectedRoles.length > 0 ? selectedRoles : undefined,
+        selectedMemberIds:
+          selectedMemberIds.length > 0 ? selectedMemberIds : undefined,
         capacityLimit: eventData.capacity.enabled
           ? eventData.capacity.maxAttendees
           : undefined,
@@ -1305,6 +1319,8 @@ export default function CreateEventScreen() {
                     flexDirection: "row",
                     justifyContent: "space-between",
                     alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 8,
                   }}
                 >
                   <Text
@@ -1314,44 +1330,101 @@ export default function CreateEventScreen() {
                       ? "Loading..."
                       : `${memberCount} member${memberCount !== 1 ? "s" : ""}`}
                     {selectedRoles.length > 0 && ` (${getRecipientLabel()})`}
+                    {selectedMemberIds.length > 0 &&
+                      ` · ${t("screens:createEvent.membersSelected", { count: selectedMemberIds.length })}`}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowRoleFilterModal(true)}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 6,
-                      backgroundColor:
-                        selectedRoles.length > 0
-                          ? theme.colors.secondary
-                          : theme.colors.inputBorder,
-                    }}
-                  >
-                    <FontAwesome
-                      name="filter"
-                      size={14}
-                      color={
-                        selectedRoles.length > 0
-                          ? "white"
-                          : theme.colors.textSecondary
-                      }
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        router.push({
+                          pathname: "/select-event-members",
+                          params: {
+                            clubId: eventContext.clubId,
+                            clubName: eventContext.clubName,
+                            groupId: eventContext.groupId || "",
+                            groupName: eventContext.groupName || "",
+                            subgroupId: eventContext.subgroupId || "",
+                            subgroupName: eventContext.subgroupName || "",
+                            level: eventContext.level,
+                            sourceScreen: "create-event",
+                            roleFilter: selectedRoles.join(","),
+                            preSelectedIds: selectedMemberIds.join(","),
+                          },
+                        });
+                      }}
                       style={{
-                        fontSize: 14,
-                        fontWeight: "500",
-                        color:
-                          selectedRoles.length > 0
-                            ? "white"
-                            : theme.colors.text,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 6,
+                        backgroundColor:
+                          selectedMemberIds.length > 0
+                            ? theme.colors.secondary
+                            : theme.colors.inputBorder,
                       }}
                     >
-                      {t("screens:createEvent.filterRoles")}
-                    </Text>
-                  </TouchableOpacity>
+                      <FontAwesome
+                        name="user-plus"
+                        size={14}
+                        color={
+                          selectedMemberIds.length > 0
+                            ? "white"
+                            : theme.colors.textSecondary
+                        }
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "500",
+                          color:
+                            selectedMemberIds.length > 0
+                              ? "white"
+                              : theme.colors.text,
+                        }}
+                      >
+                        {t("screens:createEvent.selectMembers")}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setShowRoleFilterModal(true)}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 6,
+                        backgroundColor:
+                          selectedRoles.length > 0
+                            ? theme.colors.secondary
+                            : theme.colors.inputBorder,
+                      }}
+                    >
+                      <FontAwesome
+                        name="filter"
+                        size={14}
+                        color={
+                          selectedRoles.length > 0
+                            ? "white"
+                            : theme.colors.textSecondary
+                        }
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "500",
+                          color:
+                            selectedRoles.length > 0
+                              ? "white"
+                              : theme.colors.text,
+                        }}
+                      >
+                        {t("screens:createEvent.filterRoles")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>

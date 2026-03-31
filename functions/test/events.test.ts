@@ -702,4 +702,243 @@ describe("Event Lifecycle", () => {
       );
     });
   });
+
+  // ─── selectedMemberIds filtering ───────────────────────────
+
+  describe("createEventV2 – selectedMemberIds", () => {
+    async function setupGroupWithMembers() {
+      const admin = await createFullTestUser({ displayName: "Event Admin" });
+      const member1 = await createFullTestUser({
+        displayName: "Player One",
+        email: "player1@test.com",
+      });
+      const member2 = await createFullTestUser({
+        displayName: "Player Two",
+        email: "player2@test.com",
+      });
+      const member3 = await createFullTestUser({
+        displayName: "Coach One",
+        email: "coach1@test.com",
+      });
+
+      const { clubId } = await callFunction("createClub", admin.idToken, {
+        clubData: { name: `SelectMembers Club ${Date.now()}` },
+      });
+
+      await seedUserDocument(admin.uid, {
+        clubAccess: [
+          {
+            clubId,
+            clubName: "SelectMembers Club",
+            role: "club-admin",
+            joinedAt: new Date(),
+            isActive: true,
+            groupAccess: [],
+          },
+        ],
+      });
+
+      const { groupId } = await callFunction("createGroup", admin.idToken, {
+        clubId,
+        groupData: { name: "Test Group" },
+      });
+
+      // Seed user documents for role-based checks
+      for (const m of [member1, member2, member3]) {
+        await seedUserDocument(m.uid, {
+          clubAccess: [
+            {
+              clubId,
+              clubName: "SelectMembers Club",
+              role: "member",
+              joinedAt: new Date(),
+              isActive: true,
+              groupAccess: [
+                {
+                  groupId,
+                  groupName: "Test Group",
+                  roles: m.uid === member3.uid ? ["coach"] : ["player"],
+                  isActive: true,
+                },
+              ],
+            },
+          ],
+        });
+      }
+
+      const db = getFirestore();
+      const allMembersArr = [
+        {
+          userId: admin.uid,
+          name: admin.displayName,
+          email: admin.email,
+          roles: ["admin"],
+          isActive: true,
+          needsGuardian: false,
+        },
+        {
+          userId: member1.uid,
+          name: member1.displayName,
+          email: member1.email,
+          roles: ["player"],
+          isActive: true,
+          needsGuardian: false,
+        },
+        {
+          userId: member2.uid,
+          name: member2.displayName,
+          email: member2.email,
+          roles: ["player"],
+          isActive: true,
+          needsGuardian: false,
+        },
+        {
+          userId: member3.uid,
+          name: member3.displayName,
+          email: member3.email,
+          roles: ["coach"],
+          isActive: true,
+          needsGuardian: false,
+        },
+      ];
+
+      await db
+        .doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`)
+        .set({ members: allMembersArr, memberCount: allMembersArr.length });
+
+      // Also seed club-level allMembers
+      await db
+        .doc(`clubs/${clubId}/allMembers/members`)
+        .set(
+          { members: allMembersArr, memberCount: allMembersArr.length },
+          { merge: true },
+        );
+
+      // Update admin's groupAccess
+      await seedUserDocument(admin.uid, {
+        clubAccess: [
+          {
+            clubId,
+            clubName: "SelectMembers Club",
+            role: "club-admin",
+            joinedAt: new Date(),
+            isActive: true,
+            groupAccess: [
+              {
+                groupId,
+                groupName: "Test Group",
+                roles: ["admin"],
+                isActive: true,
+              },
+            ],
+          },
+        ],
+      });
+
+      return { admin, member1, member2, member3, clubId, groupId };
+    }
+
+    it("should invite only selected members when selectedMemberIds is provided", async () => {
+      const { admin, member1, member2, clubId, groupId } =
+        await setupGroupWithMembers();
+
+      const result = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+        {
+          selectedMemberIds: [member1.uid, member2.uid],
+        },
+      );
+
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(
+        `clubs/${clubId}/events/${result.eventId}`,
+      );
+      expect(event).toBeDefined();
+
+      // Responses should only contain selected members (not admin, not member3)
+      const responseUserIds = event!.responses.map((r: any) => r.userId);
+      expect(responseUserIds).toContain(member1.uid);
+      expect(responseUserIds).toContain(member2.uid);
+      expect(responseUserIds).not.toContain(admin.uid);
+
+      // Creator should always be in invitedUserIds (even if not in selectedMemberIds)
+      expect(event!.invitedUserIds).toContain(admin.uid);
+    });
+
+    it("should invite all members when selectedMemberIds is empty/omitted", async () => {
+      const { admin, member1, member2, member3, clubId, groupId } =
+        await setupGroupWithMembers();
+
+      const result = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(
+        `clubs/${clubId}/events/${result.eventId}`,
+      );
+      // All 4 members should be in responses
+      expect(event!.responses.length).toBe(4);
+    });
+
+    it("should ignore invalid selectedMemberIds (not in group)", async () => {
+      const { admin, member1, clubId, groupId } = await setupGroupWithMembers();
+
+      const result = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+        {
+          selectedMemberIds: [member1.uid, "nonexistent-uid"],
+        },
+      );
+
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(
+        `clubs/${clubId}/events/${result.eventId}`,
+      );
+      // Only member1 should be in responses (nonexistent-uid filtered out)
+      const responseUserIds = event!.responses.map((r: any) => r.userId);
+      expect(responseUserIds).toContain(member1.uid);
+      expect(responseUserIds).not.toContain("nonexistent-uid");
+    });
+
+    it("should combine selectedMemberIds with roleFilter", async () => {
+      const { admin, member1, member3, clubId, groupId } =
+        await setupGroupWithMembers();
+
+      // roleFilter: only players, but selectedMemberIds includes member3 (coach)
+      const result = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+        {
+          roleFilter: ["player"],
+          selectedMemberIds: [member1.uid, member3.uid],
+        },
+      );
+
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(
+        `clubs/${clubId}/events/${result.eventId}`,
+      );
+      // Only member1 should be in responses: roleFilter narrows to players,
+      // then selectedMemberIds picks member1 (player) and member3 (coach, filtered out by roleFilter)
+      const responseUserIds = event!.responses.map((r: any) => r.userId);
+      expect(responseUserIds).toContain(member1.uid);
+      expect(responseUserIds).not.toContain(member3.uid);
+    });
+  });
 });

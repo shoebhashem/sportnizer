@@ -3,11 +3,11 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
-  CreateRecurringEventRequest,
-  CreateRecurringEventResponse,
-  EventDocument,
-  EventResponse,
-  RecurringEventMaster,
+    CreateRecurringEventRequest,
+    CreateRecurringEventResponse,
+    EventDocument,
+    EventResponse,
+    RecurringEventMaster,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
@@ -270,6 +270,13 @@ export const createRecurringEvent = onCall(
             return false;
           })
           .map((doc) => doc.id);
+      }
+
+      // Apply selected member filter if specified
+      if (data.selectedMemberIds && data.selectedMemberIds.length > 0) {
+        invitedUserIds = invitedUserIds.filter((uid) =>
+          data.selectedMemberIds!.includes(uid),
+        );
       }
 
       // Build responses array with user profiles

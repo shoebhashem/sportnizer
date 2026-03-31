@@ -47,6 +47,7 @@
     "join": "Tilmeld gruppe",
     "invitationAccept": "Accepter invitation",
     "invitationReject": "Afvis invitation",
-    "about": "Om"
+    "about": "Om",
+    "selectEventMembers": "Vælg medlemmer"
   }
 }

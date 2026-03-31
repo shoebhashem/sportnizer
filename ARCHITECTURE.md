@@ -10707,6 +10707,7 @@ interface CreateEventRequestV2 {
     subgroupName?: string;
   };
   roleFilter?: string[]; // Filter invited members by role
+  selectedMemberIds?: string[]; // Target specific members (subset selection)
   createdBy: string; // User ID of creator
   createdByName: string; // Display name of creator
 }
@@ -10765,6 +10766,7 @@ const event = {
 // - Fetches from appropriate allMembers collection
 // - Filters by isActive: true (excludes soft-deleted members)
 // - Applies roleFilter if provided
+// - Applies selectedMemberIds if provided (further narrows member list)
 // - Handles youth members: adds guardian IDs to invitedUserIds
 
 // 6. Notification
@@ -11649,7 +11651,7 @@ Creates a complete recurring series atomically:
 
 1. Validate auth, required fields, and recurrence parameters
 2. Validate permissions (club/group/subgroup level, same as `createEventV2`)
-3. Resolve recipients (members → filter by role → inject creator → resolve youth→guardian)
+3. Resolve recipients (members → filter by role → filter by selectedMemberIds → inject creator → resolve youth→guardian)
 4. Generate occurrence dates using `generateOccurrenceDates()`
 5. Batch write: master document + all occurrence EventDocuments
 6. Send notification for first occurrence
@@ -11722,6 +11724,40 @@ All recurring event labels added to 8 locales (da, de, en, es, fr, it, no, sv):
 - `screens.json` → `createEvent` section (22 keys: toggle, frequency, end condition, summary, button labels)
 - `screens.json` → `eventDetails` section (14 keys: scope modals, recurring badge)
 - `components.json` → `eventCard` section (1 key: recurring badge)
+
+---
+
+## 🎯 Select Members for Events
+
+### Overview
+
+Admins/coaches can target events to specific members instead of sending to all members (or all members matching a role filter). This is implemented as a **request-only** filter — the `selectedMemberIds` field narrows the server-side member list before building `invitedUserIds` and `responses`. No changes to the EventDocument schema.
+
+### Flow
+
+1. User opens create-event screen
+2. In the Recipients section, taps "Select Members" pill button
+3. Navigates to `select-event-members` screen with context params (clubId, groupId, subgroupId, level, roleFilter, preSelectedIds)
+4. Screen loads members from `GroupDataContext` (same source as create-event)
+5. Members are optionally pre-filtered by active roleFilter
+6. User selects/deselects members via checkboxes (search, select all supported)
+7. On confirm, navigates back to create-event with `selectedMemberIds` as comma-separated param
+8. create-event reads `selectedMemberIds` from params and includes in the request
+9. Backend applies `selectedMemberIds` filter AFTER roleFilter, BEFORE building invitedUserIds/responses
+
+### Backend Processing
+
+**createEventV2**: After `roleFilter` narrows the allMembers array, `selectedMemberIds` further filters to only include members whose `userId` is in the array. Invalid/non-existent IDs are silently ignored.
+
+**createRecurringEvent**: Same logic — after roleFilter narrows `invitedUserIds`, `selectedMemberIds` filters the array. Applied before building responses.
+
+### Key Files
+
+- `app/select-event-members.tsx` — Member selection screen (FlatList + checkboxes + search)
+- `app/create-event.tsx` — State management for `selectedMemberIds`, navigation, request building
+- `functions/src/events/createEventV2.ts` — Backend filter after roleFilter
+- `functions/src/events/createRecurringEvent.ts` — Backend filter after roleFilter
+- `functions/src/types/interfaces.ts` — `selectedMemberIds?: string[]` on both request interfaces
 
 ---
 

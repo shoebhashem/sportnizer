@@ -345,7 +345,16 @@
     "recurringSummary": "{{count}} ocurrencias, {{frequency}} los {{day}}",
     "creatingRecurringEvent": "Creando evento recurrente...",
     "createRecurringEvent": "Crear serie ({{count}} eventos)",
-    "recurringEventCreatedMessage": "Evento recurrente \"{{title}}\" creado con {{count}} ocurrencias para {{recipients}} destinatarios."
+    "recurringEventCreatedMessage": "Evento recurrente \"{{title}}\" creado con {{count}} ocurrencias para {{recipients}} destinatarios.",
+    "selectMembers": "Seleccionar miembros",
+    "membersSelected": "{{count}} seleccionados",
+    "selectAll": "Seleccionar todos",
+    "totalMembers": "{{count}} miembros",
+    "searchMembersPlaceholder": "Buscar miembros...",
+    "clearSelection": "Borrar",
+    "confirmSelection": "Confirmar ({{count}})",
+    "noMembersMatchSearch": "Ningún miembro coincide con tu búsqueda",
+    "noMembersAvailable": "No hay miembros disponibles"
   },
   "eventDetails": {
     "loadingEvent": "Cargando detalles del evento...",

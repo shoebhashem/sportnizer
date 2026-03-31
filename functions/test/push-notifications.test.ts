@@ -171,8 +171,11 @@ test("R2: sendPushNotification sends to all registered devices", async () => {
   const body = JSON.parse((callArgs[1] as { body: string }).body);
 
   expect(body).toHaveLength(2);
-  expect(body[0].to).toBe("ExponentPushToken[device1]");
-  expect(body[1].to).toBe("ExponentPushToken[device2]");
+  const tokens = body.map((m: { to: string }) => m.to).sort();
+  expect(tokens).toEqual([
+    "ExponentPushToken[device1]",
+    "ExponentPushToken[device2]",
+  ]);
   expect(body[0].title).toBe("New Event");
   expect(body[0].body).toBe("You have a new event");
 });
@@ -185,8 +188,20 @@ test("R3: sendPushNotification removes invalid DeviceNotRegistered tokens", asyn
   await seedPushToken(testUserId, "ExponentPushToken[valid]");
   await seedPushToken(testUserId, "ExponentPushToken[invalid]");
 
-  // First token ok, second token invalid
-  mockFetchSuccess(["ok", "DeviceNotRegistered"]);
+  // Dynamic mock: returns DeviceNotRegistered for the invalid token regardless of order
+  jest.spyOn(global, "fetch").mockImplementation(async (_url, options) => {
+    const body = JSON.parse((options as any).body as string);
+    const tickets = (body as { to: string }[]).map((msg) =>
+      msg.to === "ExponentPushToken[invalid]"
+        ? {
+            status: "error",
+            details: { error: "DeviceNotRegistered" },
+            message: "Token invalid",
+          }
+        : { status: "ok", id: "ticket_" + Math.random() },
+    );
+    return { ok: true, json: async () => ({ data: tickets }) } as Response;
+  });
 
   await sendPushNotification(testUserId, {
     title: "Test",
@@ -209,8 +224,20 @@ test("R4: handles multiple devices with partial DeviceNotRegistered failures", a
   await seedPushToken(testUserId, "ExponentPushToken[B]");
   await seedPushToken(testUserId, "ExponentPushToken[C]");
 
-  // A ok, B invalid, C ok
-  mockFetchSuccess(["ok", "DeviceNotRegistered", "ok"]);
+  // Dynamic mock: returns DeviceNotRegistered for token B regardless of order
+  jest.spyOn(global, "fetch").mockImplementation(async (_url, options) => {
+    const body = JSON.parse((options as any).body as string);
+    const tickets = (body as { to: string }[]).map((msg) =>
+      msg.to === "ExponentPushToken[B]"
+        ? {
+            status: "error",
+            details: { error: "DeviceNotRegistered" },
+            message: "Token invalid",
+          }
+        : { status: "ok", id: "ticket_" + Math.random() },
+    );
+    return { ok: true, json: async () => ({ data: tickets }) } as Response;
+  });
 
   await sendPushNotification(testUserId, {
     title: "Invitation",

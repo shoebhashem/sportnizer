@@ -48,6 +48,7 @@ export interface CreateRecurringEventRequest {
     | "guardian"
     | "club-admin"
   )[];
+  selectedMemberIds?: string[];
   capacityLimit?: number;
   responseDeadline?: string;
 
