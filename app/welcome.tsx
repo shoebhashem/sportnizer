@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   },
   featureItem: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginVertical: theme.spacing.sm,
   },
   featureIcon: {
@@ -207,6 +207,9 @@ const styles = StyleSheet.create({
     width: 30,
   },
   featureText: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
   },
