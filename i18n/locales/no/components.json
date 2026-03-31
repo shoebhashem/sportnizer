@@ -245,7 +245,7 @@
         "body": "Her kan du legge til eller fjerne medlemmer, tildele roller og organisere undergrupper."
       },
       "news": {
-        "title": "Klubbnyheter",
+        "title": "Nyheter",
         "body": "Hold deg oppdatert med de siste kunnjøringene og oppdateringene fra klubben og gruppene dine."
       },
       "eventResponse": {
@@ -268,9 +268,9 @@
     "coachMarks": {
       "clubSettings": "Innstillinger, betalinger og invitasjoner",
       "groupSettings": "Roller, invitasjoner og innstillinger",
-      "clubEventFab": "Opprett treninger og kamper",
+      "clubEventFab": "Opprett hendelser og årsmøter på klubbnivå",
       "clubNewsFab": "Del oppdateringer med klubben",
-      "groupEventFab": "Planlegg hendelser for gruppen",
+      "groupEventFab": "Opprett treninger og kamper",
       "groupNewsFab": "Post nyheter i gruppen",
       "clubCard": "Trykk for å administrere medlemmer og grupper"
     }

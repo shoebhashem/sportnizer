@@ -269,7 +269,7 @@
         "body": "Here you can add or remove members, assign roles, and organize subgroups."
       },
       "news": {
-        "title": "Club News",
+        "title": "News",
         "body": "Stay up to date with the latest announcements and updates from your club and groups."
       },
       "eventResponse": {
@@ -293,9 +293,9 @@
     "coachMarks": {
       "clubSettings": "Settings, payments & invites",
       "groupSettings": "Roles, invitations & settings",
-      "clubEventFab": "Create training sessions & matches",
+      "clubEventFab": "Create events & annual meetings at the club level",
       "clubNewsFab": "Share updates with your club",
-      "groupEventFab": "Schedule events for this group",
+      "groupEventFab": "Create training sessions & matches",
       "groupNewsFab": "Post news to this group",
       "clubCard": "Tap to manage members & groups"
     }

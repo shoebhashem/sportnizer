@@ -249,7 +249,7 @@
         "body": "Hier kannst du Mitglieder hinzufügen oder entfernen, Rollen zuweisen und Untergruppen organisieren."
       },
       "news": {
-        "title": "Vereinsnachrichten",
+        "title": "Nachrichten",
         "body": "Bleib mit den neuesten Ankündigungen und Updates deines Vereins und deiner Gruppen auf dem Laufenden."
       },
       "eventResponse": {
@@ -272,9 +272,9 @@
     "coachMarks": {
       "clubSettings": "Einstellungen, Zahlungen & Einladungen",
       "groupSettings": "Rollen, Einladungen & Einstellungen",
-      "clubEventFab": "Trainings & Spiele erstellen",
+      "clubEventFab": "Veranstaltungen & Jahresversammlungen auf Vereinsebene erstellen",
       "clubNewsFab": "Updates mit deinem Verein teilen",
-      "groupEventFab": "Veranstaltungen für die Gruppe planen",
+      "groupEventFab": "Trainings & Spiele erstellen",
       "groupNewsFab": "Neuigkeiten in der Gruppe posten",
       "clubCard": "Tippen, um Mitglieder & Gruppen zu verwalten"
     }

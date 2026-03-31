@@ -249,7 +249,7 @@
         "body": "Aquí puedes añadir o eliminar miembros, asignar roles y organizar subgrupos."
       },
       "news": {
-        "title": "Noticias del club",
+        "title": "Noticias",
         "body": "Mantente al día con los últimos anuncios y actualizaciones de tu club y grupos."
       },
       "eventResponse": {
@@ -272,9 +272,9 @@
     "coachMarks": {
       "clubSettings": "Ajustes, pagos e invitaciones",
       "groupSettings": "Roles, invitaciones y ajustes",
-      "clubEventFab": "Crear entrenamientos y partidos",
+      "clubEventFab": "Crear eventos y asambleas a nivel de club",
       "clubNewsFab": "Compartir novedades con tu club",
-      "groupEventFab": "Programar eventos para el grupo",
+      "groupEventFab": "Crear entrenamientos y partidos",
       "groupNewsFab": "Publicar noticias en el grupo",
       "clubCard": "Toca para gestionar miembros y grupos"
     }

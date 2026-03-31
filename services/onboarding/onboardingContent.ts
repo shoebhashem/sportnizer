@@ -3,10 +3,7 @@
 // Centralised registry of contextual tooltips.
 // Everything references i18n keys so it is fully translatable.
 
-import type {
-  OnboardingRole,
-  TooltipDefinition,
-} from "./types";
+import type { OnboardingRole, TooltipDefinition } from "./types";
 
 // ============================================================================
 // CONTEXTUAL TOOLTIPS
@@ -32,16 +29,6 @@ export const TOOLTIP_DEFINITIONS: TooltipDefinition[] = [
     roles: ["club-admin"],
     placement: "bottom",
     featureKey: "payments-viewed",
-  },
-  // ---- Create event ----
-  {
-    id: "tooltip-create-event",
-    titleKey: "onboarding.tooltips.createEvent.title",
-    bodyKey: "onboarding.tooltips.createEvent.body",
-    screen: "events",
-    roles: ["club-admin", "admin", "coach"],
-    placement: "bottom",
-    featureKey: "event-created",
   },
   // ---- Manage group ----
   {
@@ -82,16 +69,6 @@ export const TOOLTIP_DEFINITIONS: TooltipDefinition[] = [
     roles: ["club-admin", "admin", "coach"],
     placement: "top",
     featureKey: "statistics-viewed",
-  },
-  // ---- Create news ----
-  {
-    id: "tooltip-create-news",
-    titleKey: "onboarding.tooltips.createNews.title",
-    bodyKey: "onboarding.tooltips.createNews.body",
-    screen: "news",
-    roles: ["club-admin", "admin", "coach"],
-    placement: "bottom",
-    featureKey: "news-created",
   },
   // ---- Subgroups ----
   {
