@@ -10,7 +10,7 @@
  * 2. Loads members from ClubDataContext (club level) or GroupDataContext (group/subgroup level)
  * 3. Optionally filters by role if roleFilter is active
  * 4. User selects/deselects members via checkboxes
- * 5. On confirm, navigates back to create-event with selectedMemberIds as param
+ * 5. On confirm, navigates back to source screen (create-event or create-news) with selectedMemberIds as param
  */
 
 import Button from "@/components/Button";
@@ -58,6 +58,7 @@ export default function SelectEventMembersScreen() {
     clubName,
     groupName,
     subgroupName,
+    sourceScreen,
     roleFilter: roleFilterParam,
     preSelectedIds: preSelectedIdsParam,
   } = useLocalSearchParams();
@@ -194,9 +195,11 @@ export default function SelectEventMembersScreen() {
 
   const handleConfirm = () => {
     const ids = Array.from(selectedIds).join(",");
-    // Navigate back to create-event with selectedMemberIds param
+    // Navigate back to source screen with selectedMemberIds param
+    const targetScreen =
+      sourceScreen === "create-news" ? "/create-news" : "/create-event";
     router.navigate({
-      pathname: "/create-event",
+      pathname: targetScreen as any,
       params: {
         clubId: clubId as string,
         clubName: clubName as string,

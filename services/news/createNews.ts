@@ -38,6 +38,7 @@ export interface CreateNewsRequest {
     | "guardian"
     | "club-admin"
   )[];
+  selectedMemberIds?: string[];
 
   // Email delivery
   sendEmail?: boolean;

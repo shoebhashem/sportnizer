@@ -131,6 +131,7 @@ export default function CreateNewsScreen() {
   const [description, setDescription] = useState("");
   const [sendEmail, setSendEmail] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<ClubRole[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,6 +145,17 @@ export default function CreateNewsScreen() {
     title: "",
     message: "",
   });
+
+  // Read selectedMemberIds from navigation params (returned from select-event-members screen)
+  useEffect(() => {
+    if (params.selectedMemberIds) {
+      const ids =
+        typeof params.selectedMemberIds === "string"
+          ? params.selectedMemberIds.split(",").filter(Boolean)
+          : [];
+      setSelectedMemberIds(ids);
+    }
+  }, [params.selectedMemberIds]);
 
   // Load news data if in edit mode
   useEffect(() => {
@@ -296,6 +308,8 @@ export default function CreateNewsScreen() {
           subgroupName: newsContext.subgroupName,
         },
         roleFilter: selectedRoles.length > 0 ? selectedRoles : undefined,
+        selectedMemberIds:
+          selectedMemberIds.length > 0 ? selectedMemberIds : undefined,
         sendEmail,
         createdBy: user.uid,
         createdByName:
@@ -410,6 +424,24 @@ export default function CreateNewsScreen() {
     setSelectedRoles(roles);
     setShowRoleFilterModal(false);
   }, []);
+
+  // Get recipient label for role filter display
+  const getRecipientLabel = (): string => {
+    if (selectedRoles.length === 0) return t("screens:createEvent.allRoles");
+    if (selectedRoles.length === 1) {
+      const role = selectedRoles[0];
+      return role === "player-underage"
+        ? t("common:youthPlayers")
+        : role === "player"
+          ? t("common:players")
+          : role === "coach"
+            ? t("common:coaches")
+            : t("common:admins");
+    }
+    return t("screens:createEvent.rolesSelected", {
+      count: selectedRoles.length,
+    });
+  };
 
   // Render missing context error
   if (!newsContext) {
@@ -655,7 +687,7 @@ export default function CreateNewsScreen() {
               </Text>
             </View>
 
-            {/* Role Filter (for all levels) */}
+            {/* Recipients Section (for create mode) */}
             {!isEditMode && (
               <View style={{ marginBottom: 20 }}>
                 <Text
@@ -666,54 +698,160 @@ export default function CreateNewsScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  {t("screens:createNews.targetAudience")}
+                  {t("screens:createEvent.recipients")}
                 </Text>
-                <TouchableOpacity
-                  onPress={() => setShowRoleFilterModal(true)}
+                <View
                   style={{
-                    backgroundColor: theme.colors.inputBackground,
-                    borderRadius: 12,
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
                     borderWidth: 1,
                     borderColor: theme.colors.inputBorder,
+                    borderRadius: 8,
+                    padding: 12,
+                    backgroundColor: theme.colors.inputBackground,
                   }}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.colors.text, fontSize: 16 }}>
-                      {selectedRoles.length === 0
-                        ? t("screens:createNews.allMembers")
-                        : selectedRoles.join(", ")}
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <FontAwesome
+                      name="users"
+                      size={16}
+                      color={theme.colors.textSecondary}
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: theme.colors.text,
+                        flex: 1,
+                      }}
+                    >
+                      {newsContext.level === "subgroup"
+                        ? newsContext.subgroupName
+                        : newsContext.level === "group"
+                          ? newsContext.groupName
+                          : newsContext.clubName}
                     </Text>
-                    {isLoadingMembers ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={theme.colors.secondary}
-                        style={{ marginTop: 4 }}
-                      />
-                    ) : (
-                      <Text
+                  </View>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: theme.colors.textSecondary,
+                      }}
+                    >
+                      {isLoadingMembers
+                        ? "Loading..."
+                        : `${memberCount} member${memberCount !== 1 ? "s" : ""}`}
+                      {selectedRoles.length > 0 && ` (${getRecipientLabel()})`}
+                      {selectedMemberIds.length > 0 &&
+                        ` · ${t("screens:createEvent.membersSelected", { count: selectedMemberIds.length })}`}
+                    </Text>
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          router.push({
+                            pathname: "/select-event-members",
+                            params: {
+                              clubId: newsContext.clubId,
+                              clubName: newsContext.clubName,
+                              groupId: newsContext.groupId || "",
+                              groupName: newsContext.groupName || "",
+                              subgroupId: newsContext.subgroupId || "",
+                              subgroupName: newsContext.subgroupName || "",
+                              level: newsContext.level,
+                              sourceScreen: "create-news",
+                              roleFilter: selectedRoles.join(","),
+                              preSelectedIds: selectedMemberIds.join(","),
+                            },
+                          });
+                        }}
                         style={{
-                          color: theme.colors.textSecondary,
-                          fontSize: 12,
-                          marginTop: 2,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 6,
+                          backgroundColor:
+                            selectedMemberIds.length > 0
+                              ? theme.colors.secondary
+                              : theme.colors.inputBorder,
                         }}
                       >
-                        {t("screens:createNews.recipientCount", {
-                          count: memberCount,
-                        })}
-                      </Text>
-                    )}
+                        <FontAwesome
+                          name="user-plus"
+                          size={14}
+                          color={
+                            selectedMemberIds.length > 0
+                              ? "white"
+                              : theme.colors.textSecondary
+                          }
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "500",
+                            color:
+                              selectedMemberIds.length > 0
+                                ? "white"
+                                : theme.colors.text,
+                          }}
+                        >
+                          {t("screens:createEvent.selectMembers")}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setShowRoleFilterModal(true)}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 6,
+                          backgroundColor:
+                            selectedRoles.length > 0
+                              ? theme.colors.secondary
+                              : theme.colors.inputBorder,
+                        }}
+                      >
+                        <FontAwesome
+                          name="filter"
+                          size={14}
+                          color={
+                            selectedRoles.length > 0
+                              ? "white"
+                              : theme.colors.textSecondary
+                          }
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "500",
+                            color:
+                              selectedRoles.length > 0
+                                ? "white"
+                                : theme.colors.text,
+                          }}
+                        >
+                          {t("screens:createEvent.filterRoles")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <FontAwesome
-                    name="chevron-right"
-                    size={16}
-                    color={theme.colors.textSecondary}
-                  />
-                </TouchableOpacity>
+                </View>
               </View>
             )}
 

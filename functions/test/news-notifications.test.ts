@@ -660,4 +660,196 @@ describe("Suite N: News Creation & Notification Verification", () => {
     );
     expect(adminNewsNotif).toBeDefined();
   });
+
+  // ─── Selected Member IDs Filtering ────────────────────────────
+
+  it("TC-N11: News with selectedMemberIds → only selected members receive notifications", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+
+    // Add a second player to the group
+    const player2 = await createFullTestUser({
+      email: `player2_${Date.now()}@test.com`,
+      displayName: "Player Two",
+    });
+    await seedUserDocument(player2.uid, {
+      clubAccess: [
+        {
+          clubId,
+          clubName: "News Club",
+          role: "player",
+          isActive: true,
+          joinedAt: new Date(),
+          groupAccess: [
+            {
+              groupId,
+              groupName: "News Group",
+              roles: ["player"],
+              joinedAt: new Date(),
+            },
+          ],
+        },
+      ],
+    });
+
+    const db = getFirestore();
+    const gDoc = await db
+      .doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`)
+      .get();
+    const gMembers = gDoc.data()?.members || [];
+    gMembers.push({
+      userId: player2.uid,
+      name: player2.displayName,
+      email: player2.email,
+      roles: ["player"],
+      isActive: true,
+      needsGuardian: false,
+      guardiansContacts: [],
+    });
+    await db
+      .doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`)
+      .update({ members: gMembers, memberCount: gMembers.length });
+
+    // Create news selecting only player (not player2)
+    const result = await callFunction<{
+      success: boolean;
+      newsId: string;
+    }>("createNews", adminUser.idToken, {
+      clubId,
+      clubName: "News Club",
+      title: "Selected Members News",
+      description: "Only for selected members.",
+      targetScope: {
+        level: "group",
+        groupId,
+        groupName: "News Group",
+      },
+      selectedMemberIds: [player.uid],
+      createdBy: adminUser.uid,
+      createdByName: adminUser.displayName,
+    });
+
+    expect(result.success).toBe(true);
+
+    // Selected player should receive notification
+    const playerNotifs = await getUserNotifications(player.uid);
+    const playerNewsNotif = playerNotifs.find(
+      (n) => n.type === "news" && n.sourceId === result.newsId,
+    );
+    expect(playerNewsNotif).toBeDefined();
+
+    // Non-selected player2 should NOT receive notification
+    const player2Notifs = await getUserNotifications(player2.uid);
+    const player2NewsNotif = player2Notifs.find(
+      (n) => n.type === "news" && n.sourceId === result.newsId,
+    );
+    expect(player2NewsNotif).toBeUndefined();
+
+    // Creator (admin) should still receive notification
+    const adminNotifs = await getUserNotifications(adminUser.uid);
+    const adminNewsNotif = adminNotifs.find(
+      (n) => n.type === "news" && n.sourceId === result.newsId,
+    );
+    expect(adminNewsNotif).toBeDefined();
+  });
+
+  it("TC-N12: News with roleFilter + selectedMemberIds → combined filtering", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+
+    // Add a coach to the group
+    const coach = await createFullTestUser({
+      email: `coach3_${Date.now()}@test.com`,
+      displayName: "Coach Three",
+    });
+    await seedUserDocument(coach.uid, {
+      clubAccess: [
+        {
+          clubId,
+          clubName: "News Club",
+          role: "member",
+          isActive: true,
+          joinedAt: new Date(),
+          groupAccess: [
+            {
+              groupId,
+              groupName: "News Group",
+              roles: ["coach"],
+              joinedAt: new Date(),
+            },
+          ],
+        },
+      ],
+    });
+
+    const db = getFirestore();
+    const gDoc = await db
+      .doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`)
+      .get();
+    const gMembers = gDoc.data()?.members || [];
+    gMembers.push({
+      userId: coach.uid,
+      name: coach.displayName,
+      email: coach.email,
+      roles: ["coach"],
+      isActive: true,
+      needsGuardian: false,
+      guardiansContacts: [],
+    });
+    await db
+      .doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`)
+      .update({ members: gMembers, memberCount: gMembers.length });
+
+    // Create news with roleFilter=["player","coach"] AND selectedMemberIds=[player.uid]
+    // This should first filter to players + coaches, then narrow to only player
+    const result = await callFunction<{
+      success: boolean;
+      newsId: string;
+    }>("createNews", adminUser.idToken, {
+      clubId,
+      clubName: "News Club",
+      title: "Combined Filter News",
+      description: "Role filter plus selected members.",
+      targetScope: {
+        level: "group",
+        groupId,
+        groupName: "News Group",
+      },
+      roleFilter: ["player", "coach"],
+      selectedMemberIds: [player.uid],
+      createdBy: adminUser.uid,
+      createdByName: adminUser.displayName,
+    });
+
+    expect(result.success).toBe(true);
+
+    // Selected player (matches role + selection) should receive notification
+    const playerNotifs = await getUserNotifications(player.uid);
+    const playerNewsNotif = playerNotifs.find(
+      (n) => n.type === "news" && n.sourceId === result.newsId,
+    );
+    expect(playerNewsNotif).toBeDefined();
+
+    // Coach matches role but NOT in selectedMemberIds → should NOT receive
+    const coachNotifs = await getUserNotifications(coach.uid);
+    const coachNewsNotif = coachNotifs.find(
+      (n) => n.type === "news" && n.sourceId === result.newsId,
+    );
+    expect(coachNewsNotif).toBeUndefined();
+
+    // Creator (admin) should still receive notification
+    const adminNotifs = await getUserNotifications(adminUser.uid);
+    const adminNewsNotif = adminNotifs.find(
+      (n) => n.type === "news" && n.sourceId === result.newsId,
+    );
+    expect(adminNewsNotif).toBeDefined();
+  });
 });

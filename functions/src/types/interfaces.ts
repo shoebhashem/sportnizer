@@ -1125,6 +1125,9 @@ export interface CreateNewsRequest {
     | "club-admin"
   )[];
 
+  // Optional selected member IDs (further filters recipients)
+  selectedMemberIds?: string[];
+
   // Email delivery option
   sendEmail?: boolean;
 

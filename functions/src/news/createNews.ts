@@ -244,6 +244,13 @@ export const createNews = onCall(
         );
       }
 
+      // Apply selected member IDs filter if specified
+      if (data.selectedMemberIds && data.selectedMemberIds.length > 0) {
+        members = members.filter((m: any) =>
+          data.selectedMemberIds!.includes(m.userId),
+        );
+      }
+
       if (members.length === 0) {
         throw new HttpsError(
           "failed-precondition",

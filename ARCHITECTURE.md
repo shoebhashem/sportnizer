@@ -11727,23 +11727,23 @@ All recurring event labels added to 8 locales (da, de, en, es, fr, it, no, sv):
 
 ---
 
-## 🎯 Select Members for Events
+## 🎯 Select Members for Events & News
 
 ### Overview
 
-Admins/coaches can target events to specific members instead of sending to all members (or all members matching a role filter). This is implemented as a **request-only** filter — the `selectedMemberIds` field narrows the server-side member list before building `invitedUserIds` and `responses`. No changes to the EventDocument schema.
+Admins/coaches can target events and news to specific members instead of sending to all members (or all members matching a role filter). This is implemented as a **request-only** filter — the `selectedMemberIds` field narrows the server-side member list before building recipients. The `select-event-members` screen is shared between create-event and create-news via a `sourceScreen` param that controls the return navigation.
 
 ### Flow
 
-1. User opens create-event screen
+1. User opens create-event or create-news screen
 2. In the Recipients section, taps "Select Members" pill button
-3. Navigates to `select-event-members` screen with context params (clubId, groupId, subgroupId, level, roleFilter, preSelectedIds)
-4. Screen loads members from `GroupDataContext` (same source as create-event)
+3. Navigates to `select-event-members` screen with context params (clubId, groupId, subgroupId, level, sourceScreen, roleFilter, preSelectedIds)
+4. Screen loads members from `ClubDataContext` (club level) or `GroupDataContext` (group/subgroup level)
 5. Members are optionally pre-filtered by active roleFilter
 6. User selects/deselects members via checkboxes (search, select all supported)
-7. On confirm, navigates back to create-event with `selectedMemberIds` as comma-separated param
-8. create-event reads `selectedMemberIds` from params and includes in the request
-9. Backend applies `selectedMemberIds` filter AFTER roleFilter, BEFORE building invitedUserIds/responses
+7. On confirm, navigates back to source screen (`/create-event` or `/create-news`) with `selectedMemberIds` as comma-separated param
+8. Source screen reads `selectedMemberIds` from params and includes in the request
+9. Backend applies `selectedMemberIds` filter AFTER roleFilter, BEFORE building recipients
 
 ### Backend Processing
 
@@ -11751,13 +11751,17 @@ Admins/coaches can target events to specific members instead of sending to all m
 
 **createRecurringEvent**: Same logic — after roleFilter narrows `invitedUserIds`, `selectedMemberIds` filters the array. Applied before building responses.
 
+**createNews**: Same logic — after roleFilter narrows the members array, `selectedMemberIds` further filters to only include selected members. Applied before building recipientUserIds and notifications.
+
 ### Key Files
 
-- `app/select-event-members.tsx` — Member selection screen (FlatList + checkboxes + search)
+- `app/select-event-members.tsx` — Shared member selection screen (FlatList + checkboxes + search), uses `sourceScreen` param for return navigation
 - `app/create-event.tsx` — State management for `selectedMemberIds`, navigation, request building
+- `app/create-news.tsx` — State management for `selectedMemberIds`, navigation to select-event-members with `sourceScreen: "create-news"`
 - `functions/src/events/createEventV2.ts` — Backend filter after roleFilter
 - `functions/src/events/createRecurringEvent.ts` — Backend filter after roleFilter
-- `functions/src/types/interfaces.ts` — `selectedMemberIds?: string[]` on both request interfaces
+- `functions/src/news/createNews.ts` — Backend filter after roleFilter
+- `functions/src/types/interfaces.ts` — `selectedMemberIds?: string[]` on event and news request interfaces
 
 ---
 
@@ -12271,6 +12275,7 @@ The News System allows club administrators, group admins, and coaches to share a
 - Create news items with title (max 100 chars) and description (max 4200 chars)
 - 3-level targeting: club, group, or subgroup scope
 - Role-based filtering (optional): target specific roles (player, player-underage, coach, admin)
+- Select specific members (optional): pick individual recipients via the shared select-event-members screen
 - Optional email delivery alongside in-app notifications
 - Read tracking with unread indicators
 - Edit and delete capabilities for news creators and club admins
@@ -12342,7 +12347,7 @@ functions/src/news/createNews.ts
 
 1. **Auth Check**: Verify user is authenticated
 2. **Permission Check**: Validate user can create news at target scope (club-admin, group admin/coach)
-3. **Build Recipients**: Collect target members, apply role filter if specified
+3. **Build Recipients**: Collect target members, apply role filter if specified, apply selectedMemberIds filter if specified
 4. **Create Document**: Write news to `/clubs/{clubId}/news/{newsId}`
 5. **Send Notifications**: Create in-app notifications via `createNotificationDirect()`
 6. **Send Emails**: If `sendEmail: true`, send to recipients (youth → guardian routing)
@@ -12466,10 +12471,10 @@ app/create-news.tsx
 - Create or edit news items
 - Title field with 100 char limit
 - Description field with 4200 char limit (~700 words)
-- Role filter selection (optional)
+- Recipients section (matching create-event UI): scope name, member count, Select Members button, Filter Roles button
+- Select Members navigates to shared `select-event-members` screen with `sourceScreen: "create-news"`
 - Email delivery toggle
 - Character count display
-- Recipient count preview
 
 **Navigation Params:**
 
@@ -12483,6 +12488,7 @@ app/create-news.tsx
   subgroupName?: string;
   level: "club" | "group" | "subgroup";
   newsId?: string;  // For edit mode
+  selectedMemberIds?: string; // Comma-separated, returned from select-event-members
 }
 ```
 

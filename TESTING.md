@@ -37,7 +37,7 @@
 | Invitation Flows      | `functions/test/invitations.test.ts`                  | 21    | Send, validate, accept/reject, delete, dedup                                                                  |
 | Guardian Flows        | `functions/test/guardian-flows.test.ts`               | 14    | Add/remove guardian, role accumulation, subgroup cascade                                                      |
 | Picture Uploads       | `functions/test/upload-pictures.test.ts`              | 11    | Upload club/group/profile pics + Firestore propagation                                                        |
-| News & Notifications  | `functions/test/news-notifications.test.ts`           | 10    | News CRUD, permissions, recipient logic, youth→guardian, role filter                                          |
+| News & Notifications  | `functions/test/news-notifications.test.ts`           | 12    | News CRUD, permissions, recipient logic, youth→guardian, role filter, selectedMemberIds                       |
 | Notification Side-Fx  | `functions/test/notification-side-effects.test.ts`    | 7     | Event/invitation/fee/callable notification docs + auth/not-found errors + push degradation                    |
 | Push Notifications    | `functions/test/push-notifications.test.ts`           | 10    | sendPushNotification: no-op, multi-device, DeviceNotRegistered cleanup, channel mapping, graceful degradation |
 | Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | 82    | Validation, roles, limits, LOK rules                                                                          |
@@ -1636,6 +1636,22 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | `recipientUserIds` includes creator | Even though roleFilter excludes admin's role |
 | Admin gets notification             | `type="news"`, `sourceId` matches newsId     |
 
+#### TC-N11: News with selectedMemberIds → only selected members receive notifications
+
+| ✅ Assertion                     | Detail                                                   |
+| -------------------------------- | -------------------------------------------------------- |
+| Selected player gets notif       | `type="news"`, `sourceId` matches newsId                 |
+| Non-selected player does **not** | No notification doc with `sourceId` matching newsId      |
+| Creator (admin) gets notif       | Creator always included even if not in selectedMemberIds |
+
+#### TC-N12: News with roleFilter + selectedMemberIds → combined filtering
+
+| ✅ Assertion               | Detail                                          |
+| -------------------------- | ----------------------------------------------- |
+| Selected player gets notif | Matches both roleFilter and selectedMemberIds   |
+| Coach does **not**         | Matches roleFilter but NOT in selectedMemberIds |
+| Creator (admin) gets notif | Creator always included                         |
+
 ---
 
 ### Suite Q: Notification Side-Effects Across Cloud Functions
@@ -1711,7 +1727,7 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | D. Subgroup Members            | `subgroup-member-flows.test.ts`         | 3      |
 | E. CRUD Lifecycle              | `crud-lifecycle.test.ts`                | 12     |
 | G. Guardian Flows              | `guardian-flows.test.ts`                | 15     |
-| N. News & Notifications        | `news-notifications.test.ts`            | 10     |
+| N. News & Notifications        | `news-notifications.test.ts`            | 12     |
 | P. Picture Uploads             | `upload-pictures.test.ts`               | 11     |
 | Q. Notification Side-Effects   | `notification-side-effects.test.ts`     | 7      |
 | R. Push Notifications          | `push-notifications.test.ts`            | 9      |
