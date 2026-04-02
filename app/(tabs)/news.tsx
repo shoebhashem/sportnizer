@@ -98,7 +98,7 @@ export default function NewsTab() {
             expanded.push({
               ...newsItem,
               inviteeUserId: user.uid,
-              inviteeName: "You",
+              inviteeName: t("common:you"),
               isCurrentUser: true,
             });
           }
@@ -112,7 +112,8 @@ export default function NewsTab() {
               expanded.push({
                 ...newsItem,
                 inviteeUserId: dependentId,
-                inviteeName: dependent?.displayName || "Child",
+                inviteeName:
+                  dependent?.displayName || t("screens:news.childFallback"),
                 isCurrentUser: false,
               });
             }

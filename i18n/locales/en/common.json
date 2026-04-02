@@ -134,6 +134,23 @@
 
   "month": "/month",
 
+  "childYouth": "(Child/Youth)",
+  "unknownUser": "Unknown User",
+  "unexpectedError": "An unexpected error occurred. Please try again.",
+  "anErrorOccurred": "An error occurred",
+  "free": "Free",
+  "event": "Event",
+
+  "roles": {
+    "player": "player",
+    "youthPlayer": "youth player",
+    "coach": "coach",
+    "admin": "admin",
+    "guardian": "guardian",
+    "clubAdmin": "club administrator",
+    "member": "member"
+  },
+
   "validation": {
     "missingInformation": "Missing Information",
     "validationError": "Validation Error",

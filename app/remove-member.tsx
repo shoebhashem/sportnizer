@@ -300,15 +300,15 @@ export default function RemoveMemberScreen() {
   const getRoleLabel = () => {
     switch (actualMemberType) {
       case "player":
-        return "player role";
+        return t("screens:removeMember.playerRole");
       case "youth":
-        return "youth player role";
+        return t("screens:removeMember.youthPlayerRole");
       case "coach":
-        return "coach role";
+        return t("screens:removeMember.coachRole");
       case "admin":
-        return "admin role";
+        return t("screens:removeMember.adminRole");
       default:
-        return "member";
+        return t("common:member");
     }
   };
 

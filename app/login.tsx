@@ -154,13 +154,15 @@ export default function LoginScreen() {
         setResendSuccessModalVisible(true);
       } else {
         setErrorMessage(
-          `❌ Failed to resend verification email.\n\n${result.error?.message || "Please try again."}`,
+          t("screens:login.failedToResend", {
+            error: result.error?.message || t("common:retry"),
+          }),
         );
         setErrorModalVisible(true);
       }
     } catch (error) {
       console.error("Resend error:", error);
-      setErrorMessage("❌ An unexpected error occurred. Please try again.");
+      setErrorMessage(t("screens:login.unexpectedResendError"));
       setErrorModalVisible(true);
     } finally {
       setResendLoading(false);

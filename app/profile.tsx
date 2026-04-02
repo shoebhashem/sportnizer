@@ -238,7 +238,10 @@ export default function ProfileScreen() {
 
   const handleSave = async () => {
     if (!displayName.trim()) {
-      showAlert("Validation", "Display name cannot be empty.");
+      showAlert(
+        t("common:validation.validationError"),
+        t("screens:profile.displayNameEmpty"),
+      );
       return;
     }
 
@@ -282,16 +285,16 @@ export default function ProfileScreen() {
       if (result.success) {
         // User doc listener in UserContext picks up profile changes automatically
         setIsEditing(false);
-        showAlert("Success", "Profile updated successfully!");
+        showAlert(t("common:success"), t("screens:profile.profileUpdated"));
       } else {
         showAlert(
-          "Error",
-          result.error?.message || "Failed to update profile.",
+          t("common:error"),
+          result.error?.message || t("screens:profile.failedToUpdateProfile"),
         );
       }
     } catch (error: any) {
       console.error("Error saving profile:", error);
-      showAlert("Error", "An unexpected error occurred.");
+      showAlert(t("common:error"), t("common:unexpectedError"));
     } finally {
       setSaving(false);
     }
@@ -340,12 +343,12 @@ export default function ProfileScreen() {
       } else {
         showAlert(
           t("common:error"),
-          result.error?.message || "Failed to change password.",
+          result.error?.message || t("screens:profile.failedToChangePassword"),
         );
       }
     } catch (error: any) {
       console.error("Password change error:", error);
-      showAlert(t("common:error"), "An unexpected error occurred.");
+      showAlert(t("common:error"), t("common:unexpectedError"));
     } finally {
       setSecurityLoading(false);
     }
@@ -380,12 +383,13 @@ export default function ProfileScreen() {
       } else {
         showAlert(
           t("common:error"),
-          result.error?.message || "Failed to request email change.",
+          result.error?.message ||
+            t("screens:profile.failedToRequestEmailChange"),
         );
       }
     } catch (error: any) {
       console.error("Email change request error:", error);
-      showAlert(t("common:error"), "An unexpected error occurred.");
+      showAlert(t("common:error"), t("common:unexpectedError"));
     } finally {
       setSecurityLoading(false);
     }

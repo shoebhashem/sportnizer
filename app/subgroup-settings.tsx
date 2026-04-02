@@ -80,7 +80,9 @@ export default function SubgroupSettingsScreen() {
   // Set dynamic header with subgroup name
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: `${displayName} Settings`,
+      title: t("screens:subgroupSettings.displayNameSettings", {
+        name: displayName,
+      }),
     });
   }, [displayName, navigation]);
 

@@ -14,7 +14,9 @@
       "paymentsDesc": "Manage membership fees effortlessly",
       "attendance": "Attendance",
       "attendanceDesc": "Track attendance & view statistics"
-    }
+    },
+    "actionSubtextLoggedIn": "Set up your organization and start managing teams",
+    "actionSubtextLoggedOut": "Get started in minutes - no experience needed"
   },
   "login": {
     "welcomeBack": "Welcome back!",
@@ -39,6 +41,11 @@
     "emailNotVerified": "Email Not Verified",
     "emailNotVerifiedMessage": "Your email hasn't been verified yet. Please check your inbox and click the verification link.",
     "signInFailed": "Sign In Failed",
+    "enterEmailToResend": "Please enter your email address to resend verification.",
+    "resendFailed": "Failed to resend verification email. {{error}}",
+    "unexpectedError": "An unexpected error occurred. Please try again.",
+    "failedToResend": "❌ Failed to resend verification email.\n\n{{error}}",
+    "unexpectedResendError": "❌ An unexpected error occurred. Please try again.",
     "errors": {
       "invalidCredential": "Invalid email or password. Please try again.",
       "userNotFound": "No account found with this email address.",
@@ -81,6 +88,12 @@
       "afterVerifyCreateClub": "\n\nAfter verifying your email and logging in, you'll be able to create your club.",
       "afterVerifyInvitation": "\n\nAfter verifying your email, your invitation to {{groupName}} will be automatically processed."
     },
+    "emailVerifiedSuccess": "Email verified successfully! Your account is now activated. You can now sign in to your Clubnizer account.",
+    "emailAlreadyVerified": "Email already verified! Your account is already activated. You can sign in to your Clubnizer account.",
+    "emailMustMatchInvitation": "Email must match the invitation email address",
+    "emailPreFilledFromInvitation": "Email is pre-filled from your invitation",
+    "emailVerifiedModal": "✅ Email verified successfully!\n\nYour account is now activated. You can now sign in to your Clubnizer account.",
+    "emailAlreadyVerifiedModal": "✅ Email already verified!\n\nYour account is already activated. You can sign in to your Clubnizer account.",
     "errors": {
       "emailAlreadyInUse": "An account already exists with this email address.",
       "weakPassword": "Password is too weak. Please use at least 6 characters.",
@@ -104,7 +117,19 @@
     "loadingDashboard": "Loading dashboard...",
     "noClubsYet": "No Clubs Yet",
     "noClubsMessage": "You're not a member of any clubs yet. Create one or ask to be invited!",
-    "createClub": "Create Club"
+    "createClub": "Create Club",
+    "createClubSubtext": "Start managing your sports organization",
+    "adminTapToManage": "Admin • Tap to manage",
+    "checkEventsTab": "Check the Events tab for upcoming events",
+    "viewMoreEvents": "View {{count}} more events",
+    "invitationAcceptedTitle": "Invitation Accepted",
+    "roleUpdatedTitle": "Role Updated",
+    "youthInvitationAccepted": "{{childName}} has been successfully added to {{groupName}}!",
+    "roleUpdatedSuccess": "Your role has been updated to {{newRole}} in {{groupName}}!",
+    "joinedGroupSuccess": "You've successfully joined {{groupName}}!",
+    "failedToAcceptInvitation": "Failed to accept invitation. Please try again.",
+    "failedToRejectInvitation": "Failed to reject invitation. Please try again.",
+    "memberBadge": "Member"
   },
   "events": {
     "upcoming": "Upcoming",
@@ -128,7 +153,10 @@
     "noGroupsMessage": "You don't belong to any groups yet.",
     "loadingGroups": "Loading groups...",
     "memberCount_one": "{{count}} member",
-    "memberCount_other": "{{count}} members"
+    "memberCount_other": "{{count}} members",
+    "groupFallback": "Group {{id}}",
+    "youBadge": "👤 You",
+    "roleLabel": "Role: {{roles}}"
   },
   "news": {
     "allNews": "All News",
@@ -139,7 +167,8 @@
     "allCaughtUp": "All caught up!",
     "readAllNews": "You've read all the news",
     "newsFromClubs": "News from your clubs will appear here",
-    "pendingPayments": "Pending Payments ({{count}})"
+    "pendingPayments": "Pending Payments ({{count}})",
+    "childFallback": "Child"
   },
   "about": {
     "title": "About Clubnizer",
@@ -212,6 +241,12 @@
     "deleteAccountIsClubAdmin": "You must step down as club admin first: {{clubs}}",
     "deleteAccountHasDependents": "You are a guardian for active youth players. Contact a club admin to remove you as guardian before deleting your account.",
     "deleteAccountFailed": "Failed to delete account. Please try again.",
+    "displayNameEmpty": "Display name cannot be empty.",
+    "failedToUpdateProfile": "Failed to update profile.",
+    "failedToChangePassword": "Failed to change password.",
+    "failedToRequestEmailChange": "Failed to request email change.",
+    "signOutFailed": "Failed to sign out. Please try again.",
+    "signOutError": "An error occurred while signing out.",
     "createClub": "Create a Club",
     "createClubDesc": "Start your own sports organization"
   },
@@ -765,7 +800,8 @@
     "allInvitationsSent": "All {{count}} invitations sent successfully.",
     "sendMore": "Send More",
     "partialSuccess": "Partial Success",
-    "errorCheckingEmail": "Error checking email"
+    "errorCheckingEmail": "Error checking email",
+    "blockedEmails": "The following email(s) cannot be invited because they already have the {{role}} role in this group:\n\n{{emails}}"
   },
   "addChildMember": {
     "subtitle": "Invite a child to join {{groupName}}. The invitation will be sent to their guardian. They will manage all communications and event responses for the child.",
@@ -811,8 +847,12 @@
       "nameRequired": "Please enter the child's name",
       "dobRequired": "Please enter the date of birth",
       "invalidDob": "Please enter a valid date of birth (YYYY-MM-DD)",
-      "relationshipRequired": "Please specify the relationship to guardian"
-    }
+      "relationshipRequired": "Please specify the relationship to guardian",
+      "nameTooShort": "Child's name must be at least 2 characters",
+      "dobFuture": "Date of birth cannot be in the future",
+      "childTooOld": "Child must be under 25 years old"
+    },
+    "failedToSendInvitation": "Failed to send invitation"
   },
   "addMembers": {
     "missingRequiredInfo": "Missing required information to send invitations",
@@ -832,6 +872,15 @@
     "invitationSentSuccess": "Invitation Sent! 📧",
     "addAnother": "Add Another",
     "sendAnother": "Send Another",
+    "childAddedMessage": "🎉 Child Added!\n\n\"{{childName}}\" has been added to \"{{groupName}}\" as an unconfirmed member.\n\nUse \"Send Confirmation Link to Guardians\" in group settings to invite their guardians.",
+    "failedToAddChild": "Failed to add child. Please try again.",
+    "pleaseEnterEmail": "Please enter an email address.",
+    "pleaseEnterValidEmail": "Please enter a valid email address.",
+    "groupNameMissing": "Group name is missing. Please try again.",
+    "inviterNameMissing": "Inviter name is missing. Please try again.",
+    "invitationSentMessage": "🎉 Invitation Sent!\n\nAn invitation has been sent to {{email}}. They will receive an email with instructions to join \"{{groupName}}\".",
+    "failedToSendInvitation": "Failed to send invitation. Please try again.",
+    "invalidData": "Invalid data: {{message}}",
     "errors": {
       "invalidArgument": "Please check the information you entered and try again.",
       "unauthenticated": "You need to be logged in to do this.",
@@ -856,7 +905,11 @@
     "removalComplete": "Removal Complete",
     "successCount": "{{count}} removed successfully",
     "failureCount": "{{count}} failed to remove",
-    "errorsLabel": "Errors:"
+    "errorsLabel": "Errors:",
+    "playerRole": "player role",
+    "youthPlayerRole": "youth player role",
+    "coachRole": "coach role",
+    "adminRole": "admin role"
   },
   "memberProfile": {
     "loadingMemberProfile": "Loading member profile...",
@@ -1180,5 +1233,9 @@
       "personnummer_invalid_year": "Invalid year in personnummer.",
       "personnummer_invalid_checksum": "Invalid personnummer checksum."
     }
+  },
+  "notFound": {
+    "title": "Oops! Not Found",
+    "goHome": "Go back to Home screen!"
   }
 }

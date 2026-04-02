@@ -47,7 +47,9 @@
       "networkRequestFailed": "Erreur réseau. Veuillez vérifier votre connexion.",
       "userDisabled": "Ce compte a été désactivé.",
       "generic": "Une erreur s'est produite lors de la connexion. Veuillez réessayer."
-    }
+    },
+    "failedToResend": "❌ Échec du renvoi de l'email de vérification.\n\n{{error}}",
+    "unexpectedResendError": "❌ Une erreur inattendue s'est produite. Veuillez réessayer."
   },
   "signup": {
     "createAccount": "Créer un compte",
@@ -86,7 +88,9 @@
       "weakPassword": "Le mot de passe est trop faible. Veuillez utiliser au moins 6 caractères.",
       "invalidEmail": "Veuillez entrer une adresse e-mail valide.",
       "generic": "Une erreur s'est produite lors de l'inscription. Veuillez réessayer."
-    }
+    },
+    "emailVerifiedModal": "✅ Email vérifié !\n\nVotre compte est maintenant activé. Vous pouvez maintenant vous connecter à votre compte Clubnizer.",
+    "emailAlreadyVerifiedModal": "✅ Email déjà vérifié !\n\nVotre compte est déjà activé. Vous pouvez vous connecter à votre compte Clubnizer."
   },
   "home": {
     "welcome": "Bienvenue, {{name}} !",
@@ -104,7 +108,8 @@
     "loadingDashboard": "Chargement du tableau de bord...",
     "noClubsYet": "Pas encore de club",
     "noClubsMessage": "Vous n'êtes membre d'aucun club pour le moment. Créez-en un ou demandez à être invité !",
-    "createClub": "Créer un club"
+    "createClub": "Créer un club",
+    "memberBadge": "Membre"
   },
   "events": {
     "upcoming": "À venir",
@@ -128,7 +133,10 @@
     "noGroupsMessage": "Vous n'appartenez à aucun groupe pour le moment.",
     "loadingGroups": "Chargement des groupes...",
     "memberCount_one": "{{count}} membre",
-    "memberCount_other": "{{count}} membres"
+    "memberCount_other": "{{count}} membres",
+    "groupFallback": "Groupe {{id}}",
+    "youBadge": "👤 Vous",
+    "roleLabel": "Rôle: {{roles}}"
   },
   "news": {
     "allNews": "Toutes les actualités",
@@ -139,7 +147,8 @@
     "allCaughtUp": "Vous êtes à jour !",
     "readAllNews": "Vous avez lu toutes les actualités",
     "newsFromClubs": "Les actualités de vos clubs apparaîtront ici",
-    "pendingPayments": "Paiements en attente ({{count}})"
+    "pendingPayments": "Paiements en attente ({{count}})",
+    "childFallback": "Enfant"
   },
   "about": {
     "title": "À propos de Clubnizer",
@@ -747,7 +756,8 @@
     "allInvitationsSent": "Les {{count}} invitations ont été envoyées avec succès.",
     "sendMore": "Envoyer plus",
     "partialSuccess": "Succès partiel",
-    "errorCheckingEmail": "Erreur lors de la vérification de l'e-mail"
+    "errorCheckingEmail": "Erreur lors de la vérification de l'e-mail",
+    "blockedEmails": "Les adresses e-mail suivantes ne peuvent pas être invitées car elles ont déjà le rôle {{role}} dans ce groupe :\n\n{{emails}}"
   },
   "addChildMember": {
     "subtitle": "Invitez un enfant à rejoindre {{groupName}}. L'invitation sera envoyée à son tuteur. Il gérera toutes les communications et les réponses aux événements pour l'enfant.",
@@ -793,8 +803,12 @@
       "nameRequired": "Veuillez entrer le nom de l'enfant",
       "dobRequired": "Veuillez entrer la date de naissance",
       "invalidDob": "Veuillez entrer une date de naissance valide (AAAA-MM-JJ)",
-      "relationshipRequired": "Veuillez préciser le lien avec le tuteur"
-    }
+      "relationshipRequired": "Veuillez préciser le lien avec le tuteur",
+      "nameTooShort": "Le nom de l'enfant doit comporter au moins 2 caractères",
+      "dobFuture": "La date de naissance ne peut pas être dans le futur",
+      "childTooOld": "L'enfant doit avoir moins de 25 ans"
+    },
+    "failedToSendInvitation": "Échec de l'envoi de l'invitation"
   },
   "addMembers": {
     "missingRequiredInfo": "Informations requises manquantes pour envoyer les invitations",
@@ -819,7 +833,16 @@
       "unauthenticated": "Vous devez être connecté pour effectuer cette action.",
       "alreadyExists": "Ce membre existe déjà dans le groupe.",
       "alreadyInvited": "Une invitation a déjà été envoyée à cette personne."
-    }
+    },
+    "childAddedMessage": "🎉 Enfant ajouté !\n\n\"{{childName}}\" a été ajouté à \"{{groupName}}\" en tant que membre non confirmé.\n\nUtilisez \"Envoyer le lien de confirmation aux tuteurs\" dans les paramètres du groupe pour inviter les tuteurs.",
+    "failedToAddChild": "Échec de l'ajout de l'enfant. Veuillez réessayer.",
+    "pleaseEnterEmail": "Veuillez entrer une adresse e-mail.",
+    "pleaseEnterValidEmail": "Veuillez entrer une adresse e-mail valide.",
+    "groupNameMissing": "Nom du groupe manquant. Veuillez réessayer.",
+    "inviterNameMissing": "Nom de l'inviteur manquant. Veuillez réessayer.",
+    "invitationSentMessage": "🎉 Invitation envoyée !\n\nUne invitation a été envoyée à {{email}}. Ils recevront un email avec les instructions pour rejoindre \"{{groupName}}\".",
+    "failedToSendInvitation": "Échec de l'envoi de l'invitation. Veuillez réessayer.",
+    "invalidData": "Données invalides : {{message}}"
   },
   "removeMember": {
     "loadingMembers": "Chargement des membres...",
@@ -838,7 +861,11 @@
     "removalComplete": "Suppression terminée",
     "successCount": "{{count}} retiré(s) avec succès",
     "failureCount": "{{count}} échec(s) de suppression",
-    "errorsLabel": "Erreurs :"
+    "errorsLabel": "Erreurs :",
+    "playerRole": "rôle de joueur",
+    "youthPlayerRole": "rôle de jeune joueur",
+    "coachRole": "rôle d'entraîneur",
+    "adminRole": "rôle d'administrateur"
   },
   "memberProfile": {
     "loadingMemberProfile": "Chargement du profil du membre...",
@@ -1162,5 +1189,9 @@
       "personnummer_invalid_year": "Année invalide dans le personnummer.",
       "personnummer_invalid_checksum": "Somme de contrôle invalide dans le personnummer."
     }
+  },
+  "notFound": {
+    "title": "Oups ! Page non trouvée",
+    "goHome": "Retour à l'écran d'accueil !"
   }
 }

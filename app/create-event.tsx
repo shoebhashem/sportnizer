@@ -408,8 +408,8 @@ export default function CreateEventScreen() {
 
   // Auto-generate title for Training and Match events
   const getAutoTitle = (type: string) => {
-    if (type === "practice") return "Training";
-    if (type === "game") return "Match";
+    if (type === "practice") return t("common:training");
+    if (type === "game") return t("common:match");
     return "";
   };
 

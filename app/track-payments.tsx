@@ -5,7 +5,7 @@ import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { ScreenTooltipManager } from "@/components/onboarding";
 import PaymentStatusBadge, {
-    PaymentStatus,
+  PaymentStatus,
 } from "@/components/PaymentStatusBadge";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
@@ -17,22 +17,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -311,14 +311,18 @@ export default function TrackPaymentsScreen() {
                   : styles.feeStatusTextClosed,
               ]}
             >
-              {isActive ? "Active" : "Closed"}
+              {isActive ? t("common:active") : t("common:closed")}
             </Text>
           </View>
         </View>
         <Text style={styles.feeAmount}>
           {formatAmount(fee.amount, fee.currency)}
         </Text>
-        <Text style={styles.feeDueDate}>Due: {formatDate(fee.dueDate)}</Text>
+        <Text style={styles.feeDueDate}>
+          {t("screens:trackPayments.dueDate", {
+            date: formatDate(fee.dueDate),
+          })}
+        </Text>
         <View style={styles.feeProgressContainer}>
           <View
             style={[
@@ -490,7 +494,9 @@ export default function TrackPaymentsScreen() {
                     : styles.feeStatusTextClosed,
                 ]}
               >
-                {selectedFee.status === "active" ? "Active" : "Closed"}
+                {selectedFee.status === "active"
+                  ? t("common:active")
+                  : t("common:closed")}
               </Text>
             </View>
           </View>

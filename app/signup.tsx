@@ -164,14 +164,10 @@ export default function SignupScreen() {
   // Handle email verification status
   useEffect(() => {
     if (verified === "success") {
-      setModalMessage(
-        "✅ Email verified successfully!\n\nYour account is now activated. You can now sign in to your Clubnizer account.",
-      );
+      setModalMessage(t("screens:signup.emailVerifiedModal"));
       setSuccessModalVisible(true);
     } else if (verified === "already") {
-      setModalMessage(
-        "✅ Email already verified!\n\nYour account is already activated. You can sign in to your Clubnizer account.",
-      );
+      setModalMessage(t("screens:signup.emailAlreadyVerifiedModal"));
       setSuccessModalVisible(true);
     }
   }, [verified]);
@@ -212,7 +208,7 @@ export default function SignupScreen() {
       email.toLowerCase().trim() !== invitationEmail.toLowerCase().trim()
     ) {
       // For invited users, verify email matches invitation
-      setEmailError("Email must match the invitation email address");
+      setEmailError(t("screens:signup.emailMustMatchInvitation"));
       isValid = false;
     }
 

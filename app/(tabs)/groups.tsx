@@ -230,7 +230,10 @@ export default function GroupsScreen() {
                 </View>
                 <View style={styles.groupTitleContainer}>
                   <Text style={styles.groupName}>
-                    {group.groupName || `Group ${group.groupId.slice(-4)}`}
+                    {group.groupName ||
+                      t("screens:groups.groupFallback", {
+                        id: group.groupId.slice(-4),
+                      })}
                   </Text>
                   <Text style={styles.clubNameInGroup}>{group.clubName}</Text>
                   {group.membershipType === "dependent" && (
@@ -242,7 +245,9 @@ export default function GroupsScreen() {
                   )}
                   {group.membershipType === "direct" && (
                     <View style={styles.directBadge}>
-                      <Text style={styles.badgeText}>👤 You</Text>
+                      <Text style={styles.badgeText}>
+                        {t("screens:groups.youBadge")}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -268,7 +273,9 @@ export default function GroupsScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={styles.groupRole}>
-                Role: {group.roles.join(", ")}
+                {t("screens:groups.roleLabel", {
+                  roles: group.roles.join(", "),
+                })}
               </Text>
             </TouchableOpacity>
           ))

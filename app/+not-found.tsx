@@ -1,13 +1,15 @@
-import { View, StyleSheet } from 'react-native';
-import { Link, Stack } from 'expo-router';
+import { Link, Stack } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { StyleSheet, View } from "react-native";
 
 export default function NotFoundScreen() {
+  const { t } = useTranslation(["screens"]);
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops! Not Found' }} />
+      <Stack.Screen options={{ title: t("screens:notFound.title") }} />
       <View style={styles.container}>
         <Link href="/" style={styles.button}>
-          Go back to Home screen!
+          {t("screens:notFound.goHome")}
         </Link>
       </View>
     </>
@@ -17,14 +19,14 @@ export default function NotFoundScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#25292e",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   button: {
     fontSize: 20,
-    textDecorationLine: 'underline',
-    color: '#fff',
+    textDecorationLine: "underline",
+    color: "#fff",
   },
 });

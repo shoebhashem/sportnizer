@@ -227,7 +227,7 @@ export default function AddChildMemberScreen() {
     if (childName.trim().length < 2) {
       showModal(
         t("common:error"),
-        "Child's name must be at least 2 characters",
+        t("screens:addChildMember.validationErrors.nameTooShort"),
       );
       return false;
     }
@@ -270,12 +270,18 @@ export default function AddChildMemberScreen() {
     }
 
     if (birthDate > today) {
-      showModal(t("common:error"), "Date of birth cannot be in the future");
+      showModal(
+        t("common:error"),
+        t("screens:addChildMember.validationErrors.dobFuture"),
+      );
       return false;
     }
 
     if (birthDate < minDate) {
-      showModal(t("common:error"), "Child must be under 25 years old");
+      showModal(
+        t("common:error"),
+        t("screens:addChildMember.validationErrors.childTooOld"),
+      );
       return false;
     }
 
@@ -390,13 +396,14 @@ export default function AddChildMemberScreen() {
         } else {
           showModal(
             t("common:error"),
-            inviteResult.error || "Failed to send invitation",
+            inviteResult.error ||
+              t("screens:addChildMember.failedToSendInvitation"),
           );
         }
       } else {
         showModal(
           t("common:error"),
-          result.error || "Failed to send invitation",
+          result.error || t("screens:addChildMember.failedToSendInvitation"),
         );
       }
     } catch (error: any) {

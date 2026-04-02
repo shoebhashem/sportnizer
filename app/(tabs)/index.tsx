@@ -845,11 +845,13 @@ export default function Index() {
                               color={theme.colors.secondary}
                             />
                             <Text style={styles.adminText}>
-                              Admin • Tap to manage
+                              {t("screens:home.adminTapToManage")}
                             </Text>
                           </View>
                         ) : (
-                          <Text style={styles.clubSubtext}>Member</Text>
+                          <Text style={styles.clubSubtext}>
+                            {t("screens:home.memberBadge")}
+                          </Text>
                         )}
                       </View>
                       {/* Info icon for all users */}

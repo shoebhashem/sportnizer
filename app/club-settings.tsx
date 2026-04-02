@@ -17,14 +17,14 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -67,7 +67,9 @@ export default function ClubSettingsScreen() {
   // Set dynamic header with club name
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: club?.name ? `${club.name} Settings` : "Club Settings",
+      title: club?.name
+        ? t("screens:subgroupSettings.displayNameSettings", { name: club.name })
+        : t("screens:clubSettings.loadingClubSettings"),
     });
   }, [club?.name, navigation]);
 

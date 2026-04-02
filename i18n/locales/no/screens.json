@@ -47,7 +47,9 @@
       "networkRequestFailed": "Nettverksfeil. Sjekk tilkoblingen din.",
       "userDisabled": "Denne kontoen er deaktivert.",
       "generic": "Det oppstod en feil under innlogging. Vennligst prøv igjen."
-    }
+    },
+    "failedToResend": "❌ Kunne ikke sende verifiseringsmail på nytt.\n\n{{error}}",
+    "unexpectedResendError": "❌ En uventet feil oppstod. Prøv igjen."
   },
   "signup": {
     "createAccount": "Opprett konto",
@@ -86,7 +88,9 @@
       "weakPassword": "Passordet er for svakt. Bruk minst 6 tegn.",
       "invalidEmail": "Vennligst skriv inn en gyldig e-postadresse.",
       "generic": "Det oppstod en feil under registrering. Vennligst prøv igjen."
-    }
+    },
+    "emailVerifiedModal": "✅ E-post verifisert!\n\nKontoen din er nå aktivert. Du kan nå logge inn på Clubnizer-kontoen din.",
+    "emailAlreadyVerifiedModal": "✅ E-post allerede verifisert!\n\nKontoen din er allerede aktivert. Du kan logge inn på Clubnizer-kontoen din."
   },
   "home": {
     "welcome": "Velkommen, {{name}}!",
@@ -104,7 +108,8 @@
     "loadingDashboard": "Laster oversikt...",
     "noClubsYet": "Ingen klubber ennå",
     "noClubsMessage": "Du er ikke medlem av noen klubber ennå. Opprett en eller be om å bli invitert!",
-    "createClub": "Opprett klubb"
+    "createClub": "Opprett klubb",
+    "memberBadge": "Medlem"
   },
   "events": {
     "upcoming": "Kommende",
@@ -128,7 +133,10 @@
     "noGroupsMessage": "Du tilhører ingen grupper ennå.",
     "loadingGroups": "Laster grupper...",
     "memberCount_one": "{{count}} medlem",
-    "memberCount_other": "{{count}} medlemmer"
+    "memberCount_other": "{{count}} medlemmer",
+    "groupFallback": "Gruppe {{id}}",
+    "youBadge": "👤 Deg",
+    "roleLabel": "Rolle: {{roles}}"
   },
   "news": {
     "allNews": "Alle nyheter",
@@ -139,7 +147,8 @@
     "allCaughtUp": "Du er oppdatert!",
     "readAllNews": "Du har lest alle nyhetene",
     "newsFromClubs": "Nyheter fra klubbene dine vises her",
-    "pendingPayments": "Ventende betalinger ({{count}})"
+    "pendingPayments": "Ventende betalinger ({{count}})",
+    "childFallback": "Barn"
   },
   "about": {
     "title": "Om Clubnizer",
@@ -747,7 +756,8 @@
     "allInvitationsSent": "Alle {{count}} invitasjoner er sendt.",
     "sendMore": "Send flere",
     "partialSuccess": "Delvis vellykket",
-    "errorCheckingEmail": "Feil ved sjekking av e-post"
+    "errorCheckingEmail": "Feil ved sjekking av e-post",
+    "blockedEmails": "Følgende e-postadresse(r) kan ikke inviteres fordi de allerede har rollen {{role}} i denne gruppen:\n\n{{emails}}"
   },
   "addChildMember": {
     "subtitle": "Inviter et barn til å bli med i {{groupName}}. Invitasjonen sendes til foresatte. De vil håndtere all kommunikasjon og hendelsessvar for barnet.",
@@ -793,8 +803,12 @@
       "nameRequired": "Vennligst skriv inn barnets navn",
       "dobRequired": "Vennligst skriv inn fødselsdato",
       "invalidDob": "Vennligst skriv inn en gyldig fødselsdato (YYYY-MM-DD)",
-      "relationshipRequired": "Vennligst spesifiser relasjon til foresatt"
-    }
+      "relationshipRequired": "Vennligst spesifiser relasjon til foresatt",
+      "nameTooShort": "Barnets navn må være minst 2 tegn",
+      "dobFuture": "Fødselsdato kan ikke være i fremtiden",
+      "childTooOld": "Barnet må være under 25 år"
+    },
+    "failedToSendInvitation": "Kunne ikke sende invitasjon"
   },
   "addMembers": {
     "missingRequiredInfo": "Mangler nødvendig informasjon for å sende invitasjoner",
@@ -819,7 +833,16 @@
       "unauthenticated": "Du må være innlogget for å gjøre dette.",
       "alreadyExists": "Dette medlemmet finnes allerede i gruppen.",
       "alreadyInvited": "En invitasjon er allerede sendt til denne personen."
-    }
+    },
+    "childAddedMessage": "🎉 Barn lagt til!\n\n\"{{childName}}\" har blitt lagt til i \"{{groupName}}\" som et ubekreftet medlem.\n\nBruk \"Send bekreftelseslenke til foresatte\" i gruppeinnstillinger for å invitere foresatte.",
+    "failedToAddChild": "Kunne ikke legge til barn. Prøv igjen.",
+    "pleaseEnterEmail": "Vennligst skriv inn en e-postadresse.",
+    "pleaseEnterValidEmail": "Vennligst skriv inn en gyldig e-postadresse.",
+    "groupNameMissing": "Gruppenavnet mangler. Prøv igjen.",
+    "inviterNameMissing": "Invitørens navn mangler. Prøv igjen.",
+    "invitationSentMessage": "🎉 Invitasjon sendt!\n\nEn invitasjon har blitt sendt til {{email}}. De vil motta en e-post med instruksjoner for å bli med i \"{{groupName}}\".",
+    "failedToSendInvitation": "Kunne ikke sende invitasjon. Prøv igjen.",
+    "invalidData": "Ugyldige data: {{message}}"
   },
   "removeMember": {
     "loadingMembers": "Laster medlemmer...",
@@ -838,7 +861,11 @@
     "removalComplete": "Fjerning fullført",
     "successCount": "{{count}} fjernet",
     "failureCount": "{{count}} kunne ikke fjernes",
-    "errorsLabel": "Feil:"
+    "errorsLabel": "Feil:",
+    "playerRole": "spillerrolle",
+    "youthPlayerRole": "ungdomsspillerrolle",
+    "coachRole": "trenerrolle",
+    "adminRole": "adminrolle"
   },
   "memberProfile": {
     "loadingMemberProfile": "Laster medlemsprofil...",
@@ -1162,5 +1189,9 @@
       "personnummer_invalid_year": "Ugyldig år i personnummer.",
       "personnummer_invalid_checksum": "Ugyldig kontrollsiffer i personnummer."
     }
+  },
+  "notFound": {
+    "title": "Oops! Siden ble ikke funnet",
+    "goHome": "Gå tilbake til hjemmesiden!"
   }
 }

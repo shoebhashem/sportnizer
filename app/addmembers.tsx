@@ -102,12 +102,15 @@ export default function AddMembersScreen() {
 
       if (result.success) {
         setModalMessage(
-          `🎉 Child Added!\n\n"${childName.trim()}" has been added to "${decodedGroupName}" as an unconfirmed member.\n\nUse "Send Confirmation Link to Guardians" in group settings to invite their guardians.`,
+          t("screens:addMembers.childAddedMessage", {
+            childName: childName.trim(),
+            groupName: decodedGroupName,
+          }),
         );
         setSuccessModalVisible(true);
       } else {
         const error = result.error;
-        let errorMessage = "Failed to add child. Please try again.";
+        let errorMessage = t("screens:addMembers.failedToAddChild");
 
         if (typeof error === "string") {
           errorMessage = error;
@@ -118,7 +121,7 @@ export default function AddMembersScreen() {
       }
     } catch (error: any) {
       console.error("Error adding child:", error);
-      setModalMessage("Failed to add child. Please try again.");
+      setModalMessage(t("screens:addMembers.failedToAddChild"));
       setErrorModalVisible(true);
     } finally {
       setLoading(false);
@@ -127,13 +130,13 @@ export default function AddMembersScreen() {
 
   const handleSendInvitation = async () => {
     if (!email.trim()) {
-      setModalMessage("Please enter an email address.");
+      setModalMessage(t("screens:addMembers.pleaseEnterEmail"));
       setErrorModalVisible(true);
       return;
     }
 
     if (!validateEmail(email.trim())) {
-      setModalMessage("Please enter a valid email address.");
+      setModalMessage(t("screens:addMembers.pleaseEnterValidEmail"));
       setErrorModalVisible(true);
       return;
     }
@@ -145,13 +148,13 @@ export default function AddMembersScreen() {
     }
 
     if (!decodedGroupName) {
-      setModalMessage("Group name is missing. Please try again.");
+      setModalMessage(t("screens:addMembers.groupNameMissing"));
       setErrorModalVisible(true);
       return;
     }
 
     if (!decodedInviterName) {
-      setModalMessage("Inviter name is missing. Please try again.");
+      setModalMessage(t("screens:addMembers.inviterNameMissing"));
       setErrorModalVisible(true);
       return;
     }
@@ -183,7 +186,10 @@ export default function AddMembersScreen() {
       console.log("Invitation result:", result);
 
       setModalMessage(
-        `🎉 Invitation Sent!\n\nAn invitation has been sent to ${email.trim()}. They will receive an email with instructions to join "${decodedGroupName}".`,
+        t("screens:addMembers.invitationSentMessage", {
+          email: email.trim(),
+          groupName: decodedGroupName,
+        }),
       );
       setSuccessModalVisible(true);
     } catch (error: any) {
@@ -194,10 +200,12 @@ export default function AddMembersScreen() {
         details: error.details,
       });
 
-      let errorMessage = "Failed to send invitation. Please try again.";
+      let errorMessage = t("screens:addMembers.failedToSendInvitation");
 
       if (error.code === "functions/invalid-argument") {
-        errorMessage = `Invalid data: ${error.message}`;
+        errorMessage = t("screens:addMembers.invalidData", {
+          message: error.message,
+        });
       } else if (error.code === "functions/unauthenticated") {
         errorMessage = t("screens:addMembers.errors.unauthenticated");
       } else if (error.code === "functions/already-exists") {

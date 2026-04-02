@@ -809,7 +809,8 @@ export default function EventDetailsScreen() {
               color="#1a1d21"
             />
             <Text style={styles.eventTypeText}>
-              {event.eventType?.toUpperCase() || "EVENT"}
+              {event.eventType?.toUpperCase() ||
+                t("common:event").toUpperCase()}
             </Text>
           </View>
           {event.description && (
@@ -1838,7 +1839,8 @@ export default function EventDetailsScreen() {
                   color={theme.colors.textSecondary}
                 />
                 <Text style={styles.descriptionEventType}>
-                  {event?.eventType?.toUpperCase() || "EVENT"}
+                  {event?.eventType?.toUpperCase() ||
+                    t("common:event").toUpperCase()}
                 </Text>
               </View>
               <Text style={styles.descriptionText}>{event?.description}</Text>

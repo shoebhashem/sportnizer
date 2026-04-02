@@ -16,7 +16,6 @@
       "attendanceDesc": "Följ närvaro & visa statistik"
     }
   },
-
   "login": {
     "welcomeBack": "Välkommen tillbaka!",
     "signInToContinue": "Logga in för att fortsätta till Clubnizer",
@@ -48,9 +47,10 @@
       "networkRequestFailed": "Nätverksfel. Kontrollera din anslutning.",
       "userDisabled": "Det här kontot har inaktiverats.",
       "generic": "Ett fel uppstod vid inloggning. Försök igen."
-    }
+    },
+    "failedToResend": "❌ Det gick inte att skicka om verifieringsmeddelandet.\n\n{{error}}",
+    "unexpectedResendError": "❌ Ett oväntat fel uppstod. Försök igen."
   },
-
   "signup": {
     "createAccount": "Skapa konto",
     "joinClubnizerToday": "Gå med i Clubnizer idag",
@@ -88,9 +88,10 @@
       "weakPassword": "Lösenordet är för svagt. Använd minst 6 tecken.",
       "invalidEmail": "Ange en giltig e-postadress.",
       "generic": "Ett fel uppstod vid registrering. Försök igen."
-    }
+    },
+    "emailVerifiedModal": "✅ E-post verifierad!\n\nDitt konto är nu aktiverat. Du kan nu logga in på ditt Clubnizer-konto.",
+    "emailAlreadyVerifiedModal": "✅ E-post redan verifierad!\n\nDitt konto är redan aktiverat. Du kan logga in på ditt Clubnizer-konto."
   },
-
   "home": {
     "welcome": "Välkommen, {{name}}!",
     "pendingInvitations": "Väntande inbjudningar",
@@ -107,9 +108,9 @@
     "loadingDashboard": "Laddar startsidan...",
     "noClubsYet": "Inga klubbar ännu",
     "noClubsMessage": "Du är inte medlem i någon klubb ännu. Skapa en eller be om att bli inbjuden!",
-    "createClub": "Skapa klubb"
+    "createClub": "Skapa klubb",
+    "memberBadge": "Medlem"
   },
-
   "events": {
     "upcoming": "Kommande",
     "past": "Tidigare",
@@ -126,24 +127,25 @@
     "filterOther": "Övrigt",
     "createEvent": "Ny händelse"
   },
-
   "groups": {
     "myGroups": "Mina grupper",
     "noGroups": "Inga grupper ännu",
     "noGroupsMessage": "Du tillhör inga grupper ännu.",
     "loadingGroups": "Laddar grupper...",
     "memberCount_one": "{{count}} medlem",
-    "memberCount_other": "{{count}} medlemmar"
+    "memberCount_other": "{{count}} medlemmar",
+    "groupFallback": "Grupp {{id}}",
+    "youBadge": "👤 Du",
+    "roleLabel": "Roll: {{roles}}"
   },
-
   "news": {
     "allNews": "Alla nyheter",
     "unread": "Olästa",
     "noNews": "Inga nyheter ännu",
     "noUnreadNews": "Inga olästa nyheter",
-    "loadingNews": "Laddar nyheter..."
+    "loadingNews": "Laddar nyheter...",
+    "childFallback": "Barn"
   },
-
   "about": {
     "title": "Om Clubnizer",
     "description": "Clubnizer är en ren och fokuserad plattform som hjälper lag och klubbar att organisera sina sportaktiviteter på ett enkelt och strukturerat sätt.",
@@ -160,7 +162,6 @@
     "continuouslyImprovingParagraph2": "Om du upplever några problem, hittar en bugg eller har förslag på förbättringar, hör vi gärna från dig.",
     "supportEmail": "support@clubnizer.com"
   },
-
   "profile": {
     "myProfile": "Min profil",
     "personalInfo": "Personlig information",
@@ -219,7 +220,6 @@
     "createClub": "Skapa en klubb",
     "createClubDesc": "Starta din egen sportorganisation"
   },
-
   "createClubForm": {
     "createYourClub": "Skapa din klubb",
     "clubName": "Klubbnamn",
@@ -243,7 +243,6 @@
       "createFailed": "Kunde inte skapa klubb. Försök igen."
     }
   },
-
   "createEvent": {
     "createEvent": "Skapa händelse",
     "editEvent": "Redigera händelse",
@@ -359,7 +358,6 @@
     "noMembersMatchSearch": "Inga medlemmar matchar din sökning",
     "noMembersAvailable": "Inga medlemmar tillgängliga"
   },
-
   "eventDetails": {
     "loadingEvent": "Laddar händelsedetaljer...",
     "eventNotFound": "Händelse hittades inte",
@@ -455,7 +453,6 @@
     "syncAllFutureHint": "Nya medlemmar läggs till för detta och alla kommande datum",
     "syncNoNewMembers": "Inga nya medlemmar att lägga till"
   },
-
   "scheduleEvent": {
     "reviewAndSchedule": "Granska & schemalägg",
     "confirmDetails": "Bekräfta händelsedetaljer innan schemaläggning",
@@ -471,7 +468,6 @@
     "importantNote": "När händelsen skapats skickas inbjudningar till alla valda medlemmar. De kommer att kunna svara med sin tillgänglighet.",
     "backToRecipients": "Tillbaka till mottagare"
   },
-
   "manageClub": {
     "loadingClub": "Laddar klubb...",
     "clubNotFound": "Klubb hittades inte",
@@ -486,7 +482,6 @@
     "scheduledForDeletion": "Schemalagd för radering",
     "selectGroupToDelete": "Välj en grupp att ta bort"
   },
-
   "manageGroup": {
     "loadingGroup": "Laddar grupp...",
     "groupNotFound": "Grupp hittades inte",
@@ -499,7 +494,6 @@
     "noEvents": "Inga händelser ännu",
     "createSubgroup": "Skapa undergrupp"
   },
-
   "manageSubgroup": {
     "loadingSubgroup": "Laddar undergrupp...",
     "subgroupNotFound": "Undergrupp hittades inte",
@@ -510,7 +504,6 @@
     "noMembersAvailable": "Alla gruppmedlemmar finns redan i denna undergrupp",
     "noMembersInSubgroup": "Inga medlemmar i denna undergrupp"
   },
-
   "manageSubgroupMembers": {
     "selectMembers": "Välj medlemmar",
     "instructions": "Välj medlemmar från gruppen att lägga till i denna undergrupp",
@@ -518,7 +511,6 @@
     "adding": "Lägger till...",
     "noAvailableMembers": "Inga tillgängliga medlemmar att lägga till"
   },
-
   "groupSettings": {
     "loadingGroupSettings": "Laddar gruppinställningar...",
     "groupNotFound": "Grupp hittades inte",
@@ -562,7 +554,6 @@
     "leaveGroupFailed": "Kunde inte lämna gruppen. Försök igen.",
     "leavingGroup": "Lämnar..."
   },
-
   "clubSettings": {
     "loadingClubSettings": "Laddar klubbinställningar...",
     "clubNotFound": "Klubb hittades inte",
@@ -606,7 +597,6 @@
     "addClubAdmin": "Lägg till klubbadministratör",
     "addClubAdminDesc": "Bjud in en klubbadministratör"
   },
-
   "clubInfo": {
     "loadingClubInfo": "Laddar klubbinfo...",
     "clubName": "Klubbnamn",
@@ -645,7 +635,6 @@
     "uploadingPicture": "Laddar upp bild...",
     "pictureUploadWarning": "Bilduppladdning misslyckades, men övriga ändringar sparades."
   },
-
   "subgroupSettings": {
     "displayNameSettings": "{{name}} inställningar",
     "loadingSubgroupSettings": "Laddar undergruppsinställningar...",
@@ -669,7 +658,6 @@
     "failedToLoadSubgroupData": "Kunde inte ladda undergruppsdata",
     "failedToRenameSubgroup": "Kunde inte byta namn på undergruppen. Försök igen."
   },
-
   "subscriptionSettings": {
     "loadingSubscription": "Laddar prenumeration...",
     "paymentDue": "Betalning förfallen",
@@ -705,7 +693,6 @@
     "trialConfirmMessage": "Ditt kort sparas men du debiteras inte förrän {{date}}. Du kan avbryta när som helst under provperioden.",
     "trialFeature": "6 månaders gratis provperiod"
   },
-
   "addAdultMember": {
     "addPlayer": "Lägg till spelare",
     "addCoach": "Lägg till tränare",
@@ -739,9 +726,9 @@
     "allInvitationsSent": "Alla {{count}} inbjudningar skickade.",
     "sendMore": "Skicka fler",
     "partialSuccess": "Delvis lyckad",
-    "errorCheckingEmail": "Fel vid kontroll av e-post"
+    "errorCheckingEmail": "Fel vid kontroll av e-post",
+    "blockedEmails": "Följande e-postadress(er) kan inte bjudas in eftersom de redan har rollen {{role}} i denna grupp:\n\n{{emails}}"
   },
-
   "addChildMember": {
     "subtitle": "Bjud in ett barn att gå med i {{groupName}}. Inbjudan skickas till deras vårdnadshavare. De hanterar all kommunikation och eventhantering för barnet.",
     "addYouthPlayer": "Lägg till ungdomsspelare",
@@ -786,10 +773,13 @@
       "nameRequired": "Ange barnets namn",
       "dobRequired": "Ange födelsedatum",
       "invalidDob": "Ange ett giltigt födelsedatum (ÅÅÅÅ-MM-DD)",
-      "relationshipRequired": "Ange relation till vårdnadshavare"
-    }
+      "relationshipRequired": "Ange relation till vårdnadshavare",
+      "nameTooShort": "Barnets namn måste vara minst 2 tecken",
+      "dobFuture": "Födelsedatum kan inte vara i framtiden",
+      "childTooOld": "Barnet måste vara under 25 år"
+    },
+    "failedToSendInvitation": "Det gick inte att skicka inbjudan"
   },
-
   "addMembers": {
     "missingRequiredInfo": "Saknad information för att skicka inbjudningar",
     "addChild": "Lägg till barn",
@@ -813,9 +803,17 @@
       "unauthenticated": "Du måste vara inloggad för att göra detta.",
       "alreadyExists": "Denna medlem finns redan i gruppen.",
       "alreadyInvited": "En inbjudan har redan skickats till denna person."
-    }
+    },
+    "childAddedMessage": "🎉 Barn tillagt!\n\n\"{{childName}}\" har lagts till i \"{{groupName}}\" som en obekräftad medlem.\n\nAnvänd \"Skicka bekräftelselänk till vårdnadshavare\" i gruppinställningar för att bjuda in deras vårdnadshavare.",
+    "failedToAddChild": "Det gick inte att lägga till barn. Försök igen.",
+    "pleaseEnterEmail": "Ange en e-postadress.",
+    "pleaseEnterValidEmail": "Ange en giltig e-postadress.",
+    "groupNameMissing": "Gruppnamn saknas. Försök igen.",
+    "inviterNameMissing": "Inbjudarens namn saknas. Försök igen.",
+    "invitationSentMessage": "🎉 Inbjudan skickad!\n\nEn inbjudan har skickats till {{email}}. De kommer att få ett e-postmeddelande med instruktioner för att gå med i \"{{groupName}}\".",
+    "failedToSendInvitation": "Det gick inte att skicka inbjudan. Försök igen.",
+    "invalidData": "Ogiltiga data: {{message}}"
   },
-
   "removeMember": {
     "loadingMembers": "Laddar medlemmar...",
     "removeType": "Ta bort {{memberType}}",
@@ -833,9 +831,12 @@
     "removalComplete": "Borttagning klar",
     "successCount": "{{count}} borttagna",
     "failureCount": "{{count}} misslyckades att ta bort",
-    "errorsLabel": "Fel:"
+    "errorsLabel": "Fel:",
+    "playerRole": "spelarroll",
+    "youthPlayerRole": "ungdomsspelarroll",
+    "coachRole": "tränarroll",
+    "adminRole": "adminroll"
   },
-
   "memberProfile": {
     "loadingMemberProfile": "Laddar medlemsprofil...",
     "memberNotFound": "Medlem hittades inte",
@@ -851,7 +852,6 @@
     "noGuardianContacts": "Inga vårdnadshavarkontakter tillgängliga",
     "guardianInfoPlaceholder": "Vårdnadshavarens information visas här när de bekräftar deltagandet"
   },
-
   "manageteams": {
     "loadingTeams": "Laddar dina lag...",
     "noTeamsFound": "Inga lag hittade",
@@ -859,7 +859,6 @@
     "addMembers": "Lägg till medlemmar",
     "teamMembers": "Lagmedlemmar ({{count}})"
   },
-
   "createMembershipFee": {
     "createFee": "Skapa avgift",
     "feeDetails": "Avgiftsdetaljer",
@@ -892,7 +891,6 @@
     "feeCreated": "Klart!",
     "feeCreatedMessage": "Avgift skapad för {{count}} medlemmar i {{groups}} grupp(er). Förväntat totalt: {{total}}"
   },
-
   "trackPayments": {
     "groupPayments": "{{groupName}} Betalningar",
     "trackPayments": "Spåra betalningar",
@@ -913,7 +911,6 @@
     "childYouthLabel": "(Barn/Ungdom)",
     "failedToLoadMembershipFees": "Kunde inte ladda medlemsavgifter"
   },
-
   "stripeOnboarding": {
     "paymentSetup": "Betalningsinstallation",
     "checkingPaymentStatus": "Kontrollerar betalningsstatus...",
@@ -955,7 +952,6 @@
     "resetConfirmMessage": "Detta kopplar bort ditt nuvarande Stripe-konto. Du måste slutföra registreringsprocessen igen för att ta emot betalningar.",
     "resetSetup": "Återställ installation"
   },
-
   "stripeReturn": {
     "welcomeBack": "Välkommen tillbaka!",
     "returnedFromStripe": "Du har återvänt från Stripe. Låt oss kontrollera din kontostatus.",
@@ -963,7 +959,6 @@
     "redirectingIn": "Omdirigerar om {{countdown}} sekunder...",
     "continueNow": "Fortsätt nu"
   },
-
   "stripeRefresh": {
     "sessionExpired": "Sessionen har gått ut",
     "sessionTimedOut": "Din Stripe-registreringssession har gått ut eller behöver uppdateras. Oroa dig inte — dina framsteg har sparats!",
@@ -971,20 +966,17 @@
     "continueSetup": "Fortsätt installation",
     "goToHome": "Gå till startsidan"
   },
-
   "paymentSuccess": {
     "paymentSuccessful": "Betalning lyckades!",
     "thankYou": "Tack för din betalning. Ditt kvitto har skickats till din e-post.",
     "processingNote": "Betalningen har behandlats och klubben kommer att ta emot medlen inom kort."
   },
-
   "paymentCancelled": {
     "paymentCancelled": "Betalning avbruten",
     "noWorries": "Inga problem! Din betalning behandlades inte och du har inte debiterats.",
     "payAnytime": "Du kan betala denna avgift när som helst från din startsida.",
     "returningIn": "Återgår till appen om {{countdown}} sekunder..."
   },
-
   "createNews": {
     "createNews": "Skapa nyhet",
     "editNews": "Redigera nyhet",
@@ -1016,7 +1008,6 @@
     "newsDeleted": "Nyhet borttagen",
     "loadingNews": "Laddar nyhet..."
   },
-
   "newsDetails": {
     "loadingNews": "Laddar nyhet...",
     "newsNotFound": "Nyhet hittades inte",
@@ -1027,7 +1018,6 @@
     "deleteNewsConfirm": "Är du säker på att du vill ta bort denna nyhet? Detta kan inte ångras.",
     "failedToDeleteNews": "Kunde inte ta bort nyhet"
   },
-
   "viewStatistics": {
     "groupStatistics": "{{groupName}} Statistik",
     "statistics": "Statistik",
@@ -1049,7 +1039,6 @@
     "step3": "3. Statistiken visas automatiskt här",
     "startRecording": "Börja med att registrera närvaro för din första avslutade händelse!"
   },
-
   "join": {
     "loadingInvitation": "Laddar inbjudningsdetaljer...",
     "invalidInvitationLink": "Ogiltig inbjudningslänk",
@@ -1093,7 +1082,6 @@
       "generic": "Ett fel uppstod. Försök igen."
     }
   },
-
   "invitationAccept": {
     "processingInvitation": "Behandlar din inbjudan...",
     "invitationError": "Inbjudningsfel",
@@ -1109,7 +1097,6 @@
     "continueToSignUp": "Fortsätt till registrering",
     "invitationStatus": "Inbjudningsstatus"
   },
-
   "invitationReject": {
     "processingResponse": "Behandlar ditt svar...",
     "invitationDeclined": "Inbjudan avböjd",
@@ -1157,5 +1144,9 @@
       "personnummer_invalid_year": "Ogiltigt år i personnummer.",
       "personnummer_invalid_checksum": "Ogiltig kontrollsiffra i personnummer."
     }
+  },
+  "notFound": {
+    "title": "Hoppsan! Sidan hittades inte",
+    "goHome": "Gå tillbaka till startsidan!"
   }
 }

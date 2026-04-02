@@ -462,7 +462,7 @@ export default function CreateNewsScreen() {
               textAlign: "center",
             }}
           >
-            Error: No context found. Please navigate from a manage screen.
+            {t("screens:createNews.noContextError")}
           </Text>
           <TouchableOpacity
             onPress={() => router.back()}

@@ -73,8 +73,8 @@ export default function WelcomeScreen() {
             />
             <Text style={styles.actionSubtext}>
               {user
-                ? "Set up your organization and start managing teams"
-                : "Get started in minutes - no experience needed"}
+                ? t("screens:welcome.actionSubtextLoggedIn")
+                : t("screens:welcome.actionSubtextLoggedOut")}
             </Text>
           </View>
 

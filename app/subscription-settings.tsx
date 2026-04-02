@@ -67,7 +67,9 @@ export default function SubscriptionSettingsScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: club?.name ? `${club.name} Subscription` : "Subscription",
+      title: club?.name
+        ? `${club.name} ${t("screens:clubSettings.subscription")}`
+        : t("screens:clubSettings.subscription"),
     });
   }, [club?.name, navigation]);
 

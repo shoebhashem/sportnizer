@@ -393,7 +393,10 @@ export default function AddAdultMemberScreen() {
         .join(", ");
       showModal(
         t("screens:addAdultMember.cannotSendInvitations"),
-        `The following email(s) cannot be invited because they already have the ${config.roleLabel} role in this group:\n\n${blockedAddresses}`,
+        t("screens:addAdultMember.blockedEmails", {
+          role: config.roleLabel,
+          emails: blockedAddresses,
+        }),
       );
       return false;
     }

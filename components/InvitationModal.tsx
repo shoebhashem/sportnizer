@@ -59,27 +59,29 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
   const getRoleLabel = (roleStr: string) => {
     switch (roleStr) {
       case "coach":
-        return "coach";
+        return t("common:roles.coach");
       case "admin":
-        return "admin";
+        return t("common:roles.admin");
       case "player":
-        return "player";
+        return t("common:roles.player");
       case "player-underage":
-        return "youth player";
+        return t("common:roles.youthPlayer");
       case "guardian":
-        return "guardian";
+        return t("common:roles.guardian");
       case "club-admin":
-        return "club administrator";
+        return t("common:roles.clubAdmin");
       default:
-        return "member";
+        return t("common:roles.member");
     }
   };
 
   // Get the appropriate title based on invitation type
   const getModalTitle = () => {
     if (isRoleUpdate) return t("components:invitationModal.roleUpdate");
-    if (isClubAdminInvitation) return t("components:invitationModal.clubAdminInvitation");
-    if (isYouthInvitation) return t("components:invitationModal.childMemberInvitation");
+    if (isClubAdminInvitation)
+      return t("components:invitationModal.clubAdminInvitation");
+    if (isYouthInvitation)
+      return t("components:invitationModal.childMemberInvitation");
     return t("components:invitationModal.groupInvitation");
   };
 
@@ -98,16 +100,28 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
           {isYouthInvitation ? (
             <>
               <Text style={styles.message}>
-                {t("components:invitationModal.youthInvitationMessage", { inviterName, youthName, groupName, clubName: clubName || "" })}
+                {t("components:invitationModal.youthInvitationMessage", {
+                  inviterName,
+                  youthName,
+                  groupName,
+                  clubName: clubName || "",
+                })}
               </Text>
               <Text style={styles.question}>
-                {t("components:invitationModal.wouldYouLikeToAddYouth", { youthName })}
+                {t("components:invitationModal.wouldYouLikeToAddYouth", {
+                  youthName,
+                })}
               </Text>
             </>
           ) : isRoleUpdate ? (
             <>
               <Text style={styles.message}>
-                {t("components:invitationModal.roleUpdateMessage", { inviterName, roleName: getRoleLabel(newRole), groupName, clubName: clubName || "" })}
+                {t("components:invitationModal.roleUpdateMessage", {
+                  inviterName,
+                  roleName: getRoleLabel(newRole),
+                  groupName,
+                  clubName: clubName || "",
+                })}
               </Text>
               <Text style={styles.question}>
                 {t("components:invitationModal.wouldYouLikeToAcceptRoleUpdate")}
@@ -116,7 +130,10 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
           ) : isClubAdminInvitation ? (
             <>
               <Text style={styles.message}>
-                {t("components:invitationModal.clubAdminMessage", { inviterName, clubName: clubName || groupName })}
+                {t("components:invitationModal.clubAdminMessage", {
+                  inviterName,
+                  clubName: clubName || groupName,
+                })}
               </Text>
               <Text style={styles.question}>
                 {t("components:invitationModal.wouldYouLikeToAcceptRole")}
@@ -125,7 +142,12 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
           ) : (
             <>
               <Text style={styles.message}>
-                {t("components:invitationModal.regularInvitationMessage", { inviterName, groupName, clubName: clubName || "", roleName: role ? getRoleLabel(role) : "" })}
+                {t("components:invitationModal.regularInvitationMessage", {
+                  inviterName,
+                  groupName,
+                  clubName: clubName || "",
+                  roleName: role ? getRoleLabel(role) : "",
+                })}
               </Text>
               <Text style={styles.question}>
                 {t("components:invitationModal.wouldYouLikeToJoin")}
@@ -144,7 +166,11 @@ const InvitationModal: React.FC<InvitationModalProps> = ({
             </View>
             <View style={styles.buttonWrapper}>
               <Button
-                label={isRoleUpdate ? t("components:invitationModal.acceptRole") : t("components:invitationModal.acceptAndJoin")}
+                label={
+                  isRoleUpdate
+                    ? t("components:invitationModal.acceptRole")
+                    : t("components:invitationModal.acceptAndJoin")
+                }
                 onPress={onAccept}
                 theme="primary"
                 loading={loading}
