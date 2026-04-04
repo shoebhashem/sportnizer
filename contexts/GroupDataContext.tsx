@@ -15,13 +15,7 @@
 //
 // Security rules allow group allMembers reads for club-admin, group admin/coach, and group members.
 
-import {
-    collection,
-    doc,
-    onSnapshot,
-    query,
-    where,
-} from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import React, {
     createContext,
     ReactNode,
@@ -398,7 +392,10 @@ export function GroupDataProvider({ children }: { children: ReactNode }) {
             const currentGroupIds = new Set(snapshot.docs.map((d) => d.id));
 
             // Detach listeners for groups that were removed / deactivated
-            for (const [existingKey, existingUnsubs] of adminGroupUnsubs.current) {
+            for (const [
+              existingKey,
+              existingUnsubs,
+            ] of adminGroupUnsubs.current) {
               if (existingKey.startsWith(`${adminClubId}:`)) {
                 const existingGroupId = existingKey.split(":")[1];
                 if (!currentGroupIds.has(existingGroupId)) {
@@ -406,9 +403,21 @@ export function GroupDataProvider({ children }: { children: ReactNode }) {
                   adminGroupUnsubs.current.delete(existingKey);
                   // Clean up state for the removed group
                   const key = gKey(adminClubId, existingGroupId);
-                  setGroups((prev) => { const next = new Map(prev); next.delete(key); return next; });
-                  setGroupMembers((prev) => { const next = new Map(prev); next.delete(key); return next; });
-                  setSubgroups((prev) => { const next = new Map(prev); next.delete(key); return next; });
+                  setGroups((prev) => {
+                    const next = new Map(prev);
+                    next.delete(key);
+                    return next;
+                  });
+                  setGroupMembers((prev) => {
+                    const next = new Map(prev);
+                    next.delete(key);
+                    return next;
+                  });
+                  setSubgroups((prev) => {
+                    const next = new Map(prev);
+                    next.delete(key);
+                    return next;
+                  });
                 }
               }
             }
