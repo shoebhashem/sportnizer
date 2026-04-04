@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
@@ -58,6 +58,17 @@ export default function GroupSettingsScreen() {
   const club = getClub(clubId as string);
   const clubName = club?.name || "Club";
   const loading = !group;
+
+  // Defensive timeout: if group data never arrives, stop spinning after 7 s.
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  useEffect(() => {
+    if (!loading) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setLoadingTimedOut(true), 7000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   // Derive user role from permissionHelpers (sync)
   const userRole = useMemo(() => {
@@ -464,7 +475,7 @@ export default function GroupSettingsScreen() {
     isGroupCreator;
   const isScheduledForDeletion = !group?.isActive && group?.deletionScheduledAt;
 
-  if (loading) {
+  if (loading && !loadingTimedOut) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />

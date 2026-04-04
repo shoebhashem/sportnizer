@@ -323,4 +323,55 @@ describe("Group Lifecycle", () => {
       expect(subgroup!.isActive).toBe(false);
     });
   });
+
+  // ─── Group Discovery (club-admin querying groups collection) ─
+
+  describe("group discovery for club-admin", () => {
+    it("newly created group should be immediately queryable from the groups collection", async () => {
+      const { admin, clubId } = await createClubWithAdmin();
+
+      // Create first group
+      const { groupId: groupId1 } = await callFunction(
+        "createGroup",
+        admin.idToken,
+        { clubId, groupData: { name: "First Group" } },
+      );
+
+      // Create second group (simulates adding a new group from club-settings)
+      const { groupId: groupId2 } = await callFunction(
+        "createGroup",
+        admin.idToken,
+        { clubId, groupData: { name: "Second Group" } },
+      );
+
+      // Query all active groups in the club — this is what GroupDataContext's
+      // onSnapshot listener does for club-admins
+      const db = getFirestore();
+      const snapshot = await db
+        .collection(`clubs/${clubId}/groups`)
+        .where("isActive", "!=", false)
+        .get();
+
+      const groupIds = snapshot.docs.map((d) => d.id);
+
+      expect(groupIds).toContain(groupId1);
+      expect(groupIds).toContain(groupId2);
+      expect(snapshot.size).toBeGreaterThanOrEqual(2);
+    });
+
+    it("newly created group document should be readable by any authenticated user", async () => {
+      const { admin, clubId } = await createClubWithAdmin();
+
+      const { groupId } = await callFunction("createGroup", admin.idToken, {
+        clubId,
+        groupData: { name: "Discoverable Group" },
+      });
+
+      // Verify the group doc is readable (security rule: isSignedIn())
+      const group = await getDocument(`clubs/${clubId}/groups/${groupId}`);
+      expect(group).toBeDefined();
+      expect(group!.name).toBe("Discoverable Group");
+      expect(group!.isActive).toBe(true);
+    });
+  });
 });

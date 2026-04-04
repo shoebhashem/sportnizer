@@ -1441,7 +1441,14 @@ export default function EventDetailsScreen() {
 
           {event.responses && event.responses.length > 0 ? (
             <View style={styles.responsesList}>
-              {event.responses.map((item, index) => {
+              {[...event.responses]
+                .sort((a, b) => {
+                  const order = { accepted: 0, declined: 1, pending: 2 };
+                  const aStatus = a.status || a.response || "pending";
+                  const bStatus = b.status || b.response || "pending";
+                  return (order[aStatus as keyof typeof order] ?? 2) - (order[bStatus as keyof typeof order] ?? 2);
+                })
+                .map((item, index) => {
                 // Normalize status field (handle both 'status' and 'response' fields)
                 const statusValue = item.status || item.response || "pending";
 
