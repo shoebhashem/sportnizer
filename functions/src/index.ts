@@ -14,6 +14,8 @@ export { verifyEmail } from "./auth/verifyEmail";
 
 // Account Security Functions
 export { requestEmailChange } from "./auth/requestEmailChange";
+export { requestPasswordReset } from "./auth/requestPasswordReset";
+export { resetPassword } from "./auth/resetPassword";
 export { revokeUserTokens } from "./auth/revokeUserTokens";
 export { verifyEmailChange } from "./auth/verifyEmailChange";
 

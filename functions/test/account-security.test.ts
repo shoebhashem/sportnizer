@@ -13,7 +13,7 @@ import {
     expectFunctionError,
     getAuth,
     getDocument,
-    getFirestore
+    getFirestore,
 } from "./helpers";
 
 // ═══════════════════════════════════════════════════════════════
@@ -54,6 +54,52 @@ async function callHttpFunction(
     });
 
     req.on("error", reject);
+    req.end();
+  });
+}
+
+/**
+ * Helper: call an HTTP Cloud Function with POST and URL-encoded body.
+ */
+async function callHttpFunctionPost(
+  functionName: string,
+  queryParams: Record<string, string>,
+  bodyParams: Record<string, string>,
+): Promise<{
+  statusCode: number;
+  body: string;
+  headers: http.IncomingHttpHeaders;
+}> {
+  const qs = new URLSearchParams(queryParams).toString();
+  const path = `/sportnizer/europe-north1/${functionName}?${qs}`;
+  const postBody = new URLSearchParams(bodyParams).toString();
+
+  return new Promise((resolve, reject) => {
+    const options: http.RequestOptions = {
+      hostname: "127.0.0.1",
+      port: 5001,
+      path,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Length": Buffer.byteLength(postBody),
+      },
+    };
+
+    const req = http.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        resolve({
+          statusCode: res.statusCode || 500,
+          body: data,
+          headers: res.headers,
+        });
+      });
+    });
+
+    req.on("error", reject);
+    req.write(postBody);
     req.end();
   });
 }
@@ -452,6 +498,324 @@ describe("Account Security", () => {
       expect(afterAuth.tokensValidAfterTime).toBeDefined();
 
       // If there was a before value, the after should be newer
+      if (beforeTime) {
+        expect(
+          new Date(afterAuth.tokensValidAfterTime!).getTime(),
+        ).toBeGreaterThanOrEqual(new Date(beforeTime).getTime());
+      }
+    });
+  });
+
+  // ─── requestPasswordReset ──────────────────────────────────
+
+  describe("requestPasswordReset", () => {
+    it("should return success and create token for valid user", async () => {
+      const user = await createFullTestUser({
+        email: "reset@test.com",
+        displayName: "Reset User",
+        emailVerified: true,
+      });
+
+      const result = await callFunction("requestPasswordReset", "", {
+        email: "reset@test.com",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBeDefined();
+
+      // Verify token document was created
+      const db = getFirestore();
+      const tokensSnap = await db
+        .collection("passwordResetRequests")
+        .where("email", "==", "reset@test.com")
+        .get();
+
+      expect(tokensSnap.empty).toBe(false);
+      const tokenData = tokensSnap.docs[0].data();
+      expect(tokenData.uid).toBe(user.uid);
+      expect(tokenData.email).toBe("reset@test.com");
+      expect(tokenData.used).toBe(false);
+      expect(tokenData.expiresAt).toBeDefined();
+    });
+
+    it("should return generic success for non-existent email (no enumeration)", async () => {
+      const result = await callFunction("requestPasswordReset", "", {
+        email: "nonexistent@test.com",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBeDefined();
+
+      // Verify no token was created
+      const db = getFirestore();
+      const tokensSnap = await db
+        .collection("passwordResetRequests")
+        .where("email", "==", "nonexistent@test.com")
+        .get();
+
+      expect(tokensSnap.empty).toBe(true);
+    });
+
+    it("should return generic success for unverified user (no email sent)", async () => {
+      // Create user with emailVerified: false
+      const user = await createFullTestUser({
+        email: "unverified@test.com",
+      });
+
+      const db = getFirestore();
+      await db.doc(`users/${user.uid}`).update({ emailVerified: false });
+
+      const result = await callFunction("requestPasswordReset", "", {
+        email: "unverified@test.com",
+      });
+
+      expect(result.success).toBe(true);
+
+      // Verify no token was created
+      const tokensSnap = await db
+        .collection("passwordResetRequests")
+        .where("email", "==", "unverified@test.com")
+        .get();
+
+      expect(tokensSnap.empty).toBe(true);
+    });
+
+    it("should reject invalid email format", async () => {
+      await expectFunctionError(
+        "requestPasswordReset",
+        "",
+        { email: "not-an-email" },
+        "invalid-argument",
+      );
+    });
+
+    it("should reject empty email", async () => {
+      await expectFunctionError(
+        "requestPasswordReset",
+        "",
+        { email: "" },
+        "invalid-argument",
+      );
+    });
+
+    it("should rate limit after 3 requests per hour", async () => {
+      await createFullTestUser({
+        email: "ratelimit@test.com",
+      });
+
+      const db = getFirestore();
+
+      // Seed 3 recent requests
+      for (let i = 0; i < 3; i++) {
+        await db
+          .collection("passwordResetRequests")
+          .doc(`rate-limit-token-${i}`)
+          .set({
+            uid: "some-uid",
+            email: "ratelimit@test.com",
+            createdAt: new Date(),
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+            used: false,
+          });
+      }
+
+      // 4th request should succeed (generic response) but NOT create a new token
+      const result = await callFunction("requestPasswordReset", "", {
+        email: "ratelimit@test.com",
+      });
+
+      expect(result.success).toBe(true);
+
+      // Should still be exactly 3 tokens (no new one created)
+      const tokensSnap = await db
+        .collection("passwordResetRequests")
+        .where("email", "==", "ratelimit@test.com")
+        .get();
+
+      expect(tokensSnap.size).toBe(3);
+    });
+  });
+
+  // ─── resetPassword ────────────────────────────────────────
+
+  describe("resetPassword", () => {
+    it("should serve reset form on GET with valid token", async () => {
+      const user = await createFullTestUser({
+        email: "form@test.com",
+      });
+
+      const db = getFirestore();
+      const token = "form-test-token";
+      await db
+        .collection("passwordResetRequests")
+        .doc(token)
+        .set({
+          uid: user.uid,
+          email: "form@test.com",
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          used: false,
+        });
+
+      const response = await callHttpFunction("resetPassword", { token });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toContain("Reset Your Password");
+      expect(response.body).toContain("newPassword");
+    });
+
+    it("should reset password and redirect on valid POST", async () => {
+      const user = await createFullTestUser({
+        email: "posttest@test.com",
+      });
+
+      const db = getFirestore();
+      const token = "post-test-token";
+      await db
+        .collection("passwordResetRequests")
+        .doc(token)
+        .set({
+          uid: user.uid,
+          email: "posttest@test.com",
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          used: false,
+        });
+
+      const response = await callHttpFunctionPost(
+        "resetPassword",
+        { token },
+        { newPassword: "newSecurePassword123" },
+      );
+
+      // Should redirect on success
+      expect(response.statusCode).toBe(302);
+      expect(response.headers.location).toContain("passwordReset=success");
+
+      // Verify token is marked as used
+      const tokenDoc = await db
+        .collection("passwordResetRequests")
+        .doc(token)
+        .get();
+      expect(tokenDoc.data()!.used).toBe(true);
+    });
+
+    it("should reject expired token", async () => {
+      const db = getFirestore();
+      const token = "expired-reset-token";
+      await db
+        .collection("passwordResetRequests")
+        .doc(token)
+        .set({
+          uid: "some-uid",
+          email: "expired@test.com",
+          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          expiresAt: new Date(Date.now() - 60 * 60 * 1000), // expired 1h ago
+          used: false,
+        });
+
+      const response = await callHttpFunction("resetPassword", { token });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("expired");
+    });
+
+    it("should reject already-used token", async () => {
+      const user = await createFullTestUser({
+        email: "used@test.com",
+      });
+
+      const db = getFirestore();
+      const token = "used-reset-token";
+      await db
+        .collection("passwordResetRequests")
+        .doc(token)
+        .set({
+          uid: user.uid,
+          email: "used@test.com",
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          used: true,
+        });
+
+      const response = await callHttpFunction("resetPassword", { token });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("already been used");
+    });
+
+    it("should reject weak password on POST", async () => {
+      const user = await createFullTestUser({
+        email: "weakpw@test.com",
+      });
+
+      const db = getFirestore();
+      const token = "weak-pw-token";
+      await db
+        .collection("passwordResetRequests")
+        .doc(token)
+        .set({
+          uid: user.uid,
+          email: "weakpw@test.com",
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          used: false,
+        });
+
+      const response = await callHttpFunctionPost(
+        "resetPassword",
+        { token },
+        { newPassword: "12" },
+      );
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("at least 6 characters");
+    });
+
+    it("should reject nonexistent token", async () => {
+      const response = await callHttpFunction("resetPassword", {
+        token: "nonexistent-token",
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("invalid");
+    });
+
+    it("should revoke refresh tokens after password reset", async () => {
+      const user = await createFullTestUser({
+        email: "revoke-reset@test.com",
+      });
+
+      const db = getFirestore();
+      const token = "revoke-reset-token";
+      await db
+        .collection("passwordResetRequests")
+        .doc(token)
+        .set({
+          uid: user.uid,
+          email: "revoke-reset@test.com",
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          used: false,
+        });
+
+      // Get initial tokensValidAfterTime
+      const beforeAuth = await getAuth().getUser(user.uid);
+      const beforeTime = beforeAuth.tokensValidAfterTime;
+
+      await new Promise((r) => setTimeout(r, 1000));
+
+      const response = await callHttpFunctionPost(
+        "resetPassword",
+        { token },
+        { newPassword: "newSecurePassword123" },
+      );
+      expect(response.statusCode).toBe(302);
+
+      // Verify tokensValidAfterTime was updated
+      const afterAuth = await getAuth().getUser(user.uid);
+      expect(afterAuth.tokensValidAfterTime).toBeDefined();
+
       if (beforeTime) {
         expect(
           new Date(afterAuth.tokensValidAfterTime!).getTime(),

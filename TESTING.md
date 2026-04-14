@@ -16,7 +16,7 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 497                                                           |
+| **Total tests**  | 510                                                           |
 | **Test suites**  | 28                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
@@ -44,7 +44,7 @@
 | Permission Helpers    | `functions/test/permission-helpers.test.ts`           | 45    | permissionHelpers: isClubAdmin, canManageGroup, getHighestRole, etc.                                          |
 | Flat Array Helpers    | `functions/test/flat-array-helpers.test.ts`           | 24    | buildFlatArraysFromClubAccess, emptyFlatArrays, inactive filtering                                            |
 | Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)                                          |
-| Account Security      | `functions/test/account-security.test.ts`             | 16    | Token revocation, email change request/verify, email sync                                                     |
+| Account Security      | `functions/test/account-security.test.ts`             | 29    | Token revocation, email change request/verify, email sync, password reset request/verify                      |
 | Youth Profile Admin   | `functions/test/update-youth-profile.test.ts`         | 11    | Admin update youth name/DOB, sync, guardian phone update, permissions                                         |
 | Sync Event Recipients | `functions/test/sync-event-recipients.test.ts`        | 18    | Preview/confirm sync, permissions, recurring scope, youth/guardian, creator exclusion                         |
 | Self-Leave Flows      | `functions/test/self-leave-flows.test.ts`             | 10    | Player/coach/admin self-leave, roleToRemove validation, fee cleanup on removal                                |
@@ -731,9 +731,9 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ---
 
-### 11. Account Security (`account-security.test.ts`) — 16 tests
+### 11. Account Security (`account-security.test.ts`) — 29 tests
 
-> Integration tests for email & password change features. Covers token revocation, email change request/verification, and denormalised email synchronisation across allMembers & guardian records.
+> Integration tests for email & password change features. Covers token revocation, email change request/verification, denormalised email synchronisation, and password reset request/verification.
 
 #### revokeUserTokens (3 tests)
 
@@ -765,6 +765,29 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | 14  | should reject already-verified token               | `verified: true` → error redirect                                 |
 | 15  | should reject nonexistent token                    | Invalid token → error redirect                                    |
 | 16  | should revoke refresh tokens after email change    | `tokensValidAfterTime` advances after verification                |
+
+#### requestPasswordReset (6 tests)
+
+| #   | Test                                                  | What it verifies                                              |
+| --- | ----------------------------------------------------- | ------------------------------------------------------------- |
+| 17  | should return success and create token for valid user | Token doc in `passwordResetRequests` with correct uid/email   |
+| 18  | should return generic success for non-existent email  | No email enumeration — generic response, no token created     |
+| 19  | should return generic success for unverified user     | Unverified users skipped — generic response, no token created |
+| 20  | should reject invalid email format                    | Bad format → `invalid-argument`                               |
+| 21  | should reject empty email                             | Empty string → `invalid-argument`                             |
+| 22  | should rate limit after 3 requests per hour           | 4th request returns success but no new token created          |
+
+#### resetPassword (7 tests)
+
+| #   | Test                                              | What it verifies                                       |
+| --- | ------------------------------------------------- | ------------------------------------------------------ |
+| 23  | should serve reset form on GET with valid token   | HTML form served with password input                   |
+| 24  | should reset password and redirect on valid POST  | Password updated, token marked used, redirect to login |
+| 25  | should reject expired token                       | Expired token → error page                             |
+| 26  | should reject already-used token                  | Used token → error page                                |
+| 27  | should reject weak password on POST               | < 6 chars → form redisplayed with error                |
+| 28  | should reject nonexistent token                   | Invalid token → error page                             |
+| 29  | should revoke refresh tokens after password reset | `tokensValidAfterTime` advances after reset            |
 
 ### 12. Youth Profile Admin (`update-youth-profile.test.ts`) — 11 tests
 

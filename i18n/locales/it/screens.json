@@ -30,6 +30,7 @@
     "resetLinkSentMessage": "Controlla la tua email per il link di reimpostazione della password.",
     "sendResetLink": "Invia link",
     "sendingResetLink": "Invio in corso...",
+    "passwordResetSuccess": "La tua password è stata reimpostata con successo. Ora puoi accedere con la tua nuova password.",
     "verifyEmail": "Verifica la tua email",
     "verifyEmailMessage": "Abbiamo inviato un'email di verifica a {{email}}. Verifica la tua email per continuare.",
     "resendVerification": "Reinvia email di verifica",

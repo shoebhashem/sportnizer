@@ -474,5 +474,12 @@ service cloud.firestore {
       // All access is backend only (webhook handler)
       allow read, write: if false;
     }
+
+    // ---------------------------
+    // Password Reset Requests (backend only via Admin SDK)
+    // ---------------------------
+    match /passwordResetRequests/{tokenId} {
+      allow read, write: if false;
+    }
   }
 }

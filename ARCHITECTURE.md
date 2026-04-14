@@ -86,14 +86,16 @@ The app uses **Firebase Authentication for login/logout** combined with **custom
 
 ```
 functions/src/auth/
-├── createUserAccount.ts      # Creates Firestore user profile + sends verification email
-├── verifyEmail.ts            # Email verification via URL link (HTTP endpoint)
-├── getUserProfile.ts         # Retrieves user profile data
-├── sendEmailVerification.ts  # Sends verification email with token
-├── resendVerificationEmail.ts # Resends verification for unverified users
-├── revokeUserTokens.ts       # Revokes all refresh tokens (Admin SDK)
-├── requestEmailChange.ts     # Sends email change verification to new address
-└── verifyEmailChange.ts      # HTTP endpoint — confirms email change + syncs data
+├── createUserAccount.ts        # Creates Firestore user profile + sends verification email
+├── verifyEmail.ts              # Email verification via URL link (HTTP endpoint)
+├── getUserProfile.ts           # Retrieves user profile data
+├── sendEmailVerification.ts    # Sends verification email with token
+├── resendVerificationEmail.ts  # Resends verification for unverified users
+├── revokeUserTokens.ts         # Revokes all refresh tokens (Admin SDK)
+├── requestEmailChange.ts       # Sends email change verification to new address
+├── verifyEmailChange.ts        # HTTP endpoint — confirms email change + syncs data
+├── requestPasswordReset.ts     # Sends password reset email (no auth required)
+└── resetPassword.ts            # HTTP endpoint — serves reset form + processes new password
 ```
 
 #### Auth Flow:
@@ -163,6 +165,43 @@ User clicks link in email
   all denormalized email references (same collectionGroup pattern as
   `syncProfileToMemberArrays` in `updateUserProfile.ts`).
 - Both Auth and Firestore are updated atomically before the redirect.
+
+##### Password Reset Flow
+
+```
+Client (login.tsx)
+  │
+  ├── 1. User taps "Forgot Password?" link
+  ├── 2. ConfirmationModal prompts for email (pre-filled from login form)
+  └── 3. requestPasswordReset CF (no auth required)
+         ├── Validates email format
+         ├── Looks up user in Firestore by email
+         ├── Rate limits: max 3 requests per email per hour
+         ├── Stores token in passwordResetRequests/{token} (1h expiry)
+         ├── Sends branded SMTP email with reset link
+         └── Always returns generic success (no email enumeration)
+
+User clicks link in email
+  │
+  └── resetPassword HTTP endpoint
+        ├── GET:  Serves branded HTML form (matches app theme)
+        └── POST: Processes password reset
+              ├── 1. Validates token (exists, not expired, not used)
+              ├── 2. Validates new password (min 6 chars)
+              ├── 3. admin.auth().updateUser(uid, { password })
+              ├── 4. admin.auth().revokeRefreshTokens(uid)
+              ├── 5. Marks token as used
+              └── 6. Redirects to /login?passwordReset=success
+```
+
+- **No authentication required** — user has forgotten their password.
+- **Generic responses** prevent email enumeration attacks.
+- **Rate limiting** (3 per email per hour) prevents abuse.
+- **1-hour token expiry** limits the attack window.
+- **Token stored in `passwordResetRequests/{token}`** with Firestore deny-all
+  security rules (backend-only access via Admin SDK).
+- Login screen detects `?passwordReset=success` URL param and shows success modal.
+- Unverified users are silently skipped (no reset email sent).
 
 ##### Denormalized Email Locations Updated:
 

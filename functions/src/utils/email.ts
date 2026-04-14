@@ -471,3 +471,40 @@ export const newsEmailTemplate = (
       </p>
     </div>
   `);
+
+// =======================================================
+// PASSWORD RESET
+// =======================================================
+export const passwordResetTemplate = (fullName: string, resetLink: string) =>
+  emailWrapper(`
+    ${emailHeader("Password Reset")}
+
+    <div style="padding: 40px 30px;">
+      <h2 style="color:${BRAND.textDark}; margin-top:0;">
+        Reset Your Password
+      </h2>
+
+      <p style="color:${BRAND.textLight}; font-size:16px; line-height:1.6;">
+        Hi <strong>${fullName}</strong>, we received a request to reset the password
+        for your Clubnizer account.
+      </p>
+
+      <p style="color:${BRAND.textLight}; font-size:15px; line-height:1.6;">
+        Click the button below to set a new password.
+        If you did not request this, you can safely ignore this email.
+      </p>
+
+      ${primaryButton("Reset Password", resetLink)}
+
+      <p style="font-size:14px; color:#999;">
+        If the button doesn't work, copy this link:<br>
+        <a href="${resetLink}" style="color:${BRAND.accent}; word-break: break-all;">
+          ${resetLink}
+        </a>
+      </p>
+
+      <p style="font-size:13px; color:#999; margin-top:20px;">
+        This link expires in 1 hour.
+      </p>
+    </div>
+  `);

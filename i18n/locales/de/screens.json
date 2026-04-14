@@ -30,6 +30,7 @@
     "resetLinkSentMessage": "Überprüfen Sie Ihre E-Mails auf einen Link zum Zurücksetzen des Passworts.",
     "sendResetLink": "Link senden",
     "sendingResetLink": "Wird gesendet...",
+    "passwordResetSuccess": "Ihr Passwort wurde erfolgreich zurückgesetzt. Sie können sich jetzt mit Ihrem neuen Passwort anmelden.",
     "verifyEmail": "E-Mail bestätigen",
     "verifyEmailMessage": "Wir haben eine Bestätigungs-E-Mail an {{email}} gesendet. Bitte bestätigen Sie Ihre E-Mail, um fortzufahren.",
     "resendVerification": "Bestätigungs-E-Mail erneut senden",

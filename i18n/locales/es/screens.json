@@ -30,6 +30,7 @@
     "resetLinkSentMessage": "Revise su correo para un enlace de restablecimiento de contraseña.",
     "sendResetLink": "Enviar enlace",
     "sendingResetLink": "Enviando...",
+    "passwordResetSuccess": "Tu contraseña ha sido restablecida correctamente. Ahora puedes iniciar sesión con tu nueva contraseña.",
     "verifyEmail": "Verifique su correo",
     "verifyEmailMessage": "Hemos enviado un correo de verificación a {{email}}. Por favor verifique su correo para continuar.",
     "resendVerification": "Reenviar correo de verificación",

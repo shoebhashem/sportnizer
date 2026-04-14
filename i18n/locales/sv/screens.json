@@ -30,6 +30,7 @@
     "resetLinkSentMessage": "Kontrollera din e-post för en länk att återställa lösenordet.",
     "sendResetLink": "Skicka återställningslänk",
     "sendingResetLink": "Skickar...",
+    "passwordResetSuccess": "Ditt lösenord har återställts. Du kan nu logga in med ditt nya lösenord.",
     "verifyEmail": "Verifiera din e-post",
     "verifyEmailMessage": "Vi har skickat ett verifieringsmail till {{email}}. Vänligen verifiera din e-post för att fortsätta.",
     "resendVerification": "Skicka verifieringsmail igen",

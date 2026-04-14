@@ -383,6 +383,7 @@ export async function createFullTestUser(
     email?: string;
     displayName?: string;
     clubAccess?: any[];
+    emailVerified?: boolean;
   } = {},
 ): Promise<TestUser> {
   const user = await createTestUser({
@@ -394,6 +395,9 @@ export async function createFullTestUser(
     fullName: user.displayName,
     email: user.email,
     clubAccess: overrides.clubAccess || [],
+    ...(overrides.emailVerified !== undefined && {
+      emailVerified: overrides.emailVerified,
+    }),
   });
 
   return user;

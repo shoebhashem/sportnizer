@@ -30,6 +30,7 @@
     "resetLinkSentMessage": "Sjekk e-posten din for en lenke til å tilbakestille passordet.",
     "sendResetLink": "Send tilbakestillingslenke",
     "sendingResetLink": "Sender...",
+    "passwordResetSuccess": "Passordet ditt har blitt tilbakestilt. Du kan nå logge inn med ditt nye passord.",
     "verifyEmail": "Bekreft e-posten din",
     "verifyEmailMessage": "Vi har sendt en bekreftelses-e-post til {{email}}. Vennligst bekreft e-posten din for å fortsette.",
     "resendVerification": "Send bekreftelses-e-post på nytt",

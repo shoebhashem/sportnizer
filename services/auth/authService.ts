@@ -220,6 +220,31 @@ export const resendVerificationEmail = async (email: string) => {
   }
 };
 
+// ---------------------- REQUEST PASSWORD RESET ----------------------
+export const requestPasswordReset = async (email: string) => {
+  try {
+    const resetFunction = httpsCallable(functions, "requestPasswordReset");
+    const result = await resetFunction({ email: email.trim() });
+
+    return {
+      success: true,
+      message:
+        (result.data as any)?.message ||
+        "If an account exists with this email, a password reset link has been sent.",
+    };
+  } catch (error: any) {
+    console.error("Error requesting password reset:", error);
+
+    return {
+      success: false,
+      error: {
+        code: error.code || "unknown",
+        message: "Failed to send password reset email. Please try again.",
+      },
+    };
+  }
+};
+
 // ---------------------- SIGN OUT ----------------------
 export const signOutUser = async () => {
   try {

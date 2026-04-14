@@ -30,6 +30,7 @@
     "resetLinkSentMessage": "Tjek din e-mail for et link til nulstilling af adgangskode.",
     "sendResetLink": "Send nulstillingslink",
     "sendingResetLink": "Sender...",
+    "passwordResetSuccess": "Dit kodeord er blevet nulstillet. Du kan nu logge ind med dit nye kodeord.",
     "verifyEmail": "Bekræft din e-mail",
     "verifyEmailMessage": "Vi har sendt en bekræftelses-e-mail til {{email}}. Bekræft venligst din e-mail for at fortsætte.",
     "resendVerification": "Send bekræftelses-e-mail igen",

@@ -39,6 +39,8 @@ export const config = {
       "https://europe-north1-sportnizer.cloudfunctions.net/verifyEmail",
     verifyEmailChange:
       "https://europe-north1-sportnizer.cloudfunctions.net/verifyEmailChange",
+    resetPassword:
+      "https://europe-north1-sportnizer.cloudfunctions.net/resetPassword",
   },
 };
 

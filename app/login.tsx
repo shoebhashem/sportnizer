@@ -2,8 +2,9 @@ import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
+import * as Linking from "expo-linking";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     KeyboardAvoidingView,
@@ -11,11 +12,13 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 // ✅ Using functional auth service per ARCHITECTURE.md
 import {
+    requestPasswordReset,
     resendVerificationEmail,
     signInUser,
 } from "../services/auth/authService";
@@ -34,6 +37,30 @@ export default function LoginScreen() {
     useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
+  const [forgotPasswordModalVisible, setForgotPasswordModalVisible] =
+    useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [resetLinkSentModalVisible, setResetLinkSentModalVisible] =
+    useState(false);
+  const [
+    passwordResetSuccessModalVisible,
+    setPasswordResetSuccessModalVisible,
+  ] = useState(false);
+
+  // Check for ?passwordReset=success URL param (redirect from reset page)
+  useEffect(() => {
+    const checkUrl = async () => {
+      try {
+        const url = await Linking.getInitialURL();
+        if (url && url.includes("passwordReset=success")) {
+          setPasswordResetSuccessModalVisible(true);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    checkUrl();
+  }, []);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -182,6 +209,45 @@ export default function LoginScreen() {
     setResendSuccessModalVisible(false);
   };
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setForgotPasswordModalVisible(false);
+      setErrorMessage(t("screens:login.forgotPasswordMessage"));
+      setErrorModalVisible(true);
+      return;
+    }
+
+    setForgotPasswordLoading(true);
+
+    try {
+      const result = await requestPasswordReset(email.trim());
+
+      setForgotPasswordModalVisible(false);
+
+      if (result.success) {
+        setResetLinkSentModalVisible(true);
+      } else {
+        setErrorMessage(result.error?.message || "Failed to send reset link.");
+        setErrorModalVisible(true);
+      }
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      setForgotPasswordModalVisible(false);
+      setErrorMessage(t("screens:login.errors.generic"));
+      setErrorModalVisible(true);
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
+  const handleCloseResetLinkSentModal = () => {
+    setResetLinkSentModalVisible(false);
+  };
+
+  const handleClosePasswordResetSuccessModal = () => {
+    setPasswordResetSuccessModalVisible(false);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -220,6 +286,15 @@ export default function LoginScreen() {
               autoCapitalize="none"
               error={passwordError}
             />
+
+            <TouchableOpacity
+              onPress={() => setForgotPasswordModalVisible(true)}
+              style={styles.forgotPasswordLink}
+            >
+              <Text style={styles.forgotPasswordText}>
+                {t("screens:login.forgotPassword")}
+              </Text>
+            </TouchableOpacity>
 
             <View style={styles.buttonContainer}>
               <Button
@@ -272,6 +347,43 @@ export default function LoginScreen() {
         onCancel={handleCloseResendSuccessModal}
         confirmButtonTheme="primary"
       />
+
+      <ConfirmationModal
+        visible={forgotPasswordModalVisible}
+        title={t("screens:login.forgotPasswordTitle")}
+        message={t("screens:login.forgotPasswordMessage")}
+        confirmText={
+          forgotPasswordLoading
+            ? t("screens:login.sendingResetLink")
+            : t("screens:login.sendResetLink")
+        }
+        cancelText={t("common:cancel")}
+        onConfirm={handleForgotPassword}
+        onCancel={() => setForgotPasswordModalVisible(false)}
+        confirmButtonTheme="primary"
+      />
+
+      <ConfirmationModal
+        visible={resetLinkSentModalVisible}
+        title={t("screens:login.resetLinkSent")}
+        message={t("screens:login.resetLinkSentMessage")}
+        confirmText={t("common:ok")}
+        cancelText=""
+        onConfirm={handleCloseResetLinkSentModal}
+        onCancel={handleCloseResetLinkSentModal}
+        confirmButtonTheme="primary"
+      />
+
+      <ConfirmationModal
+        visible={passwordResetSuccessModalVisible}
+        title={t("common:success")}
+        message={t("screens:login.passwordResetSuccess")}
+        confirmText={t("common:ok")}
+        cancelText=""
+        onConfirm={handleClosePasswordResetSuccessModal}
+        onCancel={handleClosePasswordResetSuccessModal}
+        confirmButtonTheme="primary"
+      />
     </SafeAreaView>
   );
 }
@@ -312,6 +424,16 @@ const styles = StyleSheet.create({
   },
   form: {
     width: "100%",
+  },
+  forgotPasswordLink: {
+    alignSelf: "flex-end",
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
+  },
+  forgotPasswordText: {
+    color: theme.colors.secondary,
+    fontSize: theme.typography.fontSize.small,
+    fontWeight: theme.typography.fontWeight.medium,
   },
   buttonContainer: {
     marginTop: theme.spacing.lg,

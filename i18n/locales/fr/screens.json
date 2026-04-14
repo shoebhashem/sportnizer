@@ -30,6 +30,7 @@
     "resetLinkSentMessage": "Vérifiez votre e-mail pour le lien de réinitialisation du mot de passe.",
     "sendResetLink": "Envoyer le lien de réinitialisation",
     "sendingResetLink": "Envoi...",
+    "passwordResetSuccess": "Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
     "verifyEmail": "Vérifiez votre e-mail",
     "verifyEmailMessage": "Nous avons envoyé un e-mail de vérification à {{email}}. Veuillez vérifier votre e-mail pour continuer.",
     "resendVerification": "Renvoyer l'e-mail de vérification",
