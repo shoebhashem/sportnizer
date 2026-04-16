@@ -685,7 +685,10 @@ describe("Account Security", () => {
       const response = await callHttpFunctionPost(
         "resetPassword",
         { token },
-        { newPassword: "newSecurePassword123" },
+        {
+          newPassword: "newSecurePassword123",
+          confirmPassword: "newSecurePassword123",
+        },
       );
 
       // Should redirect on success
@@ -765,7 +768,7 @@ describe("Account Security", () => {
       const response = await callHttpFunctionPost(
         "resetPassword",
         { token },
-        { newPassword: "12" },
+        { newPassword: "12", confirmPassword: "12" },
       );
 
       expect(response.statusCode).toBe(400);
@@ -779,6 +782,43 @@ describe("Account Security", () => {
 
       expect(response.statusCode).toBe(400);
       expect(response.body).toContain("invalid");
+    });
+
+    it("should reject when password confirmation does not match", async () => {
+      const user = await createFullTestUser({
+        email: "mismatch@test.com",
+      });
+
+      const db = getFirestore();
+      const token = "mismatch-reset-token";
+      await db
+        .collection("passwordResetRequests")
+        .doc(token)
+        .set({
+          uid: user.uid,
+          email: "mismatch@test.com",
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          used: false,
+        });
+
+      const response = await callHttpFunctionPost(
+        "resetPassword",
+        { token },
+        {
+          newPassword: "newSecurePassword123",
+          confirmPassword: "differentPassword123",
+        },
+      );
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("Passwords do not match");
+
+      const tokenDoc = await db
+        .collection("passwordResetRequests")
+        .doc(token)
+        .get();
+      expect(tokenDoc.data()!.used).toBe(false);
     });
 
     it("should revoke refresh tokens after password reset", async () => {
@@ -808,7 +848,10 @@ describe("Account Security", () => {
       const response = await callHttpFunctionPost(
         "resetPassword",
         { token },
-        { newPassword: "newSecurePassword123" },
+        {
+          newPassword: "newSecurePassword123",
+          confirmPassword: "newSecurePassword123",
+        },
       );
       expect(response.statusCode).toBe(302);
 

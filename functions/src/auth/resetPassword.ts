@@ -96,11 +96,14 @@ async function handlePost(req: any, res: any, token: string): Promise<void> {
   try {
     // Parse URL-encoded body
     let newPassword = "";
+    let confirmPassword = "";
     if (typeof req.body === "string") {
       const params = new URLSearchParams(req.body);
       newPassword = params.get("newPassword") || "";
+      confirmPassword = params.get("confirmPassword") || "";
     } else if (req.body && typeof req.body === "object") {
       newPassword = req.body.newPassword || "";
+      confirmPassword = req.body.confirmPassword || "";
     }
 
     if (!newPassword || newPassword.length < 6) {
@@ -108,6 +111,22 @@ async function handlePost(req: any, res: any, token: string): Promise<void> {
         .status(400)
         .send(
           resetFormPage(token, "Password must be at least 6 characters long."),
+        );
+      return;
+    }
+
+    if (!confirmPassword) {
+      res
+        .status(400)
+        .send(resetFormPage(token, "Please confirm your new password."));
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      res
+        .status(400)
+        .send(
+          resetFormPage(token, "Passwords do not match. Please try again."),
         );
       return;
     }
@@ -340,6 +359,10 @@ function resetFormPage(token: string, errorMsg?: string): string {
       <input type="password" id="newPassword" name="newPassword"
              placeholder="Enter new password" required minlength="6"
              autocomplete="new-password" />
+            <label for="confirmPassword">Confirm New Password</label>
+            <input type="password" id="confirmPassword" name="confirmPassword"
+              placeholder="Re-enter new password" required minlength="6"
+              autocomplete="new-password" />
       <p class="hint">Must be at least 6 characters.</p>
       <button type="submit">Reset Password</button>
     </form>

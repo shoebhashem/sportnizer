@@ -184,14 +184,16 @@ Client (login.tsx)
 User clicks link in email
   │
   └── resetPassword HTTP endpoint
-        ├── GET:  Serves branded HTML form (matches app theme)
+      ├── GET:  Serves branded HTML form (matches app theme) with
+      │         `newPassword` + `confirmPassword` fields
         └── POST: Processes password reset
               ├── 1. Validates token (exists, not expired, not used)
-              ├── 2. Validates new password (min 6 chars)
-              ├── 3. admin.auth().updateUser(uid, { password })
-              ├── 4. admin.auth().revokeRefreshTokens(uid)
-              ├── 5. Marks token as used
-              └── 6. Redirects to /login?passwordReset=success
+        ├── 2. Validates new password (min 6 chars)
+        ├── 3. Validates `newPassword === confirmPassword`
+        ├── 4. admin.auth().updateUser(uid, { password })
+        ├── 5. admin.auth().revokeRefreshTokens(uid)
+        ├── 6. Marks token as used
+        └── 7. Redirects to /login?passwordReset=success
 ```
 
 - **No authentication required** — user has forgotten their password.
