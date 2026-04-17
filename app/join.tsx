@@ -8,19 +8,21 @@ import { auth } from "@/services/core/firebase";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    updateProfile,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
 } from "firebase/auth";
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -134,9 +136,7 @@ export default function JoinScreen() {
       }
     } catch (error: any) {
       console.error("Error fetching invitation details:", error);
-      setError(
-        t("screens:join.failedToLoadInvitation"),
-      );
+      setError(t("screens:join.failedToLoadInvitation"));
     } finally {
       setLoading(false);
     }
@@ -169,7 +169,9 @@ export default function JoinScreen() {
       if (result.success) {
         showModal(
           t("screens:join.welcomeSuccess"),
-          t("screens:join.joinedSuccessfully", { groupName: invitationDetails.groupName }),
+          t("screens:join.joinedSuccessfully", {
+            groupName: invitationDetails.groupName,
+          }),
           t("screens:join.goToGroups"),
           "",
           () => {
@@ -185,10 +187,7 @@ export default function JoinScreen() {
       }
     } catch (error: any) {
       console.error("Error joining group:", error);
-      showModal(
-        t("common:error"),
-        t("screens:join.errors.failedToJoin"),
-      );
+      showModal(t("common:error"), t("screens:join.errors.failedToJoin"));
     } finally {
       setProcessing(false);
     }
@@ -196,7 +195,10 @@ export default function JoinScreen() {
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
-      showModal(t("common:validation.missingInformation"), t("screens:join.errors.emailAndPasswordRequired"));
+      showModal(
+        t("common:validation.missingInformation"),
+        t("screens:join.errors.emailAndPasswordRequired"),
+      );
       return;
     }
 
@@ -230,7 +232,10 @@ export default function JoinScreen() {
 
   const handleSignUp = async () => {
     if (!fullName.trim() || !email.trim() || !password.trim()) {
-      showModal(t("common:validation.missingInformation"), t("screens:join.errors.allFieldsRequired"));
+      showModal(
+        t("common:validation.missingInformation"),
+        t("screens:join.errors.allFieldsRequired"),
+      );
       return;
     }
 
@@ -339,7 +344,9 @@ export default function JoinScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.secondary} />
-          <Text style={styles.loadingText}>{t("screens:join.loadingInvitation")}</Text>
+          <Text style={styles.loadingText}>
+            {t("screens:join.loadingInvitation")}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -350,7 +357,9 @@ export default function JoinScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={64} color={theme.colors.error} />
-          <Text style={styles.errorTitle}>{t("screens:join.invitationError")}</Text>
+          <Text style={styles.errorTitle}>
+            {t("screens:join.invitationError")}
+          </Text>
           <Text style={styles.errorText}>{error}</Text>
           <Button
             label={t("common:retry")}
@@ -371,7 +380,9 @@ export default function JoinScreen() {
             size={64}
             color={theme.colors.textSecondary}
           />
-          <Text style={styles.errorTitle}>{t("screens:join.noInvitationFound")}</Text>
+          <Text style={styles.errorTitle}>
+            {t("screens:join.noInvitationFound")}
+          </Text>
           <Text style={styles.errorText}>
             {t("screens:join.invalidOrExpired")}
           </Text>
@@ -382,239 +393,278 @@ export default function JoinScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* Group Information */}
-        <View style={styles.groupCard}>
-          <View style={styles.groupHeader}>
-            <Ionicons name="people" size={32} color={theme.colors.secondary} />
-            <View style={styles.groupInfo}>
-              <Text style={styles.groupName}>
-                {invitationDetails.groupName}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Group Information */}
+          <View style={styles.groupCard}>
+            <View style={styles.groupHeader}>
+              <Ionicons
+                name="people"
+                size={32}
+                color={theme.colors.secondary}
+              />
+              <View style={styles.groupInfo}>
+                <Text style={styles.groupName}>
+                  {invitationDetails.groupName}
+                </Text>
+                {invitationDetails.groupInfo && (
+                  <>
+                    <Text style={styles.groupSport}>
+                      {invitationDetails.groupInfo.sportType}
+                    </Text>
+                    <Text style={styles.memberCount}>
+                      {formatMemberCount(
+                        invitationDetails.groupInfo.memberCount,
+                      )}
+                    </Text>
+                  </>
+                )}
+              </View>
+            </View>
+
+            {invitationDetails.groupInfo?.description && (
+              <Text style={styles.groupDescription}>
+                {invitationDetails.groupInfo.description}
               </Text>
-              {invitationDetails.groupInfo && (
-                <>
-                  <Text style={styles.groupSport}>
-                    {invitationDetails.groupInfo.sportType}
+            )}
+
+            <View style={styles.inviterInfo}>
+              <Ionicons
+                name="person"
+                size={16}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.inviterText}>
+                {t("screens:join.invitedBy", {
+                  inviterName: invitationDetails.inviterName,
+                })}
+              </Text>
+            </View>
+
+            {/* Invitation Type Badge */}
+            <View style={styles.invitationBadge}>
+              <Text style={styles.badgeText}>
+                {invitationDetails.invitationType === "email"
+                  ? t("screens:join.emailInvitation")
+                  : t("screens:join.shareableLink")}
+              </Text>
+            </View>
+
+            {/* Expiration info for shareable links */}
+            {invitationDetails.invitationType === "shareable" &&
+              invitationDetails.expiresAt && (
+                <View style={styles.expirationInfo}>
+                  <Ionicons
+                    name="time"
+                    size={16}
+                    color={theme.colors.textSecondary}
+                  />
+                  <Text style={styles.expirationText}>
+                    {t("screens:join.expires", {
+                      date: formatExpirationDate(invitationDetails.expiresAt),
+                    })}
                   </Text>
-                  <Text style={styles.memberCount}>
-                    {formatMemberCount(invitationDetails.groupInfo.memberCount)}
-                  </Text>
-                </>
+                </View>
               )}
-            </View>
           </View>
 
-          {invitationDetails.groupInfo?.description && (
-            <Text style={styles.groupDescription}>
-              {invitationDetails.groupInfo.description}
-            </Text>
-          )}
+          {/* Authentication Section */}
+          {!user ? (
+            <View style={styles.authSection}>
+              <Text style={styles.authTitle}>
+                {t("screens:join.joinGroup", {
+                  groupName: invitationDetails.groupName,
+                })}
+              </Text>
+              <Text style={styles.authSubtitle}>
+                {invitationDetails.invitationType === "email"
+                  ? t("screens:join.signInOrCreateAccount")
+                  : t("screens:join.signInToAcceptInvitation")}
+              </Text>
 
-          <View style={styles.inviterInfo}>
-            <Ionicons
-              name="person"
-              size={16}
-              color={theme.colors.textSecondary}
-            />
-            <Text style={styles.inviterText}>
-              {t("screens:join.invitedBy", { inviterName: invitationDetails.inviterName })}
-            </Text>
-          </View>
-
-          {/* Invitation Type Badge */}
-          <View style={styles.invitationBadge}>
-            <Text style={styles.badgeText}>
-              {invitationDetails.invitationType === "email"
-                ? t("screens:join.emailInvitation")
-                : t("screens:join.shareableLink")}
-            </Text>
-          </View>
-
-          {/* Expiration info for shareable links */}
-          {invitationDetails.invitationType === "shareable" &&
-            invitationDetails.expiresAt && (
-              <View style={styles.expirationInfo}>
-                <Ionicons
-                  name="time"
-                  size={16}
-                  color={theme.colors.textSecondary}
-                />
-                <Text style={styles.expirationText}>
-                  {t("screens:join.expires", { date: formatExpirationDate(invitationDetails.expiresAt) })}
-                </Text>
-              </View>
-            )}
-        </View>
-
-        {/* Authentication Section */}
-        {!user ? (
-          <View style={styles.authSection}>
-            <Text style={styles.authTitle}>
-              {t("screens:join.joinGroup", { groupName: invitationDetails.groupName })}
-            </Text>
-            <Text style={styles.authSubtitle}>
-              {invitationDetails.invitationType === "email"
-                ? t("screens:join.signInOrCreateAccount")
-                : t("screens:join.signInToAcceptInvitation")}
-            </Text>
-
-            {/* Toggle between Sign In and Sign Up */}
-            <View style={styles.authToggle}>
-              <TouchableOpacity
-                style={[
-                  styles.toggleButton,
-                  isExistingUser && styles.activeToggle,
-                ]}
-                onPress={() => setIsExistingUser(true)}
-              >
-                <Text
-                  style={[
-                    styles.toggleText,
-                    isExistingUser && styles.activeToggleText,
-                  ]}
-                >
-                  {t("common:signIn")}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.toggleButton,
-                  !isExistingUser && styles.activeToggle,
-                ]}
-                onPress={() => setIsExistingUser(false)}
-              >
-                <Text
-                  style={[
-                    styles.toggleText,
-                    !isExistingUser && styles.activeToggleText,
-                  ]}
-                >
-                  {t("common:signUp")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Sign In Form */}
-            {isExistingUser ? (
-              <View style={styles.authForm}>
-                <Input
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="your@email.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-                <Input
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Enter your password"
-                  secureTextEntry
-                />
-                <Button
-                  label={processing ? t("common:signingIn") : t("screens:join.signInAndJoinGroup")}
-                  onPress={handleSignIn}
-                  theme="primary"
-                  disabled={processing}
-                />
-              </View>
-            ) : (
-              /* Sign Up Form */
-              <View style={styles.authForm}>
-                <Input
-                  label="Full Name"
-                  value={fullName}
-                  onChangeText={setFullName}
-                  placeholder="Enter your full name"
-                />
-                <Input
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="your@email.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-                <Input
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Create a password (min 6 characters)"
-                  secureTextEntry
-                />
-                <Input
-                  label="Confirm Password"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="Confirm your password"
-                  secureTextEntry
-                />
-                <Button
-                  label={
-                    processing ? t("screens:join.creatingAccount") : t("screens:join.signUpAndJoinGroup")
-                  }
-                  onPress={handleSignUp}
-                  theme="primary"
-                  disabled={processing}
-                />
-              </View>
-            )}
-          </View>
-        ) : (
-          /* User is already signed in */
-          <View style={styles.joinSection}>
-            {invitationDetails.invitationType === "email" &&
-            user.email !== invitationDetails.email ? (
-              /* Email mismatch - show switch user option */
-              <View style={styles.emailMismatchCard}>
-                <Ionicons name="warning" size={24} color={theme.colors.error} />
-                <Text style={styles.mismatchTitle}>{t("screens:join.emailMismatch")}</Text>
-                <Text style={styles.mismatchText}>
-                  {t("screens:join.emailMismatchMessage", { email: invitationDetails.email, userEmail: user.email })}
-                </Text>
-                <Button
-                  label={t("screens:join.switchAccount")}
-                  onPress={handleSwitchUser}
-                  theme="secondary"
-                />
-              </View>
-            ) : (
-              /* Ready to join */
-              <View style={styles.readyCard}>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={48}
-                  color={theme.colors.secondary}
-                />
-                <Text style={styles.readyTitle}>{t("screens:join.readyToJoin")}</Text>
-                <Text style={styles.readyText}>
-                  {t("screens:join.signedInAs", { email: user.email })}
-                </Text>
-                <Button
-                  label={
-                    processing
-                      ? t("screens:join.joiningGroup")
-                      : t("screens:join.joinGroupButton", { groupName: invitationDetails.groupName })
-                  }
-                  onPress={handleJoinGroup}
-                  theme="primary"
-                  disabled={processing}
-                />
+              {/* Toggle between Sign In and Sign Up */}
+              <View style={styles.authToggle}>
                 <TouchableOpacity
-                  style={styles.switchButton}
-                  onPress={handleSwitchUser}
+                  style={[
+                    styles.toggleButton,
+                    isExistingUser && styles.activeToggle,
+                  ]}
+                  onPress={() => setIsExistingUser(true)}
                 >
-                  <Text style={styles.switchText}>{t("screens:join.useDifferentAccount")}</Text>
+                  <Text
+                    style={[
+                      styles.toggleText,
+                      isExistingUser && styles.activeToggleText,
+                    ]}
+                  >
+                    {t("common:signIn")}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.toggleButton,
+                    !isExistingUser && styles.activeToggle,
+                  ]}
+                  onPress={() => setIsExistingUser(false)}
+                >
+                  <Text
+                    style={[
+                      styles.toggleText,
+                      !isExistingUser && styles.activeToggleText,
+                    ]}
+                  >
+                    {t("common:signUp")}
+                  </Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </View>
-        )}
-      </ScrollView>
+
+              {/* Sign In Form */}
+              {isExistingUser ? (
+                <View style={styles.authForm}>
+                  <Input
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your@email.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                  <Input
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Enter your password"
+                    secureTextEntry
+                  />
+                  <Button
+                    label={
+                      processing
+                        ? t("common:signingIn")
+                        : t("screens:join.signInAndJoinGroup")
+                    }
+                    onPress={handleSignIn}
+                    theme="primary"
+                    disabled={processing}
+                  />
+                </View>
+              ) : (
+                /* Sign Up Form */
+                <View style={styles.authForm}>
+                  <Input
+                    label="Full Name"
+                    value={fullName}
+                    onChangeText={setFullName}
+                    placeholder="Enter your full name"
+                  />
+                  <Input
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your@email.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                  <Input
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Create a password (min 6 characters)"
+                    secureTextEntry
+                  />
+                  <Input
+                    label="Confirm Password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Confirm your password"
+                    secureTextEntry
+                  />
+                  <Button
+                    label={
+                      processing
+                        ? t("screens:join.creatingAccount")
+                        : t("screens:join.signUpAndJoinGroup")
+                    }
+                    onPress={handleSignUp}
+                    theme="primary"
+                    disabled={processing}
+                  />
+                </View>
+              )}
+            </View>
+          ) : (
+            /* User is already signed in */
+            <View style={styles.joinSection}>
+              {invitationDetails.invitationType === "email" &&
+              user.email !== invitationDetails.email ? (
+                /* Email mismatch - show switch user option */
+                <View style={styles.emailMismatchCard}>
+                  <Ionicons
+                    name="warning"
+                    size={24}
+                    color={theme.colors.error}
+                  />
+                  <Text style={styles.mismatchTitle}>
+                    {t("screens:join.emailMismatch")}
+                  </Text>
+                  <Text style={styles.mismatchText}>
+                    {t("screens:join.emailMismatchMessage", {
+                      email: invitationDetails.email,
+                      userEmail: user.email,
+                    })}
+                  </Text>
+                  <Button
+                    label={t("screens:join.switchAccount")}
+                    onPress={handleSwitchUser}
+                    theme="secondary"
+                  />
+                </View>
+              ) : (
+                /* Ready to join */
+                <View style={styles.readyCard}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={48}
+                    color={theme.colors.secondary}
+                  />
+                  <Text style={styles.readyTitle}>
+                    {t("screens:join.readyToJoin")}
+                  </Text>
+                  <Text style={styles.readyText}>
+                    {t("screens:join.signedInAs", { email: user.email })}
+                  </Text>
+                  <Button
+                    label={
+                      processing
+                        ? t("screens:join.joiningGroup")
+                        : t("screens:join.joinGroupButton", {
+                            groupName: invitationDetails.groupName,
+                          })
+                    }
+                    onPress={handleJoinGroup}
+                    theme="primary"
+                    disabled={processing}
+                  />
+                  <TouchableOpacity
+                    style={styles.switchButton}
+                    onPress={handleSwitchUser}
+                  >
+                    <Text style={styles.switchText}>
+                      {t("screens:join.useDifferentAccount")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <ConfirmationModal
         visible={modalVisible}

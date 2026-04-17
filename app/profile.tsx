@@ -484,6 +484,7 @@ export default function ProfileScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* ---- Avatar Section ---- */}
           <View style={styles.avatarSection}>

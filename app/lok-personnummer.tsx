@@ -33,7 +33,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
+    KeyboardAvoidingView,
     Linking,
+    Platform,
     SafeAreaView,
     ScrollView,
     StyleSheet,
@@ -193,142 +195,149 @@ export default function LokPersonnummerScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* Header */}
-        <View style={styles.headerSection}>
-          <View style={styles.iconContainer}>
-            <Ionicons
-              name="shield-checkmark"
-              size={40}
-              color={theme.colors.primary}
-            />
-          </View>
-          <Text style={styles.title}>{t("screens:lokPersonnummer.title")}</Text>
-          <Text style={styles.subtitle}>
-            {t("screens:lokPersonnummer.subtitle", {
-              clubName: clubName || "",
-            })}
-          </Text>
-        </View>
-
-        {/* Why we need it */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Ionicons
-              name="information-circle"
-              size={20}
-              color={theme.colors.accent}
-            />
-            <Text style={styles.infoTitle}>
-              {t("screens:lokPersonnummer.whyNeededTitle")}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <View style={styles.headerSection}>
+            <View style={styles.iconContainer}>
+              <Ionicons
+                name="shield-checkmark"
+                size={40}
+                color={theme.colors.primary}
+              />
+            </View>
+            <Text style={styles.title}>
+              {t("screens:lokPersonnummer.title")}
+            </Text>
+            <Text style={styles.subtitle}>
+              {t("screens:lokPersonnummer.subtitle", {
+                clubName: clubName || "",
+              })}
             </Text>
           </View>
-          <Text style={styles.infoText}>
-            {t("screens:lokPersonnummer.whyNeededText")}
-          </Text>
 
-          <View style={styles.bulletPoints}>
-            <View style={styles.bulletRow}>
-              <Text style={styles.bullet}>•</Text>
-              <Text style={styles.bulletText}>
-                {t("screens:lokPersonnummer.bullet1")}
+          {/* Why we need it */}
+          <View style={styles.infoCard}>
+            <View style={styles.infoRow}>
+              <Ionicons
+                name="information-circle"
+                size={20}
+                color={theme.colors.accent}
+              />
+              <Text style={styles.infoTitle}>
+                {t("screens:lokPersonnummer.whyNeededTitle")}
               </Text>
             </View>
-            <View style={styles.bulletRow}>
-              <Text style={styles.bullet}>•</Text>
-              <Text style={styles.bulletText}>
-                {t("screens:lokPersonnummer.bullet2")}
-              </Text>
-            </View>
-            <View style={styles.bulletRow}>
-              <Text style={styles.bullet}>•</Text>
-              <Text style={styles.bulletText}>
-                {t("screens:lokPersonnummer.bullet3")}
-              </Text>
+            <Text style={styles.infoText}>
+              {t("screens:lokPersonnummer.whyNeededText")}
+            </Text>
+
+            <View style={styles.bulletPoints}>
+              <View style={styles.bulletRow}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.bulletText}>
+                  {t("screens:lokPersonnummer.bullet1")}
+                </Text>
+              </View>
+              <View style={styles.bulletRow}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.bulletText}>
+                  {t("screens:lokPersonnummer.bullet2")}
+                </Text>
+              </View>
+              <View style={styles.bulletRow}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.bulletText}>
+                  {t("screens:lokPersonnummer.bullet3")}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Security info */}
-        <View style={styles.securityCard}>
-          <View style={styles.infoRow}>
-            <Ionicons
-              name="lock-closed"
-              size={20}
-              color={theme.colors.success}
-            />
-            <Text style={styles.securityTitle}>
-              {t("screens:lokPersonnummer.securityTitle")}
+          {/* Security info */}
+          <View style={styles.securityCard}>
+            <View style={styles.infoRow}>
+              <Ionicons
+                name="lock-closed"
+                size={20}
+                color={theme.colors.success}
+              />
+              <Text style={styles.securityTitle}>
+                {t("screens:lokPersonnummer.securityTitle")}
+              </Text>
+            </View>
+            <Text style={styles.securityText}>
+              {t("screens:lokPersonnummer.securityText")}
             </Text>
           </View>
-          <Text style={styles.securityText}>
-            {t("screens:lokPersonnummer.securityText")}
+
+          {/* Personnummer Input */}
+          <View style={styles.inputSection}>
+            <PersonnummerInput
+              value={personnummerValue}
+              onChangeText={setPersonnummerValue}
+              consentGiven={consentGiven}
+              onConsentChange={setConsentGiven}
+              existingLastFour={existingStatus?.lastFour}
+              isReplacing={isReplacing}
+              onStartReplace={() => setIsReplacing(true)}
+              onCancelReplace={() => {
+                setIsReplacing(false);
+                setPersonnummerValue("");
+                setConsentGiven(false);
+                setError(null);
+              }}
+              error={error || undefined}
+              disabled={isSubmitting}
+            />
+          </View>
+
+          {/* Privacy Policy Link */}
+          <Text style={styles.privacyLink} onPress={openPrivacyPolicy}>
+            {t("screens:lokPersonnummer.readPrivacyPolicy")}
           </Text>
-        </View>
 
-        {/* Personnummer Input */}
-        <View style={styles.inputSection}>
-          <PersonnummerInput
-            value={personnummerValue}
-            onChangeText={setPersonnummerValue}
-            consentGiven={consentGiven}
-            onConsentChange={setConsentGiven}
-            existingLastFour={existingStatus?.lastFour}
-            isReplacing={isReplacing}
-            onStartReplace={() => setIsReplacing(true)}
-            onCancelReplace={() => {
-              setIsReplacing(false);
-              setPersonnummerValue("");
-              setConsentGiven(false);
-              setError(null);
-            }}
-            error={error || undefined}
-            disabled={isSubmitting}
-          />
-        </View>
+          {/* Submit Button (only show when entering new personnummer) */}
+          {(!existingStatus?.hasPersonnummer || isReplacing) && (
+            <View style={styles.submitSection}>
+              <Button
+                label={
+                  isSubmitting
+                    ? t("common:processing")
+                    : isReplacing
+                      ? t("screens:lokPersonnummer.updateButton")
+                      : t("screens:lokPersonnummer.saveButton")
+                }
+                onPress={handleSubmit}
+                disabled={!canSubmit}
+              />
+            </View>
+          )}
 
-        {/* Privacy Policy Link */}
-        <Text style={styles.privacyLink} onPress={openPrivacyPolicy}>
-          {t("screens:lokPersonnummer.readPrivacyPolicy")}
-        </Text>
-
-        {/* Submit Button (only show when entering new personnummer) */}
-        {(!existingStatus?.hasPersonnummer || isReplacing) && (
-          <View style={styles.submitSection}>
-            <Button
-              label={
-                isSubmitting
-                  ? t("common:processing")
-                  : isReplacing
-                    ? t("screens:lokPersonnummer.updateButton")
-                    : t("screens:lokPersonnummer.saveButton")
-              }
-              onPress={handleSubmit}
-              disabled={!canSubmit}
-            />
-          </View>
-        )}
-
-        {/* Remove Personnummer (GDPR right to erasure) */}
-        {existingStatus?.hasPersonnummer && !isReplacing && (
-          <View style={styles.removeSection}>
-            <Text style={styles.removeSectionTitle}>
-              {t("screens:lokPersonnummer.dataManagement")}
-            </Text>
-            <Button
-              label={t("screens:lokPersonnummer.removeButton")}
-              onPress={() => setShowRemoveModal(true)}
-              theme="secondary"
-            />
-            <Text style={styles.removeHelperText}>
-              {t("screens:lokPersonnummer.removeHelperText")}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          {/* Remove Personnummer (GDPR right to erasure) */}
+          {existingStatus?.hasPersonnummer && !isReplacing && (
+            <View style={styles.removeSection}>
+              <Text style={styles.removeSectionTitle}>
+                {t("screens:lokPersonnummer.dataManagement")}
+              </Text>
+              <Button
+                label={t("screens:lokPersonnummer.removeButton")}
+                onPress={() => setShowRemoveModal(true)}
+                theme="secondary"
+              />
+              <Text style={styles.removeHelperText}>
+                {t("screens:lokPersonnummer.removeHelperText")}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Remove Confirmation Modal */}
       <ConfirmationModal

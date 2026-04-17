@@ -39,9 +39,11 @@ import { validateMemberForInvitation } from "@/services/validation/validateMembe
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useLayoutEffect, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+    KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -272,9 +274,13 @@ export default function AddAdultMemberScreen() {
   /**
    * EMAIL FIELD MANAGEMENT
    */
+  const scrollRef = useRef<ScrollView>(null);
+
   const addEmailField = () => {
     if (emailAddresses.length < 10) {
       setEmailAddresses([...emailAddresses, ""]);
+      // Scroll to the newly added field after it renders
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
     }
   };
 
@@ -588,138 +594,145 @@ export default function AddAdultMemberScreen() {
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* SUBTITLE */}
-        <Text style={styles.subtitle}>
-          {t(`screens:addAdultMember.${infoTextKeys[memberRole]}`)}
-        </Text>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* SUBTITLE */}
+          <Text style={styles.subtitle}>
+            {t(`screens:addAdultMember.${infoTextKeys[memberRole]}`)}
+          </Text>
 
-        {/* MAIN CONTENT SECTION */}
-        <View>
-          {/* EMAIL INPUT SECTION */}
-          <View style={styles.emailSection}>
-            <Text style={styles.sectionTitle}>
-              {t("screens:addAdultMember.emailAddresses")}
-            </Text>
+          {/* MAIN CONTENT SECTION */}
+          <View>
+            {/* EMAIL INPUT SECTION */}
+            <View style={styles.emailSection}>
+              <Text style={styles.sectionTitle}>
+                {t("screens:addAdultMember.emailAddresses")}
+              </Text>
 
-            {emailAddresses.map((email, index) => (
-              <View key={index} style={styles.emailInputRow}>
-                <View style={styles.emailInputContainer}>
-                  <Input
-                    label={t("screens:addAdultMember.emailIndex", {
-                      index: index + 1,
-                    })}
-                    value={email}
-                    onChangeText={(text) => updateEmail(index, text)}
-                    onBlur={() => handleEmailBlur(index, email)}
-                    placeholder={t("screens:addAdultMember.emailPlaceholder")}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
+              {emailAddresses.map((email, index) => (
+                <View key={index} style={styles.emailInputRow}>
+                  <View style={styles.emailInputContainer}>
+                    <Input
+                      label={t("screens:addAdultMember.emailIndex", {
+                        index: index + 1,
+                      })}
+                      value={email}
+                      onChangeText={(text) => updateEmail(index, text)}
+                      onBlur={() => handleEmailBlur(index, email)}
+                      placeholder={t("screens:addAdultMember.emailPlaceholder")}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
 
-                  {/* Validation Status Display */}
-                  {emailValidation[index] && (
-                    <View style={styles.validationContainer}>
-                      {emailValidation[index].checking && (
-                        <View style={styles.validationRow}>
-                          <Ionicons
-                            name="hourglass-outline"
-                            size={16}
-                            color={theme.colors.textSecondary}
-                          />
-                          <Text style={styles.validationText}>
-                            {t("screens:addAdultMember.checking")}
-                          </Text>
-                        </View>
-                      )}
-                      {!emailValidation[index].checking &&
-                        emailValidation[index].canInvite && (
+                    {/* Validation Status Display */}
+                    {emailValidation[index] && (
+                      <View style={styles.validationContainer}>
+                        {emailValidation[index].checking && (
                           <View style={styles.validationRow}>
                             <Ionicons
-                              name="checkmark-circle"
+                              name="hourglass-outline"
                               size={16}
-                              color={theme.colors.success}
+                              color={theme.colors.textSecondary}
                             />
-                            <Text
-                              style={[
-                                styles.validationText,
-                                styles.validationSuccess,
-                              ]}
-                            >
-                              {emailValidation[index].message}
+                            <Text style={styles.validationText}>
+                              {t("screens:addAdultMember.checking")}
                             </Text>
                           </View>
                         )}
-                      {!emailValidation[index].checking &&
-                        !emailValidation[index].canInvite && (
-                          <View style={styles.validationRow}>
-                            <Ionicons
-                              name="warning"
-                              size={16}
-                              color={theme.colors.error}
-                            />
-                            <Text
-                              style={[
-                                styles.validationText,
-                                styles.validationWarning,
-                              ]}
-                            >
-                              {emailValidation[index].message}
-                            </Text>
-                          </View>
-                        )}
-                    </View>
+                        {!emailValidation[index].checking &&
+                          emailValidation[index].canInvite && (
+                            <View style={styles.validationRow}>
+                              <Ionicons
+                                name="checkmark-circle"
+                                size={16}
+                                color={theme.colors.success}
+                              />
+                              <Text
+                                style={[
+                                  styles.validationText,
+                                  styles.validationSuccess,
+                                ]}
+                              >
+                                {emailValidation[index].message}
+                              </Text>
+                            </View>
+                          )}
+                        {!emailValidation[index].checking &&
+                          !emailValidation[index].canInvite && (
+                            <View style={styles.validationRow}>
+                              <Ionicons
+                                name="warning"
+                                size={16}
+                                color={theme.colors.error}
+                              />
+                              <Text
+                                style={[
+                                  styles.validationText,
+                                  styles.validationWarning,
+                                ]}
+                              >
+                                {emailValidation[index].message}
+                              </Text>
+                            </View>
+                          )}
+                      </View>
+                    )}
+                  </View>
+
+                  {emailAddresses.length > 1 && (
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => removeEmailField(index)}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={24}
+                        color={theme.colors.error}
+                      />
+                    </TouchableOpacity>
                   )}
                 </View>
+              ))}
 
-                {emailAddresses.length > 1 && (
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => removeEmailField(index)}
-                  >
-                    <Ionicons
-                      name="close-circle"
-                      size={24}
-                      color={theme.colors.error}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
+              {emailAddresses.length < 10 && (
+                <TouchableOpacity
+                  style={styles.addEmailButton}
+                  onPress={addEmailField}
+                >
+                  <Ionicons
+                    name="add-circle"
+                    size={20}
+                    color={theme.colors.secondary}
+                  />
+                  <Text style={styles.addEmailText}>
+                    {t("screens:addAdultMember.addAnotherEmail")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-            {emailAddresses.length < 10 && (
-              <TouchableOpacity
-                style={styles.addEmailButton}
-                onPress={addEmailField}
-              >
-                <Ionicons
-                  name="add-circle"
-                  size={20}
-                  color={theme.colors.secondary}
-                />
-                <Text style={styles.addEmailText}>
-                  {t("screens:addAdultMember.addAnotherEmail")}
-                </Text>
-              </TouchableOpacity>
-            )}
+            {/* SUBMIT BUTTON */}
+            <Button
+              label={
+                sendingInvitations
+                  ? t("screens:addAdultMember.sendingInvitations")
+                  : t("screens:addAdultMember.sendInvitations")
+              }
+              onPress={handleSendInvitations}
+              theme="primary"
+              disabled={sendingInvitations}
+            />
           </View>
-
-          {/* SUBMIT BUTTON */}
-          <Button
-            label={
-              sendingInvitations
-                ? t("screens:addAdultMember.sendingInvitations")
-                : t("screens:addAdultMember.sendInvitations")
-            }
-            onPress={handleSendInvitations}
-            theme="primary"
-            disabled={sendingInvitations}
-          />
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* MODAL FOR SUCCESS/ERROR MESSAGES */}
       <ConfirmationModal
