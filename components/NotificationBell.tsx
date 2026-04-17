@@ -120,8 +120,12 @@ export default function NotificationBell({
             notification.invitationToken,
             notification.metadata,
           );
-          setModalVisible(false);
+        } else {
+          // No invitation handler wired — navigate to the home tab so
+          // loadInvitations() runs on mount and shows the InvitationModal.
+          router.push("/(tabs)" as any);
         }
+        setModalVisible(false);
         break;
 
       case "announcement":

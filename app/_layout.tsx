@@ -89,21 +89,37 @@ function RootLayoutNav() {
   useEffect(() => {
     if (Platform.OS === "web") return;
 
+    // Helper: navigate based on notification payload data
+    function redirectFromNotification(data: Record<string, unknown>) {
+      if (data.route && typeof data.route === "string") {
+        const params =
+          data.routeParams && typeof data.routeParams === "object"
+            ? data.routeParams
+            : {};
+        router.push({ pathname: data.route as any, params } as any);
+      } else if (data.actionUrl && typeof data.actionUrl === "string") {
+        router.push(data.actionUrl as any);
+      }
+    }
+
+    // Cold-start: app was fully killed, user tapped notification to launch it.
+    // The listener below only fires for *future* taps; this synchronous read
+    // catches the tap that caused the launch (official Expo pattern).
+    const lastResponse = Notifications.getLastNotificationResponse();
+    if (lastResponse) {
+      const data = lastResponse.notification.request.content.data;
+      if (data) {
+        redirectFromNotification(data);
+      }
+    }
+
+    // Background / foreground: fires when user taps a notification while the
+    // app is already running (or was suspended but not killed).
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data;
         if (!data) return;
-
-        // Use structured route params if available, fall back to actionUrl string
-        if (data.route && typeof data.route === "string") {
-          const params =
-            data.routeParams && typeof data.routeParams === "object"
-              ? data.routeParams
-              : {};
-          router.push({ pathname: data.route as any, params } as any);
-        } else if (data.actionUrl && typeof data.actionUrl === "string") {
-          router.push(data.actionUrl as any);
-        }
+        redirectFromNotification(data);
       },
     );
 

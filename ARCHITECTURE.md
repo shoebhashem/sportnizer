@@ -1224,8 +1224,14 @@ export const NotificationBell = () => {
 
     // Handle based on type
     if (notification.type === 'group_invitation') {
-      // Show invitation modal or navigate to invitation screen
-      // Use notification.invitationToken to process acceptance
+      // If onInvitationPress prop is wired, delegate to the callback.
+      // Otherwise fallback: navigate to the home tab so loadInvitations()
+      // runs on mount and shows the InvitationModal automatically.
+      if (onInvitationPress && notification.invitationToken) {
+        onInvitationPress(notification.invitationToken, notification.metadata);
+      } else {
+        router.push("/(tabs)");
+      }
     }
   };
 
@@ -1672,8 +1678,11 @@ const CHANNEL_MAP = {
 
 1. **`setNotificationHandler`** — suppresses foreground banner (in-app bell is the UI)
 2. **Channel + token registration** — runs on every `user.uid` change (login)
-3. **`addNotificationResponseReceivedListener`** — handles background/killed state taps, deep-links via `router.push(actionUrl)`
-4. **Logout cleanup** — `removePushTokenFromFirestore()` called when user signs out
+3. **`getLastNotificationResponse()`** — synchronous cold-start handler; reads the cached notification tap that launched the app (official Expo pattern). Without this, taps that launch a killed app are lost because the async listener registers too late.
+4. **`addNotificationResponseReceivedListener`** — handles background/foreground taps (after the app is already running), deep-links via `router.push(actionUrl)`
+5. **Logout cleanup** — `removePushTokenFromFirestore()` called when user signs out
+
+Both (3) and (4) share a `redirectFromNotification(data)` helper that checks for `data.route` (structured) then falls back to `data.actionUrl` (string).
 
 ### Key Files
 
