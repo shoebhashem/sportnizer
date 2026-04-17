@@ -12,7 +12,7 @@
  */
 
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -29,6 +29,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTrackFeatureOnAction } from "@/hooks/useOnboardingFeatureTracker";
+import { consumeSelectedMemberIds } from "@/utils/memberSelectionStore";
 import ConfirmationModal from "../components/ConfirmationModal";
 import RoleFilterModal, { ClubRole } from "../components/RoleFilterModal";
 import { theme } from "../constants/theme";
@@ -146,16 +147,15 @@ export default function CreateNewsScreen() {
     message: "",
   });
 
-  // Read selectedMemberIds from navigation params (returned from select-event-members screen)
-  useEffect(() => {
-    if (params.selectedMemberIds) {
-      const ids =
-        typeof params.selectedMemberIds === "string"
-          ? params.selectedMemberIds.split(",").filter(Boolean)
-          : [];
-      setSelectedMemberIds(ids);
-    }
-  }, [params.selectedMemberIds]);
+  // Read selectedMemberIds from store when screen regains focus (returned from select-event-members)
+  useFocusEffect(
+    useCallback(() => {
+      const ids = consumeSelectedMemberIds();
+      if (ids) {
+        setSelectedMemberIds(ids);
+      }
+    }, []),
+  );
 
   // Load news data if in edit mode
   useEffect(() => {

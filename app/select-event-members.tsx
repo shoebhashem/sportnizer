@@ -18,6 +18,7 @@ import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useGroupData } from "@/contexts/GroupDataContext";
+import { setSelectedMemberIds } from "@/utils/memberSelectionStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import React, {
@@ -194,22 +195,9 @@ export default function SelectEventMembersScreen() {
   }, [filteredMembers, selectedIds.size]);
 
   const handleConfirm = () => {
-    const ids = Array.from(selectedIds).join(",");
-    // Navigate back to source screen with selectedMemberIds param
-    const targetScreen =
-      sourceScreen === "create-news" ? "/create-news" : "/create-event";
-    router.navigate({
-      pathname: targetScreen as any,
-      params: {
-        clubId: clubId as string,
-        clubName: clubName as string,
-        groupId: groupId as string,
-        groupName: groupName as string,
-        subgroupId: subgroupId as string,
-        subgroupName: subgroupName as string,
-        selectedMemberIds: ids,
-      },
-    });
+    // Store selected IDs and go back to the previous screen
+    setSelectedMemberIds(Array.from(selectedIds));
+    router.back();
   };
 
   const handleClear = () => {

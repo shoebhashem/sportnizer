@@ -10311,7 +10311,7 @@ The screen detects event level based on params:
 **Key Implementation Notes:**
 
 - **FAB Button**: Fixed position (bottom: 24, right: 24), visible only to users with manage permissions
-- **Inline Recipients**: No separate select-recipients screen, all done inline
+- **Recipient Selection Screen**: "Select Members" opens a shared `select-event-members` screen for both events and news
 - **Role Filter**: Group-level roles only (player, player-underage, coach, admin)
 - **Youth Handling**: Guardians receive notifications, but responses tracked for youth members
 
@@ -11782,9 +11782,15 @@ Admins/coaches can target events and news to specific members instead of sending
 4. Screen loads members from `ClubDataContext` (club level) or `GroupDataContext` (group/subgroup level)
 5. Members are optionally pre-filtered by active roleFilter
 6. User selects/deselects members via checkboxes (search, select all supported)
-7. On confirm, navigates back to source screen (`/create-event` or `/create-news`) with `selectedMemberIds` as comma-separated param
-8. Source screen reads `selectedMemberIds` from params and includes in the request
+7. On confirm, stores selected IDs in a transient in-memory store (`memberSelectionStore`) and calls back navigation to return to the existing source screen instance
+8. Source screen consumes selected IDs on focus and immediately clears the transient store
 9. Backend applies `selectedMemberIds` filter AFTER roleFilter, BEFORE building recipients
+
+### Return Navigation Pattern
+
+- Use back navigation from `select-event-members` to avoid creating a duplicate source screen instance
+- Keep form fields (for example title/description) in source screen local state so they remain intact when returning from member selection
+- Pass only selected member IDs via transient store and consume-and-clear on focus to prevent stale selections in later sessions
 
 ### Backend Processing
 
@@ -11796,9 +11802,10 @@ Admins/coaches can target events and news to specific members instead of sending
 
 ### Key Files
 
-- `app/select-event-members.tsx` — Shared member selection screen (FlatList + checkboxes + search), uses `sourceScreen` param for return navigation
-- `app/create-event.tsx` — State management for `selectedMemberIds`, navigation, request building
-- `app/create-news.tsx` — State management for `selectedMemberIds`, navigation to select-event-members with `sourceScreen: "create-news"`
+- `app/select-event-members.tsx` — Shared member selection screen (FlatList + checkboxes + search), writes selected IDs and navigates back to source
+- `app/create-event.tsx` — State management for `selectedMemberIds`, consumes selected IDs on focus, request building
+- `app/create-news.tsx` — State management for `selectedMemberIds`, consumes selected IDs on focus, request building
+- `utils/memberSelectionStore.ts` — Transient in-memory handoff for selected member IDs between selection screen and source screen
 - `functions/src/events/createEventV2.ts` — Backend filter after roleFilter
 - `functions/src/events/createRecurringEvent.ts` — Backend filter after roleFilter
 - `functions/src/news/createNews.ts` — Backend filter after roleFilter
