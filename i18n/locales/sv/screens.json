@@ -1018,7 +1018,17 @@
     "readCount": "{{count}} läst",
     "deleteNews": "Ta bort nyhet",
     "deleteNewsConfirm": "Är du säker på att du vill ta bort denna nyhet? Detta kan inte ångras.",
-    "failedToDeleteNews": "Kunde inte ta bort nyhet"
+    "failedToDeleteNews": "Kunde inte ta bort nyhet",
+    "comments": "Kommentarer",
+    "noComments": "Inga kommentarer ännu. Bli den första att kommentera!",
+    "commentPlaceholder": "Skriv en kommentar...",
+    "deleteComment": "Ta bort kommentar",
+    "deleteCommentConfirm": "Är du säker på att du vill ta bort denna kommentar?",
+    "failedToAddComment": "Kunde inte lägga till kommentar",
+    "failedToDeleteComment": "Kunde inte ta bort kommentar",
+    "readBy": "Läst av",
+    "unknownMember": "Okänd medlem",
+    "noReaders": "Ingen har läst detta ännu"
   },
   "viewStatistics": {
     "groupStatistics": "{{groupName}} Statistik",

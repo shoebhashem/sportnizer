@@ -1072,7 +1072,17 @@
     "readCount": "{{count}} letti",
     "deleteNews": "Elimina notizia",
     "deleteNewsConfirm": "Sei sicuro di voler eliminare questa notizia? Questa azione non può essere annullata.",
-    "failedToDeleteNews": "Impossibile eliminare la notizia"
+    "failedToDeleteNews": "Impossibile eliminare la notizia",
+    "comments": "Commenti",
+    "noComments": "Nessun commento ancora. Sii il primo a commentare!",
+    "commentPlaceholder": "Scrivi un commento...",
+    "deleteComment": "Elimina commento",
+    "deleteCommentConfirm": "Sei sicuro di voler eliminare questo commento?",
+    "failedToAddComment": "Impossibile aggiungere il commento",
+    "failedToDeleteComment": "Impossibile eliminare il commento",
+    "readBy": "Letto da",
+    "unknownMember": "Membro sconosciuto",
+    "noReaders": "Nessuno ha ancora letto questo"
   },
   "viewStatistics": {
     "groupStatistics": "Statistiche {{groupName}}",

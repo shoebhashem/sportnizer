@@ -51,9 +51,12 @@ export default function NewsCard({
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffMins < 1) return t("components:newsCard.justNow");
-    if (diffMins < 60) return t("components:newsCard.minutesAgo", { count: diffMins });
-    if (diffHours < 24) return t("components:newsCard.hoursAgo", { count: diffHours });
-    if (diffDays < 7) return t("components:newsCard.daysAgo", { count: diffDays });
+    if (diffMins < 60)
+      return t("components:newsCard.minutesAgo", { count: diffMins });
+    if (diffHours < 24)
+      return t("components:newsCard.hoursAgo", { count: diffHours });
+    if (diffDays < 7)
+      return t("components:newsCard.daysAgo", { count: diffDays });
 
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -149,10 +152,22 @@ export default function NewsCard({
             size={14}
             color={theme.colors.textSecondary}
           />
-          <Text style={styles.footerText}>{t("components:newsCard.issuedBy", { name: news.createdByName })}</Text>
+          <Text style={styles.footerText}>
+            {t("components:newsCard.issuedBy", { name: news.createdByName })}
+          </Text>
         </View>
 
         <View style={styles.footerRight}>
+          {(news.commentCount ?? 0) > 0 && (
+            <View style={styles.commentBadge}>
+              <Ionicons
+                name="chatbubble-outline"
+                size={14}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.footerText}>{news.commentCount}</Text>
+            </View>
+          )}
           <Ionicons
             name="time-outline"
             size={14}
@@ -263,6 +278,11 @@ const styles = StyleSheet.create({
   footerRight: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  commentBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 10,
   },
   footerText: {
     fontSize: 13,

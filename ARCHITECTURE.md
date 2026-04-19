@@ -12270,10 +12270,11 @@ The 7-year retention for LOK reports aligns with Swedish bookkeeping requirement
 
 ### Frontend Components & Screens
 
-| File                               | Purpose                                                                                                                                        |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `components/PersonnummerInput.tsx` | Specialized input: auto-format with hyphen, real-time Luhn validation, masked display for stored values, inline consent checkbox, replace mode |
-| `app/lok-personnummer.tsx`         | Collection screen: explanation of purpose, security info, PersonnummerInput, privacy link, submit/update/remove actions                        |
+| File                               | Purpose                                                                                                                                                                                                                                                              |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components/LinkedText.tsx`        | Reusable text component that auto-detects URLs and renders them as clickable links via `expo-linking`. Scheme-validated (http/https/mailto only). Drop-in replacement for `<Text>` — used in news descriptions, news comments, event descriptions, and RSVP comments |
+| `components/PersonnummerInput.tsx` | Specialized input: auto-format with hyphen, real-time Luhn validation, masked display for stored values, inline consent checkbox, replace mode                                                                                                                       |
+| `app/lok-personnummer.tsx`         | Collection screen: explanation of purpose, security info, PersonnummerInput, privacy link, submit/update/remove actions                                                                                                                                              |
 
 ### i18n
 
@@ -12384,7 +12385,7 @@ interface NewsDocument {
 
   // Recipient tracking
   recipientIds: string[]; // UIDs who should see this news
-  readBy: string[]; // UIDs who have read the news
+  readBy: { userId: string; userName?: string; readAt: Timestamp }[]; // Who has read (with optional display name)
 
   // Timestamps
   createdAt: Timestamp;
@@ -12465,7 +12466,7 @@ services/news/
 attachNewsListener(uid, callback); // Real-time listener
 fetchNews(uid); // One-time fetch
 fetchNewsItem(clubId, newsId); // Single news fetch
-markNewsAsRead(clubId, newsId, uid); // Mark as read
+markNewsAsRead(clubId, newsId, uid, userName?); // Mark as read (stores userName for Read By modal)
 updateNews(clubId, newsId, data); // Update news
 deleteNews(clubId, newsId); // Delete news
 hasUserReadNews(news, uid); // Check read status
@@ -12568,6 +12569,7 @@ app/news-details.tsx
 - Edit/Delete for authorized users
 - Share functionality
 - Creator info and timestamp
+- **Read By modal:** Tap eye icon to see list of readers with names and timestamps, sorted by most recent first. Uses `userName` from `readBy` entries (falls back to "Unknown member" for legacy entries without `userName`).
 
 #### News Tab
 
@@ -12652,6 +12654,67 @@ Body:
 
 ---
 
+### News Comments
+
+News items support a comments feature via a Firestore subcollection.
+
+#### Data Structure
+
+```typescript
+// Path: /clubs/{clubId}/news/{newsId}/comments/{commentId}
+interface NewsComment {
+  commentId: string;
+  newsId: string;
+  clubId: string;
+  text: string; // Max 500 characters
+  createdBy: string; // User UID
+  createdByName: string; // Display name
+  createdAt: Timestamp;
+}
+```
+
+The parent `NewsDocument` also tracks `commentCount?: number` (atomically incremented/decremented via batched writes).
+
+#### Backend Functions
+
+| Function            | File                                      | Purpose                                     |
+| ------------------- | ----------------------------------------- | ------------------------------------------- |
+| `addNewsComment`    | `functions/src/news/addNewsComment.ts`    | Add comment (recipients/club-admin)         |
+| `deleteNewsComment` | `functions/src/news/deleteNewsComment.ts` | Delete comment (author/creator/admin/coach) |
+
+**Add Comment Permission:** User must be a recipient of the news item OR a club-admin.
+
+**Delete Comment Permission:** User must be one of:
+
+- The comment author
+- The news creator
+- A club-admin
+- A group admin/coach (for group/subgroup-level news)
+
+#### Client Services
+
+```typescript
+// services/news/newsComments.ts
+attachNewsCommentsListener(clubId, newsId, callback); // Real-time listener (ordered by createdAt ASC)
+addNewsComment(newsId, clubId, text); // Add via Cloud Function
+deleteNewsComment(newsId, clubId, commentId); // Delete via Cloud Function
+```
+
+#### Firestore Rules
+
+Comments subcollection (`/clubs/{clubId}/news/{newsId}/comments/{commentId}`):
+
+- **Read:** Same as parent news — recipients or club-admin
+- **Create/Update/Delete:** Only via Cloud Functions (Admin SDK bypasses rules)
+
+#### UI Integration
+
+- **news-details.tsx:** Comments list below news content, comment input at bottom with send button, delete button on comments user has permission to delete. News description and comment text use `LinkedText` for clickable URLs.
+- **NewsCard.tsx:** Comment count badge (💬 + count) in footer when `commentCount > 0`
+- **event-details.tsx:** Event description (full modal) and RSVP comments use `LinkedText` for clickable URLs.
+
+---
+
 ### Future Enhancements
 
 - [ ] Unread badge count on tab icon
@@ -12683,6 +12746,7 @@ Body:
 | 10  | `clubs/{clubId}/events/{eventId}`                                           | Subcollection   | Events scoped to a club (incl. recurring occurrences)     |
 | 11  | `clubs/{clubId}/recurringEvents/{recurringEventId}`                         | Subcollection   | Recurring event master templates                          |
 | 12  | `clubs/{clubId}/news/{newsId}`                                              | Subcollection   | News articles scoped to a club                            |
+| 12a | `clubs/{clubId}/news/{newsId}/comments/{commentId}`                         | Subcollection   | Comments on news articles                                 |
 | 13  | `invitations/{invitationToken}`                                             | Top-level       | Invitation source of truth                                |
 | 14  | `membershipFees/{feeId}`                                                    | Top-level       | Membership fee definitions                                |
 | 15  | `payments/{paymentId}`                                                      | Top-level       | Payment records                                           |

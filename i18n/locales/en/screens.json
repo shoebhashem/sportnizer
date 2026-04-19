@@ -1098,7 +1098,17 @@
     "readCount": "{{count}} read",
     "deleteNews": "Delete News",
     "deleteNewsConfirm": "Are you sure you want to delete this news? This action cannot be undone.",
-    "failedToDeleteNews": "Failed to delete news"
+    "failedToDeleteNews": "Failed to delete news",
+    "comments": "Comments",
+    "noComments": "No comments yet. Be the first to comment!",
+    "commentPlaceholder": "Write a comment...",
+    "deleteComment": "Delete Comment",
+    "deleteCommentConfirm": "Are you sure you want to delete this comment?",
+    "failedToAddComment": "Failed to add comment",
+    "failedToDeleteComment": "Failed to delete comment",
+    "readBy": "Read by",
+    "unknownMember": "Unknown member",
+    "noReaders": "No one has read this yet"
   },
   "viewStatistics": {
     "groupStatistics": "{{groupName}} Statistics",

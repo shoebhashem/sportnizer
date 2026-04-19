@@ -1054,7 +1054,17 @@
     "readCount": "{{count}} lu(s)",
     "deleteNews": "Supprimer l'actualité",
     "deleteNewsConfirm": "Êtes-vous sûr de vouloir supprimer cette actualité ? Cette action ne peut pas être annulée.",
-    "failedToDeleteNews": "Échec de la suppression de l'actualité"
+    "failedToDeleteNews": "Échec de la suppression de l'actualité",
+    "comments": "Commentaires",
+    "noComments": "Aucun commentaire pour le moment. Soyez le premier à commenter !",
+    "commentPlaceholder": "Écrire un commentaire...",
+    "deleteComment": "Supprimer le commentaire",
+    "deleteCommentConfirm": "Êtes-vous sûr de vouloir supprimer ce commentaire ?",
+    "failedToAddComment": "Échec de l'ajout du commentaire",
+    "failedToDeleteComment": "Échec de la suppression du commentaire",
+    "readBy": "Lu par",
+    "unknownMember": "Membre inconnu",
+    "noReaders": "Personne n'a encore lu ceci"
   },
   "viewStatistics": {
     "groupStatistics": "Statistiques de {{groupName}}",

@@ -84,6 +84,8 @@ async function setupNewsEnvironment(): Promise<{
     displayName: "Player One",
   });
   await seedUserDocument(player.uid, {
+    fullName: player.displayName,
+    email: player.email,
     clubAccess: [
       {
         clubId,
@@ -851,5 +853,644 @@ describe("Suite N: News Creation & Notification Verification", () => {
       (n) => n.type === "news" && n.sourceId === result.newsId,
     );
     expect(adminNewsNotif).toBeDefined();
+  });
+});
+
+/* ================================================================== */
+/*  Suite N (continued): News Comment Tests                            */
+/* ================================================================== */
+
+describe("Suite N (continued): News Comment Tests", () => {
+  beforeEach(async () => {
+    await clearAll();
+  });
+
+  /**
+   * Helper: create a news item and return its newsId
+   */
+  async function createTestNews(
+    adminToken: string,
+    clubId: string,
+    groupId: string,
+    adminUid: string,
+    adminName: string,
+  ): Promise<string> {
+    const result = await callFunction<{ success: boolean; newsId: string }>(
+      "createNews",
+      adminToken,
+      {
+        clubId,
+        clubName: "News Club",
+        title: "Test News for Comments",
+        description: "A news item to test comments on.",
+        targetScope: {
+          level: "group",
+          groupId,
+          groupName: "News Group",
+        },
+        createdBy: adminUid,
+        createdByName: adminName,
+      },
+    );
+    expect(result.success).toBe(true);
+    return result.newsId;
+  }
+
+  // ─── TC-N9: Recipient can add a comment ─────────────────────
+  it("TC-N13: recipient can add a comment to news", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+    const newsId = await createTestNews(
+      adminUser.idToken,
+      clubId,
+      groupId,
+      adminUser.uid,
+      adminUser.displayName,
+    );
+
+    const result = await callFunction<{
+      success: boolean;
+      commentId: string;
+    }>("addNewsComment", player.idToken, {
+      newsId,
+      clubId,
+      text: "Great news!",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.commentId).toBeDefined();
+
+    // Verify comment in Firestore
+    const commentDoc = await getDocument(
+      `clubs/${clubId}/news/${newsId}/comments/${result.commentId}`,
+    );
+    expect(commentDoc).toBeDefined();
+    expect(commentDoc!.text).toBe("Great news!");
+    expect(commentDoc!.createdBy).toBe(player.uid);
+    expect(commentDoc!.createdByName).toBe(player.displayName);
+
+    // Verify commentCount incremented on news doc
+    const newsDoc = await getDocument(`clubs/${clubId}/news/${newsId}`);
+    expect(newsDoc!.commentCount).toBe(1);
+  });
+
+  // ─── TC-N10: Club-admin can add a comment ───────────────────
+  it("TC-N14: club-admin can add a comment to news", async () => {
+    const { admin: adminUser, clubId, groupId } = await setupNewsEnvironment();
+    const newsId = await createTestNews(
+      adminUser.idToken,
+      clubId,
+      groupId,
+      adminUser.uid,
+      adminUser.displayName,
+    );
+
+    const result = await callFunction<{
+      success: boolean;
+      commentId: string;
+    }>("addNewsComment", adminUser.idToken, {
+      newsId,
+      clubId,
+      text: "Admin comment",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.commentId).toBeDefined();
+  });
+
+  // ─── TC-N11: Non-recipient cannot add a comment ─────────────
+  it("TC-N15: non-recipient cannot add a comment", async () => {
+    const { admin: adminUser, clubId, groupId } = await setupNewsEnvironment();
+    const newsId = await createTestNews(
+      adminUser.idToken,
+      clubId,
+      groupId,
+      adminUser.uid,
+      adminUser.displayName,
+    );
+
+    // Create outsider user (not in the group)
+    const outsider = await createFullTestUser({
+      email: `outsider_${Date.now()}@test.com`,
+      displayName: "Outsider",
+    });
+    await seedUserDocument(outsider.uid, {
+      clubAccess: [],
+    });
+
+    await expectFunctionError(
+      "addNewsComment",
+      outsider.idToken,
+      {
+        newsId,
+        clubId,
+        text: "Should fail",
+      },
+      "permission-denied",
+    );
+  });
+
+  // ─── TC-N12: Comment text validation ────────────────────────
+  it("TC-N16: rejects empty and too-long comment text", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+    const newsId = await createTestNews(
+      adminUser.idToken,
+      clubId,
+      groupId,
+      adminUser.uid,
+      adminUser.displayName,
+    );
+
+    // Empty text (whitespace only)
+    await expectFunctionError(
+      "addNewsComment",
+      player.idToken,
+      {
+        newsId,
+        clubId,
+        text: "   ",
+      },
+      "invalid-argument",
+    );
+
+    // Too long (>500 chars)
+    await expectFunctionError(
+      "addNewsComment",
+      player.idToken,
+      {
+        newsId,
+        clubId,
+        text: "x".repeat(501),
+      },
+      "invalid-argument",
+    );
+  });
+
+  // ─── TC-N13: Comment author can delete own comment ──────────
+  it("TC-N17: comment author can delete their own comment", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+    const newsId = await createTestNews(
+      adminUser.idToken,
+      clubId,
+      groupId,
+      adminUser.uid,
+      adminUser.displayName,
+    );
+
+    // Player adds a comment
+    const addResult = await callFunction<{
+      success: boolean;
+      commentId: string;
+    }>("addNewsComment", player.idToken, {
+      newsId,
+      clubId,
+      text: "My comment",
+    });
+    expect(addResult.success).toBe(true);
+
+    // Player deletes their own comment
+    const deleteResult = await callFunction<{ success: boolean }>(
+      "deleteNewsComment",
+      player.idToken,
+      {
+        newsId,
+        clubId,
+        commentId: addResult.commentId,
+      },
+    );
+    expect(deleteResult.success).toBe(true);
+
+    // Verify comment is gone
+    const db = getFirestore();
+    const commentSnap = await db
+      .doc(`clubs/${clubId}/news/${newsId}/comments/${addResult.commentId}`)
+      .get();
+    expect(commentSnap.exists).toBe(false);
+
+    // Verify commentCount decremented
+    const newsDoc = await getDocument(`clubs/${clubId}/news/${newsId}`);
+    expect(newsDoc!.commentCount).toBe(0);
+  });
+
+  // ─── TC-N14: News creator can delete any comment ────────────
+  it("TC-N18: news creator can delete any comment", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+    const newsId = await createTestNews(
+      adminUser.idToken,
+      clubId,
+      groupId,
+      adminUser.uid,
+      adminUser.displayName,
+    );
+
+    // Player adds a comment
+    const addResult = await callFunction<{
+      success: boolean;
+      commentId: string;
+    }>("addNewsComment", player.idToken, {
+      newsId,
+      clubId,
+      text: "Player comment",
+    });
+
+    // Admin (news creator) deletes the player's comment
+    const deleteResult = await callFunction<{ success: boolean }>(
+      "deleteNewsComment",
+      adminUser.idToken,
+      {
+        newsId,
+        clubId,
+        commentId: addResult.commentId,
+      },
+    );
+    expect(deleteResult.success).toBe(true);
+  });
+
+  // ─── TC-N15: Club-admin can delete any comment ──────────────
+  it("TC-N19: club-admin can delete any comment", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+    const newsId = await createTestNews(
+      adminUser.idToken,
+      clubId,
+      groupId,
+      adminUser.uid,
+      adminUser.displayName,
+    );
+
+    // Player adds a comment
+    const addResult = await callFunction<{
+      success: boolean;
+      commentId: string;
+    }>("addNewsComment", player.idToken, {
+      newsId,
+      clubId,
+      text: "Player says hello",
+    });
+
+    // Admin (club-admin) deletes it
+    const deleteResult = await callFunction<{ success: boolean }>(
+      "deleteNewsComment",
+      adminUser.idToken,
+      {
+        newsId,
+        clubId,
+        commentId: addResult.commentId,
+      },
+    );
+    expect(deleteResult.success).toBe(true);
+  });
+
+  // ─── TC-N16: Regular player cannot delete another's comment ─
+  it("TC-N20: regular player cannot delete another player's comment", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+    const newsId = await createTestNews(
+      adminUser.idToken,
+      clubId,
+      groupId,
+      adminUser.uid,
+      adminUser.displayName,
+    );
+
+    // Admin adds a comment
+    const addResult = await callFunction<{
+      success: boolean;
+      commentId: string;
+    }>("addNewsComment", adminUser.idToken, {
+      newsId,
+      clubId,
+      text: "Admin comment",
+    });
+
+    // Player tries to delete admin's comment → should fail
+    await expectFunctionError(
+      "deleteNewsComment",
+      player.idToken,
+      {
+        newsId,
+        clubId,
+        commentId: addResult.commentId,
+      },
+      "permission-denied",
+    );
+  });
+
+  // ─── TC-N17: Group coach can delete comments ────────────────
+  it("TC-N21: group coach can delete comments on group news", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+
+    const db = getFirestore();
+
+    // Create a coach user
+    const coach = await createFullTestUser({
+      email: `coach_${Date.now()}@test.com`,
+      displayName: "News Coach",
+    });
+    await seedUserDocument(coach.uid, {
+      clubAccess: [
+        {
+          clubId,
+          clubName: "News Club",
+          role: "player",
+          isActive: true,
+          joinedAt: new Date(),
+          groupAccess: [
+            {
+              groupId,
+              groupName: "News Group",
+              roles: ["coach"],
+              joinedAt: new Date(),
+            },
+          ],
+        },
+      ],
+    });
+
+    // Add coach to group allMembers
+    const membersDoc = await db
+      .doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`)
+      .get();
+    const existingMembers = membersDoc.data()?.members || [];
+    await db.doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`).set({
+      members: [
+        ...existingMembers,
+        {
+          userId: coach.uid,
+          name: coach.displayName,
+          email: coach.email,
+          roles: ["coach"],
+          isActive: true,
+          needsGuardian: false,
+          guardiansContacts: [],
+        },
+      ],
+      memberCount: existingMembers.length + 1,
+    });
+
+    // Also add coach to club allMembers
+    const clubMembersDoc = await db
+      .doc(`clubs/${clubId}/allMembers/members`)
+      .get();
+    const existingClubMembers = clubMembersDoc.data()?.members || [];
+    await db.doc(`clubs/${clubId}/allMembers/members`).set({
+      members: [
+        ...existingClubMembers,
+        {
+          userId: coach.uid,
+          name: coach.displayName,
+          email: coach.email,
+          roles: ["coach"],
+          isActive: true,
+          needsGuardian: false,
+          guardiansContacts: [],
+        },
+      ],
+      memberCount: existingClubMembers.length + 1,
+    });
+
+    // Create news as admin
+    const newsId = await createTestNews(
+      adminUser.idToken,
+      clubId,
+      groupId,
+      adminUser.uid,
+      adminUser.displayName,
+    );
+
+    // Player adds a comment
+    const addResult = await callFunction<{
+      success: boolean;
+      commentId: string;
+    }>("addNewsComment", player.idToken, {
+      newsId,
+      clubId,
+      text: "Player comment to delete by coach",
+    });
+
+    // Coach deletes the player's comment → should succeed
+    const deleteResult = await callFunction<{ success: boolean }>(
+      "deleteNewsComment",
+      coach.idToken,
+      {
+        newsId,
+        clubId,
+        commentId: addResult.commentId,
+      },
+    );
+    expect(deleteResult.success).toBe(true);
+  });
+});
+
+/* ================================================================== */
+/*  Suite N (continued): News Read-By Tests                            */
+/* ================================================================== */
+
+describe("Suite N (continued): News Read-By Tests", () => {
+  beforeEach(async () => {
+    await clearAll();
+  });
+
+  // ─── TC-N22: readBy entry with userName is stored correctly ──
+  it("TC-N22: readBy entry stores userName when provided", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+
+    const db = getFirestore();
+
+    // Create news via cloud function
+    const result = await callFunction<{ success: boolean; newsId: string }>(
+      "createNews",
+      adminUser.idToken,
+      {
+        clubId,
+        clubName: "News Club",
+        title: "ReadBy Test News",
+        description: "Testing readBy with userName.",
+        targetScope: {
+          level: "group",
+          groupId,
+          groupName: "News Group",
+        },
+        createdBy: adminUser.uid,
+        createdByName: adminUser.displayName,
+      },
+    );
+    expect(result.success).toBe(true);
+
+    // Simulate markNewsAsRead with userName (admin SDK)
+    const { FieldValue, Timestamp } = await import("firebase-admin/firestore");
+    const newsRef = db.doc(`clubs/${clubId}/news/${result.newsId}`);
+    await newsRef.update({
+      readBy: FieldValue.arrayUnion({
+        userId: player.uid,
+        userName: player.displayName,
+        readAt: Timestamp.now(),
+      }),
+      readCount: FieldValue.increment(1),
+    });
+
+    // Verify the readBy entry
+    const newsDoc = await newsRef.get();
+    const data = newsDoc.data()!;
+    expect(data.readBy).toHaveLength(1);
+    expect(data.readBy[0].userId).toBe(player.uid);
+    expect(data.readBy[0].userName).toBe(player.displayName);
+    expect(data.readBy[0].readAt).toBeDefined();
+    expect(data.readCount).toBe(1);
+  });
+
+  // ─── TC-N23: readBy entry without userName (backward compat) ─
+  it("TC-N23: readBy entry without userName remains valid (backward compat)", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+
+    const db = getFirestore();
+
+    const result = await callFunction<{ success: boolean; newsId: string }>(
+      "createNews",
+      adminUser.idToken,
+      {
+        clubId,
+        clubName: "News Club",
+        title: "ReadBy Compat Test",
+        description: "Testing readBy without userName.",
+        targetScope: {
+          level: "group",
+          groupId,
+          groupName: "News Group",
+        },
+        createdBy: adminUser.uid,
+        createdByName: adminUser.displayName,
+      },
+    );
+    expect(result.success).toBe(true);
+
+    // Simulate old-style markNewsAsRead (no userName)
+    const { FieldValue, Timestamp } = await import("firebase-admin/firestore");
+    const newsRef = db.doc(`clubs/${clubId}/news/${result.newsId}`);
+    await newsRef.update({
+      readBy: FieldValue.arrayUnion({
+        userId: player.uid,
+        readAt: Timestamp.now(),
+      }),
+      readCount: FieldValue.increment(1),
+    });
+
+    const newsDoc = await newsRef.get();
+    const data = newsDoc.data()!;
+    expect(data.readBy).toHaveLength(1);
+    expect(data.readBy[0].userId).toBe(player.uid);
+    expect(data.readBy[0].userName).toBeUndefined();
+    expect(data.readBy[0].readAt).toBeDefined();
+  });
+
+  // ─── TC-N24: Multiple readBy entries sorted by readAt ────────
+  it("TC-N24: multiple readers stored in readBy array", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupNewsEnvironment();
+
+    const db = getFirestore();
+
+    const result = await callFunction<{ success: boolean; newsId: string }>(
+      "createNews",
+      adminUser.idToken,
+      {
+        clubId,
+        clubName: "News Club",
+        title: "Multi-ReadBy Test",
+        description: "Testing multiple readers.",
+        targetScope: {
+          level: "group",
+          groupId,
+          groupName: "News Group",
+        },
+        createdBy: adminUser.uid,
+        createdByName: adminUser.displayName,
+      },
+    );
+    expect(result.success).toBe(true);
+
+    const { FieldValue, Timestamp } = await import("firebase-admin/firestore");
+    const newsRef = db.doc(`clubs/${clubId}/news/${result.newsId}`);
+
+    // First reader (with userName)
+    await newsRef.update({
+      readBy: FieldValue.arrayUnion({
+        userId: player.uid,
+        userName: "Player One",
+        readAt: Timestamp.fromMillis(Date.now() - 60000),
+      }),
+      readCount: FieldValue.increment(1),
+    });
+
+    // Second reader (admin, with userName)
+    await newsRef.update({
+      readBy: FieldValue.arrayUnion({
+        userId: adminUser.uid,
+        userName: "News Admin",
+        readAt: Timestamp.now(),
+      }),
+      readCount: FieldValue.increment(1),
+    });
+
+    const newsDoc = await newsRef.get();
+    const data = newsDoc.data()!;
+    expect(data.readBy).toHaveLength(2);
+    expect(data.readCount).toBe(2);
+
+    const userIds = data.readBy.map((r: any) => r.userId);
+    expect(userIds).toContain(player.uid);
+    expect(userIds).toContain(adminUser.uid);
+
+    // Both entries should have userName
+    data.readBy.forEach((r: any) => {
+      expect(r.userName).toBeDefined();
+      expect(r.readAt).toBeDefined();
+    });
   });
 });

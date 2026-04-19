@@ -338,7 +338,12 @@ export function NewsProvider({ children }: NewsProviderProps) {
       }
 
       try {
-        await markNewsAsRead(clubId, newsId, firebaseUser.uid);
+        await markNewsAsRead(
+          clubId,
+          newsId,
+          firebaseUser.uid,
+          userProfile?.displayName,
+        );
 
         // Optimistically update local state
         setNews((prev) =>
@@ -348,7 +353,11 @@ export function NewsProvider({ children }: NewsProviderProps) {
                   ...item,
                   readBy: [
                     ...(item.readBy || []),
-                    { userId: firebaseUser.uid, readAt: new Date() as any },
+                    {
+                      userId: firebaseUser.uid,
+                      userName: userProfile?.displayName,
+                      readAt: new Date() as any,
+                    },
                   ],
                   readCount: (item.readCount || 0) + 1,
                 }
@@ -359,7 +368,7 @@ export function NewsProvider({ children }: NewsProviderProps) {
         console.error("❌ Error marking news as read:", error);
       }
     },
-    [firebaseUser],
+    [firebaseUser, userProfile],
   );
 
   const clearNewsCache = useCallback(async () => {

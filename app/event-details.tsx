@@ -2,6 +2,7 @@
 // Features: Event info, user response, responses list, edit button
 
 import ConfirmationModal from "@/components/ConfirmationModal";
+import LinkedText from "@/components/LinkedText";
 import { ScreenTooltipManager } from "@/components/onboarding";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1589,13 +1590,13 @@ export default function EventDetailsScreen() {
                               </Text>
                             )}
                           {item.comment && (
-                            <Text
+                            <LinkedText
                               style={styles.inviteeComment}
                               numberOfLines={1}
                               ellipsizeMode="tail"
                             >
-                              💬 {item.comment}
-                            </Text>
+                              {`💬 ${item.comment}`}
+                            </LinkedText>
                           )}
                         </View>
                       </View>
@@ -1805,9 +1806,9 @@ export default function EventDetailsScreen() {
                     )}
 
                     {selectedInvitee.comment && (
-                      <Text style={styles.inviteeModalComment}>
-                        💬 {selectedInvitee.comment}
-                      </Text>
+                      <LinkedText style={styles.inviteeModalComment}>
+                        {`💬 ${selectedInvitee.comment}`}
+                      </LinkedText>
                     )}
                   </View>
 
@@ -1933,7 +1934,9 @@ export default function EventDetailsScreen() {
                     t("common:event").toUpperCase()}
                 </Text>
               </View>
-              <Text style={styles.descriptionText}>{event?.description}</Text>
+              <LinkedText style={styles.descriptionText}>
+                {event?.description || ""}
+              </LinkedText>
             </View>
           </View>
         </View>

@@ -1054,7 +1054,17 @@
     "readCount": "{{count}} lest",
     "deleteNews": "Slett nyhet",
     "deleteNewsConfirm": "Er du sikker på at du vil slette denne nyheten? Denne handlingen kan ikke angres.",
-    "failedToDeleteNews": "Kunne ikke slette nyhet"
+    "failedToDeleteNews": "Kunne ikke slette nyhet",
+    "comments": "Kommentarer",
+    "noComments": "Ingen kommentarer ennå. Vær den første til å kommentere!",
+    "commentPlaceholder": "Skriv en kommentar...",
+    "deleteComment": "Slett kommentar",
+    "deleteCommentConfirm": "Er du sikker på at du vil slette denne kommentaren?",
+    "failedToAddComment": "Kunne ikke legge til kommentar",
+    "failedToDeleteComment": "Kunne ikke slette kommentar",
+    "readBy": "Lest av",
+    "unknownMember": "Ukjent medlem",
+    "noReaders": "Ingen har lest dette ennå"
   },
   "viewStatistics": {
     "groupStatistics": "{{groupName}}-statistikk",

@@ -11,8 +11,20 @@ export {
 } from "./createNews";
 
 export {
-    attachNewsListener, deleteNews, fetchNews,
-    fetchNewsItem, hasUserReadNews, markNewsAsRead, updateNews,
+    addNewsComment,
+    attachNewsCommentsListener,
+    deleteNewsComment,
+    type NewsCommentClient
+} from "./newsComments";
+
+export {
+    attachNewsListener,
+    deleteNews,
+    fetchNews,
+    fetchNewsItem,
+    hasUserReadNews,
+    markNewsAsRead,
+    updateNews,
     type News,
     type NewsListenerOptions
 } from "./newsListener";

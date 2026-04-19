@@ -319,6 +319,18 @@ service cloud.firestore {
         
         // Create: Only via Cloud Functions (Admin SDK bypasses rules)
         allow create: if false;
+
+        // News Comments subcollection
+        match /comments/{commentId} {
+          // Read: Same as parent news - recipients or club admins
+          allow read: if isSignedIn() && (
+            request.auth.uid in get(/databases/$(database)/documents/clubs/$(clubId)/news/$(newsId)).data.recipientUserIds ||
+            isClubAdmin(clubId)
+          );
+
+          // Create/Update/Delete: Only via Cloud Functions (Admin SDK bypasses rules)
+          allow create, update, delete: if false;
+        }
       }
       
       // Note: Cloud Functions using Admin SDK bypass these rules entirely

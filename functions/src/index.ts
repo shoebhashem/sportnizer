@@ -153,7 +153,9 @@ export { getMembershipFees } from "./payments/getMembershipFees";
 export { getUserPendingPayments } from "./payments/getUserPendingPayments";
 
 // News Functions
+export { addNewsComment } from "./news/addNewsComment";
 export { createNews } from "./news/createNews";
+export { deleteNewsComment } from "./news/deleteNewsComment";
 
 // Legal Functions
 export { getLegalConfig, recordLegalAcceptance } from "./legal/legalFunctions";

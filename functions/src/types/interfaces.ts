@@ -1089,9 +1089,13 @@ export interface NewsDocument {
   // Read tracking
   readBy?: {
     userId: string;
+    userName?: string;
     readAt: any; // Timestamp
   }[];
   readCount?: number;
+
+  // Comment tracking
+  commentCount?: number;
 
   // Metadata
   createdBy: string;
@@ -1183,6 +1187,42 @@ export interface MarkNewsReadRequest {
 }
 
 export interface MarkNewsReadResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+// News Comment interfaces
+export interface NewsComment {
+  commentId: string;
+  newsId: string;
+  clubId: string;
+  text: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: any; // Timestamp
+}
+
+export interface AddNewsCommentRequest {
+  newsId: string;
+  clubId: string;
+  text: string;
+}
+
+export interface AddNewsCommentResponse {
+  success: boolean;
+  commentId?: string;
+  message?: string;
+  error?: string;
+}
+
+export interface DeleteNewsCommentRequest {
+  newsId: string;
+  clubId: string;
+  commentId: string;
+}
+
+export interface DeleteNewsCommentResponse {
   success: boolean;
   message?: string;
   error?: string;

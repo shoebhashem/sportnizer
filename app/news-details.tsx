@@ -10,15 +10,20 @@
  */
 
 import ConfirmationModal from "@/components/ConfirmationModal";
+import LinkedText from "@/components/LinkedText";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserContext";
 import {
+    addNewsComment,
+    attachNewsCommentsListener,
     deleteNews,
+    deleteNewsComment,
     fetchNewsItem,
     hasUserReadNews,
     markNewsAsRead,
     News,
+    type NewsCommentClient,
 } from "@/services/news";
 import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,10 +34,15 @@ import React, { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
+    FlatList,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
     ScrollView,
     Share,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
@@ -60,6 +70,13 @@ export default function NewsDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, message: "" });
+  const [comments, setComments] = useState<NewsCommentClient[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [showDeleteCommentConfirm, setShowDeleteCommentConfirm] = useState<
+    string | null
+  >(null);
+  const [showReadByModal, setShowReadByModal] = useState(false);
 
   useEffect(() => {
     loadNewsDetails();
@@ -69,11 +86,23 @@ export default function NewsDetailsScreen() {
   // Mark as read when viewing
   useEffect(() => {
     if (news && user && !hasUserReadNews(news, user.uid)) {
-      markNewsAsRead(clubId, newsId, user.uid).catch((err) =>
-        console.error("Failed to mark as read:", err),
+      markNewsAsRead(clubId, newsId, user.uid, userProfile?.displayName).catch(
+        (err) => console.error("Failed to mark as read:", err),
       );
     }
-  }, [news, user, clubId, newsId]);
+  }, [news, user, clubId, newsId, userProfile]);
+
+  // Listen to comments
+  useEffect(() => {
+    if (!clubId || !newsId) return;
+    const unsubscribe = attachNewsCommentsListener(
+      clubId,
+      newsId,
+      (updatedComments) => setComments(updatedComments),
+      (error) => console.error("Comments listener error:", error),
+    );
+    return unsubscribe;
+  }, [clubId, newsId]);
 
   // Check if user can edit this news
   const canEdit = () => {
@@ -201,6 +230,63 @@ export default function NewsDetailsScreen() {
     }
   };
 
+  const handleAddComment = async () => {
+    const text = commentText.trim();
+    if (!text || submittingComment) return;
+
+    setSubmittingComment(true);
+    try {
+      const result = await addNewsComment(newsId, clubId, text);
+      if (result.success) {
+        setCommentText("");
+      } else {
+        setErrorModal({
+          visible: true,
+          message: result.error || t("screens:newsDetails.failedToAddComment"),
+        });
+      }
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      setErrorModal({
+        visible: true,
+        message: t("screens:newsDetails.failedToAddComment"),
+      });
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const result = await deleteNewsComment(newsId, clubId, commentId);
+      if (!result.success) {
+        setErrorModal({
+          visible: true,
+          message:
+            result.error || t("screens:newsDetails.failedToDeleteComment"),
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      setErrorModal({
+        visible: true,
+        message: t("screens:newsDetails.failedToDeleteComment"),
+      });
+    }
+    setShowDeleteCommentConfirm(null);
+  };
+
+  const canDeleteComment = (comment: NewsCommentClient) => {
+    if (!user || !userProfile) return false;
+    if (comment.createdBy === user.uid) return true;
+    if (news?.createdBy === user.uid) return true;
+    if (isClubAdmin(userProfile, clubId)) return true;
+    if (news?.targetScope.groupId) {
+      return canManageGroup(userProfile, clubId, news.targetScope.groupId);
+    }
+    return false;
+  };
+
   // Format date
   const formatDate = (dateInput: any) => {
     let date: Date;
@@ -282,157 +368,255 @@ export default function NewsDetailsScreen() {
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
 
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top > 0 ? insets.top : 16 },
-        ]}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}
       >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.headerButton}
+        {/* Header */}
+        <View
+          style={[
+            styles.header,
+            { paddingTop: insets.top > 0 ? insets.top : 16 },
+          ]}
         >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {t("screens:newsDetails.headerTitle")}
-        </Text>
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
-            <Ionicons
-              name="share-outline"
-              size={24}
-              color={theme.colors.white}
-            />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.headerButton}
+          >
+            <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
           </TouchableOpacity>
 
-          {canEdit() && (
-            <>
-              <TouchableOpacity
-                onPress={() => {
-                  router.push({
-                    pathname: "/create-news",
-                    params: {
-                      newsId: news.id,
-                      clubId: news.targetScope.clubId,
-                      clubName: news.targetScope.clubName,
-                      groupId: news.targetScope.groupId || undefined,
-                      groupName: news.targetScope.groupName || undefined,
-                      subgroupId: news.targetScope.subgroupId || undefined,
-                      subgroupName: news.targetScope.subgroupName || undefined,
-                      mode: "edit",
-                    },
-                  } as any);
-                }}
-                style={styles.headerButton}
-              >
-                <Ionicons
-                  name="create-outline"
-                  size={24}
-                  color={theme.colors.white}
-                />
-              </TouchableOpacity>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {t("screens:newsDetails.headerTitle")}
+          </Text>
 
-              <TouchableOpacity
-                onPress={() => setShowDeleteConfirm(true)}
-                style={styles.headerButton}
-              >
-                <Ionicons name="trash-outline" size={24} color="#F44336" />
-              </TouchableOpacity>
-            </>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
+              <Ionicons
+                name="share-outline"
+                size={24}
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
+
+            {canEdit() && (
+              <>
+                <TouchableOpacity
+                  onPress={() => {
+                    router.push({
+                      pathname: "/create-news",
+                      params: {
+                        newsId: news.id,
+                        clubId: news.targetScope.clubId,
+                        clubName: news.targetScope.clubName,
+                        groupId: news.targetScope.groupId || undefined,
+                        groupName: news.targetScope.groupName || undefined,
+                        subgroupId: news.targetScope.subgroupId || undefined,
+                        subgroupName:
+                          news.targetScope.subgroupName || undefined,
+                        mode: "edit",
+                      },
+                    } as any);
+                  }}
+                  style={styles.headerButton}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={24}
+                    color={theme.colors.white}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setShowDeleteConfirm(true)}
+                  style={styles.headerButton}
+                >
+                  <Ionicons name="trash-outline" size={24} color="#F44336" />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Organization Breadcrumb */}
+          <View style={styles.breadcrumbRow}>
+            <Ionicons
+              name="business-outline"
+              size={16}
+              color={theme.colors.secondary}
+            />
+            <Text style={styles.breadcrumbText}>{getOrgBreadcrumb()}</Text>
+          </View>
+
+          {/* Title */}
+          <Text style={styles.title}>{news.title}</Text>
+
+          {/* Meta info */}
+          <View style={styles.metaRow}>
+            <View style={styles.metaItem}>
+              <Ionicons
+                name="person-outline"
+                size={16}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.metaText}>{news.createdByName}</Text>
+            </View>
+
+            <View style={styles.metaItem}>
+              <Ionicons
+                name="time-outline"
+                size={16}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.metaText}>{formatDate(news.createdAt)}</Text>
+            </View>
+          </View>
+
+          {/* Email indicator */}
+          {news.emailDelivery?.enabled && (
+            <View style={styles.emailBadge}>
+              <Ionicons name="mail" size={14} color={theme.colors.secondary} />
+              <Text style={styles.emailBadgeText}>
+                {t("screens:newsDetails.sentViaEmail", {
+                  count: news.emailDelivery.sentCount || 0,
+                })}
+              </Text>
+            </View>
           )}
-        </View>
-      </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {/* Organization Breadcrumb */}
-        <View style={styles.breadcrumbRow}>
-          <Ionicons
-            name="business-outline"
-            size={16}
-            color={theme.colors.secondary}
-          />
-          <Text style={styles.breadcrumbText}>{getOrgBreadcrumb()}</Text>
-        </View>
-
-        {/* Title */}
-        <Text style={styles.title}>{news.title}</Text>
-
-        {/* Meta info */}
-        <View style={styles.metaRow}>
-          <View style={styles.metaItem}>
-            <Ionicons
-              name="person-outline"
-              size={16}
-              color={theme.colors.textSecondary}
-            />
-            <Text style={styles.metaText}>{news.createdByName}</Text>
+          {/* Description */}
+          <View style={styles.descriptionContainer}>
+            <LinkedText style={styles.description}>
+              {news.description}
+            </LinkedText>
           </View>
 
-          <View style={styles.metaItem}>
-            <Ionicons
-              name="time-outline"
-              size={16}
-              color={theme.colors.textSecondary}
-            />
-            <Text style={styles.metaText}>{formatDate(news.createdAt)}</Text>
-          </View>
-        </View>
-
-        {/* Email indicator */}
-        {news.emailDelivery?.enabled && (
-          <View style={styles.emailBadge}>
-            <Ionicons name="mail" size={14} color={theme.colors.secondary} />
-            <Text style={styles.emailBadgeText}>
-              {t("screens:newsDetails.sentViaEmail", {
-                count: news.emailDelivery.sentCount || 0,
-              })}
-            </Text>
-          </View>
-        )}
-
-        {/* Description */}
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.description}>{news.description}</Text>
-        </View>
-
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Ionicons
-              name="people-outline"
-              size={18}
-              color={theme.colors.textSecondary}
-            />
-            <Text style={styles.statText}>
-              {t("screens:newsDetails.recipientCount", {
-                count: news.recipientUserIds?.length || 0,
-              })}
-            </Text>
-          </View>
-
-          {news.readCount !== undefined && (
+          {/* Stats */}
+          <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Ionicons
-                name="eye-outline"
+                name="people-outline"
                 size={18}
                 color={theme.colors.textSecondary}
               />
               <Text style={styles.statText}>
-                {t("screens:newsDetails.readCount", { count: news.readCount })}
+                {t("screens:newsDetails.recipientCount", {
+                  count: news.recipientUserIds?.length || 0,
+                })}
               </Text>
             </View>
-          )}
-        </View>
-      </ScrollView>
 
-      {/* Delete Confirmation Modal */}
+            {news.readCount !== undefined && (
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={() => setShowReadByModal(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="eye-outline"
+                  size={18}
+                  color={theme.colors.secondary}
+                />
+                <Text
+                  style={[styles.statText, { color: theme.colors.secondary }]}
+                >
+                  {t("screens:newsDetails.readCount", {
+                    count: news.readCount,
+                  })}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Comments Section */}
+          <View style={styles.commentsSection}>
+            <View style={styles.commentsSectionHeader}>
+              <Ionicons
+                name="chatbubble-outline"
+                size={18}
+                color={theme.colors.text}
+              />
+              <Text style={styles.commentsSectionTitle}>
+                {t("screens:newsDetails.comments")} ({comments.length})
+              </Text>
+            </View>
+
+            {comments.length === 0 ? (
+              <Text style={styles.noCommentsText}>
+                {t("screens:newsDetails.noComments")}
+              </Text>
+            ) : (
+              comments.map((comment) => (
+                <View key={comment.commentId} style={styles.commentItem}>
+                  <View style={styles.commentHeader}>
+                    <Text style={styles.commentAuthor}>
+                      {comment.createdByName}
+                    </Text>
+                    <View style={styles.commentHeaderRight}>
+                      <Text style={styles.commentTime}>
+                        {formatDate(comment.createdAt)}
+                      </Text>
+                      {canDeleteComment(comment) && (
+                        <TouchableOpacity
+                          onPress={() =>
+                            setShowDeleteCommentConfirm(comment.commentId)
+                          }
+                          style={styles.deleteCommentButton}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={16}
+                            color="#F44336"
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                  <LinkedText style={styles.commentText}>
+                    {comment.text}
+                  </LinkedText>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Comment Input */}
+        <View style={styles.commentInputContainer}>
+          <TextInput
+            style={styles.commentInput}
+            value={commentText}
+            onChangeText={setCommentText}
+            placeholder={t("screens:newsDetails.commentPlaceholder")}
+            placeholderTextColor={theme.colors.textSecondary}
+            maxLength={500}
+            multiline
+          />
+          <TouchableOpacity
+            onPress={handleAddComment}
+            disabled={!commentText.trim() || submittingComment}
+            style={[
+              styles.sendButton,
+              (!commentText.trim() || submittingComment) &&
+                styles.sendButtonDisabled,
+            ]}
+          >
+            {submittingComment ? (
+              <ActivityIndicator size="small" color={theme.colors.white} />
+            ) : (
+              <Ionicons name="send" size={20} color={theme.colors.white} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* Delete News Confirmation Modal */}
       <ConfirmationModal
         visible={showDeleteConfirm}
         title={t("screens:newsDetails.deleteNews")}
@@ -441,6 +625,20 @@ export default function NewsDetailsScreen() {
         cancelText={t("common:cancel")}
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      {/* Delete Comment Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteCommentConfirm !== null}
+        title={t("screens:newsDetails.deleteComment")}
+        message={t("screens:newsDetails.deleteCommentConfirm")}
+        confirmText={t("common:delete")}
+        cancelText={t("common:cancel")}
+        onConfirm={() =>
+          showDeleteCommentConfirm &&
+          handleDeleteComment(showDeleteCommentConfirm)
+        }
+        onCancel={() => setShowDeleteCommentConfirm(null)}
       />
 
       {/* Error Modal */}
@@ -452,6 +650,60 @@ export default function NewsDetailsScreen() {
         onConfirm={() => setErrorModal({ visible: false, message: "" })}
         onCancel={() => setErrorModal({ visible: false, message: "" })}
       />
+
+      {/* Read By Modal */}
+      <Modal
+        visible={showReadByModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReadByModal(false)}
+      >
+        <View style={styles.readByModalOverlay}>
+          <View style={styles.readByModalContainer}>
+            <View style={styles.readByModalHeader}>
+              <Text style={styles.readByModalTitle}>
+                {t("screens:newsDetails.readBy")} ({news?.readBy?.length || 0})
+              </Text>
+              <TouchableOpacity onPress={() => setShowReadByModal(false)}>
+                <Ionicons name="close" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={[...(news?.readBy || [])].sort((a, b) => {
+                const timeA = a.readAt?.toMillis?.() || 0;
+                const timeB = b.readAt?.toMillis?.() || 0;
+                return timeB - timeA;
+              })}
+              keyExtractor={(item) => item.userId}
+              style={styles.readByList}
+              renderItem={({ item }) => (
+                <View style={styles.readByItem}>
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={32}
+                    color={theme.colors.textSecondary}
+                  />
+                  <View style={styles.readByItemInfo}>
+                    <Text style={styles.readByItemName}>
+                      {item.userName || t("screens:newsDetails.unknownMember")}
+                    </Text>
+                    <Text style={styles.readByItemTime}>
+                      {item.readAt?.toDate
+                        ? format(item.readAt.toDate(), "d MMM yyyy, HH:mm")
+                        : ""}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.readByEmpty}>
+                  {t("screens:newsDetails.noReaders")}
+                </Text>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -589,5 +841,151 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
     marginLeft: 6,
+  },
+  commentsSection: {
+    marginTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.inputBorder,
+    paddingTop: 20,
+  },
+  commentsSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  commentsSectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: theme.colors.text,
+    marginLeft: 8,
+  },
+  noCommentsText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontStyle: "italic",
+    textAlign: "center",
+    paddingVertical: 16,
+  },
+  commentItem: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 10,
+  },
+  commentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  commentHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  commentAuthor: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: theme.colors.secondary,
+    flex: 1,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  deleteCommentButton: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  commentText: {
+    fontSize: 15,
+    color: theme.colors.text,
+    lineHeight: 22,
+  },
+  commentInputContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.primary,
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: theme.colors.text,
+    maxHeight: 100,
+    marginRight: 10,
+  },
+  sendButton: {
+    backgroundColor: theme.colors.secondary,
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
+  readByModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  readByModalContainer: {
+    backgroundColor: theme.colors.background,
+    borderRadius: 16,
+    width: "100%",
+    maxWidth: 500,
+    maxHeight: "70%",
+  },
+  readByModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+  },
+  readByModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: theme.colors.text,
+  },
+  readByList: {
+    padding: 8,
+  },
+  readByItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  readByItemInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  readByItemName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.colors.text,
+  },
+  readByItemTime: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  readByEmpty: {
+    textAlign: "center",
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    padding: 20,
   },
 });

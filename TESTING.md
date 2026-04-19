@@ -37,7 +37,7 @@
 | Invitation Flows      | `functions/test/invitations.test.ts`                  | 21    | Send, validate, accept/reject, delete, dedup                                                                  |
 | Guardian Flows        | `functions/test/guardian-flows.test.ts`               | 14    | Add/remove guardian, role accumulation, subgroup cascade                                                      |
 | Picture Uploads       | `functions/test/upload-pictures.test.ts`              | 11    | Upload club/group/profile pics + Firestore propagation                                                        |
-| News & Notifications  | `functions/test/news-notifications.test.ts`           | 12    | News CRUD, permissions, recipient logic, youth→guardian, role filter, selectedMemberIds                       |
+| News & Notifications  | `functions/test/news-notifications.test.ts`           | 21    | News CRUD, permissions, recipient logic, youth→guardian, role filter, selectedMemberIds, comments             |
 | Notification Side-Fx  | `functions/test/notification-side-effects.test.ts`    | 7     | Event/invitation/fee/callable notification docs + auth/not-found errors + push degradation                    |
 | Push Notifications    | `functions/test/push-notifications.test.ts`           | 10    | sendPushNotification: no-op, multi-device, DeviceNotRegistered cleanup, channel mapping, graceful degradation |
 | Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | 82    | Validation, roles, limits, LOK rules                                                                          |
@@ -1681,6 +1681,74 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | Coach does **not**         | Matches roleFilter but NOT in selectedMemberIds |
 | Creator (admin) gets notif | Creator always included                         |
 
+#### TC-N13: Recipient can add a comment to news
+
+| Step | Action                                                      |
+| ---- | ----------------------------------------------------------- |
+| 1    | Setup admin + player in club + group, create group news     |
+| 2    | Player calls `addNewsComment` with text                     |
+| 3    | Verify comment doc in subcollection, `commentCount` on news |
+
+| ✅ Document Checked                                 | Field(s) Asserted                                 |
+| --------------------------------------------------- | ------------------------------------------------- |
+| `clubs/{clubId}/news/{newsId}/comments/{commentId}` | `text`, `createdBy`, `createdByName`, `createdAt` |
+| `clubs/{clubId}/news/{newsId}`                      | `commentCount = 1`                                |
+
+#### TC-N14: Club-admin can add a comment to news
+
+#### TC-N15: Non-recipient cannot add a comment → `permission-denied`
+
+#### TC-N16: Rejects empty and too-long comment text → `invalid-argument`
+
+| ✅ Assertion          | Detail             |
+| --------------------- | ------------------ |
+| Whitespace-only fails | `invalid-argument` |
+| >500 chars fails      | `invalid-argument` |
+
+#### TC-N17: Comment author can delete their own comment
+
+| Step | Action                                                      |
+| ---- | ----------------------------------------------------------- |
+| 1    | Player adds comment, then calls `deleteNewsComment`         |
+| 2    | Verify comment doc deleted, `commentCount` decremented to 0 |
+
+#### TC-N18: News creator can delete any comment
+
+#### TC-N19: Club-admin can delete any comment
+
+#### TC-N20: Regular player cannot delete another player's comment → `permission-denied`
+
+#### TC-N21: Group coach can delete comments on group news
+
+| Step | Action                                                        |
+| ---- | ------------------------------------------------------------- |
+| 1    | Setup coach in group, player adds comment                     |
+| 2    | Coach calls `deleteNewsComment` on player's comment → success |
+
+#### TC-N22: readBy entry stores userName when provided
+
+| Step | Action                                                               |
+| ---- | -------------------------------------------------------------------- |
+| 1    | Create news via `createNews`                                         |
+| 2    | Write readBy entry with `userId`, `userName`, `readAt` via admin SDK |
+| 3    | Verify readBy array length = 1, userName matches, readAt is defined  |
+
+#### TC-N23: readBy entry without userName remains valid (backward compat)
+
+| Step | Action                                                                |
+| ---- | --------------------------------------------------------------------- |
+| 1    | Create news via `createNews`                                          |
+| 2    | Write readBy entry with `userId`, `readAt` only (no userName)         |
+| 3    | Verify readBy[0].userName is undefined, userId and readAt are correct |
+
+#### TC-N24: Multiple readers stored in readBy array
+
+| Step | Action                                                             |
+| ---- | ------------------------------------------------------------------ |
+| 1    | Create news via `createNews`                                       |
+| 2    | Two users mark as read (both with userName)                        |
+| 3    | Verify readBy has 2 entries, readCount = 2, both have userName set |
+
 ---
 
 ### Suite Q: Notification Side-Effects Across Cloud Functions
@@ -1756,7 +1824,7 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | D. Subgroup Members            | `subgroup-member-flows.test.ts`         | 3      |
 | E. CRUD Lifecycle              | `crud-lifecycle.test.ts`                | 12     |
 | G. Guardian Flows              | `guardian-flows.test.ts`                | 15     |
-| N. News & Notifications        | `news-notifications.test.ts`            | 12     |
+| N. News & Notifications        | `news-notifications.test.ts`            | 21     |
 | P. Picture Uploads             | `upload-pictures.test.ts`               | 11     |
 | Q. Notification Side-Effects   | `notification-side-effects.test.ts`     | 7      |
 | R. Push Notifications          | `push-notifications.test.ts`            | 9      |

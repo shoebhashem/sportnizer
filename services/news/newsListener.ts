@@ -53,9 +53,11 @@ export interface News {
   };
   readBy?: {
     userId: string;
+    userName?: string;
     readAt: Timestamp;
   }[];
   readCount?: number;
+  commentCount?: number;
   createdBy: string;
   createdByName: string;
   createdAt: Timestamp;
@@ -188,6 +190,7 @@ export async function markNewsAsRead(
   clubId: string,
   newsId: string,
   userId: string,
+  userName?: string,
 ): Promise<void> {
   try {
     const newsRef = doc(db, "clubs", clubId, "news", newsId);
@@ -195,6 +198,7 @@ export async function markNewsAsRead(
     await updateDoc(newsRef, {
       readBy: arrayUnion({
         userId,
+        ...(userName ? { userName } : {}),
         readAt: Timestamp.now(),
       }),
       readCount: increment(1),

@@ -1072,7 +1072,17 @@
     "readCount": "{{count}} gelesen",
     "deleteNews": "Neuigkeit löschen",
     "deleteNewsConfirm": "Sind Sie sicher, dass Sie diese Neuigkeit löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
-    "failedToDeleteNews": "Neuigkeit konnte nicht gelöscht werden"
+    "failedToDeleteNews": "Neuigkeit konnte nicht gelöscht werden",
+    "comments": "Kommentare",
+    "noComments": "Noch keine Kommentare. Sei der Erste, der kommentiert!",
+    "commentPlaceholder": "Kommentar schreiben...",
+    "deleteComment": "Kommentar löschen",
+    "deleteCommentConfirm": "Sind Sie sicher, dass Sie diesen Kommentar löschen möchten?",
+    "failedToAddComment": "Kommentar konnte nicht hinzugefügt werden",
+    "failedToDeleteComment": "Kommentar konnte nicht gelöscht werden",
+    "readBy": "Gelesen von",
+    "unknownMember": "Unbekanntes Mitglied",
+    "noReaders": "Noch niemand hat dies gelesen"
   },
   "viewStatistics": {
     "groupStatistics": "Statistiken {{groupName}}",
