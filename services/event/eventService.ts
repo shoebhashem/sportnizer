@@ -384,6 +384,7 @@ export async function updateEventResponse(
   userId: string,
   response: "accepted" | "declined",
   respondedBy?: string,
+  comment?: string,
 ): Promise<boolean> {
   try {
     console.log("🔍 DEBUG [eventService.ts] - updateEventResponse called:", {
@@ -392,6 +393,7 @@ export async function updateEventResponse(
       userId,
       response,
       respondedBy,
+      comment,
     });
 
     // Import dynamically to avoid circular dependencies
@@ -405,6 +407,7 @@ export async function updateEventResponse(
         userId: string;
         response: string;
         respondedBy?: string;
+        comment?: string;
       },
       { success: boolean; message?: string }
     >(functions, "updateEventResponse");
@@ -415,6 +418,7 @@ export async function updateEventResponse(
       userId,
       response,
       respondedBy,
+      comment,
     });
 
     const result = await updateResponse({
@@ -423,6 +427,7 @@ export async function updateEventResponse(
       userId,
       response,
       ...(respondedBy && { respondedBy }),
+      ...(comment !== undefined && { comment }),
     });
 
     return result.data.success;

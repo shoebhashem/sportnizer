@@ -21,6 +21,9 @@ export interface EventResponse {
     changedByName: string; // Guardian name
   }[];
 
+  // Optional comment on response (e.g. "Will be 15 min late")
+  comment?: string; // Max 100 characters
+
   // Attendance Recording
   actualAttendance?: boolean; // Whether the person actually attended (recorded after event)
   recordedBy?: string; // User ID who recorded the attendance

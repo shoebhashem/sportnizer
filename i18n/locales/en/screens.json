@@ -439,6 +439,7 @@
     "readMore": "...Read more",
     "failedToLoad": "Failed to load event details",
     "failedToUpdate": "Failed to update response",
+    "responseCommentPlaceholder": "Add a comment (optional)",
     "eventIsCancelled": "This event has been cancelled",
     "reason": "Reason",
     "cancelEvent": "Cancel Event",

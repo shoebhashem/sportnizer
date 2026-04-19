@@ -58,6 +58,19 @@ export const updateEventResponse = onCall(
         );
       }
 
+      // Validate optional comment (max 100 characters)
+      if (data.comment !== undefined && data.comment !== null) {
+        if (typeof data.comment !== "string") {
+          throw new HttpsError("invalid-argument", "Comment must be a string");
+        }
+        if (data.comment.length > 100) {
+          throw new HttpsError(
+            "invalid-argument",
+            "Comment must be 100 characters or less",
+          );
+        }
+      }
+
       const db = admin.firestore();
 
       console.log(
@@ -365,6 +378,12 @@ export const updateEventResponse = onCall(
           response: data.response,
           respondedAt: Timestamp.now(), // Use Timestamp.now() for array fields
         };
+
+        // Store optional comment (trim whitespace, allow clearing with empty string)
+        if (data.comment !== undefined && data.comment !== null) {
+          const trimmed = data.comment.trim();
+          updatedResponse.comment = trimmed || null; // Store null if empty after trim
+        }
 
         // If guardian or admin/coach is responding, track who responded
         if (isGuardianResponding || isAdminCoachResponding) {

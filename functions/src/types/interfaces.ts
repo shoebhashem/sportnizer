@@ -569,6 +569,9 @@ export interface EventResponse {
     changedByName: string; // Guardian name
   }[];
 
+  // Optional comment on response (e.g. "Will be 15 min late")
+  comment?: string; // Max 100 characters
+
   // Attendance tracking (filled after event by admins/coaches)
   actualAttendance?: boolean; // Did they actually attend?
   recordedBy?: string; // Who recorded attendance (userId)
@@ -939,6 +942,7 @@ export interface UpdateEventResponseRequest {
   userId: string; // Target user to respond for
   response: "Accepted" | "declined";
   respondedBy?: string; // Optional: Who is making this response (if different from userId)
+  comment?: string; // Optional comment on response (max 100 characters)
 }
 
 export interface UpdateEventResponseResponse {

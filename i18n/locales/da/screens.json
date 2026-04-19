@@ -395,6 +395,7 @@
     "readMore": "...Læs mere",
     "failedToLoad": "Kunne ikke indlæse begivenhedsdetaljer",
     "failedToUpdate": "Kunne ikke opdatere svar",
+    "responseCommentPlaceholder": "Tilføj en kommentar (valgfrit)",
     "eventIsCancelled": "Denne begivenhed er blevet aflyst",
     "reason": "Årsag",
     "cancelEvent": "Aflys begivenhed",

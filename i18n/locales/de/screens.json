@@ -413,6 +413,7 @@
     "readMore": "...Mehr lesen",
     "failedToLoad": "Termindetails konnten nicht geladen werden",
     "failedToUpdate": "Antwort konnte nicht aktualisiert werden",
+    "responseCommentPlaceholder": "Kommentar hinzufügen (optional)",
     "eventIsCancelled": "Dieser Termin wurde abgesagt",
     "reason": "Grund",
     "cancelEvent": "Termin absagen",

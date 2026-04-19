@@ -395,6 +395,7 @@
     "readMore": "...Les mer",
     "failedToLoad": "Kunne ikke laste arrangementsdetaljer",
     "failedToUpdate": "Kunne ikke oppdatere svar",
+    "responseCommentPlaceholder": "Legg til en kommentar (valgfritt)",
     "eventIsCancelled": "Dette arrangementet er avlyst",
     "reason": "Årsak",
     "cancelEvent": "Avlys arrangement",

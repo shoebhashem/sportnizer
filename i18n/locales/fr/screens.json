@@ -395,6 +395,7 @@
     "readMore": "...Lire la suite",
     "failedToLoad": "Échec du chargement des détails de l'événement",
     "failedToUpdate": "Échec de la mise à jour de la réponse",
+    "responseCommentPlaceholder": "Ajouter un commentaire (facultatif)",
     "eventIsCancelled": "Cet événement a été annulé",
     "reason": "Raison",
     "cancelEvent": "Annuler l'événement",

@@ -16,7 +16,7 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 511                                                           |
+| **Total tests**  | 528                                                           |
 | **Test suites**  | 28                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
@@ -32,7 +32,7 @@
 | Group Lifecycle       | `functions/test/groups.test.ts`                       | 12    | CRUD + cascade delete to subgroups                                                                            |
 | Subgroup Lifecycle    | `functions/test/subgroups.test.ts`                    | 10    | CRUD + membership add/remove                                                                                  |
 | Members & Fees        | `functions/test/members-and-fees.test.ts`             | 14    | Member roles, club roles, fee CRUD                                                                            |
-| Events & Attendance   | `functions/test/events.test.ts`                       | 23    | Event CRUD, RSVP, attendance, statistics                                                                      |
+| Events & Attendance   | `functions/test/events.test.ts`                       | 32    | Event CRUD, RSVP (with optional comments), attendance, statistics                                             |
 | Auth & User Mgmt      | `functions/test/auth.test.ts`                         | 18    | Account creation, profiles, verification                                                                      |
 | Invitation Flows      | `functions/test/invitations.test.ts`                  | 21    | Send, validate, accept/reject, delete, dedup                                                                  |
 | Guardian Flows        | `functions/test/guardian-flows.test.ts`               | 14    | Add/remove guardian, role accumulation, subgroup cascade                                                      |
@@ -246,7 +246,7 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ---
 
-### 5. Events & Attendance (`events.test.ts`) — 27 tests
+### 5. Events & Attendance (`events.test.ts`) — 32 tests
 
 #### createEventV2 (6 tests)
 
@@ -281,39 +281,44 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | 12  | should soft-delete an event (set isActive:false) | `isActive: false` in Firestore    |
 | 13  | should reject deletion from non-creator          | Non-creator → `permission-denied` |
 
-#### updateEventResponse / RSVP (3 tests)
+#### updateEventResponse / RSVP (8 tests)
 
-| #   | Test                                 | What it verifies                                   |
-| --- | ------------------------------------ | -------------------------------------------------- |
-| 14  | should accept an event invitation    | Response recorded as `accepted` in event responses |
-| 15  | should decline an event invitation   | Response recorded as `declined`                    |
-| 16  | should reject invalid response value | Invalid string → `invalid-argument`                |
+| #   | Test                                            | What it verifies                                     |
+| --- | ----------------------------------------------- | ---------------------------------------------------- |
+| 14  | should accept an event invitation               | Response recorded as `accepted` in event responses   |
+| 15  | should decline an event invitation              | Response recorded as `declined`                      |
+| 16  | should reject invalid response value            | Invalid string → `invalid-argument`                  |
+| 17  | should store comment when accepting             | Comment persisted in response object                 |
+| 18  | should store comment when declining             | Comment persisted with decline response              |
+| 19  | should accept without comment (backward compat) | No comment field → response works, comment undefined |
+| 20  | should reject comment exceeding 100 chars       | 101+ chars → `invalid-argument`                      |
+| 21  | should allow updating comment on re-response    | Changed response updates comment too                 |
 
 #### recordAttendance (4 tests)
 
 | #   | Test                                                | What it verifies                                  |
 | --- | --------------------------------------------------- | ------------------------------------------------- |
-| 17  | should record attendance and complete an event      | Event `status` set to `completed`, records stored |
-| 18  | should reject attendance recording from non-admin   | Non-admin → `permission-denied`                   |
-| 19  | should reject recording for already completed event | Already completed → `failed-precondition`         |
-| 20  | should handle empty attendance records              | Empty array → error or handles gracefully         |
+| 22  | should record attendance and complete an event      | Event `status` set to `completed`, records stored |
+| 23  | should reject attendance recording from non-admin   | Non-admin → `permission-denied`                   |
+| 24  | should reject recording for already completed event | Already completed → `failed-precondition`         |
+| 25  | should handle empty attendance records              | Empty array → error or handles gracefully         |
 
 #### getStatistics (3 tests)
 
 | #   | Test                                           | What it verifies                              |
 | --- | ---------------------------------------------- | --------------------------------------------- |
-| 21  | should return statistics for empty group       | Returns stats object (zero counts)            |
-| 22  | should handle missing required fields          | Missing groupId → `invalid-argument` or error |
-| 23  | should reject non-member requesting statistics | Non-member → `permission-denied`              |
+| 26  | should return statistics for empty group       | Returns stats object (zero counts)            |
+| 27  | should handle missing required fields          | Missing groupId → `invalid-argument` or error |
+| 28  | should reject non-member requesting statistics | Non-member → `permission-denied`              |
 
 #### createEventV2 – selectedMemberIds (4 tests)
 
 | #   | Test                                                              | What it verifies                                                               |
 | --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| 24  | should invite only selected members when selectedMemberIds given  | Only selected member UIDs appear in responses; creator still in invitedUserIds |
-| 25  | should invite all members when selectedMemberIds is empty/omitted | All 4 group members appear in responses                                        |
-| 26  | should ignore invalid selectedMemberIds (not in group)            | Non-existent UIDs silently filtered out                                        |
-| 27  | should combine selectedMemberIds with roleFilter                  | roleFilter narrows first, then selectedMemberIds narrows further               |
+| 29  | should invite only selected members when selectedMemberIds given  | Only selected member UIDs appear in responses; creator still in invitedUserIds |
+| 30  | should invite all members when selectedMemberIds is empty/omitted | All 4 group members appear in responses                                        |
+| 31  | should ignore invalid selectedMemberIds (not in group)            | Non-existent UIDs silently filtered out                                        |
+| 32  | should combine selectedMemberIds with roleFilter                  | roleFilter narrows first, then selectedMemberIds narrows further               |
 
 ---
 

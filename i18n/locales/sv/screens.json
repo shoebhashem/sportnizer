@@ -406,6 +406,7 @@
     "readMore": "...Läs mer",
     "failedToLoad": "Kunde inte ladda händelsedetaljer",
     "failedToUpdate": "Kunde inte uppdatera svar",
+    "responseCommentPlaceholder": "Lägg till en kommentar (valfritt)",
     "eventIsCancelled": "Denna händelse har ställts in",
     "reason": "Anledning",
     "cancelEvent": "Ställ in händelse",

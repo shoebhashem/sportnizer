@@ -8,17 +8,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserContext";
 import { useTrackFeatureOnAction } from "@/hooks/useOnboardingFeatureTracker";
 import {
-    recordEventAttendance,
-    type AttendanceRecord,
+  recordEventAttendance,
+  type AttendanceRecord,
 } from "@/services/event/attendanceService";
 import { eventCancellationService } from "@/services/event/cancelEvent";
 import {
-    getEventDetails,
-    updateEventResponse,
+  getEventDetails,
+  updateEventResponse,
 } from "@/services/event/eventService";
 import {
-    syncRecipientsService,
-    type SyncMemberDiff,
+  syncRecipientsService,
+  type SyncMemberDiff,
 } from "@/services/event/syncRecipients";
 import type { EventData } from "@/services/types/event";
 import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
@@ -29,15 +29,15 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -80,6 +80,7 @@ export default function EventDetailsScreen() {
     status: "pending" | "accepted" | "declined";
     respondedBy?: string;
     respondedByName?: string;
+    comment?: string;
   } | null>(null);
   const [responseSuccess, setResponseSuccess] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
@@ -118,6 +119,22 @@ export default function EventDetailsScreen() {
   const [syncAdded, setSyncAdded] = useState<SyncMemberDiff[]>([]);
   const [syncRemoved, setSyncRemoved] = useState<SyncMemberDiff[]>([]);
   const [syncUnchanged, setSyncUnchanged] = useState(0);
+
+  // Response comment state
+  const [responseComment, setResponseComment] = useState("");
+  const [inviteeComment, setInviteeComment] = useState("");
+  const MAX_COMMENT_LENGTH = 100;
+
+  // Pre-populate response comment from existing response
+  useEffect(() => {
+    const uid = inviteeUserId || user?.uid;
+    const existingComment = event?.responses?.find(
+      (r) => r.userId === uid,
+    )?.comment;
+    if (existingComment) {
+      setResponseComment(existingComment);
+    }
+  }, [event?.responses, user?.uid, inviteeUserId]);
 
   useEffect(() => {
     loadEventDetails();
@@ -270,10 +287,12 @@ export default function EventDetailsScreen() {
         targetUserId,
         response,
         isCurrentUserInvitee ? undefined : user.uid,
+        responseComment.trim() || undefined,
       );
 
       if (success) {
         trackEventResponded();
+        setResponseComment(""); // Clear comment after successful response
         // Reload event details to show updated response
         await loadEventDetails();
 
@@ -336,9 +355,11 @@ export default function EventDetailsScreen() {
         inviteeUserId,
         response,
         user.uid, // Always pass respondedBy when responding for others
+        inviteeComment.trim() || undefined,
       );
 
       if (success) {
+        setInviteeComment(""); // Clear comment after successful response
         // Reload event details to get fresh data
         await loadEventDetails();
 
@@ -364,6 +385,7 @@ export default function EventDetailsScreen() {
                     | "declined",
                   respondedBy: updatedInvitee.respondedBy,
                   respondedByName: updatedInvitee.respondedByName,
+                  comment: updatedInvitee.comment,
                 });
 
                 // Show success state
@@ -1204,6 +1226,26 @@ export default function EventDetailsScreen() {
               </View>
             )}
 
+            {/* Response Comment Input */}
+            <View style={styles.commentInputContainer}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder={t(
+                  "screens:eventDetails.responseCommentPlaceholder",
+                )}
+                placeholderTextColor={theme.colors.textSecondary}
+                value={responseComment}
+                onChangeText={(text) =>
+                  text.length <= MAX_COMMENT_LENGTH && setResponseComment(text)
+                }
+                maxLength={MAX_COMMENT_LENGTH}
+                multiline={false}
+              />
+              <Text style={styles.commentCharCount}>
+                {responseComment.length}/{MAX_COMMENT_LENGTH}
+              </Text>
+            </View>
+
             <View style={styles.responseButtons}>
               <TouchableOpacity
                 style={[
@@ -1446,181 +1488,195 @@ export default function EventDetailsScreen() {
                   const order = { accepted: 0, declined: 1, pending: 2 };
                   const aStatus = a.status || a.response || "pending";
                   const bStatus = b.status || b.response || "pending";
-                  return (order[aStatus as keyof typeof order] ?? 2) - (order[bStatus as keyof typeof order] ?? 2);
+                  return (
+                    (order[aStatus as keyof typeof order] ?? 2) -
+                    (order[bStatus as keyof typeof order] ?? 2)
+                  );
                 })
                 .map((item, index) => {
-                // Normalize status field (handle both 'status' and 'response' fields)
-                const statusValue = item.status || item.response || "pending";
+                  // Normalize status field (handle both 'status' and 'response' fields)
+                  const statusValue = item.status || item.response || "pending";
 
-                const statusColor =
-                  statusValue === "accepted"
-                    ? "#4CAF50"
-                    : statusValue === "declined"
-                      ? "#F44336"
-                      : "#FFA726";
+                  const statusColor =
+                    statusValue === "accepted"
+                      ? "#4CAF50"
+                      : statusValue === "declined"
+                        ? "#F44336"
+                        : "#FFA726";
 
-                const canClickInvitee =
-                  !isRecordingAttendance &&
-                  canRespondAfterDeadline() &&
-                  event.status !== "completed";
-                const isAttended = attendanceData.get(item.userId) || false;
-                const actuallyAttended = item.actualAttendance === true;
-                const wasMarkedAbsent = item.actualAttendance === false;
+                  const canClickInvitee =
+                    !isRecordingAttendance &&
+                    canRespondAfterDeadline() &&
+                    event.status !== "completed";
+                  const isAttended = attendanceData.get(item.userId) || false;
+                  const actuallyAttended = item.actualAttendance === true;
+                  const wasMarkedAbsent = item.actualAttendance === false;
 
-                const inviteeContent = (
-                  <>
-                    {isRecordingAttendance && (
-                      <TouchableOpacity
-                        style={styles.attendanceCheckbox}
-                        onPress={() =>
-                          handleToggleAttendance(item.userId, !isAttended)
-                        }
-                      >
-                        <View
-                          style={[
-                            styles.checkboxBox,
-                            isAttended && styles.checkboxBoxChecked,
-                          ]}
+                  const inviteeContent = (
+                    <>
+                      {isRecordingAttendance && (
+                        <TouchableOpacity
+                          style={styles.attendanceCheckbox}
+                          onPress={() =>
+                            handleToggleAttendance(item.userId, !isAttended)
+                          }
                         >
-                          {isAttended && (
-                            <Ionicons
-                              name="checkmark"
-                              size={16}
-                              color={theme.colors.white}
-                            />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    )}
-
-                    {event.status === "completed" && !isRecordingAttendance && (
-                      <View style={styles.attendanceIndicator}>
-                        {actuallyAttended ? (
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={24}
-                            color="#4CAF50"
-                          />
-                        ) : wasMarkedAbsent ? (
-                          <Ionicons
-                            name="close-circle"
-                            size={24}
-                            color="#F44336"
-                          />
-                        ) : (
-                          <Ionicons
-                            name="help-circle"
-                            size={24}
-                            color="#9E9E9E"
-                          />
-                        )}
-                      </View>
-                    )}
-
-                    <View style={styles.inviteeLeft}>
-                      {item.photoUrl ? (
-                        <Image
-                          source={{ uri: item.photoUrl }}
-                          style={styles.inviteePhoto}
-                        />
-                      ) : (
-                        <View style={styles.inviteePhotoPlaceholder}>
-                          <Ionicons
-                            name="person"
-                            size={20}
-                            color={theme.colors.textSecondary}
-                          />
-                        </View>
-                      )}
-                      <View style={styles.inviteeInfo}>
-                        <Text style={styles.inviteeName}>
-                          {item.userName || "Unknown User"}
-                        </Text>
-                        {item.respondedBy &&
-                          item.respondedBy !== item.userId && (
-                            <Text style={styles.inviteeGuardianNote}>
-                              via {item.respondedByName || "Guardian"}
-                            </Text>
-                          )}
-                      </View>
-                    </View>
-                    <View style={styles.inviteeRight}>
-                      {!isRecordingAttendance &&
-                        event.status !== "completed" && (
                           <View
                             style={[
-                              styles.inviteeStatusBadge,
-                              { backgroundColor: statusColor },
+                              styles.checkboxBox,
+                              isAttended && styles.checkboxBoxChecked,
                             ]}
                           >
-                            <Text style={styles.inviteeStatusText}>
-                              {statusValue.charAt(0).toUpperCase() +
-                                statusValue.slice(1)}
-                            </Text>
+                            {isAttended && (
+                              <Ionicons
+                                name="checkmark"
+                                size={16}
+                                color={theme.colors.white}
+                              />
+                            )}
                           </View>
-                        )}
+                        </TouchableOpacity>
+                      )}
+
                       {event.status === "completed" &&
                         !isRecordingAttendance && (
-                          <View style={styles.attendanceBadge}>
-                            <Text
-                              style={[
-                                styles.attendanceBadgeText,
-                                actuallyAttended && { color: "#4CAF50" },
-                                wasMarkedAbsent && { color: "#F44336" },
-                                !actuallyAttended &&
-                                  !wasMarkedAbsent && { color: "#9E9E9E" },
-                              ]}
-                            >
-                              {actuallyAttended
-                                ? "Attended"
-                                : wasMarkedAbsent
-                                  ? "Absent"
-                                  : "Not Marked"}
-                            </Text>
+                          <View style={styles.attendanceIndicator}>
+                            {actuallyAttended ? (
+                              <Ionicons
+                                name="checkmark-circle"
+                                size={24}
+                                color="#4CAF50"
+                              />
+                            ) : wasMarkedAbsent ? (
+                              <Ionicons
+                                name="close-circle"
+                                size={24}
+                                color="#F44336"
+                              />
+                            ) : (
+                              <Ionicons
+                                name="help-circle"
+                                size={24}
+                                color="#9E9E9E"
+                              />
+                            )}
                           </View>
                         )}
-                      {canClickInvitee && !isRecordingAttendance && (
-                        <Ionicons
-                          name="chevron-forward"
-                          size={20}
-                          color={theme.colors.textSecondary}
-                          style={{ marginLeft: 8 }}
-                        />
+
+                      <View style={styles.inviteeLeft}>
+                        {item.photoUrl ? (
+                          <Image
+                            source={{ uri: item.photoUrl }}
+                            style={styles.inviteePhoto}
+                          />
+                        ) : (
+                          <View style={styles.inviteePhotoPlaceholder}>
+                            <Ionicons
+                              name="person"
+                              size={20}
+                              color={theme.colors.textSecondary}
+                            />
+                          </View>
+                        )}
+                        <View style={styles.inviteeInfo}>
+                          <Text style={styles.inviteeName}>
+                            {item.userName || "Unknown User"}
+                          </Text>
+                          {item.respondedBy &&
+                            item.respondedBy !== item.userId && (
+                              <Text style={styles.inviteeGuardianNote}>
+                                via {item.respondedByName || "Guardian"}
+                              </Text>
+                            )}
+                          {item.comment && (
+                            <Text
+                              style={styles.inviteeComment}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
+                              💬 {item.comment}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.inviteeRight}>
+                        {!isRecordingAttendance &&
+                          event.status !== "completed" && (
+                            <View
+                              style={[
+                                styles.inviteeStatusBadge,
+                                { backgroundColor: statusColor },
+                              ]}
+                            >
+                              <Text style={styles.inviteeStatusText}>
+                                {statusValue.charAt(0).toUpperCase() +
+                                  statusValue.slice(1)}
+                              </Text>
+                            </View>
+                          )}
+                        {event.status === "completed" &&
+                          !isRecordingAttendance && (
+                            <View style={styles.attendanceBadge}>
+                              <Text
+                                style={[
+                                  styles.attendanceBadgeText,
+                                  actuallyAttended && { color: "#4CAF50" },
+                                  wasMarkedAbsent && { color: "#F44336" },
+                                  !actuallyAttended &&
+                                    !wasMarkedAbsent && { color: "#9E9E9E" },
+                                ]}
+                              >
+                                {actuallyAttended
+                                  ? "Attended"
+                                  : wasMarkedAbsent
+                                    ? "Absent"
+                                    : "Not Marked"}
+                              </Text>
+                            </View>
+                          )}
+                        {canClickInvitee && !isRecordingAttendance && (
+                          <Ionicons
+                            name="chevron-forward"
+                            size={20}
+                            color={theme.colors.textSecondary}
+                            style={{ marginLeft: 8 }}
+                          />
+                        )}
+                      </View>
+                    </>
+                  );
+
+                  return (
+                    <View key={item.userId}>
+                      {canClickInvitee ? (
+                        <TouchableOpacity
+                          style={styles.inviteeItem}
+                          onPress={() => {
+                            setSelectedInvitee({
+                              userId: item.userId,
+                              userName: item.userName || "Unknown User",
+                              photoUrl: item.photoUrl,
+                              status: statusValue as
+                                | "pending"
+                                | "accepted"
+                                | "declined",
+                              respondedBy: item.respondedBy,
+                              respondedByName: item.respondedByName,
+                              comment: item.comment,
+                            });
+                          }}
+                        >
+                          {inviteeContent}
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.inviteeItem}>{inviteeContent}</View>
+                      )}
+                      {index < event.responses.length - 1 && (
+                        <View style={styles.inviteeSeparator} />
                       )}
                     </View>
-                  </>
-                );
-
-                return (
-                  <View key={item.userId}>
-                    {canClickInvitee ? (
-                      <TouchableOpacity
-                        style={styles.inviteeItem}
-                        onPress={() => {
-                          setSelectedInvitee({
-                            userId: item.userId,
-                            userName: item.userName || "Unknown User",
-                            photoUrl: item.photoUrl,
-                            status: statusValue as
-                              | "pending"
-                              | "accepted"
-                              | "declined",
-                            respondedBy: item.respondedBy,
-                            respondedByName: item.respondedByName,
-                          });
-                        }}
-                      >
-                        {inviteeContent}
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={styles.inviteeItem}>{inviteeContent}</View>
-                    )}
-                    {index < event.responses.length - 1 && (
-                      <View style={styles.inviteeSeparator} />
-                    )}
-                  </View>
-                );
-              })}
+                  );
+                })}
             </View>
           ) : (
             <Text style={styles.emptyResponsesText}>No invitees yet</Text>
@@ -1747,6 +1803,33 @@ export default function EventDetailsScreen() {
                         {selectedInvitee.respondedByName || "Guardian"}
                       </Text>
                     )}
+
+                    {selectedInvitee.comment && (
+                      <Text style={styles.inviteeModalComment}>
+                        💬 {selectedInvitee.comment}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Response Comment Input */}
+                  <View style={styles.commentInputContainer}>
+                    <TextInput
+                      style={styles.commentInput}
+                      placeholder={t(
+                        "screens:eventDetails.responseCommentPlaceholder",
+                      )}
+                      placeholderTextColor={theme.colors.textSecondary}
+                      value={inviteeComment}
+                      onChangeText={(text) =>
+                        text.length <= MAX_COMMENT_LENGTH &&
+                        setInviteeComment(text)
+                      }
+                      maxLength={MAX_COMMENT_LENGTH}
+                      multiline={false}
+                    />
+                    <Text style={styles.commentCharCount}>
+                      {inviteeComment.length}/{MAX_COMMENT_LENGTH}
+                    </Text>
                   </View>
 
                   {/* Response Buttons */}
@@ -2936,6 +3019,37 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.small,
     color: theme.colors.textSecondary,
     fontStyle: "italic",
+  },
+  inviteeComment: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  inviteeModalComment: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.xs,
+    fontStyle: "italic",
+  },
+  commentInputContainer: {
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.medium,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    backgroundColor: theme.colors.card,
+  },
+  commentCharCount: {
+    fontSize: theme.typography.fontSize.xSmall || 11,
+    color: theme.colors.textSecondary,
+    textAlign: "right" as const,
+    marginTop: 2,
   },
   inviteeStatusBadge: {
     paddingHorizontal: theme.spacing.sm,

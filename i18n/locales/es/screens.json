@@ -413,6 +413,7 @@
     "readMore": "...Leer más",
     "failedToLoad": "Error al cargar detalles del evento",
     "failedToUpdate": "Error al actualizar respuesta",
+    "responseCommentPlaceholder": "Añadir un comentario (opcional)",
     "eventIsCancelled": "Este evento ha sido cancelado",
     "reason": "Razón",
     "cancelEvent": "Cancelar evento",

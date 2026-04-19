@@ -533,6 +533,153 @@ describe("Event Lifecycle", () => {
         "invalid-argument",
       );
     });
+
+    it("should store comment when accepting with a comment", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      const { eventId } = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+
+      const result = await callFunction("updateEventResponse", admin.idToken, {
+        eventId,
+        clubId,
+        userId: admin.uid,
+        response: "accepted",
+        comment: "Will be 15 min late",
+      });
+
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(`clubs/${clubId}/events/${eventId}`);
+      const userResponse = event!.responses.find(
+        (r: any) => r.userId === admin.uid,
+      );
+      expect(userResponse.response).toBe("accepted");
+      expect(userResponse.comment).toBe("Will be 15 min late");
+    });
+
+    it("should store comment when declining with a comment", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      const { eventId } = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+
+      const result = await callFunction("updateEventResponse", admin.idToken, {
+        eventId,
+        clubId,
+        userId: admin.uid,
+        response: "declined",
+        comment: "Emil is sick",
+      });
+
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(`clubs/${clubId}/events/${eventId}`);
+      const userResponse = event!.responses.find(
+        (r: any) => r.userId === admin.uid,
+      );
+      expect(userResponse.response).toBe("declined");
+      expect(userResponse.comment).toBe("Emil is sick");
+    });
+
+    it("should accept without comment (backward compatibility)", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      const { eventId } = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+
+      const result = await callFunction("updateEventResponse", admin.idToken, {
+        eventId,
+        clubId,
+        userId: admin.uid,
+        response: "accepted",
+      });
+
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(`clubs/${clubId}/events/${eventId}`);
+      const userResponse = event!.responses.find(
+        (r: any) => r.userId === admin.uid,
+      );
+      expect(userResponse.response).toBe("accepted");
+      expect(userResponse.comment).toBeUndefined();
+    });
+
+    it("should reject comment exceeding 100 characters", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      const { eventId } = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+
+      const longComment = "A".repeat(101);
+
+      await expectFunctionError(
+        "updateEventResponse",
+        admin.idToken,
+        {
+          eventId,
+          clubId,
+          userId: admin.uid,
+          response: "accepted",
+          comment: longComment,
+        },
+        "invalid-argument",
+      );
+    });
+
+    it("should allow updating comment on re-response", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      const { eventId } = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+
+      // First: accept with a comment
+      await callFunction("updateEventResponse", admin.idToken, {
+        eventId,
+        clubId,
+        userId: admin.uid,
+        response: "accepted",
+        comment: "Will be late",
+      });
+
+      // Then: decline with a different comment
+      const result = await callFunction("updateEventResponse", admin.idToken, {
+        eventId,
+        clubId,
+        userId: admin.uid,
+        response: "declined",
+        comment: "On travel this week",
+      });
+
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(`clubs/${clubId}/events/${eventId}`);
+      const userResponse = event!.responses.find(
+        (r: any) => r.userId === admin.uid,
+      );
+      expect(userResponse.response).toBe("declined");
+      expect(userResponse.comment).toBe("On travel this week");
+    });
   });
 
   // ─── recordAttendance ──────────────────────────────────────

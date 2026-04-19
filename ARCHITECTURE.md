@@ -10387,17 +10387,20 @@ The screen detects event level based on params:
    - clubId: string (extracted from eventData.targetScope?.clubId || clubId)
    - response: "accepted" | "declined" (lowercase values)
    - userId: current user's ID
+   - comment?: string (optional, max 100 characters)
 
 8. Backend (updateEventResponse):
    a. Validate user is in invitedUserIds array
    b. Accept lowercase response values: "accepted" or "declined"
-   c. Find and update user's response object in responses array:
+   c. Validate optional comment (string, max 100 characters)
+   d. Find and update user's response object in responses array:
       - Set response field to "accepted" or "declined"
       - Set respondedAt to current timestamp
+      - Set comment field if provided (trimmed; null if empty)
       - For youth members: Set respondedBy and respondedByName (guardian info)
-   d. Recalculate responseSummary counts (accepted, declined, pending)
-   e. Update event document with new responses and summary
-   f. Return success
+   e. Recalculate responseSummary counts (accepted, declined, pending)
+   f. Update event document with new responses and summary
+   g. Return success
 
 9. UI: Hides ConfirmationModal and shows updated response status
    - Success message briefly displayed
@@ -11440,6 +11443,9 @@ interface EventResponse {
   userName: string; // Youth name for player-underage, regular user name otherwise
   status: "accepted" | "declined" | "pending";
   respondedAt?: Date;
+
+  // Optional response comment (e.g. "Will be 15 min late", "Emil is sick")
+  comment?: string; // Max 100 characters, displayed in invitees list
 
   // Guardian tracking (for player-underage only)
   isYouthMember?: boolean; // Flag indicating this is a youth member response
