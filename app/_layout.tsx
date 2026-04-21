@@ -18,6 +18,23 @@ import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, TouchableOpacity } from "react-native";
 
+// ---------------------------------------------------------------------------
+// Navigate based on notification payload data.
+// Defined at module level so it can be called from multiple useEffect hooks
+// without needing to be added to their dependency arrays.
+// ---------------------------------------------------------------------------
+function redirectFromNotification(data: Record<string, unknown>) {
+  if (data.route && typeof data.route === "string") {
+    const params =
+      data.routeParams && typeof data.routeParams === "object"
+        ? data.routeParams
+        : {};
+    router.push({ pathname: data.route as any, params } as any);
+  } else if (data.actionUrl && typeof data.actionUrl === "string") {
+    router.push(data.actionUrl as any);
+  }
+}
+
 // Suppress console logs in production to prevent exposing sensitive data
 if (!__DEV__) {
   console.log = () => {};
@@ -86,43 +103,43 @@ function RootLayoutNav() {
   // ---------------------------------------------------------------------------
   // Notification tap handler — deep-link when app was killed/backgrounded
   // ---------------------------------------------------------------------------
+
+  // Cold-start (app terminated): useLastNotificationResponse is a reactive
+  // hook — the effect fires when the response becomes available AFTER the
+  // navigator has finished initialising its initial route. This avoids the
+  // race condition where router.push() is called before Expo Router is ready.
+  // See: https://docs.expo.dev/versions/latest/sdk/notifications/#uselastnotificationresponse
+  const lastNotificationResponse = Notifications.useLastNotificationResponse();
   useEffect(() => {
     if (Platform.OS === "web") return;
-
-    // Helper: navigate based on notification payload data
-    function redirectFromNotification(data: Record<string, unknown>) {
-      if (data.route && typeof data.route === "string") {
-        const params =
-          data.routeParams && typeof data.routeParams === "object"
-            ? data.routeParams
-            : {};
-        router.push({ pathname: data.route as any, params } as any);
-      } else if (data.actionUrl && typeof data.actionUrl === "string") {
-        router.push(data.actionUrl as any);
-      }
-    }
-
-    // Cold-start: app was fully killed, user tapped notification to launch it.
-    // The listener below only fires for *future* taps; this synchronous read
-    // catches the tap that caused the launch (official Expo pattern).
-    const lastResponse = Notifications.getLastNotificationResponse();
-    if (lastResponse) {
-      const data = lastResponse.notification.request.content.data;
+    if (
+      lastNotificationResponse &&
+      lastNotificationResponse.actionIdentifier ===
+        Notifications.DEFAULT_ACTION_IDENTIFIER
+    ) {
+      const data = lastNotificationResponse.notification.request.content.data;
       if (data) {
         redirectFromNotification(data);
+        Notifications.clearLastNotificationResponse();
       }
     }
+  }, [lastNotificationResponse]);
 
-    // Background / foreground: fires when user taps a notification while the
-    // app is already running (or was suspended but not killed).
+  // Background / foreground: fires when user taps a notification while the
+  // app is already running (or was suspended but not killed).
+  useEffect(() => {
+    if (Platform.OS === "web") return;
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
+        if (
+          response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER
+        )
+          return;
         const data = response.notification.request.content.data;
         if (!data) return;
         redirectFromNotification(data);
       },
     );
-
     return () => subscription.remove();
   }, []);
 

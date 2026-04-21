@@ -334,7 +334,11 @@ export const paymentService = {
   async startPayment(
     feeId: string,
     beneficiaryId: string,
-  ): Promise<{ success: boolean; nativeBrowserClosed?: boolean; error?: string }> {
+  ): Promise<{
+    success: boolean;
+    nativeBrowserClosed?: boolean;
+    error?: string;
+  }> {
     try {
       // Build return URLs based on environment
       const config = getCurrentConfig();
