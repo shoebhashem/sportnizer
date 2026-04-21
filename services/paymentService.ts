@@ -65,6 +65,7 @@ export interface MembershipFee {
   totalPaid: number;
   percentPaid: number;
   createdAt: Date;
+  includedMembers: string[];
 }
 
 export interface CreateFeeParams {

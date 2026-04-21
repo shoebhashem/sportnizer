@@ -182,13 +182,11 @@ export default function TrackPaymentsScreen() {
               status = "pending";
             }
           } else if (selectedFee) {
-            // Check if member should pay this fee (in includedMembers)
-            // For simplicity, check if member has a payer role
-            const payerRoles = ["player", "player-underage"];
-            const hasPayerRole = member.roles.some((r: string) =>
-              payerRoles.includes(r),
+            // Only show members who are actually included in this fee
+            const isIncluded = selectedFee.includedMembers?.includes(
+              member.userId,
             );
-            if (hasPayerRole) {
+            if (isIncluded) {
               // Check if fee is overdue
               if (selectedFee.dueDate && new Date() > selectedFee.dueDate) {
                 status = "overdue";

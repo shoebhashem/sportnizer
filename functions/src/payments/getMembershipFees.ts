@@ -19,6 +19,7 @@ interface MembershipFeeSummary {
   totalPaid: number;
   percentPaid: number;
   createdAt: Timestamp;
+  includedMembers: string[];
 }
 
 /**
@@ -147,6 +148,7 @@ export const getMembershipFees = onCall(
           totalPaid: data.totalPaid,
           percentPaid,
           createdAt: data.createdAt,
+          includedMembers: data.includedMembers || [],
         };
       });
 

@@ -5,13 +5,11 @@ import Stripe from "stripe";
 import { config } from "../utils/config";
 
 /**
- * Stripe Webhook Handler
+ * Stripe Platform Webhook Handler
  *
- * Handles incoming webhook events from Stripe to update payment status.
- * This is a critical security component that:
- * 1. Verifies the webhook signature to ensure events are from Stripe
- * 2. Prevents duplicate processing using idempotency checks
- * 3. Updates payment records and member status on successful payments
+ * Handles platform-level events (e.g. account.updated from connected account onboarding).
+ * Payment events (checkout.session.completed etc.) for direct charges are handled by
+ * stripeConnectWebhookHandler below, which uses a separate Connect webhook secret.
  *
  * IMPORTANT: This is an HTTP endpoint (onRequest), NOT a callable function (onCall)
  * because Stripe sends raw HTTP POST requests with signature headers.
@@ -143,6 +141,147 @@ export const stripeWebhookHandler = onRequest(
       console.error("Error processing webhook event:", event.type, error);
 
       // Update event as failed
+      await eventRef.update({
+        status: "failed",
+        error: error instanceof Error ? error.message : "Unknown error",
+        failedAt: FieldValue.serverTimestamp(),
+      });
+    }
+  },
+);
+
+/**
+ * Stripe Connect Webhook Handler
+ *
+ * Handles payment events fired on connected accounts (clubs) when using direct charges.
+ * With direct charges the Checkout Session lives on the connected account, so
+ * checkout.session.completed, payment_intent.payment_failed, etc. are dispatched
+ * to a Connect application webhook — NOT the platform webhook above.
+ *
+ * Register this endpoint in the Stripe Dashboard as a "Connect application" webhook
+ * (Developers → Webhooks → Add endpoint, type: "Connect application") and set the
+ * signing secret as the STRIPE_CONNECT_WEBHOOK_SECRET Firebase secret.
+ *
+ * Events to subscribe: checkout.session.completed, checkout.session.expired,
+ *                      payment_intent.payment_failed, charge.refunded
+ */
+export const stripeConnectWebhookHandler = onRequest(
+  {
+    region: config.region,
+    secrets: ["STRIPE_SECRET_KEY", "STRIPE_CONNECT_WEBHOOK_SECRET"],
+  },
+  async (req, res) => {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: "2025-02-24.acacia",
+    });
+
+    const connectWebhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+
+    if (!connectWebhookSecret) {
+      console.error("Stripe Connect webhook secret not configured");
+      res.status(500).json({ error: "Webhook not configured" });
+      return;
+    }
+
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+
+    const signature = req.headers["stripe-signature"];
+    if (!signature) {
+      console.error("Missing stripe-signature header");
+      res.status(400).json({ error: "Missing signature" });
+      return;
+    }
+
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.rawBody,
+        signature,
+        connectWebhookSecret,
+      );
+    } catch (err: any) {
+      console.error(
+        "Connect webhook signature verification failed:",
+        err.message,
+      );
+      res.status(400).json({ error: "Signature verification failed" });
+      return;
+    }
+
+    const db = admin.firestore();
+
+    // Idempotency: prefix with "connect_" to avoid collisions with platform events
+    const eventRef = db.collection("stripeEvents").doc(`connect_${event.id}`);
+    const eventDoc = await eventRef.get();
+
+    if (eventDoc.exists) {
+      console.log("Connect event already processed:", event.id);
+      res.json({ received: true, duplicate: true });
+      return;
+    }
+
+    res.json({ received: true });
+
+    try {
+      await eventRef.set({
+        type: event.type,
+        account: event.account,
+        processedAt: FieldValue.serverTimestamp(),
+        livemode: event.livemode,
+      });
+    } catch (_error) {
+      console.log(
+        "Connect event being processed by another instance:",
+        event.id,
+      );
+      return;
+    }
+
+    try {
+      switch (event.type) {
+        case "checkout.session.completed":
+          await handleCheckoutCompleted(
+            event.data.object as Stripe.Checkout.Session,
+            db,
+          );
+          break;
+
+        case "checkout.session.expired":
+          await handleCheckoutExpired(
+            event.data.object as Stripe.Checkout.Session,
+            db,
+          );
+          break;
+
+        case "payment_intent.payment_failed":
+          await handlePaymentFailed(
+            event.data.object as Stripe.PaymentIntent,
+            db,
+          );
+          break;
+
+        case "charge.refunded":
+          await handleChargeRefunded(event.data.object as Stripe.Charge, db);
+          break;
+
+        default:
+          console.log("Unhandled Connect event type:", event.type);
+      }
+
+      await eventRef.update({
+        status: "processed",
+        completedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      console.error(
+        "Error processing Connect webhook event:",
+        event.type,
+        error,
+      );
       await eventRef.update({
         status: "failed",
         error: error instanceof Error ? error.message : "Unknown error",

@@ -8,11 +8,9 @@ import { config } from "../utils/config";
 /**
  * Create a Stripe Checkout session for paying a membership fee
  *
- * This creates a payment session that:
- * 1. Charges the member the full fee amount
- * 2. Sends the platform fee (configured per-club, default 0%) to Clubnizer
- * 3. Sends the rest to the club's connected account
- * 4. Club pays the Stripe processing fees (via on_behalf_of)
+ * Uses direct charges: the session is created authenticated as the connected
+ * account (club), so Stripe debits processing fees from the club's balance.
+ * The platform collects an application_fee_amount on top (default 0%).
  *
  * SECURITY:
  * - User must be authenticated
@@ -197,36 +195,43 @@ export const createCheckoutSession = onCall(
         stripePaymentIntentId: null,
       });
 
-      // 11. Create Stripe Checkout session
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price_data: {
-              currency: feeData.currency,
-              product_data: {
-                name: feeData.title,
-                description: `${feeData.groupName || "Group"} - ${clubData.name}${
-                  payerId !== beneficiaryId ? ` (for ${beneficiaryName})` : ""
-                }`,
+      // 11. Create Stripe Checkout session using direct charges.
+      // By passing stripeAccount the session is created ON the connected account,
+      // so Stripe debits its processing fees from the club's balance — not the platform's.
+      const session = await stripe.checkout.sessions.create(
+        {
+          mode: "payment",
+          payment_method_types: ["card"],
+          line_items: [
+            {
+              price_data: {
+                currency: feeData.currency,
+                product_data: {
+                  name: feeData.title,
+                  description: `${feeData.groupName || "Group"} - ${clubData.name}${
+                    payerId !== beneficiaryId ? ` (for ${beneficiaryName})` : ""
+                  }`,
+                },
+                unit_amount: amount,
               },
-              unit_amount: amount,
+              quantity: 1,
             },
-            quantity: 1,
+          ],
+          payment_intent_data: {
+            // Platform collects application_fee_amount from the connected account (0 by default).
+            application_fee_amount: platformFee,
+            receipt_email: payerDoc.data()?.email,
+            metadata: {
+              paymentId: paymentRef.id,
+              feeId,
+              payerId,
+              beneficiaryId,
+              clubId: feeData.clubId,
+              groupId: feeData.groupId,
+            },
           },
-        ],
-        // Platform fee goes to Clubnizer (0 if club has no fee configured)
-        payment_intent_data: {
-          application_fee_amount: platformFee,
-          // on_behalf_of makes the club the settlement merchant
-          // This means Stripe fees are charged to the club's account, not platform
-          on_behalf_of: clubData.stripe.accountId,
-          transfer_data: {
-            destination: clubData.stripe.accountId,
-          },
-          // Send receipt to payer's email
-          receipt_email: payerDoc.data()?.email,
+          success_url: `${successUrl || STRIPE_CONFIG.successUrl}?session_id={CHECKOUT_SESSION_ID}&payment_id=${paymentRef.id}`,
+          cancel_url: `${cancelUrl || STRIPE_CONFIG.cancelUrl}?payment_id=${paymentRef.id}`,
           metadata: {
             paymentId: paymentRef.id,
             feeId,
@@ -235,22 +240,14 @@ export const createCheckoutSession = onCall(
             clubId: feeData.clubId,
             groupId: feeData.groupId,
           },
+          customer_email: payerDoc.data()?.email,
+          expires_at:
+            Math.floor(Date.now() / 1000) +
+            STRIPE_CONFIG.checkoutSessionExpireMinutes * 60,
         },
-        success_url: `${successUrl || STRIPE_CONFIG.successUrl}?session_id={CHECKOUT_SESSION_ID}&payment_id=${paymentRef.id}`,
-        cancel_url: `${cancelUrl || STRIPE_CONFIG.cancelUrl}?payment_id=${paymentRef.id}`,
-        metadata: {
-          paymentId: paymentRef.id,
-          feeId,
-          payerId,
-          beneficiaryId,
-          clubId: feeData.clubId,
-          groupId: feeData.groupId,
-        },
-        customer_email: payerDoc.data()?.email,
-        expires_at:
-          Math.floor(Date.now() / 1000) +
-          STRIPE_CONFIG.checkoutSessionExpireMinutes * 60,
-      });
+        // Direct charge: authenticate as the connected account
+        { stripeAccount: clubData.stripe.accountId },
+      );
 
       // 12. Update payment record with session ID
       await paymentRef.update({

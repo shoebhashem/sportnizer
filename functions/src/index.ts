@@ -138,7 +138,7 @@ export { createCheckoutSession } from "./stripe/createCheckoutSession";
 export { createStripeConnectedAccount } from "./stripe/createStripeConnectedAccount";
 export { createStripeOnboardingLink } from "./stripe/createStripeOnboardingLink";
 export { resetPaymentSetup } from "./stripe/resetPaymentSetup";
-export { stripeWebhookHandler } from "./stripe/stripeWebhookHandler";
+export { stripeConnectWebhookHandler, stripeWebhookHandler } from "./stripe/stripeWebhookHandler";
 
 // Platform Subscription Functions (Club subscriptions to Clubnizer)
 export { createCustomerPortalSession } from "./subscriptions/createCustomerPortalSession";
