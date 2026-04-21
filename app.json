@@ -20,11 +20,27 @@
       "entitlements": {
         "aps-environment": "production"
       },
+      "associatedDomains": ["applinks:app.clubnizer.com"],
       "bundleIdentifier": "com.clubnizer.app"
     },
     "android": {
       "package": "com.clubnizer.app",
       "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/payment-success" },
+            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/payment-cancelled" },
+            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/invitation" },
+            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/join" },
+            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/stripe-return" },
+            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/stripe-refresh" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon-foreground.png",
         "backgroundColor": "#25292e"

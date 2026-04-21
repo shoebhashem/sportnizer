@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["339J877WZB.com.clubnizer.app"],
+        "components": [
+          { "/": "/payment-success*" },
+          { "/": "/payment-cancelled*" },
+          { "/": "/invitation/*" },
+          { "/": "/join*" },
+          { "/": "/stripe-return*" },
+          { "/": "/stripe-refresh*" }
+        ]
+      }
+    ]
+  }
+}

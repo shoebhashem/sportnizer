@@ -334,7 +334,7 @@ export const paymentService = {
   async startPayment(
     feeId: string,
     beneficiaryId: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; nativeBrowserClosed?: boolean; error?: string }> {
     try {
       // Build return URLs based on environment
       const config = getCurrentConfig();
@@ -365,6 +365,9 @@ export const paymentService = {
         window.location.href = data.checkoutUrl;
       } else {
         await WebBrowser.openBrowserAsync(data.checkoutUrl);
+        // Browser was closed by the user (either via Universal Link redirect
+        // or by manually dismissing). Signal the caller to re-fetch payment state.
+        return { success: true, nativeBrowserClosed: true };
       }
 
       return { success: true };

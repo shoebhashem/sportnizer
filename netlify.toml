@@ -2,6 +2,14 @@
   command = "npx expo export --platform web"
   publish = "dist"
 
+# Serve Apple App Site Association and Android Asset Links with correct Content-Type.
+# iOS requires Content-Type: application/json or it silently ignores the file.
+[[headers]]
+  for = "/.well-known/*"
+  [headers.values]
+    Content-Type = "application/json"
+    Access-Control-Allow-Origin = "*"
+
 # Serve static assets directly (fonts, images, JS, CSS)
 [[headers]]
   for = "/assets/*"

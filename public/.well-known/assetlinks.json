@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.clubnizer.app",
+      "sha256_cert_fingerprints": [
+        "15:1F:C1:0F:4E:5C:92:2F:A6:2E:BA:26:BB:13:7F:CD:60:8C:EB:04:BF:5B:18:98:9D:40:AD:65:78:E9:0D:CD"
+      ]
+    }
+  }
+]

@@ -122,6 +122,10 @@ export default function PaymentCard({
         } else {
           setError(result.error || "Payment failed");
         }
+      } else if (result.nativeBrowserClosed) {
+        // Browser was dismissed after native checkout (payment succeeded or
+        // was cancelled). Re-fetch from server to get accurate card state.
+        onPaymentComplete?.();
       }
       // Note: The actual payment completion will be handled by webhook
       // and the component will be refreshed from the parent
