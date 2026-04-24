@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "com.clubnizer.app",
       "sha256_cert_fingerprints": [
-        "15:1F:C1:0F:4E:5C:92:2F:A6:2E:BA:26:BB:13:7F:CD:60:8C:EB:04:BF:5B:18:98:9D:40:AD:65:78:E9:0D:CD"
+        "15:1F:C1:0F:4E:5C:92:2F:A6:2E:BA:26:BB:13:7F:CD:60:8C:EB:04:BF:5B:18:98:9D:40:AD:65:78:E9:0D:CD",
+        "D4:58:8E:8A:77:31:8E:85:95:2C:57:FF:28:99:B7:B7:3D:F2:6F:45:95:37:C8:BC:79:C1:59:CC:29:38:AB:D2"
       ]
     }
   }
