@@ -818,3 +818,114 @@ describe("lokValidation.ts", () => {
     });
   });
 });
+
+// ─── Accounting Config — BAS Account Resolution ──────────────
+
+import {
+    BAS_ACCOUNT_MAP,
+    EARMARKABLE_CATEGORIES,
+    FEE_CATEGORIES,
+    isValidFeeCategory,
+    resolveBasAccount,
+    SPECIAL_ACCOUNTS,
+} from "../src/config/accounting";
+
+describe("BAS Account Resolution (accounting.ts)", () => {
+  describe("resolveBasAccount", () => {
+    it("returns 3010 for membership_fee in SE", () => {
+      expect(resolveBasAccount("membership_fee", "SE")).toBe(3010);
+    });
+
+    it("returns 3020 for training_fee in SE", () => {
+      expect(resolveBasAccount("training_fee", "SE")).toBe(3020);
+    });
+
+    it("returns 3030 for event_fee in SE", () => {
+      expect(resolveBasAccount("event_fee", "SE")).toBe(3030);
+    });
+
+    it("returns 3210 for sponsorship in SE", () => {
+      expect(resolveBasAccount("sponsorship", "SE")).toBe(3210);
+    });
+
+    it("returns 3310 for sales_kiosk in SE", () => {
+      expect(resolveBasAccount("sales_kiosk", "SE")).toBe(3310);
+    });
+
+    it("returns 3890 for other in SE", () => {
+      expect(resolveBasAccount("other", "SE")).toBe(3890);
+    });
+
+    it("falls back to SE map for unknown country code", () => {
+      // Unknown country → falls back to SE
+      expect(resolveBasAccount("membership_fee", "XX")).toBe(3010);
+    });
+
+    it("falls back to other (3890) for unrecognised category in SE", () => {
+      expect(resolveBasAccount("totally_unknown_cat", "SE")).toBe(3890);
+    });
+
+    it("is case-insensitive for country code (SE / se)", () => {
+      expect(resolveBasAccount("membership_fee", "se")).toBe(3010);
+    });
+  });
+
+  describe("isValidFeeCategory", () => {
+    it("returns true for every known category", () => {
+      for (const cat of FEE_CATEGORIES) {
+        expect(isValidFeeCategory(cat)).toBe(true);
+      }
+    });
+
+    it("returns false for an unknown string", () => {
+      expect(isValidFeeCategory("invalid_category")).toBe(false);
+    });
+
+    it("returns false for empty string", () => {
+      expect(isValidFeeCategory("")).toBe(false);
+    });
+
+    it("returns false for a SQL injection string", () => {
+      expect(isValidFeeCategory("' OR 1=1--")).toBe(false);
+    });
+  });
+
+  describe("EARMARKABLE_CATEGORIES", () => {
+    it("includes sales_kiosk and other", () => {
+      expect(EARMARKABLE_CATEGORIES).toContain("sales_kiosk");
+      expect(EARMARKABLE_CATEGORIES).toContain("other");
+    });
+
+    it("does not include membership_fee (not earmarkable)", () => {
+      expect(EARMARKABLE_CATEGORIES).not.toContain("membership_fee");
+    });
+  });
+
+  describe("SPECIAL_ACCOUNTS", () => {
+    it("has correct BAS codes for bank, stripeFee, lagkassa", () => {
+      expect(SPECIAL_ACCOUNTS.bank).toBe(1930);
+      expect(SPECIAL_ACCOUNTS.stripeFee).toBe(6570);
+      expect(SPECIAL_ACCOUNTS.lagkassa).toBe(2071);
+    });
+  });
+
+  describe("BAS_ACCOUNT_MAP completeness", () => {
+    it("SE map covers all six categories", () => {
+      const seMap = BAS_ACCOUNT_MAP["SE"];
+      expect(seMap).toBeDefined();
+
+      for (const cat of FEE_CATEGORIES) {
+        expect(seMap[cat]).toBeDefined();
+        expect(typeof seMap[cat]).toBe("number");
+      }
+    });
+
+    it("all SE account codes are in the 3xxx income range (except earmarked)", () => {
+      const seMap = BAS_ACCOUNT_MAP["SE"];
+      for (const cat of FEE_CATEGORIES) {
+        expect(seMap[cat]).toBeGreaterThanOrEqual(3000);
+        expect(seMap[cat]).toBeLessThan(4000);
+      }
+    });
+  });
+});

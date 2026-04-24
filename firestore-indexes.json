@@ -1,6 +1,24 @@
 {
   "indexes": [
     {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "invitedUserIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "startDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "invitations",
       "queryScope": "COLLECTION",
       "fields": [
@@ -23,34 +41,38 @@
       ]
     },
     {
-      "collectionGroup": "users",
+      "collectionGroup": "membershipFees",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "isYouth",
+          "fieldPath": "clubId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "dateOfBirth",
+          "fieldPath": "groupId",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "events",
+      "collectionGroup": "membershipFees",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "invitedUserIds",
-          "arrayConfig": "CONTAINS"
-        },
-        {
-          "fieldPath": "isActive",
+          "fieldPath": "clubId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "startDate",
+          "fieldPath": "status",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
         }
       ]
     },
@@ -64,6 +86,10 @@
         },
         {
           "fieldPath": "groupId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
           "order": "ASCENDING"
         },
         {
@@ -109,11 +135,39 @@
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
+          "fieldPath": "dismissed",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
           "fieldPath": "read",
           "order": "ASCENDING"
         },
         {
           "fieldPath": "dismissed",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "passwordResetRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "email",
           "order": "ASCENDING"
         },
         {
@@ -145,15 +199,15 @@
       ]
     },
     {
-      "collectionGroup": "passwordResetRequests",
+      "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "email",
+          "fieldPath": "isYouth",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
+          "fieldPath": "dateOfBirth",
           "order": "ASCENDING"
         }
       ]

@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { isValidFeeCategory, resolveBasAccount } from "../config/accounting";
 import {
     getMinimumChargeAmount,
     isSupportedCurrency,
@@ -40,6 +41,8 @@ export const createMembershipFee = onCall(
       currency,
       dueDate,
       targetRoles,
+      category,
+      earmarkedGroupId,
     } = request.data;
 
     // 2. Validate required fields
@@ -47,6 +50,14 @@ export const createMembershipFee = onCall(
       throw new HttpsError(
         "invalid-argument",
         "Missing required fields: clubId, groupId, title, amount, currency, targetRoles",
+      );
+    }
+
+    // Validate category
+    if (!category || !isValidFeeCategory(category)) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Invalid or missing fee category: ${category}`,
       );
     }
 
@@ -197,7 +208,11 @@ export const createMembershipFee = onCall(
         dueDateTimestamp = Timestamp.fromDate(parsedDate);
       }
 
-      // 9. Create the membership fee document
+      // 9. Resolve BAS account server-side (never trust client)
+      const clubCountry = clubData.country || "SE";
+      const basAccount = resolveBasAccount(category, clubCountry);
+
+      // Create the membership fee document
       const feeRef = db.collection("membershipFees").doc();
 
       await feeRef.set({
@@ -214,6 +229,9 @@ export const createMembershipFee = onCall(
         totalExpected: targetMembers.length,
         totalPaid: 0,
         status: "active",
+        category,
+        basAccount,
+        earmarkedGroupId: earmarkedGroupId || null,
         createdBy: request.auth.uid,
         createdAt: FieldValue.serverTimestamp(),
         lastModifiedAt: FieldValue.serverTimestamp(),
@@ -260,7 +278,7 @@ export const createMembershipFee = onCall(
               notificationPromises.push(
                 createNotificationDirect(guardian.guardianUid, {
                   type: "payment_request",
-                  title: "Membership Fee Due",
+                  title: trimmedTitle,
                   message: `Payment required for ${member.name}: ${trimmedTitle}`,
                   sourceId: feeRef.id,
                   sourceCollection: "membershipFees",
@@ -292,7 +310,7 @@ export const createMembershipFee = onCall(
           notificationPromises.push(
             createNotificationDirect(member.userId, {
               type: "payment_request",
-              title: "Membership Fee Due",
+              title: trimmedTitle,
               message: `Payment required: ${trimmedTitle}`,
               sourceId: feeRef.id,
               sourceCollection: "membershipFees",

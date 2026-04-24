@@ -277,6 +277,14 @@
       "groupEventFab": "Crea allenamenti e partite",
       "groupNewsFab": "Pubblica notizie nel gruppo",
       "clubCard": "Tocca per gestire membri e gruppi"
+    },
+    "feeCategory": {
+      "membershipFee": "Membership Fee",
+      "trainingFee": "Training Fee",
+      "eventFee": "Event Fee",
+      "sponsorship": "Sponsorship",
+      "salesKiosk": "Kiosk / Sales",
+      "other": "Other"
     }
   }
 }

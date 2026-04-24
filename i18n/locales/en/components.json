@@ -290,6 +290,15 @@
       }
     },
 
+    "feeCategory": {
+      "membershipFee": "Membership Fee",
+      "trainingFee": "Training Fee",
+      "eventFee": "Event Fee",
+      "sponsorship": "Sponsorship",
+      "salesKiosk": "Kiosk / Sales",
+      "other": "Other"
+    },
+
     "coachMarks": {
       "clubSettings": "Settings, payments & invites",
       "groupSettings": "Roles, invitations & settings",

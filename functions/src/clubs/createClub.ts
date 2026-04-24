@@ -27,6 +27,38 @@ export const createClub = onCall(
         throw new HttpsError("invalid-argument", "Club name cannot be empty");
       }
 
+      // Validate country (optional at creation — defaults to SE)
+      const country = (clubData.country || "SE").toUpperCase();
+      // Derive default currency from country using a simple static map
+      const COUNTRY_CURRENCY: Record<string, string> = {
+        SE: "sek",
+        NO: "nok",
+        DK: "dkk",
+        FI: "eur",
+        US: "usd",
+        GB: "gbp",
+        AU: "aud",
+        CA: "cad",
+        CH: "chf",
+        HU: "huf",
+        PL: "pln",
+        CZ: "czk",
+        RO: "ron",
+        BG: "bgn",
+        HK: "hkd",
+        IN: "inr",
+        JP: "jpy",
+        MY: "myr",
+        NZ: "nzd",
+        SG: "sgd",
+        TH: "thb",
+        AE: "aed",
+        ZA: "zar",
+        BR: "brl",
+        MX: "mxn",
+      };
+      const defaultCurrency = COUNTRY_CURRENCY[country] ?? "eur";
+
       // 3. Check user's club creation limit
       const db = admin.firestore();
       const userRef = db.collection("users").doc(request.auth.uid);
@@ -74,6 +106,8 @@ export const createClub = onCall(
         name: trimmedName,
         description: clubData.description || "",
         location: clubData.location || "",
+        country,
+        currency: defaultCurrency,
         isActive: true,
         createdAt: FieldValue.serverTimestamp(),
         createdBy: request.auth.uid,

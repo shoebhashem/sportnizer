@@ -9,6 +9,7 @@ import { config } from "../utils/config";
 interface MembershipFeeSummary {
   feeId: string;
   title: string;
+  description?: string;
   groupId: string;
   groupName: string;
   amount: number;
@@ -20,6 +21,9 @@ interface MembershipFeeSummary {
   percentPaid: number;
   createdAt: Timestamp;
   includedMembers: string[];
+  category?: string;
+  basAccount?: number;
+  earmarkedGroupId?: string;
 }
 
 /**
@@ -138,6 +142,7 @@ export const getMembershipFees = onCall(
         return {
           feeId: doc.id,
           title: data.title,
+          description: data.description,
           groupId: data.groupId,
           groupName: data.groupName,
           amount: data.amount,
@@ -149,6 +154,9 @@ export const getMembershipFees = onCall(
           percentPaid,
           createdAt: data.createdAt,
           includedMembers: data.includedMembers || [],
+          category: data.category,
+          basAccount: data.basAccount,
+          earmarkedGroupId: data.earmarkedGroupId,
         };
       });
 

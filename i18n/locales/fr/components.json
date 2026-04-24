@@ -273,6 +273,14 @@
       "groupEventFab": "Créer des entraînements et matchs",
       "groupNewsFab": "Publier des nouvelles dans le groupe",
       "clubCard": "Appuyez pour gérer les membres et groupes"
+    },
+    "feeCategory": {
+      "membershipFee": "Membership Fee",
+      "trainingFee": "Training Fee",
+      "eventFee": "Event Fee",
+      "sponsorship": "Sponsorship",
+      "salesKiosk": "Kiosk / Sales",
+      "other": "Other"
     }
   }
 }

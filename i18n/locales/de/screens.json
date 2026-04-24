@@ -249,7 +249,9 @@
       "clubLimitReached": "Vereinslimit erreicht",
       "clubLimitReachedMessage": "Sie können nur Administrator eines Vereins sein. Wenn Sie mehrere Vereine verwalten müssen, kontaktieren Sie bitte support@clubnizer.com.",
       "createFailed": "Verein konnte nicht erstellt werden. Bitte versuchen Sie es erneut."
-    }
+    },
+    "country": "Country *",
+    "selectCountry": "Select Country"
   },
   "createEvent": {
     "createEvent": "Termin erstellen",
@@ -637,7 +639,11 @@
     "removeClubAdminPickerDesc": "Wählen Sie einen Vereinsadmin aus, um seine Adminrechte zu entfernen",
     "removeClubAdminSuccess": "Vereinsadmin erfolgreich entfernt",
     "removeClubAdminFailed": "Vereinsadmin konnte nicht entfernt werden",
-    "removingAdmin": "Entfernen..."
+    "removingAdmin": "Entfernen...",
+    "manageFees": "Manage Fees",
+    "manageFeesDesc": "View, edit and close payment requests",
+    "accounting": "Accounting",
+    "accountingDesc": "Bookkeeping verifications & SIE export"
   },
   "clubInfo": {
     "loadingClubInfo": "Vereinsinfo wird geladen...",
@@ -1223,5 +1229,77 @@
   "notFound": {
     "title": "Hoppla! Seite nicht gefunden",
     "goHome": "Zurück zur Startseite!"
+  },
+  "createFee": {
+    "createFee": "Create Fee",
+    "feeDetails": "Fee Details",
+    "titleRequired": "Title *",
+    "titlePlaceholder": "e.g., Spring 2026 Membership",
+    "descriptionOptional": "Description (Optional)",
+    "descriptionPlaceholder": "Add details about this fee...",
+    "categoryRequired": "Category",
+    "amountRequired": "Amount ({{currency}}) *",
+    "amountPlaceholder": "0.00",
+    "minimumAmountError": "Minimum amount is {{min}} {{currency}}",
+    "dueDateOptional": "Due Date (Optional)",
+    "selectDueDatePlaceholder": "Select due date (optional)",
+    "selectDueDate": "Select Due Date",
+    "earmarkTitle": "Earmark for group (Lagkassa)",
+    "earmarkHint": "Revenue will be attributed to the selected group's fund",
+    "selectGroupsRequired": "Select Groups *",
+    "selectGroupsHint": "Select one or more groups to create the fee for",
+    "noGroupsInClub": "No groups found in this club",
+    "groupsSelected_one": "{{count}} group selected",
+    "groupsSelected_other": "{{count}} groups selected",
+    "whoShouldPay": "Who Should Pay? *",
+    "whoShouldPayHint": "Select the roles that should receive this payment request",
+    "membersCount": "({{count}} members)",
+    "feeBreakdown": "Fee Breakdown (Estimated)",
+    "membersPay": "Members pay:",
+    "stripeFee": "Stripe fee (~{{percent}}%):",
+    "clubnizerFee": "Clubnizer fee ({{feePercent}}%):",
+    "clubReceives": "Club receives:",
+    "totalExpected": "Total expected:",
+    "stripeFeesDisclaimer": "Stripe fees are estimates and may vary based on card type",
+    "creatingFee": "Creating...",
+    "feeCreated": "Success!"
+  },
+  "manageFees": {
+    "title": "Manage Fees",
+    "filter_active": "Active",
+    "filter_closed": "Closed",
+    "filter_all": "All",
+    "noFees": "No fees found for this filter",
+    "createFee": "Create Fee",
+    "active": "Active",
+    "closed": "Closed",
+    "paid": "{{paid}}/{{total}} paid ({{percent}}%)",
+    "dueDate": "Due: {{date}}",
+    "noDueDate": "No due date",
+    "edit": "Edit",
+    "close": "Close",
+    "editFee": "Edit Fee",
+    "editTitle": "Title",
+    "editTitlePlaceholder": "Fee title",
+    "editDescription": "Description",
+    "editDescriptionPlaceholder": "Optional description",
+    "editDueDate": "Due Date",
+    "selectDueDate": "Select Due Date",
+    "confirmCloseTitle": "Close Fee?",
+    "confirmCloseMessage": "Close \"{{title}}\"? Members who haven't paid will no longer be able to pay. This cannot be undone."
+  },
+  "accounting": {
+    "title": "Accounting",
+    "exportSIE": "Export SIE",
+    "sharingNotAvailable": "Sharing is not available on this device",
+    "noVerifications": "No verifications found for {{year}}",
+    "totalVerifications": "Verifications",
+    "totalDebit": "Total Debit",
+    "totalCredit": "Total Credit",
+    "payment": "Payment",
+    "refund": "Refund",
+    "account": "Account",
+    "debit": "Debit",
+    "credit": "Credit"
   }
 }

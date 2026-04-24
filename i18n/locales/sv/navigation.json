@@ -48,6 +48,9 @@
     "invitationAccept": "Acceptera inbjudan",
     "invitationReject": "Avböj inbjudan",
     "about": "Om",
-    "selectEventMembers": "Välj medlemmar"
+    "selectEventMembers": "Välj medlemmar",
+    "createFee": "Create Fee",
+    "manageFees": "Manage Fees",
+    "accounting": "Accounting"
   }
 }

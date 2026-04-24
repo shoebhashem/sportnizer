@@ -273,6 +273,14 @@
       "groupEventFab": "Opret træninger og kampe",
       "groupNewsFab": "Post nyheder i gruppen",
       "clubCard": "Tryk for at administrere medlemmer og grupper"
+    },
+    "feeCategory": {
+      "membershipFee": "Membership Fee",
+      "trainingFee": "Training Fee",
+      "eventFee": "Event Fee",
+      "sponsorship": "Sponsorship",
+      "salesKiosk": "Kiosk / Sales",
+      "other": "Other"
     }
   }
 }

@@ -138,7 +138,10 @@ export { createCheckoutSession } from "./stripe/createCheckoutSession";
 export { createStripeConnectedAccount } from "./stripe/createStripeConnectedAccount";
 export { createStripeOnboardingLink } from "./stripe/createStripeOnboardingLink";
 export { resetPaymentSetup } from "./stripe/resetPaymentSetup";
-export { stripeConnectWebhookHandler, stripeWebhookHandler } from "./stripe/stripeWebhookHandler";
+export {
+    stripeConnectWebhookHandler,
+    stripeWebhookHandler
+} from "./stripe/stripeWebhookHandler";
 
 // Platform Subscription Functions (Club subscriptions to Clubnizer)
 export { createCustomerPortalSession } from "./subscriptions/createCustomerPortalSession";
@@ -149,8 +152,14 @@ export { updateSubscription } from "./subscriptions/updateSubscription";
 
 // Payment Functions (Membership Fees)
 export { createMembershipFee } from "./payments/createMembershipFee";
+export { deleteMembershipFee } from "./payments/deleteMembershipFee";
 export { getMembershipFees } from "./payments/getMembershipFees";
 export { getUserPendingPayments } from "./payments/getUserPendingPayments";
+export { updateMembershipFee } from "./payments/updateMembershipFee";
+
+// Accounting Functions
+export { generateSIEExport } from "./accounting/generateSIEExport";
+export { getAccountingData } from "./accounting/getAccountingData";
 
 // News Functions
 export { addNewsComment } from "./news/addNewsComment";

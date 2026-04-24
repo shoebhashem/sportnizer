@@ -27,8 +27,10 @@
 - [File Naming and Organization](#file-naming-and-organization)
 - [Documentation Requirements](#documentation-requirements)
 - [Frontend/UI Architecture](#frontendui-architecture)
+- [Push Notification Architecture](#push-notification-architecture)
 - [Firestore Security Rules & Access Control](#-firestore-security-rules--access-control)
 - [Stripe Connect & Payment System](#-stripe-connect--payment-system)
+- [Pre-Accounting Engine & SIE Export](#-pre-accounting-engine--sie-export)
 - [Legal & Compliance System](#-legal--compliance-system)
 - [Internationalization (i18n)](#-internationalization-i18n)
 - [Implementation Notes](#implementation-notes)
@@ -1678,11 +1680,32 @@ const CHANNEL_MAP = {
 
 1. **`setNotificationHandler`** — suppresses foreground banner (in-app bell is the UI)
 2. **Channel + token registration** — runs on every `user.uid` change (login)
-3. **`getLastNotificationResponse()`** — synchronous cold-start handler; reads the cached notification tap that launched the app (official Expo pattern). Without this, taps that launch a killed app are lost because the async listener registers too late.
+3. **`useLastNotificationResponse()` Hook** — reactive cold-start handler (per [Expo documentation](https://docs.expo.dev/versions/latest/sdk/notifications/#uselastnotificationresponse)). The hook re-fires when the notification response becomes available _after_ Expo Router finishes initializing its navigation stack, eliminating the race condition that previously prevented cold-start taps from navigating.
 4. **`addNotificationResponseReceivedListener`** — handles background/foreground taps (after the app is already running), deep-links via `router.push(actionUrl)`
 5. **Logout cleanup** — `removePushTokenFromFirestore()` called when user signs out
 
-Both (3) and (4) share a `redirectFromNotification(data)` helper that checks for `data.route` (structured) then falls back to `data.actionUrl` (string).
+Both (3) and (4) use a shared `redirectFromNotification(data)` helper that checks for `data.actionUrl` (primary deep-link URL). Navigation triggers only on `actionIdentifier === DEFAULT_ACTION_IDENTIFIER` (standard tap; excludes custom action buttons).
+
+**Cold-Start Handler Pattern (Per Expo Docs)**:
+
+```typescript
+const lastNotificationResponse = Notifications.useLastNotificationResponse();
+useEffect(() => {
+  if (
+    lastNotificationResponse &&
+    lastNotificationResponse.actionIdentifier ===
+      Notifications.DEFAULT_ACTION_IDENTIFIER
+  ) {
+    const data = lastNotificationResponse.notification.request.content.data;
+    if (data) {
+      redirectFromNotification(data);
+      Notifications.clearLastNotificationResponse(); // Prevent duplicate navigations
+    }
+  }
+}, [lastNotificationResponse]); // Re-run only when response changes
+```
+
+**Why This Works**: The reactive hook pattern defers navigation until _after_ the navigator is ready, not at synchronous mount time. This eliminates the race condition that caused `router.push()` to silently fail on cold-start.
 
 ### Key Files
 
@@ -16638,15 +16661,18 @@ Club admins and group admins can update a youth player's name and/or date of bir
 
 ### Overview
 
-Clubnizer implements a **Stripe Connect Platform model** to enable clubs to receive membership fee payments from their members. The platform takes a 1.5% commission on each transaction, while Stripe processing fees are charged to the club (merchant).
+Clubnizer implements a **Stripe Connect Platform model** to enable clubs to receive membership fee payments from their members. The platform uses direct charges to simplify payment reconciliation: Clubnizer charges the member's card directly, then transfers the club's share to the connected account.
 
 **Key Design Decisions**:
 
 - **Stripe Connect Express**: Clubs onboard via Stripe-hosted forms (Stripe handles KYC/compliance)
-- **Destination Charges with `on_behalf_of`**: Club is the settlement merchant, pays Stripe fees
-- **Platform Fee**: 1.5% `application_fee_amount` on each transaction goes to Clubnizer
+- **Direct Charges**: Clubnizer charges the member's card directly, transfers money to club's connected account
+  - Why: Simpler reconciliation than `on_behalf_of` destination charges, prevents fee disputes
+  - Stripe processes payment, deducts standard Stripe fees (~1.5-2.9%), remainder goes to platform then transferred to club
+- **Immediate Transfer**: Club receives funds after payment succeeds (settlement period depends on bank, typically 1-2 business days)
+- **Platform Commission**: Clubnizer retains 1.5% of gross transaction amount before transferring to club
 - **Role-Based Fee Targeting**: Fees target specific roles (e.g., `player`, `player-underage`)
-- **Guardian Payment Support**: For underage players, guardians receive and pay the fee
+- **Guardian Payment Support**: For underage players, guardians initiate and pay the fee on behalf of child
 
 ### Architecture Diagram
 
@@ -16725,8 +16751,8 @@ interface MembershipFee {
 ```typescript
 interface Payment {
   // Stripe IDs (for reconciliation and debugging)
-  stripePaymentIntentId: string;
-  stripeCheckoutSessionId: string;
+  stripeChargeId: string; // Direct charge ID (required for reconciliation)
+  stripeCheckoutSessionId: string; // Checkout session ID (links to payment attempt)
 
   // References
   feeId: string;
@@ -17038,7 +17064,7 @@ sequenceDiagram
     Backend->>DB: Get fee details
     Backend->>DB: Get club's Stripe accountId
 
-    Backend->>Stripe: stripe.checkout.sessions.create({<br/>  application_fee_amount: platformFee,<br/>  transfer_data: { destination: clubAccountId },<br/>  on_behalf_of: clubAccountId,<br/>  metadata: { feeId, payerId, beneficiaryId }<br/>})
+    Backend->>Stripe: stripe.checkout.sessions.create({<br/>  payment_intent_data: {<br/>    transfer_data: { destination: clubAccountId },<br/>    metadata: { feeId, payerId, beneficiaryId, platform_fee: platformFeeAmount }<br/>  },<br/>  metadata: { feeId, payerId, beneficiaryId }<br/>})
 
     Stripe-->>Backend: { id: 'cs_xxx', url: '...' }
     Backend->>DB: Create payments/{paymentId} with status: 'pending'
@@ -17056,9 +17082,10 @@ sequenceDiagram
 
     Note over Webhook: 1. Verify signature<br/>2. Check idempotency<br/>3. Extract metadata
 
-    Webhook->>DB: Update payments/{paymentId}: status = 'succeeded'
-    Webhook->>DB: Update member's paymentStatus: status = 'paid', paidBy = payerName
-    Webhook->>DB: Increment fee's totalPaid
+    Webhook->>DB: Update payments/{paymentId}: status = 'succeeded', stripeChargeId captured
+    Webhook->>DB: Update member's paymentStatus: status = 'paid', paidBy = payerName, stripeChargeId
+    Webhook->>DB: Increment fee's totalPaid count
+    Webhook->>Stripe: Create Transfer to club's connected account (amount - platformFee)
     Webhook->>DB: Dismiss payment notifications for ALL guardians of this beneficiary
 
     Webhook-->>Stripe: 200 OK
@@ -17445,7 +17472,7 @@ firestore.rules                  - Add payment collection rules
 
 ---
 
-_This payment system integrates with Stripe Connect using the Platform model with destination charges. Clubs receive payments directly into their Stripe accounts, with Clubnizer collecting a 1.5% platform fee. The architecture supports international clubs with automatic currency detection and provides guardian payment flows for underage members._
+_This payment system integrates with Stripe Connect using direct charges. Clubnizer charges members' cards directly, then transfers funds to club accounts after deducting the 1.5% platform fee. This approach simplifies reconciliation and eliminates `on_behalf_of` complexity. The architecture supports international clubs with automatic currency detection and provides guardian payment flows for underage members._
 
 ---
 
@@ -18003,6 +18030,116 @@ The language will automatically appear in the profile dropdown.
 - **Email templates**: Emails sent by Cloud Functions (verification, invitations) are currently in English only
 - **AsyncStorage key**: `@clubnizer_language` — do not change without migration
 - **Fallback behavior**: If a translation key is missing, i18next falls back to English (the `fallbackLng`)
+
+---
+
+## 📊 Pre-Accounting Engine & SIE Export
+
+Clubnizer includes an automated bookkeeping system that generates accounting verifications from Stripe payment events and exports them in the Swedish SIE 4 format.
+
+### Overview
+
+When a member pays a membership fee via Stripe, a **bookkeeping verification** is automatically created in Firestore. These verifications follow Swedish BAS account codes and can be exported to a SIE 4 file for import into any Swedish accounting system (Fortnox, Visma, BL Administration, etc.).
+
+### Fee Categories & BAS Account Mapping
+
+Each membership fee has a **category** that maps to a BAS account on the server side:
+
+| Category             | BAS Account | Description              |
+| -------------------- | ----------- | ------------------------ |
+| `membership_fee`     | 3010        | Entered membership fees  |
+| `training_fee`       | 3020        | Training & activity fees |
+| `event_fee`          | 3030        | Event participation fees |
+| `sponsorship`        | 3210        | Sponsorship income       |
+| `sales_kiosk`        | 3310        | Sales income (kiosk)     |
+| `other`              | 3890        | Other operating income   |
+| Bank account         | 1930        | Bank (net proceeds)      |
+| Stripe fee           | 6570        | Payment processing fee   |
+| Earmarked (lagkassa) | 2071        | Ringmärkt lagkassa       |
+
+**Server-side BAS resolution** is in `functions/src/config/accounting.ts`. Frontend category constants (without account codes) are in `constants/feeCategories.ts`.
+
+#### Earmarking
+
+Fees with categories `sales_kiosk` or `other` can optionally be **earmarked** to a specific group. When earmarked, the revenue is booked to account 2071 (ringmärkt lagkassa) instead of the default BAS account.
+
+### Verification Data Model
+
+Verifications are stored in `clubs/{clubId}/verifications/` (Firestore subcollection):
+
+```
+clubs/{clubId}/
+  verifications/
+    {verificationId}/
+      verNumber: number          # Sequential, assigned atomically
+      date: Timestamp
+      description: string        # e.g. "Payment: Membership Fee Q1"
+      sourceType: "payment" | "refund"
+      feeId: string
+      paymentIntentId: string
+      lines: VerificationLine[]
+      createdAt: Timestamp
+
+  accountingMeta/
+    counters/
+      lastVerNumber: number      # Counter for sequential ver numbers
+```
+
+Each verification line:
+
+```typescript
+interface VerificationLine {
+  account: number; // BAS account code
+  debit: number; // Amount in öre (1/100 SEK)
+  credit: number; // Amount in öre
+}
+```
+
+**Example for 500 SEK payment with 14.50 SEK Stripe fee:**
+
+```
+Debit  1930  48550   (net proceeds: 485.50 SEK)
+Debit  6570   1450   (Stripe processing fee: 14.50 SEK)
+Credit 3010  50000   (membership income: 500.00 SEK)
+```
+
+### Webhook Integration
+
+Verifications are created automatically from Stripe webhook events in `functions/src/stripe/stripeWebhookHandler.ts`:
+
+- **`checkout.session.completed`** → Creates a payment verification
+- **`charge.refunded`** → Creates a reversal verification (debits/credits swapped)
+
+The exact Stripe fee is fetched from the Stripe API via `balance_transaction` on the connected account. Accounting errors are **wrapped in try/catch** and never fail the payment flow.
+
+**Platform webhook** events (no `event.account`) pass `""` as accountId — balance_transaction fetch is skipped and Stripe fee is recorded as 0.
+
+### Backend Functions
+
+| Function             | File                                              | Description                                                      |
+| -------------------- | ------------------------------------------------- | ---------------------------------------------------------------- |
+| `getAccountingData`  | `functions/src/accounting/getAccountingData.ts`   | Fetch verifications for a club (optional date range)             |
+| `generateSIEExport`  | `functions/src/accounting/generateSIEExport.ts`   | Generate SIE 4 format string for a fiscal year                   |
+| `createVerification` | `functions/src/accounting/verificationService.ts` | Internal helper — atomic sequential ver number + Firestore write |
+
+### SIE 4 Format
+
+The generated SIE file is a UTF-8 (PC8) encoded text file with:
+
+- `#FLAGGA`, `#FORMAT PC8`, `#SIETYP 4`, `#PROGRAM`, `#GEN`, `#FNAMN`, `#RAR` headers
+- `#KONTO` declarations for each BAS account used
+- `#VER` + `#TRANS` entries for each verification
+- CRLF line endings, amounts in kronor (öre ÷ 100)
+
+### Frontend Screens
+
+| Screen      | Path                  | Description                                     |
+| ----------- | --------------------- | ----------------------------------------------- |
+| Create Fee  | `app/create-fee.tsx`  | Create fee with category chips + earmark toggle |
+| Manage Fees | `app/manage-fees.tsx` | List fees, edit title/desc/dueDate, close fee   |
+| Accounting  | `app/accounting.tsx`  | Year selector, verification list, SIE export    |
+
+The Accounting screen is accessible from **Club Settings → Accounting**. On web, SIE export triggers a blob download; on native, it uses `expo-file-system` + `expo-sharing`.
 
 ---
 

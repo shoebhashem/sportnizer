@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import Stripe from "stripe";
+import { createVerification } from "../accounting/verificationService";
 import { config } from "../utils/config";
 
 /**
@@ -102,6 +103,8 @@ export const stripeWebhookHandler = onRequest(
           await handleCheckoutCompleted(
             event.data.object as Stripe.Checkout.Session,
             db,
+            stripe,
+            "",
           );
           break;
 
@@ -120,7 +123,12 @@ export const stripeWebhookHandler = onRequest(
           break;
 
         case "charge.refunded":
-          await handleChargeRefunded(event.data.object as Stripe.Charge, db);
+          await handleChargeRefunded(
+            event.data.object as Stripe.Charge,
+            db,
+            stripe,
+            "",
+          );
           break;
 
         // Account events for connected accounts (onboarding status)
@@ -247,6 +255,8 @@ export const stripeConnectWebhookHandler = onRequest(
           await handleCheckoutCompleted(
             event.data.object as Stripe.Checkout.Session,
             db,
+            stripe,
+            event.account ?? "",
           );
           break;
 
@@ -265,7 +275,12 @@ export const stripeConnectWebhookHandler = onRequest(
           break;
 
         case "charge.refunded":
-          await handleChargeRefunded(event.data.object as Stripe.Charge, db);
+          await handleChargeRefunded(
+            event.data.object as Stripe.Charge,
+            db,
+            stripe,
+            event.account ?? "",
+          );
           break;
 
         default:
@@ -297,6 +312,8 @@ export const stripeConnectWebhookHandler = onRequest(
 async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   db: admin.firestore.Firestore,
+  stripe: Stripe,
+  stripeAccountId: string,
 ) {
   console.log("Processing checkout.session.completed:", session.id);
 
@@ -346,6 +363,24 @@ async function handleCheckoutCompleted(
 
   // 4. Dismiss payment notifications for ALL guardians of this beneficiary
   await dismissPaymentNotifications(db, feeId, beneficiaryId, clubId, groupId);
+
+  // 5. Auto-create accounting verification
+  try {
+    await createAccountingVerification({
+      session,
+      paymentData,
+      clubId,
+      feeId,
+      groupId,
+      beneficiaryId,
+      db,
+      stripe,
+      stripeAccountId,
+    });
+  } catch (verErr) {
+    // Log but never fail the payment processing because of accounting
+    console.error("Failed to create accounting verification:", verErr);
+  }
 
   console.log("Successfully processed payment:", paymentId);
 }
@@ -401,6 +436,8 @@ async function handlePaymentFailed(
 async function handleChargeRefunded(
   charge: Stripe.Charge,
   db: admin.firestore.Firestore,
+  stripe: Stripe,
+  stripeAccountId: string,
 ) {
   console.log("Processing charge.refunded:", charge.id);
 
@@ -451,6 +488,86 @@ async function handleChargeRefunded(
       paidBy: null,
     },
   );
+
+  // Auto-create reversal accounting verification
+  try {
+    const feeDoc = await db
+      .collection("membershipFees")
+      .doc(paymentData.feeId)
+      .get();
+    const fee = feeDoc.data() ?? {};
+    const basAccount: number = fee.basAccount ?? 3890;
+
+    // Get the gross amount from the charge (in cents/öre)
+    const grossAmount = charge.amount;
+
+    // Fetch balance_transaction to get exact Stripe fee (from connected account)
+    let stripeFee = 0;
+    const balanceTxnId =
+      typeof charge.balance_transaction === "string"
+        ? charge.balance_transaction
+        : charge.balance_transaction?.id;
+
+    if (balanceTxnId && stripeAccountId) {
+      try {
+        const balanceTxn = await stripe.balanceTransactions.retrieve(
+          balanceTxnId,
+          { stripeAccount: stripeAccountId },
+        );
+        stripeFee = balanceTxn.fee;
+      } catch (e) {
+        console.warn("Could not fetch balance_transaction for refund:", e);
+      }
+    }
+
+    const netAmount = grossAmount - stripeFee;
+
+    await createVerification(db, {
+      clubId: paymentData.clubId,
+      date: new Date(),
+      description: `Återbetalning: ${fee.title ?? paymentData.feeId}`,
+      lines: [
+        {
+          account: basAccount,
+          debit: grossAmount,
+          credit: 0,
+          description: "Återföring intäkt",
+        },
+        ...(stripeFee > 0
+          ? [
+              {
+                account: 6570,
+                debit: 0,
+                credit: stripeFee,
+                description: "Återföring Stripe-avgift",
+              },
+            ]
+          : []),
+        {
+          account: 1930,
+          debit: 0,
+          credit: netAmount,
+          description: "Stripe utbetalning återbetald",
+        },
+      ],
+      sourceType: "stripe_refund",
+      stripeChargeId: charge.id,
+      stripePaymentIntentId:
+        typeof charge.payment_intent === "string"
+          ? charge.payment_intent
+          : undefined,
+      feeId: paymentData.feeId,
+      feeTitle: fee.title,
+      category: fee.category,
+      basAccount,
+      earmarkedGroupId: fee.earmarkedGroupId,
+      memberId: paymentData.beneficiaryId,
+      memberName: paymentData.beneficiaryName,
+      groupId: paymentData.groupId,
+    });
+  } catch (verErr) {
+    console.error("Failed to create refund verification:", verErr);
+  }
 }
 
 /**
@@ -623,4 +740,128 @@ async function dismissPaymentNotifications(
   if (totalDismissed > 0) {
     console.log(`Dismissed ${totalDismissed} payment notifications`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Accounting: auto-create verification after a successful payment
+// ---------------------------------------------------------------------------
+
+interface AccountingVerificationInput {
+  session: Stripe.Checkout.Session;
+  paymentData: FirebaseFirestore.DocumentData;
+  clubId: string;
+  feeId: string;
+  groupId: string;
+  beneficiaryId: string;
+  db: admin.firestore.Firestore;
+  stripe: Stripe;
+  stripeAccountId: string;
+}
+
+async function createAccountingVerification({
+  session,
+  paymentData,
+  clubId,
+  feeId,
+  groupId,
+  beneficiaryId,
+  db,
+  stripe,
+  stripeAccountId,
+}: AccountingVerificationInput): Promise<void> {
+  // 1. Fetch the fee to get basAccount / category
+  const feeDoc = await db.collection("membershipFees").doc(feeId).get();
+  const fee = feeDoc.data() ?? {};
+  const basAccount: number = fee.basAccount ?? 3890;
+
+  // 2. Gross amount is the checkout amount_total (in smallest unit)
+  const grossAmount = session.amount_total ?? 0;
+  if (grossAmount <= 0) return;
+
+  // 3. Fetch balance_transaction from the connected account to get exact Stripe fee
+  let stripeFee = 0;
+  if (stripeAccountId) {
+    try {
+      // The payment_intent on the session lives on the connected account
+      const pi = await stripe.paymentIntents.retrieve(
+        session.payment_intent as string,
+        { stripeAccount: stripeAccountId },
+      );
+      const chargeId =
+        typeof pi.latest_charge === "string"
+          ? pi.latest_charge
+          : pi.latest_charge?.id;
+
+      if (chargeId) {
+        const charge = await stripe.charges.retrieve(chargeId, {
+          stripeAccount: stripeAccountId,
+        });
+        const balanceTxnId =
+          typeof charge.balance_transaction === "string"
+            ? charge.balance_transaction
+            : charge.balance_transaction?.id;
+
+        if (balanceTxnId) {
+          const balanceTxn = await stripe.balanceTransactions.retrieve(
+            balanceTxnId,
+            { stripeAccount: stripeAccountId },
+          );
+          stripeFee = balanceTxn.fee;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not fetch Stripe balance_transaction:", e);
+      // Continue with stripeFee = 0; debit/credit will still balance
+    }
+  }
+
+  const netAmount = grossAmount - stripeFee;
+  const memberName: string =
+    paymentData.beneficiaryName ?? paymentData.payerName ?? "Okänd medlem";
+
+  const lines = [
+    {
+      account: 1930,
+      debit: netAmount,
+      credit: 0,
+      description: "Stripe net (bank)",
+    },
+    ...(stripeFee > 0
+      ? [
+          {
+            account: 6570,
+            debit: stripeFee,
+            credit: 0,
+            description: "Stripe-avgift",
+          },
+        ]
+      : []),
+    {
+      account: basAccount,
+      debit: 0,
+      credit: grossAmount,
+      description: fee.title ?? feeId,
+    },
+  ];
+
+  await createVerification(db, {
+    clubId,
+    date: new Date(),
+    description: `${fee.title ?? feeId} — ${memberName}`,
+    lines,
+    sourceType: "stripe_payment",
+    stripeChargeId: undefined,
+    stripePaymentIntentId:
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : undefined,
+    feeId,
+    feeTitle: fee.title,
+    category: fee.category,
+    basAccount,
+    earmarkedGroupId: fee.earmarkedGroupId,
+    memberId: beneficiaryId,
+    memberName,
+    groupId,
+  });
 }

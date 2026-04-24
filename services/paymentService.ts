@@ -33,6 +33,10 @@ const getUserPendingPaymentsFn = httpsCallable(
   functions,
   "getUserPendingPayments",
 );
+const deleteMembershipFeeFn = httpsCallable(functions, "deleteMembershipFee");
+const updateMembershipFeeFn = httpsCallable(functions, "updateMembershipFee");
+const getAccountingDataFn = httpsCallable(functions, "getAccountingData");
+const generateSIEExportFn = httpsCallable(functions, "generateSIEExport");
 
 // Types
 export interface PendingPayment {
@@ -55,6 +59,7 @@ export interface PendingPayment {
 export interface MembershipFee {
   feeId: string;
   title: string;
+  description?: string;
   groupId: string;
   groupName: string;
   amount: number;
@@ -66,6 +71,9 @@ export interface MembershipFee {
   percentPaid: number;
   createdAt: Date;
   includedMembers: string[];
+  category?: string;
+  basAccount?: number;
+  earmarkedGroupId?: string;
 }
 
 export interface CreateFeeParams {
@@ -77,6 +85,8 @@ export interface CreateFeeParams {
   currency: string;
   dueDate?: Date;
   targetRoles: string[];
+  category: string;
+  earmarkedGroupId?: string;
 }
 
 export interface StripeAccountStatus {
@@ -467,6 +477,85 @@ export const paymentService = {
   parseAmount(displayAmount: string): number {
     const cleaned = displayAmount.replace(/[^\d.,]/g, "").replace(",", ".");
     return Math.round(parseFloat(cleaned) * 100);
+  },
+
+  // ---------------------------
+  // Fee Management (delete/update)
+  // ---------------------------
+
+  async closeMembershipFee(
+    feeId: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await deleteMembershipFeeFn({ feeId });
+      return result.data as { success: boolean; error?: string };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async updateMembershipFee(params: {
+    feeId: string;
+    title?: string;
+    description?: string;
+    dueDate?: Date | null;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await updateMembershipFeeFn({
+        ...params,
+        dueDate:
+          params.dueDate !== undefined
+            ? (params.dueDate?.toISOString() ?? null)
+            : undefined,
+      });
+      return result.data as { success: boolean; error?: string };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  // ---------------------------
+  // Accounting
+  // ---------------------------
+
+  async getAccountingData(
+    clubId: string,
+    fromDate?: Date,
+    toDate?: Date,
+  ): Promise<{
+    success: boolean;
+    verifications?: any[];
+    totalDebit?: number;
+    totalCredit?: number;
+    error?: string;
+  }> {
+    try {
+      const result = await getAccountingDataFn({
+        clubId,
+        fromDate: fromDate?.toISOString(),
+        toDate: toDate?.toISOString(),
+      });
+      return result.data as any;
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async generateSIEExport(
+    clubId: string,
+    year?: number,
+  ): Promise<{
+    success: boolean;
+    content?: string;
+    filename?: string;
+    error?: string;
+  }> {
+    try {
+      const result = await generateSIEExportFn({ clubId, year });
+      return result.data as any;
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   },
 };
 

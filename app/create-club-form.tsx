@@ -1,5 +1,6 @@
 import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import { COUNTRIES } from "@/constants/countries";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUser } from "@/contexts/UserContext";
@@ -11,6 +12,8 @@ import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Linking,
+    Modal,
+    Pressable,
     ScrollView,
     StyleSheet,
     Text,
@@ -37,6 +40,9 @@ export default function CreateClubForm() {
   const [clubName, setClubName] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [country, setCountry] = useState("SE");
+  const [showCountryModal, setShowCountryModal] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState({
     visible: false,
@@ -78,6 +84,7 @@ export default function CreateClubForm() {
           name: clubName.trim(),
           description: description.trim(),
           location: location.trim(),
+          country,
         },
       });
 
@@ -297,6 +304,27 @@ export default function CreateClubForm() {
               />
             </View>
 
+            {/* Country - Required */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                {t("screens:createClubForm.country")}{" "}
+                <Text style={styles.required}>*</Text>
+              </Text>
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => {
+                  setCountrySearch("");
+                  setShowCountryModal(true);
+                }}
+                disabled={loading}
+              >
+                <Text style={styles.pickerButtonText}>
+                  {COUNTRIES.find((c) => c.code === country)?.name ?? country}
+                </Text>
+                <Text style={styles.pickerButtonArrow}>▼</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Create Button */}
             <View style={styles.buttonContainer}>
               {loading ? (
@@ -349,6 +377,60 @@ export default function CreateClubForm() {
         onCancel={() => setModal({ ...modal, visible: false })}
         confirmText="OK"
       />
+
+      {/* Country picker modal */}
+      <Modal
+        visible={showCountryModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowCountryModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowCountryModal(false)}
+        >
+          <Pressable style={styles.modalContainer} onPress={() => {}}>
+            <Text style={styles.modalTitle}>
+              {t("screens:createClubForm.selectCountry")}
+            </Text>
+            <TextInput
+              style={styles.modalSearch}
+              placeholder={t("common:search")}
+              placeholderTextColor={theme.colors.textSecondary}
+              value={countrySearch}
+              onChangeText={setCountrySearch}
+              autoCapitalize="none"
+            />
+            <ScrollView style={styles.modalList}>
+              {COUNTRIES.filter((c) =>
+                c.name.toLowerCase().includes(countrySearch.toLowerCase()),
+              ).map((c) => (
+                <TouchableOpacity
+                  key={c.code}
+                  style={[
+                    styles.modalItem,
+                    c.code === country && styles.modalItemSelected,
+                  ]}
+                  onPress={() => {
+                    setCountry(c.code);
+                    setShowCountryModal(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      c.code === country && styles.modalItemTextSelected,
+                    ]}
+                  >
+                    {c.name}
+                  </Text>
+                  <Text style={styles.modalItemCurrency}>{c.currency}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -449,5 +531,78 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.secondary,
     textDecorationLine: "underline",
+  },
+  pickerButton: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border || "#333",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  pickerButtonText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+  },
+  pickerButtonArrow: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: theme.borderRadius.large,
+    borderTopRightRadius: theme.borderRadius.large,
+    padding: theme.spacing.lg,
+    maxHeight: "70%",
+  },
+  modalTitle: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+    textAlign: "center",
+  },
+  modalSearch: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.sm,
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+    borderWidth: 1,
+    borderColor: theme.colors.border || "#ddd",
+    marginBottom: theme.spacing.sm,
+  },
+  modalList: {
+    flexGrow: 0,
+  },
+  modalItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.small,
+  },
+  modalItemSelected: {
+    backgroundColor: theme.colors.secondary + "22",
+  },
+  modalItemText: {
+    fontSize: theme.typography.fontSize.medium,
+    color: theme.colors.text,
+  },
+  modalItemTextSelected: {
+    color: theme.colors.secondary,
+    fontWeight: theme.typography.fontWeight.semibold,
+  },
+  modalItemCurrency: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
   },
 });

@@ -48,6 +48,9 @@
     "invitationAccept": "Accepter invitation",
     "invitationReject": "Afvis invitation",
     "about": "Om",
-    "selectEventMembers": "Vælg medlemmer"
+    "selectEventMembers": "Vælg medlemmer",
+    "createFee": "Create Fee",
+    "manageFees": "Manage Fees",
+    "accounting": "Accounting"
   }
 }

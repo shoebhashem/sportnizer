@@ -514,6 +514,42 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="create-fee"
+        options={{
+          headerShown: true,
+          title: t("screens.createFee"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="manage-fees"
+        options={{
+          headerShown: true,
+          title: t("screens.manageFees"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="accounting"
+        options={{
+          headerShown: true,
+          title: t("screens.accounting"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
         name="create-news"
         options={{
           headerShown: false,

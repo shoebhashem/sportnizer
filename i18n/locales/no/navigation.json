@@ -48,6 +48,9 @@
     "invitationAccept": "Godta invitasjon",
     "invitationReject": "Avslå invitasjon",
     "about": "Om",
-    "selectEventMembers": "Velg medlemmer"
+    "selectEventMembers": "Velg medlemmer",
+    "createFee": "Create Fee",
+    "manageFees": "Manage Fees",
+    "accounting": "Accounting"
   }
 }

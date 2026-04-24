@@ -231,7 +231,9 @@
       "clubLimitReached": "Klubgrænse nået",
       "clubLimitReachedMessage": "Du kan kun være administrator for én klub. Hvis du har brug for at administrere flere klubber, kontakt support@clubnizer.com.",
       "createFailed": "Kunne ikke oprette klub. Prøv venligst igen."
-    }
+    },
+    "country": "Country *",
+    "selectCountry": "Select Country"
   },
   "createEvent": {
     "createEvent": "Opret begivenhed",
@@ -619,7 +621,11 @@
     "removeClubAdminPickerDesc": "Vælg en klubadministrator at fjerne rettighederne fra",
     "removeClubAdminSuccess": "Klubadministrator fjernet",
     "removeClubAdminFailed": "Kunne ikke fjerne klubadministrator",
-    "removingAdmin": "Fjerner..."
+    "removingAdmin": "Fjerner...",
+    "manageFees": "Manage Fees",
+    "manageFeesDesc": "View, edit and close payment requests",
+    "accounting": "Accounting",
+    "accountingDesc": "Bookkeeping verifications & SIE export"
   },
   "clubInfo": {
     "loadingClubInfo": "Indlæser klubinfo...",
@@ -1205,5 +1211,77 @@
   "notFound": {
     "title": "Ups! Siden blev ikke fundet",
     "goHome": "Gå tilbage til startsiden!"
+  },
+  "createFee": {
+    "createFee": "Create Fee",
+    "feeDetails": "Fee Details",
+    "titleRequired": "Title *",
+    "titlePlaceholder": "e.g., Spring 2026 Membership",
+    "descriptionOptional": "Description (Optional)",
+    "descriptionPlaceholder": "Add details about this fee...",
+    "categoryRequired": "Category",
+    "amountRequired": "Amount ({{currency}}) *",
+    "amountPlaceholder": "0.00",
+    "minimumAmountError": "Minimum amount is {{min}} {{currency}}",
+    "dueDateOptional": "Due Date (Optional)",
+    "selectDueDatePlaceholder": "Select due date (optional)",
+    "selectDueDate": "Select Due Date",
+    "earmarkTitle": "Earmark for group (Lagkassa)",
+    "earmarkHint": "Revenue will be attributed to the selected group's fund",
+    "selectGroupsRequired": "Select Groups *",
+    "selectGroupsHint": "Select one or more groups to create the fee for",
+    "noGroupsInClub": "No groups found in this club",
+    "groupsSelected_one": "{{count}} group selected",
+    "groupsSelected_other": "{{count}} groups selected",
+    "whoShouldPay": "Who Should Pay? *",
+    "whoShouldPayHint": "Select the roles that should receive this payment request",
+    "membersCount": "({{count}} members)",
+    "feeBreakdown": "Fee Breakdown (Estimated)",
+    "membersPay": "Members pay:",
+    "stripeFee": "Stripe fee (~{{percent}}%):",
+    "clubnizerFee": "Clubnizer fee ({{feePercent}}%):",
+    "clubReceives": "Club receives:",
+    "totalExpected": "Total expected:",
+    "stripeFeesDisclaimer": "Stripe fees are estimates and may vary based on card type",
+    "creatingFee": "Creating...",
+    "feeCreated": "Success!"
+  },
+  "manageFees": {
+    "title": "Manage Fees",
+    "filter_active": "Active",
+    "filter_closed": "Closed",
+    "filter_all": "All",
+    "noFees": "No fees found for this filter",
+    "createFee": "Create Fee",
+    "active": "Active",
+    "closed": "Closed",
+    "paid": "{{paid}}/{{total}} paid ({{percent}}%)",
+    "dueDate": "Due: {{date}}",
+    "noDueDate": "No due date",
+    "edit": "Edit",
+    "close": "Close",
+    "editFee": "Edit Fee",
+    "editTitle": "Title",
+    "editTitlePlaceholder": "Fee title",
+    "editDescription": "Description",
+    "editDescriptionPlaceholder": "Optional description",
+    "editDueDate": "Due Date",
+    "selectDueDate": "Select Due Date",
+    "confirmCloseTitle": "Close Fee?",
+    "confirmCloseMessage": "Close \"{{title}}\"? Members who haven't paid will no longer be able to pay. This cannot be undone."
+  },
+  "accounting": {
+    "title": "Accounting",
+    "exportSIE": "Export SIE",
+    "sharingNotAvailable": "Sharing is not available on this device",
+    "noVerifications": "No verifications found for {{year}}",
+    "totalVerifications": "Verifications",
+    "totalDebit": "Total Debit",
+    "totalCredit": "Total Credit",
+    "payment": "Payment",
+    "refund": "Refund",
+    "account": "Account",
+    "debit": "Debit",
+    "credit": "Credit"
   }
 }

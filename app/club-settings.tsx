@@ -543,13 +543,13 @@ export default function ClubSettingsScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Create Fee Option - Only for Club Admin with active Stripe */}
+          {/* Manage Fees - Only for Club Admin with active Stripe */}
           {isClubAdmin && isStripeEnabled && (
             <TouchableOpacity
               style={styles.optionItem}
               onPress={() => {
                 router.push({
-                  pathname: "/create-membership-fee",
+                  pathname: "/manage-fees",
                   params: {
                     clubId: clubId as string,
                     clubName: club?.name || "",
@@ -566,10 +566,44 @@ export default function ClubSettingsScreen() {
               </View>
               <View style={styles.optionContent}>
                 <Text style={styles.optionTitle}>
-                  {t("screens:clubSettings.createFee")}
+                  {t("screens:clubSettings.manageFees")}
                 </Text>
                 <Text style={styles.optionDescription}>
-                  {t("screens:clubSettings.createFeeDesc")}
+                  {t("screens:clubSettings.manageFeesDesc")}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Accounting - Only for Club Admin */}
+          {isClubAdmin && (
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => {
+                router.push({
+                  pathname: "/accounting",
+                  params: { clubId: clubId as string },
+                } as any);
+              }}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="bar-chart-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>
+                  {t("screens:clubSettings.accounting")}
+                </Text>
+                <Text style={styles.optionDescription}>
+                  {t("screens:clubSettings.accountingDesc")}
                 </Text>
               </View>
               <Ionicons

@@ -2,7 +2,7 @@
   "expo": {
     "name": "clubnizer",
     "slug": "clubnizer",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "clubnizer",
@@ -31,12 +31,36 @@
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/payment-success" },
-            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/payment-cancelled" },
-            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/invitation" },
-            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/join" },
-            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/stripe-return" },
-            { "scheme": "https", "host": "app.clubnizer.com", "pathPrefix": "/stripe-refresh" }
+            {
+              "scheme": "https",
+              "host": "app.clubnizer.com",
+              "pathPrefix": "/payment-success"
+            },
+            {
+              "scheme": "https",
+              "host": "app.clubnizer.com",
+              "pathPrefix": "/payment-cancelled"
+            },
+            {
+              "scheme": "https",
+              "host": "app.clubnizer.com",
+              "pathPrefix": "/invitation"
+            },
+            {
+              "scheme": "https",
+              "host": "app.clubnizer.com",
+              "pathPrefix": "/join"
+            },
+            {
+              "scheme": "https",
+              "host": "app.clubnizer.com",
+              "pathPrefix": "/stripe-return"
+            },
+            {
+              "scheme": "https",
+              "host": "app.clubnizer.com",
+              "pathPrefix": "/stripe-refresh"
+            }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
         }
