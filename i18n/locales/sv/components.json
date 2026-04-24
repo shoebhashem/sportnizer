@@ -278,13 +278,13 @@
       "groupNewsFab": "Publicera nyheter i gruppen",
       "clubCard": "Tryck för att hantera medlemmar & grupper"
     },
-    "feeCategory": {
-      "membershipFee": "Membership Fee",
-      "trainingFee": "Training Fee",
-      "eventFee": "Event Fee",
-      "sponsorship": "Sponsorship",
-      "salesKiosk": "Kiosk / Sales",
-      "other": "Other"
-    }
+  },
+  "feeCategory": {
+    "membershipFee": "Medlemsavgift",
+    "trainingFee": "Träningsavgift",
+    "eventFee": "Evenemangsavgift",
+    "sponsorship": "Sponsring",
+    "salesKiosk": "Kiosk / försäljning",
+    "other": "Övrigt"
   }
 }

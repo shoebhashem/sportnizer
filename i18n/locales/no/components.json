@@ -274,13 +274,13 @@
       "groupNewsFab": "Post nyheter i gruppen",
       "clubCard": "Trykk for å administrere medlemmer og grupper"
     },
-    "feeCategory": {
-      "membershipFee": "Membership Fee",
-      "trainingFee": "Training Fee",
-      "eventFee": "Event Fee",
-      "sponsorship": "Sponsorship",
-      "salesKiosk": "Kiosk / Sales",
-      "other": "Other"
-    }
+  },
+  "feeCategory": {
+    "membershipFee": "Medlemsavgift",
+    "trainingFee": "Treningsavgift",
+    "eventFee": "Arrangementsavgift",
+    "sponsorship": "Sponsing",
+    "salesKiosk": "Kiosk / salg",
+    "other": "Annet"
   }
 }

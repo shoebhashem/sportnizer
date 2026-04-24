@@ -49,8 +49,8 @@
     "invitationReject": "Avslå invitasjon",
     "about": "Om",
     "selectEventMembers": "Velg medlemmer",
-    "createFee": "Create Fee",
-    "manageFees": "Manage Fees",
-    "accounting": "Accounting"
+    "createFee": "Opprett avgift",
+    "manageFees": "Administrer avgifter",
+    "accounting": "Regnskap"
   }
 }

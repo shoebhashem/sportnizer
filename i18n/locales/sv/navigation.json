@@ -49,8 +49,8 @@
     "invitationReject": "Avböj inbjudan",
     "about": "Om",
     "selectEventMembers": "Välj medlemmar",
-    "createFee": "Create Fee",
-    "manageFees": "Manage Fees",
-    "accounting": "Accounting"
+    "createFee": "Skapa avgift",
+    "manageFees": "Hantera avgifter",
+    "accounting": "Bokföring"
   }
 }

@@ -278,13 +278,13 @@
       "groupNewsFab": "Pubblica notizie nel gruppo",
       "clubCard": "Tocca per gestire membri e gruppi"
     },
-    "feeCategory": {
-      "membershipFee": "Membership Fee",
-      "trainingFee": "Training Fee",
-      "eventFee": "Event Fee",
-      "sponsorship": "Sponsorship",
-      "salesKiosk": "Kiosk / Sales",
-      "other": "Other"
-    }
+  },
+  "feeCategory": {
+    "membershipFee": "Quota associativa",
+    "trainingFee": "Quota di allenamento",
+    "eventFee": "Quota evento",
+    "sponsorship": "Sponsorizzazione",
+    "salesKiosk": "Chiosco / vendite",
+    "other": "Altro"
   }
 }

@@ -49,8 +49,8 @@
     "invitationReject": "Einladung ablehnen",
     "about": "Über uns",
     "selectEventMembers": "Mitglieder auswählen",
-    "createFee": "Create Fee",
-    "manageFees": "Manage Fees",
-    "accounting": "Accounting"
+    "createFee": "Beitrag erstellen",
+    "manageFees": "Beiträge verwalten",
+    "accounting": "Buchhaltung"
   }
 }
