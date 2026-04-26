@@ -18033,35 +18033,75 @@ The language will automatically appear in the profile dropdown.
 
 ---
 
-## 📊 Pre-Accounting Engine & SIE Export
+## 📊 Accounting Engine — Three-Layer Architecture
 
-Clubnizer includes an automated bookkeeping system that generates accounting verifications from Stripe payment events and exports them in the Swedish SIE 4 format.
+Clubnizer includes an automated bookkeeping system built on a three-layer model:
 
-### Overview
+1. **Product Layer** — `FeeCategory` constants (`membership_fee`, `training_fee`, etc.) defined in `constants/feeCategories.ts`
+2. **Mapping Layer** — Per-club **chart of accounts** stored in `clubs/{clubId}/chartOfAccounts/` providing customizable account number → account name mappings
+3. **Ledger Layer** — Double-entry **verifications** in `clubs/{clubId}/verifications/` generated automatically from Stripe webhook events
 
-When a member pays a membership fee via Stripe, a **bookkeeping verification** is automatically created in Firestore. These verifications follow Swedish BAS account codes and can be exported to a SIE 4 file for import into any Swedish accounting system (Fortnox, Visma, BL Administration, etc.).
+### Chart of Accounts
 
-### Fee Categories & BAS Account Mapping
+Each club has its own chart of accounts seeded automatically on club creation based on the club's country code. Admins can customize account numbers and names.
 
-Each membership fee has a **category** that maps to a BAS account on the server side:
+**Firestore paths:**
 
-| Category             | BAS Account | Description              |
-| -------------------- | ----------- | ------------------------ |
-| `membership_fee`     | 3010        | Entered membership fees  |
-| `training_fee`       | 3020        | Training & activity fees |
-| `event_fee`          | 3030        | Event participation fees |
-| `sponsorship`        | 3210        | Sponsorship income       |
-| `sales_kiosk`        | 3310        | Sales income (kiosk)     |
-| `other`              | 3890        | Other operating income   |
-| Bank account         | 1930        | Bank (net proceeds)      |
-| Stripe fee           | 6570        | Payment processing fee   |
-| Earmarked (lagkassa) | 2071        | Ringmärkt lagkassa       |
+```
+clubs/{clubId}/
+  accountingConfig/
+    settings/
+      country: string                 # e.g. "SE", "NO"
+      fiscalYearStartMonth: number    # 1 = January
+      vatExempt: boolean
+      chartVersion: number
 
-**Server-side BAS resolution** is in `functions/src/config/accounting.ts`. Frontend category constants (without account codes) are in `constants/feeCategories.ts`.
+  chartOfAccounts/
+    {accountId}/
+      number: number                  # e.g. 1930, 3010
+      name: string                    # e.g. "Bankgiro"
+      type: AccountType               # "Asset"|"Liability"|"Equity"|"Revenue"|"Expense"
+      vatRate: 0|6|12|25             # VAT percentage
+      taxExempt: boolean
+      categoryMapping: string|null    # FeeCategory key or null
+      isActive: boolean
+      isSystem: boolean               # system accounts cannot be deactivated or have vatRate changed
+```
 
-#### Earmarking
+**AccountType:** `"Asset" | "Liability" | "Equity" | "Revenue" | "Expense"`
 
-Fees with categories `sales_kiosk` or `other` can optionally be **earmarked** to a specific group. When earmarked, the revenue is booked to account 2071 (ringmärkt lagkassa) instead of the default BAS account.
+**Default charts by country** (`functions/src/config/accounting.ts`):
+
+| Country | Standard       | Bank | Example Revenue                    |
+| ------- | -------------- | ---- | ---------------------------------- |
+| SE      | BAS-kontoplan  | 1930 | 3010 (membership), 3020 (training) |
+| NO      | Norsk standard | 1920 | 3100 (membership)                  |
+| Other   | Generic EU     | 1200 | 4100 (membership)                  |
+
+**Backwards compatibility**: `resolveClubAccountNumbers()` falls back to the hardcoded BAS defaults (1930, 6570, etc.) for clubs that have no chart in Firestore. New clubs are seeded on-demand via `seedClubAccountingConfig()`.
+
+### Fee Categories & Account Resolution
+
+Each membership fee has a **category** that maps to a revenue account. Resolution is done by `resolveClubAccountNumbers()` in `functions/src/accounting/chartOfAccounts.ts`:
+
+1. Load chart from `clubs/{clubId}/chartOfAccounts/`
+2. Find the account whose `categoryMapping` equals the fee's category (for revenue)
+3. Find the account with `id === "bank"` (for bank amount)
+4. Find the account with `id === "payment_fee"` (for Stripe processing fee)
+5. If chart is missing, fall back to legacy BAS constants
+
+**Example SE defaults:**
+
+| Category         | BAS Account | Description              |
+| ---------------- | ----------- | ------------------------ |
+| `membership_fee` | 3010        | Entered membership fees  |
+| `training_fee`   | 3020        | Training & activity fees |
+| `event_fee`      | 3030        | Event participation fees |
+| `sponsorship`    | 3210        | Sponsorship income       |
+| `sales_kiosk`    | 3310        | Sales income (kiosk)     |
+| `other`          | 3890        | Other operating income   |
+| Bank account     | 1930        | Bank (net proceeds)      |
+| Stripe fee       | 6570        | Payment processing fee   |
 
 ### Verification Data Model
 
@@ -18074,9 +18114,11 @@ clubs/{clubId}/
       verNumber: number          # Sequential, assigned atomically
       date: Timestamp
       description: string        # e.g. "Payment: Membership Fee Q1"
-      sourceType: "payment" | "refund"
+      sourceType: "stripe_payment" | "stripe_refund"
       feeId: string
       paymentIntentId: string
+      category: string | null    # FeeCategory
+      memberName: string | null
       lines: VerificationLine[]
       createdAt: Timestamp
 
@@ -18089,9 +18131,10 @@ Each verification line:
 
 ```typescript
 interface VerificationLine {
-  account: number; // BAS account code
+  account: number; // account code
   debit: number; // Amount in öre (1/100 SEK)
   credit: number; // Amount in öre
+  description: string;
 }
 ```
 
@@ -18107,39 +18150,45 @@ Credit 3010  50000   (membership income: 500.00 SEK)
 
 Verifications are created automatically from Stripe webhook events in `functions/src/stripe/stripeWebhookHandler.ts`:
 
-- **`checkout.session.completed`** → Creates a payment verification
+- **`checkout.session.completed`** → Creates a payment verification using `resolveClubAccountNumbers(db, clubId, fee.category)`
 - **`charge.refunded`** → Creates a reversal verification (debits/credits swapped)
 
 The exact Stripe fee is fetched from the Stripe API via `balance_transaction` on the connected account. Accounting errors are **wrapped in try/catch** and never fail the payment flow.
 
 **Platform webhook** events (no `event.account`) pass `""` as accountId — balance_transaction fetch is skipped and Stripe fee is recorded as 0.
 
+### Export Formats
+
+All export formats are available to all clubs — no country filtering.
+
+| Format    | Description                                       | File extension |
+| --------- | ------------------------------------------------- | -------------- |
+| CSV       | Universal spreadsheet                             | `.csv`         |
+| SIE 4E    | Swedish bookkeeping standard (Fortnox, Visma, BL) | `.se`          |
+| SAF-T XML | EU/Norway audit standard                          | `.xml`         |
+
+Export is handled by `exportAccountingData` (Cloud Function in `functions/src/accounting/exportAccountingData.ts`). On web, files are downloaded via Blob; on native, exported via `expo-file-system` + `expo-sharing`.
+
 ### Backend Functions
 
-| Function             | File                                              | Description                                                      |
-| -------------------- | ------------------------------------------------- | ---------------------------------------------------------------- |
-| `getAccountingData`  | `functions/src/accounting/getAccountingData.ts`   | Fetch verifications for a club (optional date range)             |
-| `generateSIEExport`  | `functions/src/accounting/generateSIEExport.ts`   | Generate SIE 4 format string for a fiscal year                   |
-| `createVerification` | `functions/src/accounting/verificationService.ts` | Internal helper — atomic sequential ver number + Firestore write |
-
-### SIE 4 Format
-
-The generated SIE file is a UTF-8 (PC8) encoded text file with:
-
-- `#FLAGGA`, `#FORMAT PC8`, `#SIETYP 4`, `#PROGRAM`, `#GEN`, `#FNAMN`, `#RAR` headers
-- `#KONTO` declarations for each BAS account used
-- `#VER` + `#TRANS` entries for each verification
-- CRLF line endings, amounts in kronor (öre ÷ 100)
+| Function               | File                                               | Description                                                      |
+| ---------------------- | -------------------------------------------------- | ---------------------------------------------------------------- |
+| `getAccountingData`    | `functions/src/accounting/getAccountingData.ts`    | Fetch verifications for a club (optional date range)             |
+| `exportAccountingData` | `functions/src/accounting/exportAccountingData.ts` | Export verifications as CSV, SIE, or SAF-T (club admin only)     |
+| `getChartOfAccounts`   | `functions/src/accounting/chartOfAccounts.ts`      | Fetch or seed-on-demand the club's chart of accounts             |
+| `updateChartAccount`   | `functions/src/accounting/chartOfAccounts.ts`      | Update an account's number, name, isActive, vatRate              |
+| `createVerification`   | `functions/src/accounting/verificationService.ts`  | Internal helper — atomic sequential ver number + Firestore write |
 
 ### Frontend Screens
 
-| Screen      | Path                  | Description                                     |
-| ----------- | --------------------- | ----------------------------------------------- |
-| Create Fee  | `app/create-fee.tsx`  | Create fee with category chips + earmark toggle |
-| Manage Fees | `app/manage-fees.tsx` | List fees, edit title/desc/dueDate, close fee   |
-| Accounting  | `app/accounting.tsx`  | Year selector, verification list, SIE export    |
+| Screen              | Path                          | Description                                                |
+| ------------------- | ----------------------------- | ---------------------------------------------------------- |
+| Accounting          | `app/accounting.tsx`          | P&L summary, verification list, multi-format export picker |
+| Accounting Settings | `app/accounting-settings.tsx` | View and edit the club's chart of accounts                 |
+| Create Fee          | `app/create-fee.tsx`          | Create fee with category chips + earmark toggle            |
+| Manage Fees         | `app/manage-fees.tsx`         | List fees, edit title/desc/dueDate, close fee              |
 
-The Accounting screen is accessible from **Club Settings → Accounting**. On web, SIE export triggers a blob download; on native, it uses `expo-file-system` + `expo-sharing`.
+Both Accounting screens are accessible from **Club Settings → Accounting** / **Club Settings → Chart of Accounts**.
 
 ---
 

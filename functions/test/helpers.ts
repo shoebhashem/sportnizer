@@ -219,22 +219,31 @@ export async function callFunction<T = any>(
  * Call a function and expect it to fail with a specific error code.
  */
 export async function expectFunctionError(
-  functionName: string,
-  idToken: string,
-  data: Record<string, any>,
-  expectedCode: string,
+  functionNameOrPromise: string | Promise<any>,
+  idTokenOrCode: string,
+  data?: Record<string, any>,
+  expectedCode?: string,
 ): Promise<FunctionError> {
+  let promise: Promise<any>;
+  let code: string;
+
+  if (typeof functionNameOrPromise === "string") {
+    promise = callFunction(functionNameOrPromise, idTokenOrCode, data!);
+    code = expectedCode!;
+  } else {
+    promise = functionNameOrPromise;
+    code = idTokenOrCode;
+  }
+
   try {
-    await callFunction(functionName, idToken, data);
-    throw new Error(
-      `Expected function "${functionName}" to throw ${expectedCode} but it succeeded`,
-    );
+    await promise;
+    throw new Error(`Expected function to throw ${code} but it succeeded`);
   } catch (error) {
     if (error instanceof FunctionError) {
       // Normalize: emulator returns underscores (permission_denied),
       // Firebase SDK uses hyphens (permission-denied). Accept both.
       const normalise = (s: string) => s.toLowerCase().replace(/-/g, "_");
-      expect(normalise(error.code)).toContain(normalise(expectedCode));
+      expect(normalise(error.code)).toContain(normalise(code));
       return error;
     }
     throw error;

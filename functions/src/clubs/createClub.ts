@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { seedClubAccountingConfig } from "../accounting/chartOfAccounts";
 import { STRIPE_CONFIG } from "../config/stripe";
 import { config } from "../utils/config";
 import { checkClubLimit, DEFAULT_LIMITS } from "../utils/limits";
@@ -129,6 +130,14 @@ export const createClub = onCall(
         createdAt: FieldValue.serverTimestamp(),
         version: 1,
       });
+
+      // Seed the chart of accounts and accounting config for this club
+      try {
+        await seedClubAccountingConfig(db, clubRef.id, country);
+      } catch (accountingErr) {
+        // Non-critical: log but don't fail club creation
+        console.error("Failed to seed accounting config:", accountingErr);
+      }
 
       // Increment user's active clubs counter
       await userRef.update({

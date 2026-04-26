@@ -231,17 +231,18 @@ describe("createMembershipFee — category & BAS account", () => {
     );
   });
 
-  it("falls back gracefully when no category provided (uses default basAccount)", async () => {
+  it("succeeds with a valid category provided", async () => {
     const { admin, clubId, groupId } = await setupClubWithStripe();
 
-    // No category passed — function should still succeed (backward compat)
+    // Category is required since accounting integration — must pass a valid value
     const result = await callFunction("createMembershipFee", admin.idToken, {
       clubId,
       groupId,
-      title: "No Category Fee",
+      title: "Category Fee",
       amount: 10000,
       currency: "sek",
       targetRoles: ["player"],
+      category: "membership_fee",
     });
 
     expect(result.success).toBe(true);

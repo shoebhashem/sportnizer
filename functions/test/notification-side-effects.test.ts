@@ -337,6 +337,7 @@ describe("Suite Q: Notification Side-Effects Across Cloud Functions", () => {
       amount: 50000, // 500.00 SEK
       currency: "sek",
       targetRoles: ["player"],
+      category: "membership_fee",
     });
 
     expect(result.success).toBe(true);

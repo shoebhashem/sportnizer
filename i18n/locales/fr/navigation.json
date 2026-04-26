@@ -51,6 +51,8 @@
     "selectEventMembers": "Sélectionner les membres",
     "createFee": "Créer une cotisation",
     "manageFees": "Gérer les cotisations",
-    "accounting": "Comptabilité"
+    "accounting": "Comptabilité",
+    "accountingSettings": "Paramètres comptables",
+    "chartOfAccounts": "Plan comptable"
   }
 }

@@ -643,7 +643,9 @@
     "manageFees": "Gestisci quote",
     "manageFeesDesc": "Visualizza, modifica e chiudi le richieste di pagamento",
     "accounting": "Contabilità",
-    "accountingDesc": "Registrazioni contabili ed esportazione SIE"
+    "accountingDesc": "Registrazioni contabili ed esportazione SIE",
+    "manageGroups": "Gestisci gruppi",
+    "manageGroupsDesc": "Aggiungi o rimuovi gruppi in questo club"
   },
   "clubInfo": {
     "loadingClubInfo": "Caricamento info club...",
@@ -1290,16 +1292,39 @@
   },
   "accounting": {
     "title": "Contabilità",
-    "exportSIE": "Esporta SIE",
+    "export": "Esporta",
+    "selectFormat": "Seleziona formato di esportazione",
+    "csvDesc": "Formato foglio di calcolo universale",
+    "sieDesc": "Standard contabile svedese (SIE 4E)",
+    "saftDesc": "Standard di revisione EU/Norvegia (SAF-T XML)",
     "sharingNotAvailable": "La condivisione non è disponibile su questo dispositivo",
     "noVerifications": "Nessuna registrazione trovata per {{year}}",
     "totalVerifications": "Registrazioni",
-    "totalDebit": "Totale dare",
-    "totalCredit": "Totale avere",
+    "revenue": "Entrate",
+    "expenses": "Spese",
+    "netResult": "Risultato netto",
     "payment": "Pagamento",
     "refund": "Rimborso",
     "account": "Conto",
     "debit": "Dare",
     "credit": "Avere"
+  },
+  "accountingSettings": {
+    "title": "Impostazioni contabili",
+    "chartOfAccounts": "Piano dei conti",
+    "chartOfAccountsDesc": "Personalizza numeri e nomi dei conti",
+    "settingsTitle": "Impostazioni contabili",
+    "country": "Paese",
+    "vatExempt": "Esente IVA",
+    "editHint": "Tocca l'icona a matita per modificare un numero o un nome di conto.",
+    "accountNumber": "Numero",
+    "accountName": "Nome",
+    "vat": "IVA",
+    "taxExempt": "Esente IVA",
+    "system": "Sistema",
+    "save": "Salva",
+    "invalidAccountNumber": "Il numero del conto deve essere compreso tra 1 e 99999.",
+    "accountNameRequired": "Il nome del conto non può essere vuoto.",
+    "cannotDeactivateBank": "Il conto bancario non può essere disattivato."
   }
 }

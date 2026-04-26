@@ -37,6 +37,9 @@ const deleteMembershipFeeFn = httpsCallable(functions, "deleteMembershipFee");
 const updateMembershipFeeFn = httpsCallable(functions, "updateMembershipFee");
 const getAccountingDataFn = httpsCallable(functions, "getAccountingData");
 const generateSIEExportFn = httpsCallable(functions, "generateSIEExport");
+const exportAccountingDataFn = httpsCallable(functions, "exportAccountingData");
+const getChartOfAccountsFn = httpsCallable(functions, "getChartOfAccounts");
+const updateChartAccountFn = httpsCallable(functions, "updateChartAccount");
 
 // Types
 export interface PendingPayment {
@@ -552,6 +555,57 @@ export const paymentService = {
   }> {
     try {
       const result = await generateSIEExportFn({ clubId, year });
+      return result.data as any;
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async exportAccountingData(
+    clubId: string,
+    year: number,
+    format: "csv" | "sie" | "saft",
+  ): Promise<{
+    success: boolean;
+    content?: string;
+    filename?: string;
+    error?: string;
+  }> {
+    try {
+      const result = await exportAccountingDataFn({ clubId, year, format });
+      return result.data as any;
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getChartOfAccounts(clubId: string): Promise<{
+    success: boolean;
+    settings?: Record<string, any>;
+    accounts?: any[];
+    error?: string;
+  }> {
+    try {
+      const result = await getChartOfAccountsFn({ clubId });
+      return result.data as any;
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async updateChartAccount(
+    clubId: string,
+    accountId: string,
+    updates: {
+      number?: number;
+      name?: string;
+      isActive?: boolean;
+      vatRate?: number;
+      taxExempt?: boolean;
+    },
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await updateChartAccountFn({ clubId, accountId, updates });
       return result.data as any;
     } catch (error: any) {
       return { success: false, error: error.message };

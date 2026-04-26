@@ -625,7 +625,9 @@
     "manageFees": "Gérer les cotisations",
     "manageFeesDesc": "Voir, modifier et clôturer les demandes de paiement",
     "accounting": "Comptabilité",
-    "accountingDesc": "Écritures comptables et export SIE"
+    "accountingDesc": "Écritures comptables et export SIE",
+    "manageGroups": "Gérer les groupes",
+    "manageGroupsDesc": "Ajouter ou supprimer des groupes dans ce club"
   },
   "clubInfo": {
     "loadingClubInfo": "Chargement des infos du club...",
@@ -1272,16 +1274,39 @@
   },
   "accounting": {
     "title": "Comptabilité",
-    "exportSIE": "Exporter SIE",
+    "export": "Exporter",
+    "selectFormat": "Choisir le format d'export",
+    "csvDesc": "Format tableur universel",
+    "sieDesc": "Standard comptable suédois (SIE 4E)",
+    "saftDesc": "Standard d'audit EU/Norvège (SAF-T XML)",
     "sharingNotAvailable": "Le partage n'est pas disponible sur cet appareil",
     "noVerifications": "Aucune écriture trouvée pour {{year}}",
     "totalVerifications": "Écritures",
-    "totalDebit": "Débit total",
-    "totalCredit": "Crédit total",
+    "revenue": "Revenus",
+    "expenses": "Dépenses",
+    "netResult": "Résultat net",
     "payment": "Paiement",
     "refund": "Remboursement",
     "account": "Compte",
     "debit": "Débit",
     "credit": "Crédit"
+  },
+  "accountingSettings": {
+    "title": "Paramètres comptables",
+    "chartOfAccounts": "Plan comptable",
+    "chartOfAccountsDesc": "Personnaliser les numéros et noms de comptes",
+    "settingsTitle": "Paramètres comptables",
+    "country": "Pays",
+    "vatExempt": "Exonéré de TVA",
+    "editHint": "Appuyez sur l'icône crayon pour modifier un numéro ou un nom de compte.",
+    "accountNumber": "Numéro",
+    "accountName": "Nom",
+    "vat": "TVA",
+    "taxExempt": "Exonéré de TVA",
+    "system": "Système",
+    "save": "Enregistrer",
+    "invalidAccountNumber": "Le numéro de compte doit être compris entre 1 et 99999.",
+    "accountNameRequired": "Le nom du compte ne peut pas être vide.",
+    "cannotDeactivateBank": "Le compte bancaire ne peut pas être désactivé."
   }
 }

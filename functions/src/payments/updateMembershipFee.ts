@@ -1,5 +1,5 @@
 import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 
@@ -70,9 +70,7 @@ export const updateMembershipFee = onCall(
     }
 
     if (dueDate !== undefined) {
-      update.dueDate = dueDate
-        ? admin.firestore.Timestamp.fromDate(new Date(dueDate))
-        : null;
+      update.dueDate = dueDate ? Timestamp.fromDate(new Date(dueDate)) : null;
     }
 
     await feeRef.update(update);

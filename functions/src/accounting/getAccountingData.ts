@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 
@@ -71,18 +72,10 @@ export const getAccountingData = onCall(
       .orderBy("date", "desc");
 
     if (fromDate) {
-      query = query.where(
-        "date",
-        ">=",
-        admin.firestore.Timestamp.fromDate(new Date(fromDate)),
-      );
+      query = query.where("date", ">=", Timestamp.fromDate(new Date(fromDate)));
     }
     if (toDate) {
-      query = query.where(
-        "date",
-        "<=",
-        admin.firestore.Timestamp.fromDate(new Date(toDate)),
-      );
+      query = query.where("date", "<=", Timestamp.fromDate(new Date(toDate)));
     }
 
     const snap = await query.limit(500).get();

@@ -41,6 +41,8 @@
     "createFee": "Create Fee",
     "manageFees": "Manage Fees",
     "accounting": "Accounting",
+    "accountingSettings": "Account Settings",
+    "chartOfAccounts": "Chart of Accounts",
     "trackPayments": "Track Payments",
     "stripeOnboarding": "Payment Setup",
     "stripeReturn": "Stripe Return",

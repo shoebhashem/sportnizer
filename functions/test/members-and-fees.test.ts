@@ -525,6 +525,7 @@ describe("Membership Fees", () => {
       amount: 50000, // 500.00 SEK in smallest unit
       currency: "sek",
       targetRoles: ["player"],
+      category: "membership_fee",
     });
 
     expect(result.success).toBe(true);
@@ -553,6 +554,7 @@ describe("Membership Fees", () => {
         amount: 10000,
         currency: "sek",
         targetRoles: ["player"],
+        category: "membership_fee",
       },
       "permission-denied",
     );
@@ -612,6 +614,7 @@ describe("Membership Fees", () => {
       amount: 30000,
       currency: "sek",
       targetRoles: ["player"],
+      category: "membership_fee",
     });
 
     // List fees

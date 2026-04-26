@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import Stripe from "stripe";
+import { resolveClubAccountNumbers } from "../accounting/chartOfAccounts";
 import { createVerification } from "../accounting/verificationService";
 import { config } from "../utils/config";
 
@@ -496,7 +497,13 @@ async function handleChargeRefunded(
       .doc(paymentData.feeId)
       .get();
     const fee = feeDoc.data() ?? {};
-    const basAccount: number = fee.basAccount ?? 3890;
+
+    // Resolve account numbers from the club's chart
+    const {
+      revenueAccount: refundRevenueAccount,
+      bankAccount: refundBankAccount,
+      paymentFeeAccount: refundFeeAccount,
+    } = await resolveClubAccountNumbers(db, paymentData.clubId, fee.category);
 
     // Get the gross amount from the charge (in cents/öre)
     const grossAmount = charge.amount;
@@ -528,7 +535,7 @@ async function handleChargeRefunded(
       description: `Återbetalning: ${fee.title ?? paymentData.feeId}`,
       lines: [
         {
-          account: basAccount,
+          account: refundRevenueAccount,
           debit: grossAmount,
           credit: 0,
           description: "Återföring intäkt",
@@ -536,7 +543,7 @@ async function handleChargeRefunded(
         ...(stripeFee > 0
           ? [
               {
-                account: 6570,
+                account: refundFeeAccount,
                 debit: 0,
                 credit: stripeFee,
                 description: "Återföring Stripe-avgift",
@@ -544,7 +551,7 @@ async function handleChargeRefunded(
             ]
           : []),
         {
-          account: 1930,
+          account: refundBankAccount,
           debit: 0,
           credit: netAmount,
           description: "Stripe utbetalning återbetald",
@@ -559,7 +566,7 @@ async function handleChargeRefunded(
       feeId: paymentData.feeId,
       feeTitle: fee.title,
       category: fee.category,
-      basAccount,
+      basAccount: refundRevenueAccount,
       earmarkedGroupId: fee.earmarkedGroupId,
       memberId: paymentData.beneficiaryId,
       memberName: paymentData.beneficiaryName,
@@ -769,20 +776,23 @@ async function createAccountingVerification({
   stripe,
   stripeAccountId,
 }: AccountingVerificationInput): Promise<void> {
-  // 1. Fetch the fee to get basAccount / category
+  // 1. Fetch the fee to get category
   const feeDoc = await db.collection("membershipFees").doc(feeId).get();
   const fee = feeDoc.data() ?? {};
-  const basAccount: number = fee.basAccount ?? 3890;
 
-  // 2. Gross amount is the checkout amount_total (in smallest unit)
+  // 2. Resolve account numbers from the club's chart of accounts
+  //    Falls back gracefully to BAS defaults for clubs without a chart.
+  const { revenueAccount, bankAccount, paymentFeeAccount } =
+    await resolveClubAccountNumbers(db, clubId, fee.category);
+
+  // 3. Gross amount is the checkout amount_total (in smallest currency unit)
   const grossAmount = session.amount_total ?? 0;
   if (grossAmount <= 0) return;
 
-  // 3. Fetch balance_transaction from the connected account to get exact Stripe fee
+  // 4. Fetch balance_transaction from the connected account to get exact Stripe fee
   let stripeFee = 0;
   if (stripeAccountId) {
     try {
-      // The payment_intent on the session lives on the connected account
       const pi = await stripe.paymentIntents.retrieve(
         session.payment_intent as string,
         { stripeAccount: stripeAccountId },
@@ -819,9 +829,12 @@ async function createAccountingVerification({
   const memberName: string =
     paymentData.beneficiaryName ?? paymentData.payerName ?? "Okänd medlem";
 
+  // 5. Build double-entry lines
+  //    Debit: bank (net) + payment fee (Stripe cost)
+  //    Credit: revenue account (gross)
   const lines = [
     {
-      account: 1930,
+      account: bankAccount,
       debit: netAmount,
       credit: 0,
       description: "Stripe net (bank)",
@@ -829,7 +842,7 @@ async function createAccountingVerification({
     ...(stripeFee > 0
       ? [
           {
-            account: 6570,
+            account: paymentFeeAccount,
             debit: stripeFee,
             credit: 0,
             description: "Stripe-avgift",
@@ -837,7 +850,7 @@ async function createAccountingVerification({
         ]
       : []),
     {
-      account: basAccount,
+      account: revenueAccount,
       debit: 0,
       credit: grossAmount,
       description: fee.title ?? feeId,
@@ -858,7 +871,7 @@ async function createAccountingVerification({
     feeId,
     feeTitle: fee.title,
     category: fee.category,
-    basAccount,
+    basAccount: revenueAccount,
     earmarkedGroupId: fee.earmarkedGroupId,
     memberId: beneficiaryId,
     memberName,

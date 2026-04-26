@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 
@@ -48,12 +49,8 @@ export const generateSIEExport = onCall(
     const clubName = clubDoc.data()?.name ?? "Unknown Club";
 
     // Fetch verifications for the fiscal year
-    const from = admin.firestore.Timestamp.fromDate(
-      new Date(`${fiscalYear}-01-01T00:00:00Z`),
-    );
-    const to = admin.firestore.Timestamp.fromDate(
-      new Date(`${fiscalYear}-12-31T23:59:59Z`),
-    );
+    const from = Timestamp.fromDate(new Date(`${fiscalYear}-01-01T00:00:00Z`));
+    const to = Timestamp.fromDate(new Date(`${fiscalYear}-12-31T23:59:59Z`));
 
     const snap = await db
       .collection("clubs")

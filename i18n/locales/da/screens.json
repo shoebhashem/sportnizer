@@ -625,7 +625,9 @@
     "manageFees": "Administrer gebyrer",
     "manageFeesDesc": "Se, rediger og luk betalingsanmodninger",
     "accounting": "Regnskab",
-    "accountingDesc": "Bogføringsbilag og SIE-eksport"
+    "accountingDesc": "Bogføringsbilag og SIE-eksport",
+    "manageGroups": "Administrer grupper",
+    "manageGroupsDesc": "Tilføj eller fjern grupper i denne klub"
   },
   "clubInfo": {
     "loadingClubInfo": "Indlæser klubinfo...",
@@ -1272,16 +1274,39 @@
   },
   "accounting": {
     "title": "Regnskab",
-    "exportSIE": "Eksporter SIE",
+    "export": "Eksporter",
+    "selectFormat": "Vælg eksportformat",
+    "csvDesc": "Universelt regnearkformat",
+    "sieDesc": "Svensk regnskabsstandard (SIE 4E)",
+    "saftDesc": "EU/Norge revisionsstandard (SAF-T XML)",
     "sharingNotAvailable": "Deling er ikke tilgængelig på denne enhed",
     "noVerifications": "Ingen bilag fundet for {{year}}",
     "totalVerifications": "Bilag",
-    "totalDebit": "Samlet debet",
-    "totalCredit": "Samlet kredit",
+    "revenue": "Indtægter",
+    "expenses": "Udgifter",
+    "netResult": "Resultat",
     "payment": "Betaling",
     "refund": "Refusion",
     "account": "Konto",
     "debit": "Debet",
     "credit": "Kredit"
+  },
+  "accountingSettings": {
+    "title": "Regnskabsindstillinger",
+    "chartOfAccounts": "Kontoplan",
+    "chartOfAccountsDesc": "Tilpas kontonumre og kontonavne",
+    "settingsTitle": "Regnskabsindstillinger",
+    "country": "Land",
+    "vatExempt": "Momsfritaget",
+    "editHint": "Tryk på blyantikonet for at redigere et kontonummer eller navn.",
+    "accountNumber": "Nummer",
+    "accountName": "Navn",
+    "vat": "Moms",
+    "taxExempt": "Momsfri",
+    "system": "System",
+    "save": "Gem",
+    "invalidAccountNumber": "Kontonummeret skal være mellem 1 og 99999.",
+    "accountNameRequired": "Kontonavnet må ikke være tomt.",
+    "cannotDeactivateBank": "Bankkontoen kan ikke deaktiveres."
   }
 }

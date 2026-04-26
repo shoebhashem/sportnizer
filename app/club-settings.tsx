@@ -64,6 +64,9 @@ export default function ClubSettingsScreen() {
   );
   const isStripeEnabled = stripeAccountStatus === "active";
 
+  // Manage Groups expandable section
+  const [manageGroupsExpanded, setManageGroupsExpanded] = useState(false);
+
   // Set dynamic header with club name
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -359,33 +362,103 @@ export default function ClubSettingsScreen() {
 
         {/* Settings Options */}
         <View style={styles.optionsContainer}>
-          {/* Add Group Option - Only for Club Admin */}
+          {/* Manage Groups — expandable section (Add Group + Delete Group) */}
           {isClubAdmin && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={handleAddGroup}
+            <View
+              style={[
+                styles.optionItem,
+                manageGroupsExpanded && styles.optionItemExpanded,
+              ]}
             >
-              <View style={styles.optionIcon}>
+              {/* Header row — tap to expand/collapse */}
+              <TouchableOpacity
+                style={styles.expandableHeader}
+                onPress={() => setManageGroupsExpanded((v) => !v)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons
+                    name="people-outline"
+                    size={24}
+                    color={theme.colors.secondary}
+                  />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text style={styles.optionTitle}>
+                    {t("screens:clubSettings.manageGroups")}
+                  </Text>
+                  <Text style={styles.optionDescription}>
+                    {t("screens:clubSettings.manageGroupsDesc")}
+                  </Text>
+                </View>
                 <Ionicons
-                  name="add-circle-outline"
-                  size={24}
-                  color={theme.colors.secondary}
+                  name={manageGroupsExpanded ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color={theme.colors.textSecondary}
                 />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>
-                  {t("screens:clubSettings.addGroup")}
-                </Text>
-                <Text style={styles.optionDescription}>
-                  {t("screens:clubSettings.addGroupDesc")}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
+              </TouchableOpacity>
+
+              {/* Expanded sub-options */}
+              {manageGroupsExpanded && (
+                <View style={styles.subOptionsContainer}>
+                  {/* Add Group */}
+                  <TouchableOpacity
+                    style={styles.subOptionItem}
+                    onPress={handleAddGroup}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={20}
+                      color={theme.colors.secondary}
+                    />
+                    <View style={styles.subOptionContent}>
+                      <Text style={styles.subOptionTitle}>
+                        {t("screens:clubSettings.addGroup")}
+                      </Text>
+                      <Text style={styles.subOptionDescription}>
+                        {t("screens:clubSettings.addGroupDesc")}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Delete Group */}
+                  {!isScheduledForDeletion && (
+                    <TouchableOpacity
+                      style={styles.subOptionItem}
+                      onPress={() =>
+                        router.push(
+                          `/manage-club?clubId=${clubId}&tab=groups&deleteMode=true` as any,
+                        )
+                      }
+                    >
+                      <Ionicons
+                        name="trash-bin-outline"
+                        size={20}
+                        color={theme.colors.secondary}
+                      />
+                      <View style={styles.subOptionContent}>
+                        <Text style={styles.subOptionTitle}>
+                          {t("screens:clubSettings.deleteGroup")}
+                        </Text>
+                        <Text style={styles.subOptionDescription}>
+                          {t("screens:clubSettings.deleteGroupDesc")}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
           )}
 
           {/* Add Club Admin Option - Only for Club Admin */}
@@ -604,39 +677,6 @@ export default function ClubSettingsScreen() {
                 </Text>
                 <Text style={styles.optionDescription}>
                   {t("screens:clubSettings.accountingDesc")}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Delete Group Option - Navigate to manage-club to select group */}
-          {isClubAdmin && !isScheduledForDeletion && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() =>
-                router.push(
-                  `/manage-club?clubId=${clubId}&tab=groups&deleteMode=true` as any,
-                )
-              }
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="trash-bin-outline"
-                  size={24}
-                  color={theme.colors.secondary}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>
-                  {t("screens:clubSettings.deleteGroup")}
-                </Text>
-                <Text style={styles.optionDescription}>
-                  {t("screens:clubSettings.deleteGroupDesc")}
                 </Text>
               </View>
               <Ionicons
@@ -1022,6 +1062,44 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: theme.colors.error,
+  },
+  optionItemExpanded: {
+    flexDirection: "column",
+    alignItems: "stretch",
+  },
+  expandableHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+  },
+  subOptionsContainer: {
+    marginTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.inputBorder,
+    paddingTop: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
+  subOptionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.small,
+    backgroundColor: theme.colors.primary,
+    gap: theme.spacing.sm,
+  },
+  subOptionContent: {
+    flex: 1,
+  },
+  subOptionTitle: {
+    fontSize: theme.typography.fontSize.medium,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.text,
+  },
+  subOptionDescription: {
+    fontSize: theme.typography.fontSize.small,
+    color: theme.colors.textSecondary,
+    marginTop: 1,
   },
   adminPickerItem: {
     flexDirection: "row",

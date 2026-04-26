@@ -603,7 +603,9 @@
     "manageFees": "Hantera avgifter",
     "manageFeesDesc": "Visa, redigera och stäng betalningsförfrågningar",
     "accounting": "Bokföring",
-    "accountingDesc": "Bokföringsverifikationer och SIE-export"
+    "accountingDesc": "Bokföringsverifikationer och SIE-export",
+    "manageGroups": "Hantera grupper",
+    "manageGroupsDesc": "Lägg till eller ta bort grupper i denna klubb"
   },
   "clubInfo": {
     "loadingClubInfo": "Laddar klubbinfo...",
@@ -1227,16 +1229,39 @@
   },
   "accounting": {
     "title": "Bokföring",
-    "exportSIE": "Exportera SIE",
+    "export": "Exportera",
+    "selectFormat": "Välj exportformat",
+    "csvDesc": "Universellt kalkylformat",
+    "sieDesc": "Svensk bokföringsstandard (SIE 4E)",
+    "saftDesc": "EU/Norge revisionsstandard (SAF-T XML)",
     "sharingNotAvailable": "Delning är inte tillgänglig på den här enheten",
     "noVerifications": "Inga verifikationer hittades för {{year}}",
     "totalVerifications": "Verifikationer",
-    "totalDebit": "Total debet",
-    "totalCredit": "Total kredit",
+    "revenue": "Intäkter",
+    "expenses": "Kostnader",
+    "netResult": "Resultat",
     "payment": "Betalning",
     "refund": "Återbetalning",
     "account": "Konto",
     "debit": "Debet",
     "credit": "Kredit"
+  },
+  "accountingSettings": {
+    "title": "Bokföringsinställningar",
+    "chartOfAccounts": "Kontoplan",
+    "chartOfAccountsDesc": "Anpassa kontonummer och kontonamn",
+    "settingsTitle": "Bokföringsinställningar",
+    "country": "Land",
+    "vatExempt": "Momsbefrielse",
+    "editHint": "Tryck på pennan för att redigera ett kontonummer eller namn.",
+    "accountNumber": "Nummer",
+    "accountName": "Namn",
+    "vat": "Moms",
+    "taxExempt": "Momsfri",
+    "system": "System",
+    "save": "Spara",
+    "invalidAccountNumber": "Kontonumret måste vara mellan 1 och 99999.",
+    "accountNameRequired": "Kontonamnet kan inte vara tomt.",
+    "cannotDeactivateBank": "Bankkontot kan inte inaktiveras."
   }
 }

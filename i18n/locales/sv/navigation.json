@@ -51,6 +51,8 @@
     "selectEventMembers": "Välj medlemmar",
     "createFee": "Skapa avgift",
     "manageFees": "Hantera avgifter",
-    "accounting": "Bokföring"
+    "accounting": "Bokföring",
+    "accountingSettings": "Kontoinställningar",
+    "chartOfAccounts": "Kontoplan"
   }
 }

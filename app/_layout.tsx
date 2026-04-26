@@ -550,6 +550,30 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="accounting-settings"
+        options={{
+          headerShown: true,
+          title: t("screens.accountingSettings"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="chart-of-accounts"
+        options={{
+          headerShown: true,
+          title: t("screens.chartOfAccounts"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
         name="create-news"
         options={{
           headerShown: false,

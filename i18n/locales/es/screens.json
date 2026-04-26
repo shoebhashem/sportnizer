@@ -643,7 +643,9 @@
     "manageFees": "Gestionar cuotas",
     "manageFeesDesc": "Ver, editar y cerrar solicitudes de pago",
     "accounting": "Contabilidad",
-    "accountingDesc": "Asientos contables y exportación SIE"
+    "accountingDesc": "Asientos contables y exportación SIE",
+    "manageGroups": "Gestionar grupos",
+    "manageGroupsDesc": "Añadir o eliminar grupos en este club"
   },
   "clubInfo": {
     "loadingClubInfo": "Cargando info del club...",
@@ -1290,16 +1292,39 @@
   },
   "accounting": {
     "title": "Contabilidad",
-    "exportSIE": "Exportar SIE",
+    "export": "Exportar",
+    "selectFormat": "Seleccionar formato de exportación",
+    "csvDesc": "Formato de hoja de cálculo universal",
+    "sieDesc": "Estándar contable sueco (SIE 4E)",
+    "saftDesc": "Estándar de auditoría EU/Noruega (SAF-T XML)",
     "sharingNotAvailable": "Compartir no está disponible en este dispositivo",
     "noVerifications": "No se encontraron asientos para {{year}}",
     "totalVerifications": "Asientos",
-    "totalDebit": "Débito total",
-    "totalCredit": "Crédito total",
+    "revenue": "Ingresos",
+    "expenses": "Gastos",
+    "netResult": "Resultado neto",
     "payment": "Pago",
     "refund": "Reembolso",
     "account": "Cuenta",
     "debit": "Débito",
     "credit": "Crédito"
+  },
+  "accountingSettings": {
+    "title": "Configuración contable",
+    "chartOfAccounts": "Plan de cuentas",
+    "chartOfAccountsDesc": "Personalizar números y nombres de cuentas",
+    "settingsTitle": "Configuración contable",
+    "country": "País",
+    "vatExempt": "Exento de IVA",
+    "editHint": "Toca el icono de lápiz para editar un número o nombre de cuenta.",
+    "accountNumber": "Número",
+    "accountName": "Nombre",
+    "vat": "IVA",
+    "taxExempt": "Exento de IVA",
+    "system": "Sistema",
+    "save": "Guardar",
+    "invalidAccountNumber": "El número de cuenta debe estar entre 1 y 99999.",
+    "accountNameRequired": "El nombre de cuenta no puede estar vacío.",
+    "cannotDeactivateBank": "La cuenta bancaria no puede desactivarse."
   }
 }

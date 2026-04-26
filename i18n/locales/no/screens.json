@@ -625,7 +625,9 @@
     "manageFees": "Administrer avgifter",
     "manageFeesDesc": "Se, rediger og lukk betalingskrav",
     "accounting": "Regnskap",
-    "accountingDesc": "Bokføringsbilag og SIE-eksport"
+    "accountingDesc": "Bokføringsbilag og SIE-eksport",
+    "manageGroups": "Administrer grupper",
+    "manageGroupsDesc": "Legg til eller fjern grupper i denne klubben"
   },
   "clubInfo": {
     "loadingClubInfo": "Laster klubbinfo...",
@@ -1272,16 +1274,39 @@
   },
   "accounting": {
     "title": "Regnskap",
-    "exportSIE": "Eksporter SIE",
+    "export": "Eksporter",
+    "selectFormat": "Velg eksportformat",
+    "csvDesc": "Universelt regnearkformat",
+    "sieDesc": "Svensk bokføringsstandard (SIE 4E)",
+    "saftDesc": "EU/Norge revisjonsstandard (SAF-T XML)",
     "sharingNotAvailable": "Deling er ikke tilgjengelig på denne enheten",
     "noVerifications": "Ingen bilag funnet for {{year}}",
     "totalVerifications": "Bilag",
-    "totalDebit": "Total debet",
-    "totalCredit": "Total kredit",
+    "revenue": "Inntekter",
+    "expenses": "Kostnader",
+    "netResult": "Resultat",
     "payment": "Betaling",
     "refund": "Refusjon",
     "account": "Konto",
     "debit": "Debet",
     "credit": "Kredit"
+  },
+  "accountingSettings": {
+    "title": "Regnskapsinnstillinger",
+    "chartOfAccounts": "Kontoplan",
+    "chartOfAccountsDesc": "Tilpass kontonumre og kontonavn",
+    "settingsTitle": "Regnskapsinnstillinger",
+    "country": "Land",
+    "vatExempt": "MVA-fritatt",
+    "editHint": "Trykk på blyantikonet for å redigere et kontonummer eller navn.",
+    "accountNumber": "Nummer",
+    "accountName": "Navn",
+    "vat": "MVA",
+    "taxExempt": "MVA-fritatt",
+    "system": "System",
+    "save": "Lagre",
+    "invalidAccountNumber": "Kontonummeret må være mellom 1 og 99999.",
+    "accountNameRequired": "Kontonavnet kan ikke være tomt.",
+    "cannotDeactivateBank": "Bankkontoen kan ikke deaktiveres."
   }
 }

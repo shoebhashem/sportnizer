@@ -51,6 +51,8 @@
     "selectEventMembers": "Seleccionar miembros",
     "createFee": "Crear cuota",
     "manageFees": "Gestionar cuotas",
-    "accounting": "Contabilidad"
+    "accounting": "Contabilidad",
+    "accountingSettings": "Configuración contable",
+    "chartOfAccounts": "Plan de cuentas"
   }
 }

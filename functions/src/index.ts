@@ -158,6 +158,11 @@ export { getUserPendingPayments } from "./payments/getUserPendingPayments";
 export { updateMembershipFee } from "./payments/updateMembershipFee";
 
 // Accounting Functions
+export {
+    getChartOfAccounts,
+    updateChartAccount
+} from "./accounting/chartOfAccounts";
+export { exportAccountingData } from "./accounting/exportAccountingData";
 export { generateSIEExport } from "./accounting/generateSIEExport";
 export { getAccountingData } from "./accounting/getAccountingData";
 

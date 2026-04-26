@@ -51,6 +51,8 @@
     "selectEventMembers": "Mitglieder auswählen",
     "createFee": "Beitrag erstellen",
     "manageFees": "Beiträge verwalten",
-    "accounting": "Buchhaltung"
+    "accounting": "Buchhaltung",
+    "accountingSettings": "Konteneinstellungen",
+    "chartOfAccounts": "Kontenrahmen"
   }
 }

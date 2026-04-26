@@ -643,7 +643,9 @@
     "manageFees": "Beiträge verwalten",
     "manageFeesDesc": "Zahlungsanforderungen ansehen, bearbeiten und schließen",
     "accounting": "Buchhaltung",
-    "accountingDesc": "Buchungsbelege und SIE-Export"
+    "accountingDesc": "Buchungsbelege und SIE-Export",
+    "manageGroups": "Gruppen verwalten",
+    "manageGroupsDesc": "Gruppen in diesem Verein hinzufügen oder entfernen"
   },
   "clubInfo": {
     "loadingClubInfo": "Vereinsinfo wird geladen...",
@@ -1290,16 +1292,39 @@
   },
   "accounting": {
     "title": "Buchhaltung",
-    "exportSIE": "SIE exportieren",
+    "export": "Exportieren",
+    "selectFormat": "Exportformat wählen",
+    "csvDesc": "Universelles Tabellenformat",
+    "sieDesc": "Schwedischer Buchführungsstandard (SIE 4E)",
+    "saftDesc": "EU/Norwegen Prüfungsstandard (SAF-T XML)",
     "sharingNotAvailable": "Teilen ist auf diesem Gerät nicht verfügbar",
     "noVerifications": "Keine Buchungsbelege für {{year}} gefunden",
     "totalVerifications": "Belege",
-    "totalDebit": "Soll gesamt",
-    "totalCredit": "Haben gesamt",
+    "revenue": "Einnahmen",
+    "expenses": "Ausgaben",
+    "netResult": "Ergebnis",
     "payment": "Zahlung",
     "refund": "Rückerstattung",
     "account": "Konto",
     "debit": "Soll",
     "credit": "Haben"
+  },
+  "accountingSettings": {
+    "title": "Buchhaltungseinstellungen",
+    "chartOfAccounts": "Kontenrahmen",
+    "chartOfAccountsDesc": "Kontonummern und -namen anpassen",
+    "settingsTitle": "Buchhaltungseinstellungen",
+    "country": "Land",
+    "vatExempt": "Mehrwertsteuerbefreit",
+    "editHint": "Tippen Sie auf das Stiftsymbol, um eine Kontonummer oder einen Namen zu bearbeiten.",
+    "accountNumber": "Nummer",
+    "accountName": "Name",
+    "vat": "MwSt",
+    "taxExempt": "Steuerbefreit",
+    "system": "System",
+    "save": "Speichern",
+    "invalidAccountNumber": "Die Kontonummer muss zwischen 1 und 99999 liegen.",
+    "accountNameRequired": "Der Kontoname darf nicht leer sein.",
+    "cannotDeactivateBank": "Das Bankkonto kann nicht deaktiviert werden."
   }
 }
