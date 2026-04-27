@@ -9,6 +9,7 @@ import { NewsProvider } from "@/contexts/NewsContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { UserProvider } from "@/contexts/UserContext";
 import "@/i18n";
+import { markNotificationAsRead } from "@/services/fetchNotifications";
 import { setupNotificationChannels } from "@/services/pushNotificationService";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
@@ -24,6 +25,16 @@ import { Platform, TouchableOpacity } from "react-native";
 // without needing to be added to their dependency arrays.
 // ---------------------------------------------------------------------------
 function redirectFromNotification(data: Record<string, unknown>) {
+  // Mark the corresponding bell notification as read when the user taps the push
+  if (
+    typeof data.notificationId === "string" &&
+    typeof data.userId === "string"
+  ) {
+    markNotificationAsRead(data.userId, data.notificationId).catch(() => {
+      // Non-fatal — bell will still update on next sync
+    });
+  }
+
   if (data.route && typeof data.route === "string") {
     const params =
       data.routeParams && typeof data.routeParams === "object"

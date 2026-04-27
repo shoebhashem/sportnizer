@@ -268,6 +268,8 @@ export const createNotificationDirect = async (
       sourceId: notificationData.sourceId ?? null,
       clubId: notificationData.clubId,
       groupId: notificationData.groupId ?? null,
+      notificationId: notificationRef.id,
+      userId: userId,
     },
   }).catch((err) => console.error("❌ Push send failed (non-fatal):", err));
 

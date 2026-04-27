@@ -1684,7 +1684,10 @@ const CHANNEL_MAP = {
 4. **`addNotificationResponseReceivedListener`** — handles background/foreground taps (after the app is already running), deep-links via `router.push(actionUrl)`
 5. **Logout cleanup** — `removePushTokenFromFirestore()` called when user signs out
 
-Both (3) and (4) use a shared `redirectFromNotification(data)` helper that checks for `data.actionUrl` (primary deep-link URL). Navigation triggers only on `actionIdentifier === DEFAULT_ACTION_IDENTIFIER` (standard tap; excludes custom action buttons).
+Both (3) and (4) use a shared `redirectFromNotification(data)` helper that:
+- Calls `markNotificationAsRead(userId, notificationId)` using the `userId` and `notificationId` fields embedded in the push `data` payload — this marks the corresponding in-app bell notification as read immediately when the user taps the push
+- Deep-links via `router.push(data.actionUrl)`
+- Triggers only on `actionIdentifier === DEFAULT_ACTION_IDENTIFIER` (standard tap; excludes custom action buttons)
 
 **Cold-Start Handler Pattern (Per Expo Docs)**:
 
@@ -1709,12 +1712,13 @@ useEffect(() => {
 
 ### Key Files
 
-| File                                                  | Purpose                                                     |
-| ----------------------------------------------------- | ----------------------------------------------------------- |
-| `services/pushNotificationService.ts`                 | Frontend: token registration, channel setup, Firestore CRUD |
-| `functions/src/notifications/sendPushNotification.ts` | Backend: Expo Push API dispatch, token cleanup              |
-| `functions/src/notifications/createNotification.ts`   | Orchestrator: Firestore write → push dispatch               |
-| `functions/test/push-notifications.test.ts`           | Suite R: 10 backend integration tests                       |
+| File                                                  | Purpose                                                                                   |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `services/pushNotificationService.ts`                 | Frontend: token registration, channel setup, Firestore CRUD                               |
+| `services/fetchNotifications.ts`                      | Frontend: notification CRUD, real-time bell listener, `markNotificationAsRead()`          |
+| `functions/src/notifications/sendPushNotification.ts` | Backend: Expo Push API dispatch, token cleanup                                            |
+| `functions/src/notifications/createNotification.ts`   | Orchestrator: Firestore write → push dispatch (embeds `notificationId`+`userId` in data)  |
+| `functions/test/push-notifications.test.ts`           | Suite R: 10 backend integration tests                                                     |
 
 ### Graceful Degradation
 

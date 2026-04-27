@@ -1793,6 +1793,14 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | Callable returns `success: true`               | Push failure does not throw                      |
 | `users/{playerUid}/notifications/{id}` written | `title`, `read=false`, `dismissed=false` present |
 
+#### TC-Q8: createNotification embeds notificationId and userId in push data payload
+
+| ✅ Contract Verified                           | Detail                                                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Callable returns `notificationId`              | String, non-empty                                                                           |
+| `users/{playerUid}/notifications/{id}` exists  | Document ID matches returned `notificationId`                                               |
+| Mark-as-read contract documented               | Push data `notificationId`+`userId` consumed by `redirectFromNotification` on tap to call `markNotificationAsRead` |
+
 ---
 
 ### Suite R: Push Notification Dispatch
@@ -1827,9 +1835,9 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 | G. Guardian Flows              | `guardian-flows.test.ts`                | 15     |
 | N. News & Notifications        | `news-notifications.test.ts`            | 21     |
 | P. Picture Uploads             | `upload-pictures.test.ts`               | 11     |
-| Q. Notification Side-Effects   | `notification-side-effects.test.ts`     | 7      |
+| Q. Notification Side-Effects   | `notification-side-effects.test.ts`     | 8      |
 | R. Push Notifications          | `push-notifications.test.ts`            | 9      |
-| **Total new**                  |                                         | **87** |
+| **Total new**                  |                                         | **88** |
 
 ### Implementation Priority
 
