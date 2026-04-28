@@ -77,6 +77,11 @@ export default function NewsDetailsScreen() {
     string | null
   >(null);
   const [showReadByModal, setShowReadByModal] = useState(false);
+  // Guard against double-write: userProfile loads asynchronously, causing this
+  // effect to fire twice (once with userProfile=null, once after it resolves).
+  // Without the guard, two different readBy objects get written (one with
+  // userName, one without), showing "Unknown user" in the Reads modal.
+  const hasMarkedAsRead = React.useRef(false);
 
   useEffect(() => {
     loadNewsDetails();
@@ -85,7 +90,13 @@ export default function NewsDetailsScreen() {
 
   // Mark as read when viewing
   useEffect(() => {
-    if (news && user && !hasUserReadNews(news, user.uid)) {
+    if (
+      news &&
+      user &&
+      !hasMarkedAsRead.current &&
+      !hasUserReadNews(news, user.uid)
+    ) {
+      hasMarkedAsRead.current = true;
       markNewsAsRead(clubId, newsId, user.uid, userProfile?.displayName).catch(
         (err) => console.error("Failed to mark as read:", err),
       );

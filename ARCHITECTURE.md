@@ -1685,6 +1685,7 @@ const CHANNEL_MAP = {
 5. **Logout cleanup** — `removePushTokenFromFirestore()` called when user signs out
 
 Both (3) and (4) use a shared `redirectFromNotification(data)` helper that:
+
 - Calls `markNotificationAsRead(userId, notificationId)` using the `userId` and `notificationId` fields embedded in the push `data` payload — this marks the corresponding in-app bell notification as read immediately when the user taps the push
 - Deep-links via `router.push(data.actionUrl)`
 - Triggers only on `actionIdentifier === DEFAULT_ACTION_IDENTIFIER` (standard tap; excludes custom action buttons)
@@ -1712,13 +1713,13 @@ useEffect(() => {
 
 ### Key Files
 
-| File                                                  | Purpose                                                                                   |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `services/pushNotificationService.ts`                 | Frontend: token registration, channel setup, Firestore CRUD                               |
-| `services/fetchNotifications.ts`                      | Frontend: notification CRUD, real-time bell listener, `markNotificationAsRead()`          |
-| `functions/src/notifications/sendPushNotification.ts` | Backend: Expo Push API dispatch, token cleanup                                            |
-| `functions/src/notifications/createNotification.ts`   | Orchestrator: Firestore write → push dispatch (embeds `notificationId`+`userId` in data)  |
-| `functions/test/push-notifications.test.ts`           | Suite R: 10 backend integration tests                                                     |
+| File                                                  | Purpose                                                                                  |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `services/pushNotificationService.ts`                 | Frontend: token registration, channel setup, Firestore CRUD                              |
+| `services/fetchNotifications.ts`                      | Frontend: notification CRUD, real-time bell listener, `markNotificationAsRead()`         |
+| `functions/src/notifications/sendPushNotification.ts` | Backend: Expo Push API dispatch, token cleanup                                           |
+| `functions/src/notifications/createNotification.ts`   | Orchestrator: Firestore write → push dispatch (embeds `notificationId`+`userId` in data) |
+| `functions/test/push-notifications.test.ts`           | Suite R: 10 backend integration tests                                                    |
 
 ### Graceful Degradation
 
@@ -12592,7 +12593,7 @@ app/news-details.tsx
 **Features:**
 
 - Full news content display
-- Mark as read on view
+- Mark as read on view (guarded by a `useRef` flag to ensure `markNewsAsRead` is called at most once per screen mount, preventing a double-write race condition caused by `userProfile` loading asynchronously after `news` and writing two separate `readBy` entries)
 - Edit/Delete for authorized users
 - Share functionality
 - Creator info and timestamp

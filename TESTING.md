@@ -1795,11 +1795,11 @@ Same as TC-C2 with `role: "admin"`. Same assertions.
 
 #### TC-Q8: createNotification embeds notificationId and userId in push data payload
 
-| ✅ Contract Verified                           | Detail                                                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Callable returns `notificationId`              | String, non-empty                                                                           |
-| `users/{playerUid}/notifications/{id}` exists  | Document ID matches returned `notificationId`                                               |
-| Mark-as-read contract documented               | Push data `notificationId`+`userId` consumed by `redirectFromNotification` on tap to call `markNotificationAsRead` |
+| ✅ Contract Verified                          | Detail                                                                                                             |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Callable returns `notificationId`             | String, non-empty                                                                                                  |
+| `users/{playerUid}/notifications/{id}` exists | Document ID matches returned `notificationId`                                                                      |
+| Mark-as-read contract documented              | Push data `notificationId`+`userId` consumed by `redirectFromNotification` on tap to call `markNotificationAsRead` |
 
 ---
 
