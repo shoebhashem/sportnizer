@@ -24,7 +24,23 @@ import { Platform, TouchableOpacity } from "react-native";
 // Defined at module level so it can be called from multiple useEffect hooks
 // without needing to be added to their dependency arrays.
 // ---------------------------------------------------------------------------
-function redirectFromNotification(data: Record<string, unknown>) {
+
+// When the app is in background (suspended but not killed), both
+// useLastNotificationResponse and addNotificationResponseReceivedListener fire
+// for the same tap. This set deduplicates them so only the first handler wins.
+const handledNotificationRequestIds = new Set<string>();
+
+function redirectFromNotification(
+  data: Record<string, unknown>,
+  requestId?: string,
+) {
+  // Deduplicate: if we've already handled this notification request, bail out.
+  // Both cold-start and background handlers can fire for the same tap.
+  if (requestId) {
+    if (handledNotificationRequestIds.has(requestId)) return;
+    handledNotificationRequestIds.add(requestId);
+  }
+
   // Mark the corresponding bell notification as read when the user taps the push
   if (
     typeof data.notificationId === "string" &&
@@ -129,8 +145,10 @@ function RootLayoutNav() {
         Notifications.DEFAULT_ACTION_IDENTIFIER
     ) {
       const data = lastNotificationResponse.notification.request.content.data;
+      const requestId =
+        lastNotificationResponse.notification.request.identifier;
       if (data) {
-        redirectFromNotification(data);
+        redirectFromNotification(data, requestId);
         Notifications.clearLastNotificationResponse();
       }
     }
@@ -147,8 +165,9 @@ function RootLayoutNav() {
         )
           return;
         const data = response.notification.request.content.data;
+        const requestId = response.notification.request.identifier;
         if (!data) return;
-        redirectFromNotification(data);
+        redirectFromNotification(data, requestId);
       },
     );
     return () => subscription.remove();
