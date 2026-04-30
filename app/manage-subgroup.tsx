@@ -9,7 +9,11 @@ import { useGroupData } from "@/contexts/GroupDataContext";
 import { useUser } from "@/contexts/UserContext";
 import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { GroupMemberData } from "@/services/types/group";
-import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
+import {
+    canManageGroup,
+    isClubAdmin,
+    isGroupMember,
+} from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -56,6 +60,11 @@ export default function ManageSubgroupScreen() {
     [userProfile, clubId],
   );
 
+  const isMember = useMemo(
+    () => isGroupMember(userProfile, clubId as string, groupId as string),
+    [userProfile, clubId, groupId],
+  );
+
   const loading = !group;
   const [selectedMember, setSelectedMember] = useState<GroupMemberData | null>(
     null,
@@ -90,13 +99,14 @@ export default function ManageSubgroupScreen() {
   }, [displaySubgroupName, canManage, navigation, groupId, clubId, subgroupId]);
 
   const handleMemberPress = (member: GroupMemberData) => {
-    if (canManage) {
+    if (canManage || isMember) {
       setSelectedMember(member);
       setShowMemberModal(true);
     }
   };
 
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
+    const canTap = canManage || isMember;
     const content = (
       <>
         <Image
@@ -111,7 +121,7 @@ export default function ManageSubgroupScreen() {
             {item.roles.join(", ")} {item.needsGuardian && "(Child/Youth)"}
           </Text>
         </View>
-        {canManage && (
+        {canTap && (
           <Ionicons
             name="chevron-forward"
             size={20}
@@ -121,7 +131,7 @@ export default function ManageSubgroupScreen() {
       </>
     );
 
-    if (canManage) {
+    if (canTap) {
       return (
         <TouchableOpacity
           style={styles.memberItem}
@@ -276,6 +286,7 @@ export default function ManageSubgroupScreen() {
           initialPhotoURL={selectedMember.photoURL}
           isYouth={selectedMember.needsGuardian}
           isAdminViewing={canManage}
+          isPeerViewing={!canManage && isMember}
         />
       )}
     </View>

@@ -63,7 +63,8 @@
     "editProfile": "Profil bearbeiten",
     "updateFailed": "Profil konnte nicht aktualisiert werden",
     "inactiveMember": "Inaktives Mitglied",
-    "scheduledDeletion": "Kontodaten werden am {{date}} endgültig gelöscht."
+    "scheduledDeletion": "Kontodaten werden am {{date}} dauerhaft gelöscht.",
+    "openWhatsApp": "In WhatsApp öffnen"
   },
   "groupFilterBar": {
     "searchPlaceholder": "Gruppen suchen…",
@@ -135,6 +136,11 @@
     "later": "Später",
     "paymentError": "Zahlungsfehler"
   },
+  "phoneInput": {
+    "selectCountryCode": "Ländervorwahl auswählen",
+    "search": "Suchen..."
+  },
+
   "dropdownInput": {
     "selectAnOption": "Option auswählen"
   },

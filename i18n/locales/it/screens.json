@@ -187,7 +187,7 @@
     "email": "Email",
     "phone": "Telefono",
     "enterYourName": "Inserisci il tuo nome",
-    "enterPhoneNumber": "Inserisci numero di telefono",
+    "enterPhoneNumber": "+prefisso internazionale numero (es. +39 312 345 6789)",
     "notSet": "Non impostato",
     "groups": "Gruppi",
     "signOut": "Esci",

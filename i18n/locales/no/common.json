@@ -138,6 +138,7 @@
     "missingInformation": "Manglende informasjon",
     "validationError": "Valideringsfeil",
     "invalidEmail": "Vennligst oppgi en gyldig e-postadresse",
+    "invalidPhone": "Telefonnummer må starte med landkode, f.eks. +47 70 12 34 56",
     "passwordTooShort": "Passordet er for kort",
     "passwordMismatch": "Passordene stemmer ikke overens",
     "requiredField": "Dette feltet er obligatorisk"

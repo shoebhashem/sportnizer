@@ -114,6 +114,36 @@ export const getMemberContactDetails = onCall(
         }
       }
 
+      // Check if caller is a group member (player) viewing a fellow group member
+      // Both caller and target must be active members of the same group
+      if (!hasPermission && groupId && callerClubAccess?.groupAccess) {
+        const callerGroupAccess = callerClubAccess.groupAccess.find(
+          (ga: any) => ga.groupId === groupId && ga.isActive !== false,
+        );
+        if (callerGroupAccess?.roles?.length > 0) {
+          // Verify the target is also a member of this group
+          const membersDoc = await db
+            .collection("clubs")
+            .doc(clubId)
+            .collection("groups")
+            .doc(groupId)
+            .collection("allMembers")
+            .doc("members")
+            .get();
+          const membersData = membersDoc.exists ? membersDoc.data() : null;
+          const memberList: any[] = membersData?.members || [];
+          const targetIsInGroup = memberList.some(
+            (m: any) => m.userId === userId,
+          );
+          if (targetIsInGroup) {
+            hasPermission = true;
+            console.log(
+              `[getMemberContactDetails] Caller is a group peer (role: ${callerGroupAccess.roles.join(", ")})`,
+            );
+          }
+        }
+      }
+
       // If no groupId provided, only club-admin can access
       if (!groupId && !hasPermission) {
         throw new HttpsError(

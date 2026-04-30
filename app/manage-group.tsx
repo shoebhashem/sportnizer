@@ -329,14 +329,14 @@ export default function ManageGroupScreen() {
   };
 
   const handleMemberPress = (member: GroupMemberData) => {
-    if (canManage || isGuardianOf(member.userId)) {
+    if (canManage || isGuardianOf(member.userId) || isMember) {
       setSelectedMember(member);
       setShowMemberModal(true);
     }
   };
 
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
-    const canTap = canManage || isGuardianOf(item.userId);
+    const canTap = canManage || isGuardianOf(item.userId) || isMember;
     const isInactive = item.isActive === false;
     const content = (
       <>
@@ -620,6 +620,9 @@ export default function ManageGroupScreen() {
           isYouth={selectedMember.needsGuardian}
           isGuardianViewing={isGuardianOf(selectedMember.userId)}
           isAdminViewing={canManage}
+          isPeerViewing={
+            !canManage && !isGuardianOf(selectedMember.userId) && isMember
+          }
           isInactive={selectedMember.isActive === false}
           scheduledForDeletion={selectedMember.scheduledForDeletion}
         />

@@ -67,7 +67,8 @@
     "editProfile": "Edit Profile",
     "updateFailed": "Failed to update profile",
     "inactiveMember": "Inactive Member",
-    "scheduledDeletion": "Account data will be permanently deleted on {{date}}."
+    "scheduledDeletion": "Account data will be permanently deleted on {{date}}.",
+    "openWhatsApp": "Open in WhatsApp"
   },
 
   "groupFilterBar": {
@@ -144,6 +145,11 @@
     "processing": "Processing...",
     "later": "Later",
     "paymentError": "Payment Error"
+  },
+
+  "phoneInput": {
+    "selectCountryCode": "Select country code",
+    "search": "Search..."
   },
 
   "dropdownInput": {

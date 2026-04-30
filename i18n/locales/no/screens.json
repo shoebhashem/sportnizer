@@ -187,7 +187,7 @@
     "email": "E-post",
     "phone": "Telefon",
     "enterYourName": "Skriv inn navnet ditt",
-    "enterPhoneNumber": "Skriv inn telefonnummer",
+    "enterPhoneNumber": "+landkode nummer (f.eks. +47 70 12 34 56)",
     "notSet": "Ikke angitt",
     "groups": "Grupper",
     "signOut": "Logg ut",

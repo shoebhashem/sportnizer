@@ -183,7 +183,7 @@
     "email": "E-post",
     "phone": "Telefon",
     "enterYourName": "Ange ditt namn",
-    "enterPhoneNumber": "Ange telefonnummer",
+    "enterPhoneNumber": "+landskod nummer (t.ex. +46 70 123 45 67)",
     "notSet": "Ej angivet",
     "groups": "Grupper",
     "signOut": "Logga ut",

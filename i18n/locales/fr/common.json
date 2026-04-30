@@ -138,6 +138,7 @@
     "missingInformation": "Informations manquantes",
     "validationError": "Erreur de validation",
     "invalidEmail": "Veuillez entrer une adresse e-mail valide",
+    "invalidPhone": "Le numéro doit commencer par l'indicatif pays, ex. +33 6 12 34 56 78",
     "passwordTooShort": "Mot de passe trop court",
     "passwordMismatch": "Les mots de passe ne correspondent pas",
     "requiredField": "Ce champ est obligatoire"

@@ -63,7 +63,8 @@
     "editProfile": "Redigera profil",
     "updateFailed": "Kunde inte uppdatera profilen",
     "inactiveMember": "Inaktiv medlem",
-    "scheduledDeletion": "Kontodata raderas permanent den {{date}}."
+    "scheduledDeletion": "Kontodata raderas permanent den {{date}}.",
+    "openWhatsApp": "Öppna i WhatsApp"
   },
   "groupFilterBar": {
     "searchPlaceholder": "Sök bland grupper…",
@@ -135,6 +136,11 @@
     "later": "Senare",
     "paymentError": "Betalningsfel"
   },
+  "phoneInput": {
+    "selectCountryCode": "Välj landskod",
+    "search": "Sök..."
+  },
+
   "dropdownInput": {
     "selectAnOption": "Välj ett alternativ"
   },

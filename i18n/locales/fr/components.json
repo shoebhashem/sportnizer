@@ -59,7 +59,8 @@
     "guardianContacts": "Contacts des tuteurs",
     "noGuardianInfo": "Aucune information de tuteur disponible",
     "inactiveMember": "Membre inactif",
-    "scheduledDeletion": "Les données du compte seront définitivement supprimées le {{date}}."
+    "scheduledDeletion": "Les données du compte seront définitivement supprimées le {{date}}.",
+    "openWhatsApp": "Ouvrir dans WhatsApp"
   },
   "groupFilterBar": {
     "searchPlaceholder": "Rechercher des groupes…",
@@ -131,6 +132,11 @@
     "later": "Plus tard",
     "paymentError": "Erreur de paiement"
   },
+  "phoneInput": {
+    "selectCountryCode": "Sélectionner l'indicatif pays",
+    "search": "Rechercher..."
+  },
+
   "dropdownInput": {
     "selectAnOption": "Sélectionner une option"
   },

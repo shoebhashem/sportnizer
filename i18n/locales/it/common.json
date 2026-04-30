@@ -122,6 +122,7 @@
     "missingInformation": "Informazioni mancanti",
     "validationError": "Errore di validazione",
     "invalidEmail": "Inserisci un indirizzo email valido",
+    "invalidPhone": "Il numero deve iniziare con il prefisso internazionale, es. +39 312 345 6789",
     "passwordTooShort": "Password troppo corta",
     "passwordMismatch": "Le password non coincidono",
     "requiredField": "Questo campo è obbligatorio"

@@ -63,7 +63,8 @@
     "editProfile": "Editar perfil",
     "updateFailed": "Error al actualizar el perfil",
     "inactiveMember": "Miembro inactivo",
-    "scheduledDeletion": "Los datos de la cuenta se eliminarán permanentemente el {{date}}."
+    "scheduledDeletion": "Los datos de la cuenta se eliminarán permanentemente el {{date}}.",
+    "openWhatsApp": "Abrir en WhatsApp"
   },
   "groupFilterBar": {
     "searchPlaceholder": "Buscar grupos…",
@@ -135,6 +136,11 @@
     "later": "Más tarde",
     "paymentError": "Error de pago"
   },
+  "phoneInput": {
+    "selectCountryCode": "Seleccionar código de país",
+    "search": "Buscar..."
+  },
+
   "dropdownInput": {
     "selectAnOption": "Seleccionar una opción"
   },

@@ -155,6 +155,7 @@
     "missingInformation": "Missing Information",
     "validationError": "Validation Error",
     "invalidEmail": "Please enter a valid email address",
+    "invalidPhone": "Phone number must start with a country code, e.g. +46 70 123 45 67",
     "passwordTooShort": "Password Too Short",
     "passwordMismatch": "Password Mismatch",
     "requiredField": "This field is required"

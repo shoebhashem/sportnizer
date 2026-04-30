@@ -187,7 +187,7 @@
     "email": "E-Mail",
     "phone": "Telefon",
     "enterYourName": "Ihren Namen eingeben",
-    "enterPhoneNumber": "Telefonnummer eingeben",
+    "enterPhoneNumber": "+Ländervorwahl Nummer (z.B. +49 170 1234567)",
     "notSet": "Nicht festgelegt",
     "groups": "Gruppen",
     "signOut": "Abmelden",

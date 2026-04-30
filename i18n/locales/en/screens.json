@@ -207,7 +207,7 @@
     "email": "Email",
     "phone": "Phone",
     "enterYourName": "Enter your name",
-    "enterPhoneNumber": "Enter phone number",
+    "enterPhoneNumber": "+countrycode number (e.g. +46 70 123 45 67)",
     "notSet": "Not set",
     "groups": "Groups",
     "signOut": "Sign Out",

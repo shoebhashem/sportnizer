@@ -138,6 +138,7 @@
     "missingInformation": "Saknad information",
     "validationError": "Valideringsfel",
     "invalidEmail": "Ange en giltig e-postadress",
+    "invalidPhone": "Telefonnumret måste börja med landskod, t.ex. +46 70 123 45 67",
     "passwordTooShort": "Lösenordet är för kort",
     "passwordMismatch": "Lösenorden matchar inte",
     "requiredField": "Det här fältet är obligatoriskt"

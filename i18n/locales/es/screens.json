@@ -187,7 +187,7 @@
     "email": "Correo electrónico",
     "phone": "Teléfono",
     "enterYourName": "Ingrese su nombre",
-    "enterPhoneNumber": "Ingrese número de teléfono",
+    "enterPhoneNumber": "+código de país número (ej. +34 612 345 678)",
     "notSet": "No establecido",
     "groups": "Grupos",
     "signOut": "Cerrar sesión",

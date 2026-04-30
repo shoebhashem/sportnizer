@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ConfirmationModal from "../components/ConfirmationModal";
 import DropdownInput from "../components/DropdownInput";
 import LegalSettingsSection from "../components/LegalSettingsSection";
+import PhoneInput from "../components/PhoneInput";
 import ProfilePictureUpload from "../components/ProfilePictureUpload";
 import { getDefaultProfilePicture } from "../constants/profilePictures";
 import { theme } from "../constants/theme";
@@ -243,6 +244,18 @@ export default function ProfileScreen() {
         t("screens:profile.displayNameEmpty"),
       );
       return;
+    }
+
+    const trimmedPhone = phoneNumber.trim();
+    if (trimmedPhone) {
+      const digits = trimmedPhone.replace(/\D/g, "");
+      if (digits.length < 7) {
+        showAlert(
+          t("common:validation.validationError"),
+          t("common:validation.invalidPhone"),
+        );
+        return;
+      }
     }
 
     setSaving(true);
@@ -580,14 +593,7 @@ export default function ProfileScreen() {
                   {t("screens:profile.phone")}
                 </Text>
                 {isEditing ? (
-                  <TextInput
-                    style={styles.fieldInput}
-                    value={phoneNumber}
-                    onChangeText={setPhoneNumber}
-                    placeholder={t("screens:profile.enterPhoneNumber")}
-                    placeholderTextColor={theme.colors.textSecondary}
-                    keyboardType="phone-pad"
-                  />
+                  <PhoneInput value={phoneNumber} onChange={setPhoneNumber} />
                 ) : (
                   <Text
                     style={[

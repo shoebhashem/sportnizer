@@ -21,7 +21,9 @@ import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Image,
+    Linking,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -30,6 +32,7 @@ import {
     View,
 } from "react-native";
 import { functions } from "../services/core/firebase";
+import PhoneInput from "./PhoneInput";
 import ProfilePictureUpload from "./ProfilePictureUpload";
 
 interface MemberContactModalProps {
@@ -45,6 +48,8 @@ interface MemberContactModalProps {
   isGuardianViewing?: boolean;
   /** True when the current user is a club-admin or group admin */
   isAdminViewing?: boolean;
+  /** True when the current user is a regular group member viewing a peer (read-only, phone only) */
+  isPeerViewing?: boolean;
   /** True when the member is inactive (soft-deleted, no roles) */
   isInactive?: boolean;
   /** Firestore timestamp — when the member data will be permanently deleted */
@@ -62,6 +67,7 @@ export default function MemberContactModal({
   isYouth = false,
   isGuardianViewing = false,
   isAdminViewing = false,
+  isPeerViewing = false,
   isInactive = false,
   scheduledForDeletion,
 }: MemberContactModalProps) {
@@ -150,6 +156,14 @@ export default function MemberContactModal({
 
   const saveGuardianContact = async () => {
     if (!user?.uid) return;
+    const trimmedPhone = editPhone.trim();
+    if (trimmedPhone) {
+      const digits = trimmedPhone.replace(/\D/g, "");
+      if (digits.length < 7) {
+        setError(t("common:validation.invalidPhone"));
+        return;
+      }
+    }
     setSavingContact(true);
     try {
       const updateFn = httpsCallable(functions, "updateGuardianContactInfo");
@@ -239,6 +253,14 @@ export default function MemberContactModal({
 
   const saveAdminGuardianPhone = async () => {
     if (!editingAdminGuardianUid) return;
+    const trimmedAdminPhone = adminEditPhone.trim();
+    if (trimmedAdminPhone) {
+      const digits = trimmedAdminPhone.replace(/\D/g, "");
+      if (digits.length < 7) {
+        setError(t("common:validation.invalidPhone"));
+        return;
+      }
+    }
     setSavingContact(true);
     try {
       const updateFn = httpsCallable(functions, "updateGuardianContactInfo");
@@ -330,14 +352,7 @@ export default function MemberContactModal({
 
           <View style={styles.editFieldContainer}>
             <Text style={styles.editFieldLabel}>Phone</Text>
-            <TextInput
-              style={styles.editFieldInput}
-              value={editPhone}
-              onChangeText={setEditPhone}
-              placeholder="Phone number"
-              placeholderTextColor={theme.colors.textSecondary}
-              keyboardType="phone-pad"
-            />
+            <PhoneInput value={editPhone} onChange={setEditPhone} />
           </View>
 
           <View style={styles.editButtonRow}>
@@ -381,14 +396,7 @@ export default function MemberContactModal({
             <Text style={styles.editFieldLabel}>
               {t("components:memberContactModal.phone")}
             </Text>
-            <TextInput
-              style={styles.editFieldInput}
-              value={adminEditPhone}
-              onChangeText={setAdminEditPhone}
-              placeholder={t("components:memberContactModal.phone")}
-              placeholderTextColor={theme.colors.textSecondary}
-              keyboardType="phone-pad"
-            />
+            <PhoneInput value={adminEditPhone} onChange={setAdminEditPhone} />
           </View>
 
           <View style={styles.editButtonRow}>
@@ -538,19 +546,20 @@ export default function MemberContactModal({
                         </Text>
                       </View>
                     )}
-                    {/* Camera icon overlay for guardians and admins */}
-                    {(isGuardianViewing || isAdminViewing) && (
-                      <TouchableOpacity
-                        style={styles.cameraOverlay}
-                        onPress={() => setShowPhotoUpload(true)}
-                      >
-                        <Ionicons
-                          name="camera"
-                          size={16}
-                          color={theme.colors.white}
-                        />
-                      </TouchableOpacity>
-                    )}
+                    {/* Camera icon overlay for guardians and admins (not for peer viewers) */}
+                    {(isGuardianViewing || isAdminViewing) &&
+                      !isPeerViewing && (
+                        <TouchableOpacity
+                          style={styles.cameraOverlay}
+                          onPress={() => setShowPhotoUpload(true)}
+                        >
+                          <Ionicons
+                            name="camera"
+                            size={16}
+                            color={theme.colors.white}
+                          />
+                        </TouchableOpacity>
+                      )}
                   </View>
                   <Text style={styles.memberName}>
                     {member.displayName || initialName}
@@ -682,8 +691,9 @@ export default function MemberContactModal({
 
                 {/* Member Info Section */}
                 <View style={styles.infoSection}>
-                  {/* Email - only show for non-youth or if available */}
+                  {/* Email - hidden for peer viewers, shown for admin/guardian/self */}
                   {!member.isYouth &&
+                    !isPeerViewing &&
                     renderFieldRow(
                       <FontAwesome
                         name="envelope"
@@ -694,7 +704,7 @@ export default function MemberContactModal({
                       member.email,
                     )}
 
-                  {/* Phone - only show for non-youth */}
+                  {/* Phone - shown for everyone (non-youth) */}
                   {!member.isYouth &&
                     renderFieldRow(
                       <FontAwesome
@@ -706,16 +716,54 @@ export default function MemberContactModal({
                       member.phoneNumber,
                     )}
 
-                  {/* Date of Birth */}
-                  {renderFieldRow(
-                    <FontAwesome
-                      name="birthday-cake"
-                      size={14}
-                      color={theme.colors.secondary}
-                    />,
-                    t("components:memberContactModal.dateOfBirth"),
-                    formatDateOfBirth(member.dateOfBirth),
-                  )}
+                  {/* WhatsApp button - shown when phone is available and not viewing own card */}
+                  {!member.isYouth &&
+                    member.phoneNumber &&
+                    userId !== user?.uid && (
+                      <TouchableOpacity
+                        style={styles.whatsappRow}
+                        onPress={() => {
+                          const sanitised = member.phoneNumber!.replace(
+                            /[\s\-().+]/g,
+                            "",
+                          );
+                          const url =
+                            Platform.OS === "web"
+                              ? `https://wa.me/${sanitised}`
+                              : `whatsapp://send?phone=${sanitised}`;
+                          Linking.openURL(url).catch(() =>
+                            Linking.openURL(`https://wa.me/${sanitised}`),
+                          );
+                        }}
+                      >
+                        <Ionicons
+                          name="logo-whatsapp"
+                          size={20}
+                          color="#25D366"
+                          style={styles.whatsappIcon}
+                        />
+                        <Text style={styles.whatsappText}>
+                          {t("components:memberContactModal.openWhatsApp")}
+                        </Text>
+                        <Ionicons
+                          name="open-outline"
+                          size={16}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    )}
+
+                  {/* Date of Birth - hidden for peer viewers */}
+                  {!isPeerViewing &&
+                    renderFieldRow(
+                      <FontAwesome
+                        name="birthday-cake"
+                        size={14}
+                        color={theme.colors.secondary}
+                      />,
+                      t("components:memberContactModal.dateOfBirth"),
+                      formatDateOfBirth(member.dateOfBirth),
+                    )}
                 </View>
 
                 {/* Guardian Section - Only for youth */}
@@ -960,6 +1008,26 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: theme.colors.textSecondary,
     fontSize: 14,
+  },
+  // WhatsApp action row
+  whatsappRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+  },
+  whatsappIcon: {
+    width: 28,
+    textAlign: "center",
+  },
+  whatsappText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: "#25D366",
+    fontWeight: "500",
   },
   // Camera overlay on avatar for guardians
   cameraOverlay: {

@@ -59,7 +59,8 @@
     "guardianContacts": "Værgekontakter",
     "noGuardianInfo": "Ingen værgeinformation tilgængelig",
     "inactiveMember": "Inaktivt medlem",
-    "scheduledDeletion": "Kontodata slettes permanent den {{date}}."
+    "scheduledDeletion": "Kontodata slettes permanent den {{date}}.",
+    "openWhatsApp": "Åbn i WhatsApp"
   },
   "groupFilterBar": {
     "searchPlaceholder": "Søg efter grupper…",
@@ -131,6 +132,11 @@
     "later": "Senere",
     "paymentError": "Betalingsfejl"
   },
+  "phoneInput": {
+    "selectCountryCode": "Vælg landekode",
+    "search": "Søg..."
+  },
+
   "dropdownInput": {
     "selectAnOption": "Vælg en mulighed"
   },
