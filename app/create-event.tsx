@@ -664,6 +664,7 @@ export default function CreateEventScreen() {
           type: "success",
         });
         trackEventCreated();
+        setTimeout(() => router.back(), 1500);
       } else {
         // Create single event
         const result = await eventCreationService.createEvent(request);
@@ -683,6 +684,7 @@ export default function CreateEventScreen() {
           type: "success",
         });
         trackEventCreated();
+        setTimeout(() => router.back(), 1500);
       }
     } catch (error) {
       console.error("Error creating event:", error);
@@ -785,6 +787,7 @@ export default function CreateEventScreen() {
         }),
         type: "success",
       });
+      setTimeout(() => router.back(), 1500);
     } catch (error) {
       console.error("Error updating event:", error);
       const errorMessage =
@@ -804,51 +807,7 @@ export default function CreateEventScreen() {
   };
 
   const handleModalClose = () => {
-    if (modal.type === "success") {
-      // Reset form only if creating (not editing)
-      if (!isEditMode) {
-        setEventData({
-          title: "",
-          description: "",
-          startDate: new Date(),
-          startTime: new Date(),
-          gatheringTime: undefined,
-          endDate: (() => {
-            // Initialize endDate to match startDate (same day)
-            return new Date();
-          })(),
-          endTime: (() => {
-            // Initialize endTime based on startTime + default duration (120 min)
-            const time = new Date();
-            time.setMinutes(time.getMinutes() + 120);
-            return time;
-          })(),
-          location: "",
-          type: "practice",
-          mode: "simple", // Default to simple mode
-          duration: 120, // Default 2 hours in minutes
-          capacity: {
-            enabled: false,
-            maxAttendees: undefined,
-          },
-          responseDeadline: {
-            enabled: false, // Default to using event start date as deadline
-            date: undefined,
-          },
-        });
-      } else {
-        // In edit mode, don't reset - just close modal
-        setModal({ ...modal, visible: false });
-      }
-      // Navigate back after edit
-      if (isEditMode) {
-        router.back();
-      } else {
-        router.replace("/(tabs)/" as any);
-      }
-    } else {
-      setModal({ ...modal, visible: false });
-    }
+    setModal({ ...modal, visible: false });
   };
 
   const getButtonLabel = (): string => {
