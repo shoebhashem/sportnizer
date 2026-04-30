@@ -61,6 +61,11 @@
     "inactiveMember": "Membre inactif",
     "scheduledDeletion": "Les données du compte seront définitivement supprimées le {{date}}."
   },
+  "groupFilterBar": {
+    "searchPlaceholder": "Rechercher des groupes…",
+    "allSports": "Tous les sports"
+  },
+
   "memberFilterBar": {
     "all": "Tous",
     "active": "Actifs",
@@ -273,7 +278,7 @@
       "groupEventFab": "Créer des entraînements et matchs",
       "groupNewsFab": "Publier des nouvelles dans le groupe",
       "clubCard": "Appuyez pour gérer les membres et groupes"
-    },
+    }
   },
   "feeCategory": {
     "membershipFee": "Cotisation d'adhésion",

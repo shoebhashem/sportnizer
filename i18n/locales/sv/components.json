@@ -65,6 +65,11 @@
     "inactiveMember": "Inaktiv medlem",
     "scheduledDeletion": "Kontodata raderas permanent den {{date}}."
   },
+  "groupFilterBar": {
+    "searchPlaceholder": "Sök bland grupper…",
+    "allSports": "Alla sporter"
+  },
+
   "memberFilterBar": {
     "all": "Alla",
     "active": "Aktiva",
@@ -277,7 +282,7 @@
       "groupEventFab": "Skapa träningar & matcher",
       "groupNewsFab": "Publicera nyheter i gruppen",
       "clubCard": "Tryck för att hantera medlemmar & grupper"
-    },
+    }
   },
   "feeCategory": {
     "membershipFee": "Medlemsavgift",

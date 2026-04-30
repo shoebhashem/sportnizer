@@ -3,6 +3,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import CountdownTimer from "@/components/CountdownTimer";
 import DeletionConfirmationModal from "@/components/DeletionConfirmationModal";
 import { NewsEventFAB } from "@/components/FloatingActionButton";
+import GroupFilterBar from "@/components/GroupFilterBar";
 import HierarchyBreadcrumb from "@/components/HierarchyBreadcrumb";
 import MemberContactModal from "@/components/MemberContactModal";
 import MemberFilterBar, {
@@ -90,11 +91,17 @@ export default function ManageClubScreen() {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ── Filter state ─────────────────────────────────────────────────
+  // ── Member filter state ───────────────────────────────────────────
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ── Group filter state ────────────────────────────────────────────
+  const [groupStatusFilter, setGroupStatusFilter] =
+    useState<StatusFilter>("active");
+  const [groupSportFilter, setGroupSportFilter] = useState("all");
+  const [groupSearchQuery, setGroupSearchQuery] = useState("");
 
   const clubRoleOptions: RoleOption[] = useMemo(
     () => [
@@ -114,6 +121,50 @@ export default function ManageClubScreen() {
     ],
     [t],
   );
+
+  // Unique sport values present across all loaded groups (case-insensitive dedup)
+  const availableSports = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const g of groups) {
+      if (!g.sport?.trim()) continue;
+      const key = g.sport.trim().toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(g.sport.trim());
+      }
+    }
+    return result;
+  }, [groups]);
+
+  // Derived filtered groups list
+  const filteredGroups = useMemo(() => {
+    let result = groups;
+
+    // Status filter
+    if (groupStatusFilter === "active") {
+      result = result.filter((g) => g.isActive !== false);
+    } else if (groupStatusFilter === "inactive") {
+      result = result.filter((g) => g.isActive === false);
+    }
+
+    // Sport filter
+    if (groupSportFilter !== "all") {
+      result = result.filter(
+        (g) =>
+          g.sport?.trim().toLowerCase() ===
+          groupSportFilter.trim().toLowerCase(),
+      );
+    }
+
+    // Search filter (group name)
+    if (groupSearchQuery.trim()) {
+      const q = groupSearchQuery.trim().toLowerCase();
+      result = result.filter((g) => g.name?.toLowerCase().includes(q));
+    }
+
+    return result;
+  }, [groups, groupStatusFilter, groupSportFilter, groupSearchQuery]);
 
   // Derived filtered member list
   const filteredMembers = useMemo(() => {
@@ -145,8 +196,16 @@ export default function ManageClubScreen() {
     return result;
   }, [contextMembers, statusFilter, roleFilter, searchQuery]);
 
-  const isFilterActive =
+  const isMemberFilterActive =
     statusFilter === "inactive" || roleFilter !== "all" || !!searchQuery.trim();
+
+  const isGroupFilterActive =
+    groupStatusFilter !== "active" ||
+    groupSportFilter !== "all" ||
+    !!groupSearchQuery.trim();
+
+  const isFilterActive =
+    activeTab === "members" ? isMemberFilterActive : isGroupFilterActive;
 
   const fetchAllData = useCallback(async () => {
     if (!clubId || typeof clubId !== "string") return;
@@ -638,7 +697,7 @@ export default function ManageClubScreen() {
               activeTab === "groups" && styles.activeTabText,
             ]}
           >
-            {t("screens:manageClub.groups")} ({groups.length})
+            {t("screens:manageClub.groups")} ({filteredGroups.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -653,6 +712,17 @@ export default function ManageClubScreen() {
           availableRoles={clubRoleOptions}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+        />
+      )}
+      {showFilters && activeTab === "groups" && (
+        <GroupFilterBar
+          statusFilter={groupStatusFilter}
+          onStatusChange={setGroupStatusFilter}
+          sportFilter={groupSportFilter}
+          onSportChange={setGroupSportFilter}
+          availableSports={availableSports}
+          searchQuery={groupSearchQuery}
+          onSearchChange={setGroupSearchQuery}
         />
       )}
     </>
@@ -687,7 +757,7 @@ export default function ManageClubScreen() {
         />
       ) : (
         <FlatList
-          data={groups}
+          data={filteredGroups}
           renderItem={renderGroupItem}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={listHeader}

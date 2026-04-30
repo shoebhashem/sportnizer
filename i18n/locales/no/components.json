@@ -61,6 +61,11 @@
     "inactiveMember": "Inaktivt medlem",
     "scheduledDeletion": "Kontodata slettes permanent den {{date}}."
   },
+  "groupFilterBar": {
+    "searchPlaceholder": "Søk etter grupper…",
+    "allSports": "Alle idretter"
+  },
+
   "memberFilterBar": {
     "all": "Alle",
     "active": "Aktive",
@@ -273,7 +278,7 @@
       "groupEventFab": "Opprett treninger og kamper",
       "groupNewsFab": "Post nyheter i gruppen",
       "clubCard": "Trykk for å administrere medlemmer og grupper"
-    },
+    }
   },
   "feeCategory": {
     "membershipFee": "Medlemsavgift",
