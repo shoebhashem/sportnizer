@@ -1,5 +1,6 @@
 import Button from "@/components/Button";
 import { NewsEventFAB } from "@/components/FloatingActionButton";
+import HierarchyBreadcrumb from "@/components/HierarchyBreadcrumb";
 import MemberContactModal from "@/components/MemberContactModal";
 import MemberFilterBar, {
     type RoleFilter,
@@ -24,7 +25,11 @@ import { db } from "@/services/core/firebase";
 import { SubGroup } from "@/services/subgroup";
 import { GroupMemberData } from "@/services/types/group";
 import { shouldShowManageGroupLoading } from "@/utils/manageGroupScreenState";
-import { canManageGroup, isGroupMember } from "@/utils/permissionHelpers";
+import {
+    canManageGroup,
+    isClubAdmin,
+    isGroupMember,
+} from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -91,6 +96,11 @@ export default function ManageGroupScreen() {
   const canManage = useMemo(
     () => canManageGroup(userProfile, clubId as string, groupId as string),
     [userProfile, clubId, groupId],
+  );
+
+  const isClubAdminUser = useMemo(
+    () => isClubAdmin(userProfile, clubId as string),
+    [userProfile, clubId],
   );
 
   // Any group member (player/coach/admin) can see the settings cog
@@ -444,8 +454,25 @@ export default function ManageGroupScreen() {
     );
   }
 
+  const breadcrumbSegments = [
+    {
+      iconName: "trophy-outline" as const,
+      label: typeof clubName === "string" ? clubName : "Club",
+      isCurrent: false,
+      onPress: isClubAdminUser
+        ? () => router.push(`/manage-club?clubId=${clubId}` as any)
+        : undefined,
+    },
+    {
+      iconName: "people-outline" as const,
+      label: effectiveGroup.name || "Group",
+      isCurrent: true,
+    },
+  ];
+
   const listHeader = (
     <>
+      <HierarchyBreadcrumb segments={breadcrumbSegments} />
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === "members" && styles.activeTab]}

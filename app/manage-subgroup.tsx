@@ -1,5 +1,6 @@
 import Button from "@/components/Button";
 import { NewsEventFAB } from "@/components/FloatingActionButton";
+import HierarchyBreadcrumb from "@/components/HierarchyBreadcrumb";
 import MemberContactModal from "@/components/MemberContactModal";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
@@ -8,7 +9,7 @@ import { useGroupData } from "@/contexts/GroupDataContext";
 import { useUser } from "@/contexts/UserContext";
 import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { GroupMemberData } from "@/services/types/group";
-import { canManageGroup } from "@/utils/permissionHelpers";
+import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -48,6 +49,11 @@ export default function ManageSubgroupScreen() {
   const canManage = useMemo(
     () => canManageGroup(userProfile, clubId as string, groupId as string),
     [userProfile, clubId, groupId],
+  );
+
+  const isClubAdminUser = useMemo(
+    () => isClubAdmin(userProfile, clubId as string),
+    [userProfile, clubId],
   );
 
   const loading = !group;
@@ -162,6 +168,33 @@ export default function ManageSubgroupScreen() {
     );
   }
 
+  const breadcrumbSegments = [
+    {
+      iconName: "trophy-outline" as const,
+      label: group.clubName || "Club",
+      isCurrent: false,
+      onPress: isClubAdminUser
+        ? () => router.push(`/manage-club?clubId=${clubId}` as any)
+        : undefined,
+    },
+    {
+      iconName: "people-outline" as const,
+      label: group.name || "Group",
+      isCurrent: false,
+      onPress: canManage
+        ? () =>
+            router.push(
+              `/manage-group?groupId=${groupId}&clubId=${clubId}&clubName=${encodeURIComponent(group.clubName || "")}` as any,
+            )
+        : undefined,
+    },
+    {
+      iconName: "git-branch-outline" as const,
+      label: displaySubgroupName,
+      isCurrent: true,
+    },
+  ];
+
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
@@ -170,9 +203,12 @@ export default function ManageSubgroupScreen() {
         renderItem={renderMemberItem}
         keyExtractor={(item) => item.userId}
         ListHeaderComponent={
-          <Text style={styles.sectionTitle}>
-            {t("screens:manageSubgroup.members")} ({subgroupMembers.length})
-          </Text>
+          <>
+            <HierarchyBreadcrumb segments={breadcrumbSegments} />
+            <Text style={styles.sectionTitle}>
+              {t("screens:manageSubgroup.members")} ({subgroupMembers.length})
+            </Text>
+          </>
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>

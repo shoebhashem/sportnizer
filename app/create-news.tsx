@@ -542,6 +542,78 @@ export default function CreateNewsScreen() {
         )}
       </View>
 
+      {/* Scope Context Panel — shows which level this news targets */}
+      {newsContext && (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginTop: 12,
+            marginBottom: 4,
+            backgroundColor: theme.colors.inputBackground,
+            borderLeftWidth: 3,
+            borderLeftColor: theme.colors.secondary,
+            borderRadius: 8,
+            padding: 12,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 4,
+            }}
+          >
+            <Ionicons
+              name={
+                newsContext.level === "subgroup"
+                  ? "git-branch-outline"
+                  : newsContext.level === "group"
+                    ? "people-outline"
+                    : "trophy-outline"
+              }
+              size={14}
+              color={
+                newsContext.level === "club"
+                  ? theme.colors.secondary
+                  : newsContext.level === "group"
+                    ? theme.colors.accent
+                    : theme.colors.textSecondary
+              }
+            />
+            <Text
+              style={{
+                fontSize: 13,
+                color: theme.colors.textSecondary,
+                marginLeft: 6,
+                flex: 1,
+              }}
+              numberOfLines={1}
+            >
+              {[
+                newsContext.clubName,
+                newsContext.groupName,
+                newsContext.subgroupName,
+              ]
+                .filter(Boolean)
+                .join(" › ")}
+            </Text>
+          </View>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "600",
+              color: theme.colors.text,
+            }}
+          >
+            {newsContext.level === "subgroup"
+              ? "Sending to subgroup members"
+              : newsContext.level === "group"
+                ? "Sending to group members"
+                : "Sending to all club members"}
+          </Text>
+        </View>
+      )}
+
       {/* Loading indicator */}
       {isLoadingNews ? (
         <View

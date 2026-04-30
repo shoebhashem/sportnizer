@@ -1,4 +1,4 @@
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -959,6 +959,78 @@ export default function CreateEventScreen() {
             : t("screens:createEvent.createEvent")}
         </Text>
       </View>
+
+      {/* Scope Context Panel — shows which level this event targets */}
+      {eventContext && (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginTop: 12,
+            marginBottom: 4,
+            backgroundColor: theme.colors.inputBackground,
+            borderLeftWidth: 3,
+            borderLeftColor: theme.colors.secondary,
+            borderRadius: 8,
+            padding: 12,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 4,
+            }}
+          >
+            <Ionicons
+              name={
+                eventContext.level === "subgroup"
+                  ? "git-branch-outline"
+                  : eventContext.level === "group"
+                    ? "people-outline"
+                    : "trophy-outline"
+              }
+              size={14}
+              color={
+                eventContext.level === "club"
+                  ? theme.colors.secondary
+                  : eventContext.level === "group"
+                    ? theme.colors.accent
+                    : theme.colors.textSecondary
+              }
+            />
+            <Text
+              style={{
+                fontSize: 13,
+                color: theme.colors.textSecondary,
+                marginLeft: 6,
+                flex: 1,
+              }}
+              numberOfLines={1}
+            >
+              {[
+                eventContext.clubName,
+                eventContext.groupName,
+                eventContext.subgroupName,
+              ]
+                .filter(Boolean)
+                .join(" › ")}
+            </Text>
+          </View>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "600",
+              color: theme.colors.text,
+            }}
+          >
+            {eventContext.level === "subgroup"
+              ? "Sending to subgroup members"
+              : eventContext.level === "group"
+                ? "Sending to group members"
+                : "Sending to all club members"}
+          </Text>
+        </View>
+      )}
 
       {/* Show loading indicator while loading event data */}
       {isLoadingEvent ? (

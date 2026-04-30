@@ -3,6 +3,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import CountdownTimer from "@/components/CountdownTimer";
 import DeletionConfirmationModal from "@/components/DeletionConfirmationModal";
 import { NewsEventFAB } from "@/components/FloatingActionButton";
+import HierarchyBreadcrumb from "@/components/HierarchyBreadcrumb";
 import MemberContactModal from "@/components/MemberContactModal";
 import MemberFilterBar, {
     type RoleFilter,
@@ -576,6 +577,15 @@ export default function ManageClubScreen() {
 
   const listHeader = (
     <>
+      <HierarchyBreadcrumb
+        segments={[
+          {
+            iconName: "trophy-outline",
+            label: club.name || "Club",
+            isCurrent: true,
+          },
+        ]}
+      />
       {/* Delete Mode Banner */}
       {isDeleteMode && (
         <View style={styles.deleteModeBanner}>

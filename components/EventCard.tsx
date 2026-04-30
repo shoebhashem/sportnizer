@@ -207,12 +207,26 @@ export default function EventCard({
         </View>
       )}
 
-      {/* Organization Info */}
+      {/* Organization Info with level indicator */}
       <View style={styles.orgRow}>
         <Ionicons
-          name="business-outline"
+          name={
+            event.targetScope === "subgroup"
+              ? "git-branch-outline"
+              : event.targetScope === "group"
+                ? "people-outline"
+                : event.targetScope === "club"
+                  ? "trophy-outline"
+                  : "business-outline"
+          }
           size={14}
-          color={theme.colors.textSecondary}
+          color={
+            event.targetScope === "club"
+              ? theme.colors.secondary
+              : event.targetScope === "group"
+                ? theme.colors.accent
+                : theme.colors.textSecondary
+          }
         />
         <Text style={styles.orgText} numberOfLines={1}>
           {event.clubName}
