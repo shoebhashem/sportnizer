@@ -530,6 +530,9 @@ export const paymentService = {
     verifications?: any[];
     totalDebit?: number;
     totalCredit?: number;
+    totalRevenue?: number;
+    totalExpenses?: number;
+    totalNetRevenue?: number;
     error?: string;
   }> {
     try {

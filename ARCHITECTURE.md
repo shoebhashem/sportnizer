@@ -18162,6 +18162,25 @@ The exact Stripe fee is fetched from the Stripe API via `balance_transaction` on
 
 **Platform webhook** events (no `event.account`) pass `""` as accountId — balance_transaction fetch is skipped and Stripe fee is recorded as 0.
 
+### P&L Summary Computation
+
+`getAccountingData` computes three P&L aggregate values **server-side** using the club's chart of accounts, so the frontend never needs to know account types:
+
+| Field             | Computation                                                 | View mode |
+| ----------------- | ----------------------------------------------------------- | --------- |
+| `totalRevenue`    | Credits − debits on **Revenue**-type accounts               | Gross     |
+| `totalExpenses`   | Debits − credits on **Expense**-type accounts (Stripe fees) | Gross     |
+| `totalNetRevenue` | Debits − credits on **Asset**-type accounts (bank account)  | Net       |
+
+The identity `totalRevenue − totalExpenses = totalNetRevenue` always holds when all journal lines balance.
+
+Refund verifications are handled correctly: a debit on a Revenue account reduces `totalRevenue`; a credit on an Expense account reduces `totalExpenses` — the refund does not inflate expenses as a separate cost.
+
+The **Accounting screen** (`app/accounting.tsx`) exposes a **Gross / Net toggle**:
+
+- **Gross view** (default): Revenue | Expenses | Net Result — the full accounting picture for bokföring
+- **Net view**: Cash Received (`totalNetRevenue`) — what actually landed in the bank after Stripe fees
+
 ### Export Formats
 
 All export formats are available to all clubs — no country filtering.
@@ -18176,13 +18195,13 @@ Export is handled by `exportAccountingData` (Cloud Function in `functions/src/ac
 
 ### Backend Functions
 
-| Function               | File                                               | Description                                                      |
-| ---------------------- | -------------------------------------------------- | ---------------------------------------------------------------- |
-| `getAccountingData`    | `functions/src/accounting/getAccountingData.ts`    | Fetch verifications for a club (optional date range)             |
-| `exportAccountingData` | `functions/src/accounting/exportAccountingData.ts` | Export verifications as CSV, SIE, or SAF-T (club admin only)     |
-| `getChartOfAccounts`   | `functions/src/accounting/chartOfAccounts.ts`      | Fetch or seed-on-demand the club's chart of accounts             |
-| `updateChartAccount`   | `functions/src/accounting/chartOfAccounts.ts`      | Update an account's number, name, isActive, vatRate              |
-| `createVerification`   | `functions/src/accounting/verificationService.ts`  | Internal helper — atomic sequential ver number + Firestore write |
+| Function               | File                                               | Description                                                                                                                               |
+| ---------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `getAccountingData`    | `functions/src/accounting/getAccountingData.ts`    | Fetch verifications + server-computed P&L totals (`totalRevenue`, `totalExpenses`, `totalNetRevenue`) via chart-of-accounts account types |
+| `exportAccountingData` | `functions/src/accounting/exportAccountingData.ts` | Export verifications as CSV, SIE, or SAF-T (club admin only)                                                                              |
+| `getChartOfAccounts`   | `functions/src/accounting/chartOfAccounts.ts`      | Fetch or seed-on-demand the club's chart of accounts                                                                                      |
+| `updateChartAccount`   | `functions/src/accounting/chartOfAccounts.ts`      | Update an account's number, name, isActive, vatRate                                                                                       |
+| `createVerification`   | `functions/src/accounting/verificationService.ts`  | Internal helper — atomic sequential ver number + Firestore write                                                                          |
 
 ### Frontend Screens
 

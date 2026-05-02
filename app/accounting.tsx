@@ -64,6 +64,8 @@ export default function AccountingScreen() {
   const [verifications, setVerifications] = useState<Verification[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
+  const [totalNetRevenue, setTotalNetRevenue] = useState(0);
+  const [viewMode, setViewMode] = useState<"gross" | "net">("gross");
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -112,33 +114,10 @@ export default function AccountingScreen() {
           to,
         );
         if (result.success) {
-          const vers: Verification[] = result.verifications ?? [];
-          setVerifications(vers);
-          // Compute P&L: sum credit lines on payment verifications (revenue)
-          // and debit lines on payment fee accounts (expenses)
-          // A simpler proxy: total credit on payment verifications = total revenue collected
-          let rev = 0;
-          let exp = 0;
-          vers.forEach((v) => {
-            if (v.sourceType === "stripe_payment") {
-              v.lines.forEach((l) => {
-                if (l.credit > 0) rev += l.credit;
-                // Expense lines in payment verifications are Stripe fees (debit on fee accounts)
-                // We detect these as debit lines that are NOT the bank account
-                // (bank debit = incoming money, not an expense)
-              });
-            } else if (v.sourceType === "stripe_refund") {
-              v.lines.forEach((l) => {
-                if (l.debit > 0) exp += l.debit; // refund reversal reduces revenue
-              });
-            }
-          });
-          // Stripe payment fees are debit entries — separate from bank debit
-          // We approximate expenses as the Stripe fee portion (debit minus bank net)
-          // For a cleaner split we'd need account types from the chart, but this
-          // is a useful approximation that works for the current 3-line entry structure
-          setTotalRevenue(rev);
-          setTotalExpenses(exp);
+          setVerifications(result.verifications ?? []);
+          setTotalRevenue(result.totalRevenue ?? 0);
+          setTotalExpenses(result.totalExpenses ?? 0);
+          setTotalNetRevenue(result.totalNetRevenue ?? 0);
         }
       } catch (e) {
         console.error("Error loading accounting data:", e);
@@ -303,40 +282,89 @@ export default function AccountingScreen() {
         </View>
       ) : (
         <>
-          {/* P&L summary card */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>
-                {t("screens:accounting.revenue")}
-              </Text>
-              <Text style={[styles.summaryValue, styles.revenueText]}>
-                {formatAmount(totalRevenue)}
-              </Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>
-                {t("screens:accounting.expenses")}
-              </Text>
-              <Text style={[styles.summaryValue, styles.expenseText]}>
-                {formatAmount(totalExpenses)}
-              </Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>
-                {t("screens:accounting.netResult")}
-              </Text>
+          {/* Gross / Net view toggle */}
+          <View style={styles.viewToggleRow}>
+            <TouchableOpacity
+              style={[
+                styles.viewToggleBtn,
+                viewMode === "gross" && styles.viewToggleBtnActive,
+              ]}
+              onPress={() => setViewMode("gross")}
+            >
               <Text
                 style={[
-                  styles.summaryValue,
-                  netResult >= 0 ? styles.revenueText : styles.expenseText,
+                  styles.viewToggleText,
+                  viewMode === "gross" && styles.viewToggleTextActive,
                 ]}
               >
-                {formatAmount(netResult)}
+                {t("screens:accounting.gross")}
               </Text>
-            </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.viewToggleBtn,
+                viewMode === "net" && styles.viewToggleBtnActive,
+              ]}
+              onPress={() => setViewMode("net")}
+            >
+              <Text
+                style={[
+                  styles.viewToggleText,
+                  viewMode === "net" && styles.viewToggleTextActive,
+                ]}
+              >
+                {t("screens:accounting.net")}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* P&L summary card */}
+          {viewMode === "gross" ? (
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>
+                  {t("screens:accounting.revenue")}
+                </Text>
+                <Text style={[styles.summaryValue, styles.revenueText]}>
+                  {formatAmount(totalRevenue)}
+                </Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>
+                  {t("screens:accounting.expenses")}
+                </Text>
+                <Text style={[styles.summaryValue, styles.expenseText]}>
+                  {formatAmount(totalExpenses)}
+                </Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>
+                  {t("screens:accounting.netResult")}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    netResult >= 0 ? styles.revenueText : styles.expenseText,
+                  ]}
+                >
+                  {formatAmount(netResult)}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.summaryCard, { justifyContent: "center" }]}>
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>
+                  {t("screens:accounting.netRevenue")}
+                </Text>
+                <Text style={[styles.summaryValue, styles.revenueText]}>
+                  {formatAmount(totalNetRevenue)}
+                </Text>
+              </View>
+            </View>
+          )}
 
           <ScrollView
             contentContainerStyle={styles.scrollContent}
@@ -558,6 +586,30 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
   revenueText: { color: "#2e7d32" },
   expenseText: { color: theme.colors.error },
+  viewToggleRow: {
+    flexDirection: "row",
+    alignSelf: "center",
+    marginTop: 12,
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  viewToggleBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.inputBackground,
+  },
+  viewToggleBtnActive: { backgroundColor: theme.colors.secondary },
+  viewToggleText: {
+    fontSize: 13,
+    fontWeight: "500" as const,
+    color: theme.colors.textSecondary,
+  },
+  viewToggleTextActive: {
+    color: theme.colors.primary,
+    fontWeight: "700" as const,
+  },
   scrollContent: { padding: 16, gap: 12, paddingBottom: 40 },
   verCard: {
     backgroundColor: theme.colors.inputBackground,

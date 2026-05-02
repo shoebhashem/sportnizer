@@ -15,7 +15,7 @@ import {
     createFullTestUser,
     expectFunctionError,
     getFirestore,
-    seedUserDocument
+    seedUserDocument,
 } from "./helpers";
 
 // ─── Shared Setup ─────────────────────────────────────────────
@@ -338,7 +338,136 @@ describe("getAccountingData", () => {
     expect(ver.sourceType).toBe("stripe_refund");
     expect(ver.lines).toHaveLength(2);
   });
-});
+
+  it("returns correct P&L totals computed by account type", async () => {
+    const { user, clubId } = await setupAdminClub();
+    const db = getFirestore();
+
+    // 500 SEK payment with 14.50 SEK Stripe fee
+    // 1930 = Asset (bank), 6570 = Expense (fee), 3010 = Revenue (membership)
+    await createVerification(db, {
+      clubId,
+      date: new Date("2026-05-01"),
+      description: "Membership payment",
+      sourceType: "stripe_payment",
+      category: "membership_fee",
+      basAccount: 3010,
+      lines: [
+        { account: 1930, debit: 48550, credit: 0, description: "Bank net" },
+        { account: 6570, debit: 1450, credit: 0, description: "Stripe fee" },
+        { account: 3010, debit: 0, credit: 50000, description: "Membership" },
+      ],
+    });
+
+    const result = await callFunction("getAccountingData", user.idToken, {
+      clubId,
+    });
+
+    expect(result.success).toBe(true);
+    // Gross revenue = what the customer paid (credit on Revenue account)
+    expect(result.totalRevenue).toBe(50000);
+    // Expenses = Stripe processing fee (debit on Expense account)
+    expect(result.totalExpenses).toBe(1450);
+    // Net = what actually landed in the bank (debit on Asset account)
+    expect(result.totalNetRevenue).toBe(48550);
+    // The accounting identity must hold
+    expect(result.totalRevenue - result.totalExpenses).toBe(
+      result.totalNetRevenue,
+    );
+  });
+
+  it("correctly reduces revenue and expenses for a full refund", async () => {
+    const { user, clubId } = await setupAdminClub();
+    const db = getFirestore();
+
+    // Original payment: 300 SEK, 8.70 SEK fee
+    await createVerification(db, {
+      clubId,
+      date: new Date("2026-05-01"),
+      description: "Training fee",
+      sourceType: "stripe_payment",
+      lines: [
+        { account: 1930, debit: 29130, credit: 0, description: "Bank net" },
+        { account: 6570, debit: 870, credit: 0, description: "Stripe fee" },
+        { account: 3010, debit: 0, credit: 30000, description: "Training" },
+      ],
+    });
+
+    // Refund reversal (same journal lines with debits/credits swapped)
+    await createVerification(db, {
+      clubId,
+      date: new Date("2026-05-02"),
+      description: "Refund: Training fee",
+      sourceType: "stripe_refund",
+      lines: [
+        {
+          account: 3010,
+          debit: 30000,
+          credit: 0,
+          description: "Reversal income",
+        },
+        { account: 6570, debit: 0, credit: 870, description: "Reversal fee" },
+        {
+          account: 1930,
+          debit: 0,
+          credit: 29130,
+          description: "Reversal bank",
+        },
+      ],
+    });
+
+    const result = await callFunction("getAccountingData", user.idToken, {
+      clubId,
+    });
+
+    // Payment and refund cancel each other out completely
+    expect(result.totalRevenue).toBe(0);
+    expect(result.totalExpenses).toBe(0);
+    expect(result.totalNetRevenue).toBe(0);
+  });
+
+  it("accumulates P&L correctly across multiple payments", async () => {
+    const { user, clubId } = await setupAdminClub();
+    const db = getFirestore();
+
+    // Payment 1: 500 SEK, 14.50 SEK fee
+    await createVerification(db, {
+      clubId,
+      date: new Date("2026-05-01"),
+      description: "Payment 1",
+      sourceType: "stripe_payment",
+      lines: [
+        { account: 1930, debit: 48550, credit: 0, description: "Bank" },
+        { account: 6570, debit: 1450, credit: 0, description: "Fee" },
+        { account: 3010, debit: 0, credit: 50000, description: "Revenue" },
+      ],
+    });
+
+    // Payment 2: 300 SEK, 8.70 SEK fee
+    await createVerification(db, {
+      clubId,
+      date: new Date("2026-05-02"),
+      description: "Payment 2",
+      sourceType: "stripe_payment",
+      lines: [
+        { account: 1930, debit: 29130, credit: 0, description: "Bank" },
+        { account: 6570, debit: 870, credit: 0, description: "Fee" },
+        { account: 3010, debit: 0, credit: 30000, description: "Revenue" },
+      ],
+    });
+
+    const result = await callFunction("getAccountingData", user.idToken, {
+      clubId,
+    });
+
+    expect(result.totalRevenue).toBe(80000); // 50000 + 30000
+    expect(result.totalExpenses).toBe(2320); // 1450 + 870
+    expect(result.totalNetRevenue).toBe(77680); // 48550 + 29130
+    expect(result.totalRevenue - result.totalExpenses).toBe(
+      result.totalNetRevenue,
+    );
+  });
+}); // end describe("getAccountingData")
 
 // ─── generateSIEExport ─────────────────────────────────────────
 

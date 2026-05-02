@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { AccountType } from "../config/accounting";
 import { config } from "../utils/config";
 
 interface VerificationLine {
@@ -31,6 +32,13 @@ interface VerificationSummary {
  * Get accounting data (verifications) for a club.
  *
  * Supports optional date range filtering via `fromDate` / `toDate` (ISO strings).
+ *
+ * P&L summary values are computed server-side using the club's chart of accounts
+ * so the frontend receives authoritative numbers without needing account-type knowledge:
+ *   - totalRevenue    — gross credits on Revenue accounts (what customers paid)
+ *   - totalExpenses   — debits on Expense accounts (Stripe fees)
+ *   - totalNetRevenue — debits on Asset/bank accounts (what landed in the bank)
+ *
  * SECURITY: Only club admins may access.
  */
 export const getAccountingData = onCall(
@@ -42,6 +50,9 @@ export const getAccountingData = onCall(
     verifications: VerificationSummary[];
     totalDebit: number;
     totalCredit: number;
+    totalRevenue: number;
+    totalExpenses: number;
+    totalNetRevenue: number;
   }> => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -65,6 +76,22 @@ export const getAccountingData = onCall(
       throw new HttpsError("permission-denied", "Club admin access required");
     }
 
+    // Fetch chart of accounts to know each account's type for P&L bucketing.
+    // If the chart hasn't been seeded yet, all P&L values will be 0 (safe fallback).
+    const chartSnap = await db
+      .collection("clubs")
+      .doc(clubId)
+      .collection("chartOfAccounts")
+      .get();
+
+    const accountTypeMap: Record<number, AccountType> = {};
+    chartSnap.docs.forEach((d) => {
+      const data = d.data();
+      if (typeof data.number === "number" && data.type) {
+        accountTypeMap[data.number] = data.type as AccountType;
+      }
+    });
+
     let query: admin.firestore.Query = db
       .collection("clubs")
       .doc(clubId)
@@ -82,6 +109,9 @@ export const getAccountingData = onCall(
 
     let totalDebit = 0;
     let totalCredit = 0;
+    let totalRevenue = 0;
+    let totalExpenses = 0;
+    let totalNetRevenue = 0;
 
     const verifications: VerificationSummary[] = snap.docs.map((doc) => {
       const d = doc.data();
@@ -89,6 +119,17 @@ export const getAccountingData = onCall(
       lines.forEach((l) => {
         totalDebit += l.debit;
         totalCredit += l.credit;
+        const accountType = accountTypeMap[l.account];
+        if (accountType === "Revenue") {
+          // Credits increase revenue; debits are refund reversals
+          totalRevenue += l.credit - l.debit;
+        } else if (accountType === "Expense") {
+          // Debits increase expenses; credits are fee reversals
+          totalExpenses += l.debit - l.credit;
+        } else if (accountType === "Asset") {
+          // Debits on asset accounts = cash received into bank
+          totalNetRevenue += l.debit - l.credit;
+        }
       });
       return {
         verificationId: doc.id,
@@ -108,6 +149,14 @@ export const getAccountingData = onCall(
       };
     });
 
-    return { success: true, verifications, totalDebit, totalCredit };
+    return {
+      success: true,
+      verifications,
+      totalDebit,
+      totalCredit,
+      totalRevenue,
+      totalExpenses,
+      totalNetRevenue,
+    };
   },
 );
