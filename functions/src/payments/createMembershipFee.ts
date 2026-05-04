@@ -43,6 +43,7 @@ export const createMembershipFee = onCall(
       targetRoles,
       category,
       earmarkedGroupId,
+      specificMemberIds,
     } = request.data;
 
     // 2. Validate required fields
@@ -102,8 +103,13 @@ export const createMembershipFee = onCall(
       );
     }
 
-    // Validate targetRoles
-    if (!Array.isArray(targetRoles) || targetRoles.length === 0) {
+    // Validate targetRoles (required unless specificMemberIds override is provided)
+    const hasSpecificMembers =
+      Array.isArray(specificMemberIds) && specificMemberIds.length > 0;
+    if (
+      !hasSpecificMembers &&
+      (!Array.isArray(targetRoles) || targetRoles.length === 0)
+    ) {
       throw new HttpsError(
         "invalid-argument",
         "At least one target role must be selected",
@@ -182,16 +188,35 @@ export const createMembershipFee = onCall(
       const membersData = membersDoc.data();
       const allMembers = membersData?.members || [];
 
-      // 7. Filter members by target roles
-      const targetMembers = allMembers.filter((member: { roles: string[] }) =>
-        member.roles.some((role: string) => targetRoles.includes(role)),
-      );
-
-      if (targetMembers.length === 0) {
-        throw new HttpsError(
-          "failed-precondition",
-          "No members match the selected roles",
+      // 7. Filter members by specific IDs or target roles
+      let targetMembers: any[];
+      if (hasSpecificMembers) {
+        // Intersect with actual group members for security (never trust client IDs blindly)
+        const validIds = new Set(
+          allMembers.map((m: { userId: string }) => m.userId),
         );
+        const filteredIds = (specificMemberIds as string[]).filter((id) =>
+          validIds.has(id),
+        );
+        if (filteredIds.length === 0) {
+          throw new HttpsError(
+            "failed-precondition",
+            "None of the selected members belong to this group",
+          );
+        }
+        targetMembers = allMembers.filter((m: { userId: string }) =>
+          filteredIds.includes(m.userId),
+        );
+      } else {
+        targetMembers = allMembers.filter((member: { roles: string[] }) =>
+          member.roles.some((role: string) => targetRoles.includes(role)),
+        );
+        if (targetMembers.length === 0) {
+          throw new HttpsError(
+            "failed-precondition",
+            "No members match the selected roles",
+          );
+        }
       }
 
       const includedMemberIds = targetMembers.map(

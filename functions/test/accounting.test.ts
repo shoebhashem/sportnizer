@@ -467,6 +467,44 @@ describe("getAccountingData", () => {
       result.totalNetRevenue,
     );
   });
+
+  it("books platform fee separately from Stripe fee when account 6590 is used", async () => {
+    const { user, clubId } = await setupAdminClub();
+    const db = getFirestore();
+
+    // 500 SEK payment: 9.50 SEK Stripe fee (6570) + 10.00 SEK platform fee (6590)
+    // Bank net = 50000 - 950 - 1000 = 48050 öre
+    await createVerification(db, {
+      clubId,
+      date: new Date("2026-05-01"),
+      description: "Payment with platform fee",
+      sourceType: "stripe_payment",
+      lines: [
+        { account: 1930, debit: 48050, credit: 0, description: "Bank net" },
+        { account: 6570, debit: 950, credit: 0, description: "Stripe-avgift" },
+        {
+          account: 6590,
+          debit: 1000,
+          credit: 0,
+          description: "Plattformsavgift",
+        },
+        { account: 3010, debit: 0, credit: 50000, description: "Membership" },
+      ],
+    });
+
+    const result = await callFunction("getAccountingData", user.idToken, {
+      clubId,
+    });
+
+    expect(result.totalRevenue).toBe(50000);
+    // Both Stripe fee (6570) and platform fee (6590) are Expense accounts
+    expect(result.totalExpenses).toBe(1950); // 950 + 1000
+    expect(result.totalNetRevenue).toBe(48050);
+    // The accounting identity must still hold
+    expect(result.totalRevenue - result.totalExpenses).toBe(
+      result.totalNetRevenue,
+    );
+  });
 }); // end describe("getAccountingData")
 
 // ─── generateSIEExport ─────────────────────────────────────────

@@ -503,13 +503,16 @@ async function handleChargeRefunded(
       revenueAccount: refundRevenueAccount,
       bankAccount: refundBankAccount,
       paymentFeeAccount: refundFeeAccount,
+      platformFeeAccount: refundPlatformFeeAccount,
     } = await resolveClubAccountNumbers(db, paymentData.clubId, fee.category);
 
     // Get the gross amount from the charge (in cents/öre)
     const grossAmount = charge.amount;
 
-    // Fetch balance_transaction to get exact Stripe fee (from connected account)
-    let stripeFee = 0;
+    // Fetch balance_transaction and split fees into Stripe fee vs platform fee.
+    // The reversal mirrors the original payment journal entries exactly.
+    let refundStripeFeeAmount = 0;
+    let refundPlatformFeeAmount = 0;
     const balanceTxnId =
       typeof charge.balance_transaction === "string"
         ? charge.balance_transaction
@@ -521,13 +524,23 @@ async function handleChargeRefunded(
           balanceTxnId,
           { stripeAccount: stripeAccountId },
         );
-        stripeFee = balanceTxn.fee;
+        for (const detail of balanceTxn.fee_details) {
+          if (detail.type === "stripe_fee") {
+            refundStripeFeeAmount += detail.amount;
+          } else if (detail.type === "application_fee") {
+            refundPlatformFeeAmount += detail.amount;
+          }
+        }
+        if (balanceTxn.fee_details.length === 0 && balanceTxn.fee > 0) {
+          refundStripeFeeAmount = balanceTxn.fee;
+        }
       } catch (e) {
         console.warn("Could not fetch balance_transaction for refund:", e);
       }
     }
 
-    const netAmount = grossAmount - stripeFee;
+    const totalRefundFee = refundStripeFeeAmount + refundPlatformFeeAmount;
+    const netAmount = grossAmount - totalRefundFee;
 
     await createVerification(db, {
       clubId: paymentData.clubId,
@@ -540,13 +553,23 @@ async function handleChargeRefunded(
           credit: 0,
           description: "Återföring intäkt",
         },
-        ...(stripeFee > 0
+        ...(refundStripeFeeAmount > 0
           ? [
               {
                 account: refundFeeAccount,
                 debit: 0,
-                credit: stripeFee,
+                credit: refundStripeFeeAmount,
                 description: "Återföring Stripe-avgift",
+              },
+            ]
+          : []),
+        ...(refundPlatformFeeAmount > 0
+          ? [
+              {
+                account: refundPlatformFeeAccount,
+                debit: 0,
+                credit: refundPlatformFeeAmount,
+                description: "Återföring plattformsavgift",
               },
             ]
           : []),
@@ -782,15 +805,19 @@ async function createAccountingVerification({
 
   // 2. Resolve account numbers from the club's chart of accounts
   //    Falls back gracefully to BAS defaults for clubs without a chart.
-  const { revenueAccount, bankAccount, paymentFeeAccount } =
+  const { revenueAccount, bankAccount, paymentFeeAccount, platformFeeAccount } =
     await resolveClubAccountNumbers(db, clubId, fee.category);
 
   // 3. Gross amount is the checkout amount_total (in smallest currency unit)
   const grossAmount = session.amount_total ?? 0;
   if (grossAmount <= 0) return;
 
-  // 4. Fetch balance_transaction from the connected account to get exact Stripe fee
-  let stripeFee = 0;
+  // 4. Fetch balance_transaction and split fees into Stripe fee vs platform fee.
+  //    fee_details separates "stripe_fee" (processing cost charged by Stripe) from
+  //    "application_fee" (platform fee collected by Clubnizer). Both reduce the
+  //    club’s bank balance and must be booked as separate expense lines.
+  let stripeFeeAmount = 0;
+  let platformFeeAmount = 0;
   if (stripeAccountId) {
     try {
       const pi = await stripe.paymentIntents.retrieve(
@@ -816,21 +843,32 @@ async function createAccountingVerification({
             balanceTxnId,
             { stripeAccount: stripeAccountId },
           );
-          stripeFee = balanceTxn.fee;
+          for (const detail of balanceTxn.fee_details) {
+            if (detail.type === "stripe_fee") {
+              stripeFeeAmount += detail.amount;
+            } else if (detail.type === "application_fee") {
+              platformFeeAmount += detail.amount;
+            }
+          }
+          // Fallback: fee_details empty but fee > 0 — treat all as Stripe fee
+          if (balanceTxn.fee_details.length === 0 && balanceTxn.fee > 0) {
+            stripeFeeAmount = balanceTxn.fee;
+          }
         }
       }
     } catch (e) {
       console.warn("Could not fetch Stripe balance_transaction:", e);
-      // Continue with stripeFee = 0; debit/credit will still balance
+      // Continue with fees = 0; debit/credit will still balance
     }
   }
 
-  const netAmount = grossAmount - stripeFee;
+  const totalFee = stripeFeeAmount + platformFeeAmount;
+  const netAmount = grossAmount - totalFee;
   const memberName: string =
     paymentData.beneficiaryName ?? paymentData.payerName ?? "Okänd medlem";
 
   // 5. Build double-entry lines
-  //    Debit: bank (net) + payment fee (Stripe cost)
+  //    Debit: bank (net) + Stripe fee + platform fee (each as a separate expense)
   //    Credit: revenue account (gross)
   const lines = [
     {
@@ -839,13 +877,23 @@ async function createAccountingVerification({
       credit: 0,
       description: "Stripe net (bank)",
     },
-    ...(stripeFee > 0
+    ...(stripeFeeAmount > 0
       ? [
           {
             account: paymentFeeAccount,
-            debit: stripeFee,
+            debit: stripeFeeAmount,
             credit: 0,
             description: "Stripe-avgift",
+          },
+        ]
+      : []),
+    ...(platformFeeAmount > 0
+      ? [
+          {
+            account: platformFeeAccount,
+            debit: platformFeeAmount,
+            credit: 0,
+            description: "Plattformsavgift",
           },
         ]
       : []),

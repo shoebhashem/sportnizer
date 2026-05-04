@@ -90,6 +90,7 @@ export interface CreateFeeParams {
   targetRoles: string[];
   category: string;
   earmarkedGroupId?: string;
+  specificMemberIds?: string[];
 }
 
 export interface StripeAccountStatus {

@@ -442,7 +442,7 @@ export default function TrackPaymentsScreen() {
             label={t("screens:trackPayments.createFee")}
             onPress={() =>
               router.push({
-                pathname: "/create-membership-fee",
+                pathname: "/create-fee",
                 params: { clubId, groupId },
               } as any)
             }

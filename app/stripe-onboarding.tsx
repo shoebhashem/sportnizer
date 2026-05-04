@@ -408,10 +408,9 @@ export default function StripeOnboardingScreen() {
               label={t("screens:clubSettings.createFee")}
               onPress={() =>
                 router.push({
-                  pathname: "/create-membership-fee",
+                  pathname: "/create-fee",
                   params: {
                     clubId: clubId as string,
-                    clubName: clubName as string,
                   },
                 } as any)
               }

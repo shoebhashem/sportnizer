@@ -2,11 +2,13 @@
 import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import DateTimePicker from "@/components/DateTimePicker";
+import DropdownInput from "@/components/DropdownInput";
 import Input from "@/components/Input";
 import {
     EARMARKABLE_CATEGORIES,
     FEE_CATEGORIES,
     FEE_CATEGORY_I18N_KEYS,
+    FEE_CATEGORY_LABELS,
     FeeCategory,
     isEarmarkable,
 } from "@/constants/feeCategories";
@@ -16,8 +18,14 @@ import { useGroupData } from "@/contexts/GroupDataContext";
 import { useTrackFeatureOnAction } from "@/hooks/useOnboardingFeatureTracker";
 import { fetchClubGroups } from "@/services/fetchClubGroups";
 import { paymentService } from "@/services/paymentService";
-import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { consumeSelectedMemberIds } from "@/utils/memberSelectionStore";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import {
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
     useCallback,
@@ -81,6 +89,7 @@ export default function CreateFeeScreen() {
     useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
   // Modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -166,12 +175,23 @@ export default function CreateFeeScreen() {
     fetchData();
   }, [fetchData]);
 
+  // Consume specific member IDs from store when returning from select-event-members
+  useFocusEffect(
+    useCallback(() => {
+      const ids = consumeSelectedMemberIds();
+      if (ids !== null) {
+        setSelectedMemberIds(ids);
+      }
+    }, []),
+  );
+
   const handleGroupToggle = async (groupId: string) => {
     const newSelectedIds = selectedGroupIds.includes(groupId)
       ? selectedGroupIds.filter((id) => id !== groupId)
       : [...selectedGroupIds, groupId];
     setSelectedGroupIds(newSelectedIds);
     await loadGroupsMembers(newSelectedIds);
+    if (selectedMemberIds.length > 0) setSelectedMemberIds([]);
   };
 
   const toggleRole = (role: string) => {
@@ -184,19 +204,21 @@ export default function CreateFeeScreen() {
 
   const selectedRoles = roleCounts.filter((rc) => rc.selected);
   const totalMembers = selectedRoles.reduce((sum, rc) => sum + rc.count, 0);
+  const effectiveMemberCount =
+    selectedMemberIds.length > 0 ? selectedMemberIds.length : totalMembers;
   const amountInSmallestUnit = Math.round(parseFloat(amount || "0") * 100);
   const feeEstimate = paymentService.estimateFees(
     amountInSmallestUnit,
     clubCountry,
     clubPlatformFeePercent,
   );
-  const totalExpected = totalMembers * amountInSmallestUnit;
+  const totalExpected = effectiveMemberCount * amountInSmallestUnit;
 
   const isValid =
     title.trim().length > 0 &&
     selectedGroupIds.length > 0 &&
     amountInSmallestUnit >= 300 &&
-    selectedRoles.length > 0 &&
+    (selectedRoles.length > 0 || selectedMemberIds.length > 0) &&
     category.length > 0;
 
   // Earmark group: if earmark is on, use the first selected group as the earmarked group
@@ -225,6 +247,8 @@ export default function CreateFeeScreen() {
           targetRoles: selectedRoles.map((rc) => rc.role),
           category,
           earmarkedGroupId,
+          specificMemberIds:
+            selectedMemberIds.length > 0 ? selectedMemberIds : undefined,
         });
 
         if (result.success) {
@@ -336,34 +360,20 @@ export default function CreateFeeScreen() {
           />
 
           {/* Category picker */}
-          <Text style={styles.inputLabel}>
-            {t("screens:createFee.categoryRequired")}{" "}
-            <Text style={styles.requiredStar}>*</Text>
-          </Text>
-          <View style={styles.categoryGrid}>
-            {FEE_CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat}
-                style={[
-                  styles.categoryChip,
-                  category === cat && styles.categoryChipSelected,
-                ]}
-                onPress={() => {
-                  setCategory(cat);
-                  if (!isEarmarkable(cat)) setEarmarkForGroup(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    category === cat && styles.categoryChipTextSelected,
-                  ]}
-                >
-                  {t(`components:feeCategory.${FEE_CATEGORY_I18N_KEYS[cat]}`)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <DropdownInput
+            label={`${t("screens:createFee.categoryRequired")} *`}
+            value={category}
+            onValueChange={(val) => {
+              setCategory(val as FeeCategory);
+              if (!isEarmarkable(val as FeeCategory)) setEarmarkForGroup(false);
+            }}
+            options={FEE_CATEGORIES.map((cat) => ({
+              id: cat,
+              name: t(`components:feeCategory.${FEE_CATEGORY_I18N_KEYS[cat]}`, {
+                defaultValue: FEE_CATEGORY_LABELS[cat],
+              }),
+            }))}
+          />
 
           {/* Earmark toggle — only for earmarkable categories */}
           {isEarmarkable(category) && selectedGroupIds.length > 0 && (
@@ -551,13 +561,14 @@ export default function CreateFeeScreen() {
                   ]}
                   onPress={() => toggleRole(rc.role)}
                 >
-                  <View style={styles.roleCheckbox}>
+                  <View
+                    style={[
+                      styles.roleCheckbox,
+                      rc.selected && styles.roleCheckboxSelected,
+                    ]}
+                  >
                     {rc.selected && (
-                      <Ionicons
-                        name="checkmark"
-                        size={16}
-                        color={theme.colors.primary}
-                      />
+                      <Ionicons name="checkmark" size={16} color="white" />
                     )}
                   </View>
                   <Text
@@ -582,76 +593,173 @@ export default function CreateFeeScreen() {
           </View>
         )}
 
-        {/* Fee Breakdown Preview */}
-        {amountInSmallestUnit > 0 && selectedRoles.length > 0 && (
+        {/* Specific Member Selection */}
+        {selectedGroupIds.length === 1 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              {t("screens:createFee.feeBreakdown")}
+              {t("screens:createFee.specificMembers", {
+                defaultValue: "Target Specific Members",
+              })}
             </Text>
-            <View style={styles.breakdownCard}>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>
-                  {t("screens:createFee.membersPay")}
-                </Text>
-                <Text style={styles.breakdownValue}>
-                  {formatCurrency(amountInSmallestUnit)}
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>
-                  {t("screens:createFee.stripeFee", {
-                    percent: (
-                      (feeEstimate.stripeFeeEstimate / amountInSmallestUnit) *
-                      100
-                    ).toFixed(1),
-                  })}
-                </Text>
-                <Text style={styles.breakdownValueMuted}>
-                  -{formatCurrency(feeEstimate.stripeFeeEstimate)}
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>
-                  {t("screens:createFee.clubnizerFee", {
-                    feePercent: clubPlatformFeePercent,
-                  })}
-                </Text>
-                <Text style={styles.breakdownValueMuted}>
-                  -{formatCurrency(feeEstimate.platformFee)}
-                </Text>
-              </View>
-              <View style={styles.breakdownDivider} />
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabelBold}>
-                  {t("screens:createFee.clubReceives")}
-                </Text>
-                <Text style={styles.breakdownValueBold}>
-                  ≈{formatCurrency(feeEstimate.clubReceivesEstimate)}
-                </Text>
-              </View>
-              <View style={styles.breakdownDivider} />
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>
-                  {t("screens:createFee.totalExpected")}
-                </Text>
-                <Text style={styles.breakdownValue}>
-                  {totalMembers} × {formatCurrency(amountInSmallestUnit)} ={" "}
-                  {formatCurrency(totalExpected)}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.infoBox}>
-              <Ionicons
-                name="information-circle"
-                size={18}
-                color={theme.colors.secondary}
+            <Text style={styles.sectionSubtitle}>
+              {t("screens:createFee.specificMembersHint", {
+                defaultValue:
+                  "Optionally skip role filter and send this fee to specific members only.",
+              })}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.selectMembersBtn,
+                selectedMemberIds.length > 0 && styles.selectMembersBtnActive,
+              ]}
+              onPress={() => {
+                router.push({
+                  pathname: "/select-event-members",
+                  params: {
+                    clubId: clubId as string,
+                    groupId: selectedGroupIds[0],
+                    level: "group",
+                    clubName: "",
+                    groupName:
+                      groups.find((g) => g.id === selectedGroupIds[0])?.name ||
+                      "",
+                    subgroupId: "",
+                    subgroupName: "",
+                    sourceScreen: "create-fee",
+                    roleFilter: "",
+                    preSelectedIds: selectedMemberIds.join(","),
+                  },
+                });
+              }}
+            >
+              <FontAwesome
+                name="user-plus"
+                size={14}
+                color={
+                  selectedMemberIds.length > 0
+                    ? "white"
+                    : theme.colors.textSecondary
+                }
+                style={{ marginRight: 4 }}
               />
-              <Text style={styles.infoText}>
-                {t("screens:createFee.stripeFeesDisclaimer")}
+              <Text
+                style={[
+                  styles.selectMembersBtnText,
+                  selectedMemberIds.length > 0 &&
+                    styles.selectMembersBtnTextActive,
+                ]}
+              >
+                {selectedMemberIds.length > 0
+                  ? t("screens:createEvent.membersSelected", {
+                      count: selectedMemberIds.length,
+                      defaultValue: `${selectedMemberIds.length} members selected`,
+                    })
+                  : t("screens:createEvent.selectMembers", {
+                      defaultValue: "Select members",
+                    })}
               </Text>
-            </View>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={
+                  selectedMemberIds.length > 0
+                    ? "white"
+                    : theme.colors.textSecondary
+                }
+              />
+            </TouchableOpacity>
+            {selectedMemberIds.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearMembersBtn}
+                onPress={() => setSelectedMemberIds([])}
+              >
+                <Ionicons
+                  name="close-circle-outline"
+                  size={16}
+                  color={theme.colors.textSecondary}
+                />
+                <Text style={styles.clearMembersBtnText}>
+                  {t("screens:createEvent.clearSelection", {
+                    defaultValue: "Clear selection",
+                  })}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
+
+        {/* Fee Breakdown Preview */}
+        {amountInSmallestUnit > 0 &&
+          (selectedRoles.length > 0 || selectedMemberIds.length > 0) && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {t("screens:createFee.feeBreakdown")}
+              </Text>
+              <View style={styles.breakdownCard}>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>
+                    {t("screens:createFee.membersPay")}
+                  </Text>
+                  <Text style={styles.breakdownValue}>
+                    {formatCurrency(amountInSmallestUnit)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>
+                    {t("screens:createFee.stripeFee", {
+                      percent: (
+                        (feeEstimate.stripeFeeEstimate / amountInSmallestUnit) *
+                        100
+                      ).toFixed(1),
+                    })}
+                  </Text>
+                  <Text style={styles.breakdownValueMuted}>
+                    -{formatCurrency(feeEstimate.stripeFeeEstimate)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>
+                    {t("screens:createFee.clubnizerFee", {
+                      feePercent: clubPlatformFeePercent,
+                    })}
+                  </Text>
+                  <Text style={styles.breakdownValueMuted}>
+                    -{formatCurrency(feeEstimate.platformFee)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownDivider} />
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabelBold}>
+                    {t("screens:createFee.clubReceives")}
+                  </Text>
+                  <Text style={styles.breakdownValueBold}>
+                    ≈{formatCurrency(feeEstimate.clubReceivesEstimate)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownDivider} />
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>
+                    {t("screens:createFee.totalExpected")}
+                  </Text>
+                  <Text style={styles.breakdownValue}>
+                    {effectiveMemberCount} ×{" "}
+                    {formatCurrency(amountInSmallestUnit)} ={" "}
+                    {formatCurrency(totalExpected)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.infoBox}>
+                <Ionicons
+                  name="information-circle"
+                  size={18}
+                  color={theme.colors.secondary}
+                />
+                <Text style={styles.infoText}>
+                  {t("screens:createFee.stripeFeesDisclaimer")}
+                </Text>
+              </View>
+            </View>
+          )}
 
         {/* Submit */}
         <View style={styles.buttonContainer}>
@@ -732,26 +840,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
   },
-  categoryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 4,
-  },
-  categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    backgroundColor: theme.colors.inputBackground,
-  },
-  categoryChipSelected: {
-    backgroundColor: theme.colors.secondary,
-    borderColor: theme.colors.secondary,
-  },
-  categoryChipText: { fontSize: 13, color: theme.colors.text },
-  categoryChipTextSelected: { color: theme.colors.primary, fontWeight: "600" },
+
   earmarkRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -854,7 +943,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   roleItemSelected: {
-    backgroundColor: theme.colors.secondary + "33",
+    borderColor: theme.colors.secondary,
+  },
+  roleCheckboxSelected: {
+    backgroundColor: theme.colors.secondary,
     borderColor: theme.colors.secondary,
   },
   roleCheckbox: {
@@ -917,4 +1009,37 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   buttonContainer: { marginTop: 8 },
+  selectMembersBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: theme.colors.inputBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    gap: 8,
+  },
+  selectMembersBtnActive: {
+    backgroundColor: theme.colors.secondary,
+    borderColor: theme.colors.secondary,
+  },
+  selectMembersBtnText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    color: theme.colors.text,
+  },
+  selectMembersBtnTextActive: {
+    color: "white",
+  },
+  clearMembersBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    gap: 4,
+  },
+  clearMembersBtnText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+  },
 });

@@ -531,18 +531,7 @@ function RootLayoutNav() {
           headerShown: false,
         }}
       />
-      <Stack.Screen
-        name="create-membership-fee"
-        options={{
-          headerShown: true,
-          title: t("screens.createFee"),
-          headerStyle: {
-            backgroundColor: theme.colors.primary,
-          },
-          headerTintColor: theme.colors.secondary,
-          headerShadowVisible: false,
-        }}
-      />
+
       <Stack.Screen
         name="create-fee"
         options={{

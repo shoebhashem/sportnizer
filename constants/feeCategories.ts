@@ -24,6 +24,16 @@ export const FEE_CATEGORY_I18N_KEYS: Record<FeeCategory, string> = {
   other: "other",
 };
 
+/** English display labels used as i18n fallbacks (shown before translations load). */
+export const FEE_CATEGORY_LABELS: Record<FeeCategory, string> = {
+  membership_fee: "Membership Fee",
+  training_fee: "Training Fee",
+  event_fee: "Event Fee",
+  sponsorship: "Sponsorship",
+  sales_kiosk: "Kiosk / Sales",
+  other: "Other",
+};
+
 /**
  * Categories that require the admin to decide if money should be
  * earmarked (öronmärkt) for a specific group's lagkassa.

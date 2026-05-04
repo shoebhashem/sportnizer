@@ -76,6 +76,7 @@ export async function resolveClubAccountNumbers(
   revenueAccount: number;
   bankAccount: number;
   paymentFeeAccount: number;
+  platformFeeAccount: number;
   teamFundAccount: number;
 }> {
   const FALLBACK = {
@@ -86,6 +87,7 @@ export async function resolveClubAccountNumbers(
         : 3890,
     bankAccount: SPECIAL_ACCOUNTS.bank,
     paymentFeeAccount: SPECIAL_ACCOUNTS.stripeFee,
+    platformFeeAccount: SPECIAL_ACCOUNTS.platformFee,
     teamFundAccount: SPECIAL_ACCOUNTS.lagkassa,
   };
 
@@ -115,6 +117,8 @@ export async function resolveClubAccountNumbers(
       bankAccount: find("bank")?.number ?? FALLBACK.bankAccount,
       paymentFeeAccount:
         find("payment_fee")?.number ?? FALLBACK.paymentFeeAccount,
+      platformFeeAccount:
+        find("platform_fee")?.number ?? FALLBACK.platformFeeAccount,
       teamFundAccount: find("team_fund")?.number ?? FALLBACK.teamFundAccount,
     };
   } catch (e) {

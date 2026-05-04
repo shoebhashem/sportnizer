@@ -194,6 +194,17 @@ const SE_DEFAULT_CHART: ChartAccount[] = [
     isActive: true,
     isSystem: true,
   },
+  {
+    id: "platform_fee",
+    number: 6590,
+    name: "Plattformsavgift",
+    type: "Expense",
+    vatRate: 0,
+    taxExempt: true,
+    categoryMapping: null,
+    isActive: true,
+    isSystem: true,
+  },
 ];
 
 // Norway — Norsk standard kontoplan (simplified for sports associations)
@@ -290,6 +301,17 @@ const NO_DEFAULT_CHART: ChartAccount[] = [
     id: "payment_fee",
     number: 6995,
     name: "Bankgebyrer (betalingsavgifter)",
+    type: "Expense",
+    vatRate: 0,
+    taxExempt: true,
+    categoryMapping: null,
+    isActive: true,
+    isSystem: true,
+  },
+  {
+    id: "platform_fee",
+    number: 6996,
+    name: "Plattformgebyr",
     type: "Expense",
     vatRate: 0,
     taxExempt: true,
@@ -400,6 +422,17 @@ const GENERIC_CHART: ChartAccount[] = [
     isActive: true,
     isSystem: true,
   },
+  {
+    id: "platform_fee",
+    number: 6510,
+    name: "Platform fee",
+    type: "Expense",
+    vatRate: 0,
+    taxExempt: true,
+    categoryMapping: null,
+    isActive: true,
+    isSystem: true,
+  },
 ];
 
 // ─── Ledger layer helpers (legacy — kept for backwards compatibility) ─────────
@@ -423,6 +456,7 @@ export const BAS_ACCOUNT_MAP: Record<string, Record<FeeCategory, number>> = {
 export const SPECIAL_ACCOUNTS = {
   bank: 1930, // Club bank account (Stripe inbound)
   stripeFee: 6570, // Bank/payment fees
+  platformFee: 6590, // Platform service fee (Clubnizer application fee)
   lagkassa: 2071, // Team fund (earmarked money)
 } as const;
 
