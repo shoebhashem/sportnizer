@@ -473,6 +473,41 @@ export default function MemberContactModal({
           "Phone",
           guardian.phoneNumber,
         )}
+
+        {/* WhatsApp deep link — shown to all viewers when the guardian has a phone number */}
+        {guardian.phoneNumber && (
+          <TouchableOpacity
+            style={styles.whatsappRow}
+            onPress={() => {
+              const sanitised = guardian.phoneNumber!.replace(
+                /[\s\-().+]/g,
+                "",
+              );
+              const url =
+                Platform.OS === "web"
+                  ? `https://wa.me/${sanitised}`
+                  : `whatsapp://send?phone=${sanitised}`;
+              Linking.openURL(url).catch(() =>
+                Linking.openURL(`https://wa.me/${sanitised}`),
+              );
+            }}
+          >
+            <Ionicons
+              name="logo-whatsapp"
+              size={20}
+              color="#25D366"
+              style={styles.whatsappIcon}
+            />
+            <Text style={styles.whatsappText}>
+              {t("components:memberContactModal.openWhatsApp")}
+            </Text>
+            <Ionicons
+              name="open-outline"
+              size={16}
+              color={theme.colors.textSecondary}
+            />
+          </TouchableOpacity>
+        )}
       </View>
     );
   };

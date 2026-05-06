@@ -16654,6 +16654,54 @@ Club admins and group admins can update a youth player's name and/or date of bir
 - Admin can tap camera overlay to upload/change youth profile picture
 - Passed from: `manage-group.tsx` (`canManage`), `manage-club.tsx` (`isAdmin`), `manage-subgroup.tsx` (`canManage`)
 
+#### **Member Contact Details & WhatsApp**
+
+Any group member can view the contact details of fellow group members. Guardians of a group member can also view the contacts of all other members in that group.
+
+**Cloud Function** — `getMemberContactDetails` (`functions/src/members/getMemberContactDetails.ts`):
+
+Permission is granted to the caller if **any** of the following is true (checked in order):
+
+| #   | Caller type                                                                             | `groupId` required? | Access                            |
+| --- | --------------------------------------------------------------------------------------- | ------------------- | --------------------------------- |
+| 1   | `clubAccess.role === 'club-admin'`                                                      | No                  | Full details                      |
+| 2   | `groupAccess.roles` includes `'admin'` or `'coach'`                                     | Yes                 | Full details                      |
+| 3   | Caller's `dependents[].uid` matches target (`userId`)                                   | No                  | Full details (guardian of target) |
+| 4   | Caller has any active `groupAccess.roles` in this group AND target is also in the group | Yes                 | Peer view (phone only)            |
+| 5   | Caller has a dependent in this group AND target is also in the group                    | Yes                 | Peer view (phone only)            |
+
+For youth targets the response also includes `guardians[]` with each guardian's `displayName`, `email`, and live `phoneNumber` (fetched from the guardian's own user document).
+
+**UI Component** (`components/MemberContactModal.tsx`) — viewer modes:
+
+| Prop                | Who                                                    | What they see                                          |
+| ------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| `isAdminViewing`    | club-admin, group admin/coach                          | All fields + editing controls                          |
+| `isGuardianViewing` | Guardian of the specific youth being viewed            | All fields + self-edit phone button                    |
+| `isPeerViewing`     | Group peer or guardian-in-group viewing another member | Phone number + WhatsApp button only (no email, no DOB) |
+
+WhatsApp deep-link button is displayed:
+
+- For **adult members**: when `member.phoneNumber` is set and the viewer is not looking at their own card
+- For **guardian contacts** on a youth member card: when `guardian.phoneNumber` is set — visible to all viewer types
+
+**`app/manage-group.tsx`** — tappability logic:
+
+```ts
+// A guardian is considered "in the group" when they have at least one active
+// dependent who is a member of this group.
+const isGuardianInGroup = members.some(
+  (m) => dependentUids.has(m.userId) && m.isActive !== false,
+);
+
+const canTap =
+  canManage || isGuardianOf(item.userId) || isMember || isGuardianInGroup;
+```
+
+Guardians can therefore tap **any** member row in the group — not just their own child's row.
+
+**Note**: `guardian` is a club-level role only — guardians have no `groupAccess` entries and `isGroupMember()` always returns `false` for them. `isGuardianInGroup` is the dedicated check that bridges this gap.
+
 #### **Future Enhancements**
 
 - **Guardian Dashboard**: View all dependents, respond to events on behalf of children

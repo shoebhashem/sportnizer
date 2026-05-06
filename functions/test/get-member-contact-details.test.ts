@@ -195,6 +195,137 @@ describe("getMemberContactDetails — permissions", () => {
     expect(result.success).toBe(true);
   });
 
+  // ── NEW: guardian-in-group permission ────────────────────────
+
+  it("guardian with a dependent in the group can fetch another member's details", async () => {
+    const db = getFirestore();
+
+    // Create a youth player and a guardian
+    const youthPlayer = await createFullTestUser({
+      displayName: "Youth Player",
+    });
+    const guardianUser = await createFullTestUser({ displayName: "Guardian" });
+
+    // Seed youth player as a group member with needsGuardian flag
+    await seedUserDocument(youthPlayer.uid, {
+      fullName: "Youth Player",
+      email: youthPlayer.email,
+      phoneNumber: null,
+      isYouth: true,
+      clubAccess: [
+        {
+          clubId: CLUB_ID,
+          clubName: "Test Club",
+          role: "member",
+          isActive: true,
+          groupAccess: [],
+        },
+      ],
+    });
+
+    // Seed guardian with dependent link and guardian club role (no groupAccess)
+    await seedUserDocument(guardianUser.uid, {
+      fullName: "Guardian",
+      email: guardianUser.email,
+      phoneNumber: "+46709876543",
+      clubAccess: [
+        {
+          clubId: CLUB_ID,
+          clubName: "Test Club",
+          role: "guardian",
+          isActive: true,
+          groupAccess: [],
+        },
+      ],
+      dependents: [{ uid: youthPlayer.uid, name: "Youth Player" }],
+    });
+
+    // Add the youth player to the group members doc
+    const membersRef = db.doc(
+      `clubs/${CLUB_ID}/groups/${GROUP_ID}/allMembers/members`,
+    );
+    const snap = await membersRef.get();
+    const currentMembers: any[] = snap.data()?.members || [];
+    await membersRef.set({
+      members: [
+        ...currentMembers,
+        {
+          userId: youthPlayer.uid,
+          name: "Youth Player",
+          roles: ["player-underage"],
+          isActive: true,
+          needsGuardian: true,
+        },
+      ],
+    });
+
+    // Guardian should now be able to view playerA's contact details
+    const result = await callFunction(
+      "getMemberContactDetails",
+      guardianUser.idToken,
+      { userId: playerA.uid, clubId: CLUB_ID, groupId: GROUP_ID },
+    );
+    expect(result.success).toBe(true);
+    expect(result.member.phoneNumber).toBe("+46701234567");
+  });
+
+  it("guardian whose dependent is NOT in the group is denied", async () => {
+    const db = getFirestore();
+    const DIFFERENT_GROUP = "different-group-xyz";
+
+    const isolatedYouth = await createFullTestUser({
+      displayName: "Isolated Youth",
+    });
+    const isolatedGuardian = await createFullTestUser({
+      displayName: "Isolated Guardian",
+    });
+
+    await seedUserDocument(isolatedYouth.uid, {
+      fullName: "Isolated Youth",
+      email: isolatedYouth.email,
+      isYouth: true,
+      clubAccess: [],
+    });
+
+    await seedUserDocument(isolatedGuardian.uid, {
+      fullName: "Isolated Guardian",
+      email: isolatedGuardian.email,
+      clubAccess: [
+        {
+          clubId: CLUB_ID,
+          clubName: "Test Club",
+          role: "guardian",
+          isActive: true,
+          groupAccess: [],
+        },
+      ],
+      dependents: [{ uid: isolatedYouth.uid, name: "Isolated Youth" }],
+    });
+
+    // Dependent is only in DIFFERENT_GROUP, not in GROUP_ID
+    await db
+      .doc(`clubs/${CLUB_ID}/groups/${DIFFERENT_GROUP}/allMembers/members`)
+      .set({
+        members: [
+          {
+            userId: isolatedYouth.uid,
+            name: "Isolated Youth",
+            roles: ["player-underage"],
+            isActive: true,
+          },
+        ],
+      });
+
+    await expectFunctionError(
+      callFunction("getMemberContactDetails", isolatedGuardian.idToken, {
+        userId: playerA.uid,
+        clubId: CLUB_ID,
+        groupId: GROUP_ID,
+      }),
+      "permission-denied",
+    );
+  });
+
   // ── Denied callers ──────────────────────────────────────────
 
   it("player is denied when target is NOT in the group", async () => {

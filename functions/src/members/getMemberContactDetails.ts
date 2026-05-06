@@ -144,6 +144,41 @@ export const getMemberContactDetails = onCall(
         }
       }
 
+      // Check if caller is a guardian who has a dependent in this group,
+      // viewing any other member of the same group
+      if (!hasPermission && groupId) {
+        const callerDependents: any[] = callerData?.dependents || [];
+        const dependentUids: string[] = callerDependents
+          .map((d: any) => d.uid)
+          .filter(Boolean);
+
+        if (dependentUids.length > 0) {
+          const guardianMembersDoc = await db
+            .collection("clubs")
+            .doc(clubId)
+            .collection("groups")
+            .doc(groupId)
+            .collection("allMembers")
+            .doc("members")
+            .get();
+          const memberList: any[] = guardianMembersDoc.exists
+            ? guardianMembersDoc.data()?.members || []
+            : [];
+          const callerHasDependentInGroup = memberList.some((m: any) =>
+            dependentUids.includes(m.userId),
+          );
+          const targetIsInGroup = memberList.some(
+            (m: any) => m.userId === userId,
+          );
+          if (callerHasDependentInGroup && targetIsInGroup) {
+            hasPermission = true;
+            console.log(
+              `[getMemberContactDetails] Caller is a guardian with a dependent in this group`,
+            );
+          }
+        }
+      }
+
       // If no groupId provided, only club-admin can access
       if (!groupId && !hasPermission) {
         throw new HttpsError(

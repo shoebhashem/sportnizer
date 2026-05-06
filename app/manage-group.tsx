@@ -122,6 +122,19 @@ export default function ManageGroupScreen() {
   const effectiveMembers = contextMembers.length
     ? contextMembers
     : fallbackMembers;
+
+  // True when the current user is a guardian of at least one active member in this group.
+  // Guardians are not group members (no groupAccess) but should be able to view all member
+  // contact details — including other players, coaches, and guardian contacts for youth members.
+  const isGuardianInGroup = useMemo(() => {
+    if (!userProfile?.dependents?.length) return false;
+    const dependentUids = new Set(
+      (userProfile.dependents as { uid: string }[]).map((d) => d.uid),
+    );
+    return effectiveMembers.some(
+      (m) => dependentUids.has(m.userId) && m.isActive !== false,
+    );
+  }, [userProfile?.dependents, effectiveMembers]);
   const loading = shouldShowManageGroupLoading({
     hasGroup: !!effectiveGroup,
     memberCount: effectiveMembers.length,
@@ -329,14 +342,20 @@ export default function ManageGroupScreen() {
   };
 
   const handleMemberPress = (member: GroupMemberData) => {
-    if (canManage || isGuardianOf(member.userId) || isMember) {
+    if (
+      canManage ||
+      isGuardianOf(member.userId) ||
+      isMember ||
+      isGuardianInGroup
+    ) {
       setSelectedMember(member);
       setShowMemberModal(true);
     }
   };
 
   const renderMemberItem = ({ item }: { item: GroupMemberData }) => {
-    const canTap = canManage || isGuardianOf(item.userId) || isMember;
+    const canTap =
+      canManage || isGuardianOf(item.userId) || isMember || isGuardianInGroup;
     const isInactive = item.isActive === false;
     const content = (
       <>
@@ -621,7 +640,9 @@ export default function ManageGroupScreen() {
           isGuardianViewing={isGuardianOf(selectedMember.userId)}
           isAdminViewing={canManage}
           isPeerViewing={
-            !canManage && !isGuardianOf(selectedMember.userId) && isMember
+            !canManage &&
+            !isGuardianOf(selectedMember.userId) &&
+            (isMember || isGuardianInGroup)
           }
           isInactive={selectedMember.isActive === false}
           scheduledForDeletion={selectedMember.scheduledForDeletion}
