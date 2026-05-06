@@ -20,10 +20,16 @@ export const FEE_CATEGORIES = [
   "other",
 ] as const;
 
-export type FeeCategory = (typeof FEE_CATEGORIES)[number];
+/**
+ * FeeCategory is an open string type — custom categories created by club admins are
+ * stored as slugs in the Firestore chart and are valid FeeCategory values at runtime.
+ * Use SYSTEM_FEE_CATEGORY_KEYS to enumerate the built-in system categories.
+ */
+export type FeeCategory = string;
+export const SYSTEM_FEE_CATEGORY_KEYS = FEE_CATEGORIES;
 
 /** Category display labels per locale. Frontend reads category key; labels are in i18n. */
-export const FEE_CATEGORY_LABELS: Record<FeeCategory, string> = {
+export const FEE_CATEGORY_LABELS: Record<string, string> = {
   membership_fee: "Medlemsavgift",
   training_fee: "Träningsavgift / Sektionsavgift",
   event_fee: "Läger- & Cupavgift",
@@ -32,8 +38,8 @@ export const FEE_CATEGORY_LABELS: Record<FeeCategory, string> = {
   other: "Övrigt",
 };
 
-/** Categories that support earmarking for a specific group (lagkassa). */
-export const EARMARKABLE_CATEGORIES: FeeCategory[] = ["sales_kiosk", "other"];
+/** System default categories that support earmarking for a specific group (lagkassa). */
+export const EARMARKABLE_CATEGORIES: string[] = ["sales_kiosk", "other"];
 
 // ─── Mapping layer ────────────────────────────────────────────────────────────
 
@@ -80,6 +86,29 @@ export interface ChartAccount {
    * Admins may change the number and name, but type/categoryMapping are immutable.
    */
   isSystem: boolean;
+}
+
+/**
+ * One line in a multi-component fee.
+ * Amounts are in the smallest currency unit (öre/cents).
+ * Revenue account numbers and VAT figures are snapshotted at fee creation time
+ * so that later chart edits never affect historical bookkeeping.
+ */
+export interface FeeComponent {
+  /** Fee category key (slug — matches a ChartAccount.categoryMapping) */
+  category: string;
+  /** Human-readable label snapshotted from the ChartAccount name at creation time */
+  label: string;
+  /** Amount in smallest currency unit (öre/cents) */
+  amount: number;
+  /** Optional admin note for this line */
+  note?: string | null;
+  /** Revenue account number from the club's chart, resolved at creation time */
+  resolvedRevenueAccount: number;
+  /** VAT rate in percent (0, 6, 12, 25, …), snapshotted from the chart account */
+  vatRate: number;
+  /** True if this component is VAT-exempt (outside VAT scope entirely) */
+  taxExempt: boolean;
 }
 
 /**
@@ -205,6 +234,17 @@ const SE_DEFAULT_CHART: ChartAccount[] = [
     isActive: true,
     isSystem: true,
   },
+  {
+    id: "vat_output",
+    number: 2610,
+    name: "Utgående moms",
+    type: "Liability",
+    vatRate: 0,
+    taxExempt: true,
+    categoryMapping: null,
+    isActive: true,
+    isSystem: true,
+  },
 ];
 
 // Norway — Norsk standard kontoplan (simplified for sports associations)
@@ -313,6 +353,17 @@ const NO_DEFAULT_CHART: ChartAccount[] = [
     number: 6996,
     name: "Plattformgebyr",
     type: "Expense",
+    vatRate: 0,
+    taxExempt: true,
+    categoryMapping: null,
+    isActive: true,
+    isSystem: true,
+  },
+  {
+    id: "vat_output",
+    number: 2700,
+    name: "Utgående merverdiavgift",
+    type: "Liability",
     vatRate: 0,
     taxExempt: true,
     categoryMapping: null,
@@ -433,6 +484,17 @@ const GENERIC_CHART: ChartAccount[] = [
     isActive: true,
     isSystem: true,
   },
+  {
+    id: "vat_output",
+    number: 2200,
+    name: "Output VAT",
+    type: "Liability",
+    vatRate: 0,
+    taxExempt: true,
+    categoryMapping: null,
+    isActive: true,
+    isSystem: true,
+  },
 ];
 
 // ─── Ledger layer helpers (legacy — kept for backwards compatibility) ─────────
@@ -441,7 +503,7 @@ const GENERIC_CHART: ChartAccount[] = [
  * Legacy BAS account mapping — used as fallback for clubs without a custom chart.
  * All new clubs get a seeded chart; this map is retained for backwards compatibility.
  */
-export const BAS_ACCOUNT_MAP: Record<string, Record<FeeCategory, number>> = {
+export const BAS_ACCOUNT_MAP: Record<string, Record<string, number>> = {
   SE: {
     membership_fee: 3010,
     training_fee: 3020,
@@ -458,6 +520,7 @@ export const SPECIAL_ACCOUNTS = {
   stripeFee: 6570, // Bank/payment fees
   platformFee: 6590, // Platform service fee (Clubnizer application fee)
   lagkassa: 2071, // Team fund (earmarked money)
+  vatOutput: 2610, // Utgående moms / output VAT (BAS 2610 for Sweden)
 } as const;
 
 /** Legacy: resolve BAS account from hardcoded map. Kept for backwards compat. */
@@ -471,6 +534,12 @@ export function resolveBasAccount(
   return (countryMap as Record<string, number>)[category] ?? countryMap.other;
 }
 
-export function isValidFeeCategory(value: string): value is FeeCategory {
+/** Check if a value is one of the built-in system fee category keys. */
+export function isSystemFeeCategory(value: string): boolean {
   return (FEE_CATEGORIES as readonly string[]).includes(value);
+}
+
+/** @deprecated Use isSystemFeeCategory or a Firestore chart lookup for custom categories. */
+export function isValidFeeCategory(value: string): boolean {
+  return isSystemFeeCategory(value);
 }

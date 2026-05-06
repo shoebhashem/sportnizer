@@ -3,7 +3,7 @@
 // in CSV, SIE (Sweden), or SAF-T (EU/Norway) format.
 
 import ConfirmationModal from "@/components/ConfirmationModal";
-import { FEE_CATEGORY_I18N_KEYS, FeeCategory } from "@/constants/feeCategories";
+import { FEE_CATEGORY_I18N_KEYS } from "@/constants/feeCategories";
 import { theme } from "@/constants/theme";
 import { paymentService } from "@/services/paymentService";
 import { Ionicons } from "@expo/vector-icons";
@@ -215,7 +215,7 @@ export default function AccountingScreen() {
 
   const getCategoryLabel = (cat?: string | null): string => {
     if (!cat) return "";
-    const key = FEE_CATEGORY_I18N_KEYS[cat as FeeCategory];
+    const key = FEE_CATEGORY_I18N_KEYS[cat];
     return key ? t(`components:feeCategory.${key}`) : cat;
   };
 

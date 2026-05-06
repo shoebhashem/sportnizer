@@ -22,7 +22,7 @@ interface MembershipFeeSummary {
   createdAt: Timestamp;
   includedMembers: string[];
   category?: string;
-  basAccount?: number;
+  components?: any[];
   earmarkedGroupId?: string;
 }
 
@@ -155,7 +155,7 @@ export const getMembershipFees = onCall(
           createdAt: data.createdAt,
           includedMembers: data.includedMembers || [],
           category: data.category,
-          basAccount: data.basAccount,
+          components: data.components,
           earmarkedGroupId: data.earmarkedGroupId,
         };
       });

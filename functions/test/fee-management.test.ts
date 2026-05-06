@@ -1,10 +1,10 @@
 /**
  * Fee Management Integration Tests
  *
- * Tests: createMembershipFee (category / earmark fields),
+ * Tests: createMembershipFee (single & multi-component, category validation, earmark),
  *        deleteMembershipFee (soft-close),
  *        updateMembershipFee (title / description / dueDate),
- *        getMembershipFees (returns category + basAccount)
+ *        getMembershipFees (returns category + components)
  *        createClub (country / currency fields)
  *
  * Runs against Firebase Emulators.
@@ -144,10 +144,9 @@ describe("createMembershipFee — category & BAS account", () => {
       clubId,
       groupId,
       title: "Annual Fee",
-      amount: 60000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "membership_fee",
+      components: [{ category: "membership_fee", amount: 60000 }],
     });
 
     expect(result.success).toBe(true);
@@ -155,7 +154,7 @@ describe("createMembershipFee — category & BAS account", () => {
     const fee = await getDocument(`membershipFees/${result.feeId}`);
     expect(fee).toBeDefined();
     expect(fee!.category).toBe("membership_fee");
-    expect(fee!.basAccount).toBe(3010); // Swedish BAS 3010
+    expect(fee!.components[0].resolvedRevenueAccount).toBe(3010); // Swedish BAS 3010
   });
 
   it("resolves correct basAccount for training_fee", async () => {
@@ -165,15 +164,14 @@ describe("createMembershipFee — category & BAS account", () => {
       clubId,
       groupId,
       title: "Training Fee Q1",
-      amount: 30000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "training_fee",
+      components: [{ category: "training_fee", amount: 30000 }],
     });
 
     const fee = await getDocument(`membershipFees/${result.feeId}`);
     expect(fee!.category).toBe("training_fee");
-    expect(fee!.basAccount).toBe(3020);
+    expect(fee!.components[0].resolvedRevenueAccount).toBe(3020);
   });
 
   it("resolves correct basAccount for event_fee", async () => {
@@ -183,14 +181,13 @@ describe("createMembershipFee — category & BAS account", () => {
       clubId,
       groupId,
       title: "Summer Camp",
-      amount: 150000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "event_fee",
+      components: [{ category: "event_fee", amount: 150000 }],
     });
 
     const fee = await getDocument(`membershipFees/${result.feeId}`);
-    expect(fee!.basAccount).toBe(3030);
+    expect(fee!.components[0].resolvedRevenueAccount).toBe(3030);
   });
 
   it("stores earmarkedGroupId when provided with sales_kiosk category", async () => {
@@ -200,10 +197,9 @@ describe("createMembershipFee — category & BAS account", () => {
       clubId,
       groupId,
       title: "Kiosk Sales",
-      amount: 20000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "sales_kiosk",
+      components: [{ category: "sales_kiosk", amount: 20000 }],
       earmarkedGroupId: groupId,
     });
 
@@ -222,10 +218,9 @@ describe("createMembershipFee — category & BAS account", () => {
         clubId,
         groupId,
         title: "Bad Category Fee",
-        amount: 10000,
         currency: "sek",
         targetRoles: ["player"],
-        category: "fakeCategory",
+        components: [{ category: "fakeCategory", amount: 10000 }],
       },
       "invalid-argument",
     );
@@ -234,15 +229,14 @@ describe("createMembershipFee — category & BAS account", () => {
   it("succeeds with a valid category provided", async () => {
     const { admin, clubId, groupId } = await setupClubWithStripe();
 
-    // Category is required since accounting integration — must pass a valid value
+    // components[] is required; each entry must reference an active category
     const result = await callFunction("createMembershipFee", admin.idToken, {
       clubId,
       groupId,
       title: "Category Fee",
-      amount: 10000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "membership_fee",
+      components: [{ category: "membership_fee", amount: 10000 }],
     });
 
     expect(result.success).toBe(true);
@@ -263,10 +257,9 @@ describe("getMembershipFees — category & basAccount in response", () => {
       clubId,
       groupId,
       title: "Sponsor Fee",
-      amount: 100000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "sponsorship",
+      components: [{ category: "sponsorship", amount: 100000 }],
     });
 
     const result = await callFunction("getMembershipFees", admin.idToken, {
@@ -278,7 +271,7 @@ describe("getMembershipFees — category & basAccount in response", () => {
 
     const fee = result.fees[0];
     expect(fee.category).toBe("sponsorship");
-    expect(fee.basAccount).toBe(3210);
+    expect(fee.components[0].resolvedRevenueAccount).toBe(3210);
   });
 
   it("returns description field for each fee", async () => {
@@ -289,10 +282,9 @@ describe("getMembershipFees — category & basAccount in response", () => {
       groupId,
       title: "Test Fee",
       description: "Spring 2026 payment",
-      amount: 50000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "membership_fee",
+      components: [{ category: "membership_fee", amount: 50000 }],
     });
 
     const result = await callFunction("getMembershipFees", admin.idToken, {
@@ -301,6 +293,100 @@ describe("getMembershipFees — category & basAccount in response", () => {
 
     const fee = result.fees[0];
     expect(fee.description).toBe("Spring 2026 payment");
+  });
+});
+
+// ─── createMembershipFee — multi-component fees ───────────────
+
+describe("createMembershipFee — multi-component fees", () => {
+  beforeEach(async () => {
+    await clearAll();
+  });
+
+  it("creates a fee with two components and sums amounts correctly", async () => {
+    const { admin, clubId, groupId } = await setupClubWithStripe();
+
+    const result = await callFunction("createMembershipFee", admin.idToken, {
+      clubId,
+      groupId,
+      title: "Combined Fee",
+      currency: "sek",
+      targetRoles: ["player"],
+      components: [
+        { category: "membership_fee", amount: 30000, note: "Membership part" },
+        { category: "training_fee", amount: 20000, note: "Training part" },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+
+    const fee = await getDocument(`membershipFees/${result.feeId}`);
+    expect(fee).toBeDefined();
+    // Total = sum of components
+    expect(fee!.amount).toBe(50000);
+    // Two components stored
+    expect(fee!.components).toHaveLength(2);
+    // Account numbers snapshotted correctly
+    expect(fee!.components[0].resolvedRevenueAccount).toBe(3010);
+    expect(fee!.components[1].resolvedRevenueAccount).toBe(3020);
+    // Display category is null when multiple components
+    expect(fee!.category).toBeNull();
+  });
+
+  it("snapshots label and vatRate from the chart at creation time", async () => {
+    const { admin, clubId, groupId } = await setupClubWithStripe();
+
+    const result = await callFunction("createMembershipFee", admin.idToken, {
+      clubId,
+      groupId,
+      title: "Snapshot Test",
+      currency: "sek",
+      targetRoles: ["player"],
+      components: [{ category: "membership_fee", amount: 40000 }],
+    });
+
+    const fee = await getDocument(`membershipFees/${result.feeId}`);
+    const comp = fee!.components[0];
+    expect(typeof comp.label).toBe("string");
+    expect(comp.label.length).toBeGreaterThan(0);
+    expect(typeof comp.vatRate).toBe("number");
+    expect(typeof comp.taxExempt).toBe("boolean");
+  });
+
+  it("rejects fee with no components array", async () => {
+    const { admin, clubId, groupId } = await setupClubWithStripe();
+
+    await expectFunctionError(
+      "createMembershipFee",
+      admin.idToken,
+      {
+        clubId,
+        groupId,
+        title: "No Components",
+        currency: "sek",
+        targetRoles: ["player"],
+        // components intentionally omitted
+      },
+      "invalid-argument",
+    );
+  });
+
+  it("rejects fee with empty components array", async () => {
+    const { admin, clubId, groupId } = await setupClubWithStripe();
+
+    await expectFunctionError(
+      "createMembershipFee",
+      admin.idToken,
+      {
+        clubId,
+        groupId,
+        title: "Empty Components",
+        currency: "sek",
+        targetRoles: ["player"],
+        components: [],
+      },
+      "invalid-argument",
+    );
   });
 });
 
@@ -316,10 +402,9 @@ describe("deleteMembershipFee", () => {
       clubId,
       groupId,
       title: "Fee to Close",
-      amount: 30000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "membership_fee",
+      components: [{ category: "membership_fee", amount: 30000 }],
     });
     return result.feeId as string;
   }
@@ -398,10 +483,9 @@ describe("updateMembershipFee", () => {
       groupId,
       title: "Original Title",
       description: "Original description",
-      amount: 25000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "training_fee",
+      components: [{ category: "training_fee", amount: 25000 }],
     });
     return result.feeId as string;
   }

@@ -1,7 +1,7 @@
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { isValidFeeCategory, resolveBasAccount } from "../config/accounting";
+import { FeeComponent } from "../config/accounting";
 import {
     getMinimumChargeAmount,
     isSupportedCurrency,
@@ -37,30 +37,54 @@ export const createMembershipFee = onCall(
       groupId,
       title,
       description,
-      amount,
       currency,
       dueDate,
       targetRoles,
-      category,
       earmarkedGroupId,
       specificMemberIds,
     } = request.data;
 
+    const components: Array<{
+      category: string;
+      amount: number;
+      note?: string;
+    }> = request.data.components;
+
     // 2. Validate required fields
-    if (!clubId || !groupId || !title || !amount || !currency || !targetRoles) {
+    if (!clubId || !groupId || !title || !currency || !targetRoles) {
       throw new HttpsError(
         "invalid-argument",
-        "Missing required fields: clubId, groupId, title, amount, currency, targetRoles",
+        "Missing required fields: clubId, groupId, title, currency, targetRoles",
       );
     }
 
-    // Validate category
-    if (!category || !isValidFeeCategory(category)) {
+    // Validate components array
+    if (!Array.isArray(components) || components.length === 0) {
       throw new HttpsError(
         "invalid-argument",
-        `Invalid or missing fee category: ${category}`,
+        "At least one fee component is required",
       );
     }
+    for (const comp of components) {
+      if (!comp.category || typeof comp.category !== "string") {
+        throw new HttpsError(
+          "invalid-argument",
+          "Each component must have a category string",
+        );
+      }
+      if (
+        typeof comp.amount !== "number" ||
+        comp.amount <= 0 ||
+        !Number.isInteger(comp.amount)
+      ) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Each component amount must be a positive integer (in smallest currency unit)",
+        );
+      }
+    }
+
+    const totalAmount = components.reduce((sum, c) => sum + c.amount, 0);
 
     // Validate title
     const trimmedTitle = title.trim();
@@ -68,18 +92,6 @@ export const createMembershipFee = onCall(
       throw new HttpsError(
         "invalid-argument",
         "Title must be between 1 and 100 characters",
-      );
-    }
-
-    // Validate amount (in smallest currency unit)
-    if (
-      typeof amount !== "number" ||
-      amount <= 0 ||
-      !Number.isInteger(amount)
-    ) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Amount must be a positive integer (in smallest currency unit)",
       );
     }
 
@@ -92,14 +104,14 @@ export const createMembershipFee = onCall(
       );
     }
 
-    // Check minimum charge amount
+    // Check minimum charge amount (applied to total across all components)
     const minAmount = getMinimumChargeAmount(
       normalizedCurrency as SupportedCurrency,
     );
-    if (amount < minAmount) {
+    if (totalAmount < minAmount) {
       throw new HttpsError(
         "invalid-argument",
-        `Amount must be at least ${minAmount / 100} ${normalizedCurrency.toUpperCase()}`,
+        `Total amount must be at least ${minAmount / 100} ${normalizedCurrency.toUpperCase()}`,
       );
     }
 
@@ -233,9 +245,45 @@ export const createMembershipFee = onCall(
         dueDateTimestamp = Timestamp.fromDate(parsedDate);
       }
 
-      // 9. Resolve BAS account server-side (never trust client)
-      const clubCountry = clubData.country || "SE";
-      const basAccount = resolveBasAccount(category, clubCountry);
+      // 9. Validate component categories against the club's chart and snapshot account details
+      const chartSnap = await db
+        .collection("clubs")
+        .doc(clubId)
+        .collection("chartOfAccounts")
+        .get();
+
+      const chartAccounts = chartSnap.docs.map((d) => d.data());
+      const validCategoryMap = new Map(
+        chartAccounts
+          .filter((a) => a.isActive && a.categoryMapping != null)
+          .map((a) => [a.categoryMapping as string, a]),
+      );
+
+      for (const comp of components) {
+        if (!validCategoryMap.has(comp.category)) {
+          throw new HttpsError(
+            "invalid-argument",
+            `Unknown or inactive fee category: ${comp.category}`,
+          );
+        }
+      }
+
+      const resolvedComponents: FeeComponent[] = components.map((comp) => {
+        const acct = validCategoryMap.get(comp.category)!;
+        return {
+          category: comp.category,
+          label: acct.name as string,
+          amount: comp.amount,
+          note: comp.note ?? null,
+          resolvedRevenueAccount: acct.number as number,
+          vatRate: (acct.vatRate as number) ?? 0,
+          taxExempt: (acct.taxExempt as boolean) ?? true,
+        };
+      });
+
+      // Derive a single display category for filtering/display (null if mixed)
+      const displayCategory =
+        resolvedComponents.length === 1 ? resolvedComponents[0].category : null;
 
       // Create the membership fee document
       const feeRef = db.collection("membershipFees").doc();
@@ -246,7 +294,7 @@ export const createMembershipFee = onCall(
         groupName: groupData.name,
         title: trimmedTitle,
         description: description?.trim() || "",
-        amount,
+        amount: totalAmount,
         currency: normalizedCurrency,
         dueDate: dueDateTimestamp,
         targetRoles,
@@ -254,8 +302,8 @@ export const createMembershipFee = onCall(
         totalExpected: targetMembers.length,
         totalPaid: 0,
         status: "active",
-        category,
-        basAccount,
+        components: resolvedComponents,
+        category: displayCategory,
         earmarkedGroupId: earmarkedGroupId || null,
         createdBy: request.auth.uid,
         createdAt: FieldValue.serverTimestamp(),
@@ -271,7 +319,7 @@ export const createMembershipFee = onCall(
               paymentStatus: {
                 activeFeeId: feeRef.id,
                 status: "pending",
-                amount,
+                amount: totalAmount,
                 currency: normalizedCurrency,
                 dueDate: dueDateTimestamp,
                 paidAt: null,
@@ -316,7 +364,7 @@ export const createMembershipFee = onCall(
                     feeId: feeRef.id,
                     beneficiaryId: member.userId,
                     beneficiaryName: member.name,
-                    amount,
+                    amount: totalAmount,
                     currency: normalizedCurrency,
                     dueDate: dueDateTimestamp,
                   },
@@ -348,7 +396,7 @@ export const createMembershipFee = onCall(
                 feeId: feeRef.id,
                 beneficiaryId: member.userId,
                 beneficiaryName: member.name,
-                amount,
+                amount: totalAmount,
                 currency: normalizedCurrency,
                 dueDate: dueDateTimestamp,
               },

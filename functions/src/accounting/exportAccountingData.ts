@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { ChartAccount } from "../config/accounting";
 import { config } from "../utils/config";
@@ -14,7 +15,7 @@ interface VerificationLine {
 
 interface Verification {
   verNumber: number;
-  date: admin.firestore.Timestamp;
+  date: Timestamp;
   description: string;
   lines: VerificationLine[];
   sourceType: string;
@@ -91,12 +92,8 @@ export const exportAccountingData = onCall(
     });
 
     // Fetch verifications for the fiscal year
-    const from = admin.firestore.Timestamp.fromDate(
-      new Date(`${fiscalYear}-01-01T00:00:00Z`),
-    );
-    const to = admin.firestore.Timestamp.fromDate(
-      new Date(`${fiscalYear}-12-31T23:59:59Z`),
-    );
+    const from = Timestamp.fromDate(new Date(`${fiscalYear}-01-01T00:00:00Z`));
+    const to = Timestamp.fromDate(new Date(`${fiscalYear}-12-31T23:59:59Z`));
 
     const snap = await db
       .collection("clubs")

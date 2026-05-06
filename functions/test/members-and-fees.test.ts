@@ -522,10 +522,9 @@ describe("Membership Fees", () => {
       groupId,
       title: "Monthly Fee",
       description: "January 2026",
-      amount: 50000, // 500.00 SEK in smallest unit
       currency: "sek",
       targetRoles: ["player"],
-      category: "membership_fee",
+      components: [{ category: "membership_fee", amount: 50000 }],
     });
 
     expect(result.success).toBe(true);
@@ -551,10 +550,9 @@ describe("Membership Fees", () => {
         clubId,
         groupId,
         title: "Unauthorized Fee",
-        amount: 10000,
         currency: "sek",
         targetRoles: ["player"],
-        category: "membership_fee",
+        components: [{ category: "membership_fee", amount: 10000 }],
       },
       "permission-denied",
     );
@@ -570,9 +568,9 @@ describe("Membership Fees", () => {
         clubId,
         groupId,
         title: "Bad Currency Fee",
-        amount: 10000,
         currency: "xyz",
         targetRoles: ["player"],
+        components: [{ category: "membership_fee", amount: 10000 }],
       },
       "invalid-argument",
     );
@@ -611,10 +609,9 @@ describe("Membership Fees", () => {
       clubId,
       groupId,
       title: "Listable Fee",
-      amount: 30000,
       currency: "sek",
       targetRoles: ["player"],
-      category: "membership_fee",
+      components: [{ category: "membership_fee", amount: 30000 }],
     });
 
     // List fees

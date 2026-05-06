@@ -2,7 +2,7 @@
 
 import ConfirmationModal from "@/components/ConfirmationModal";
 import DateTimePicker from "@/components/DateTimePicker";
-import { FEE_CATEGORY_I18N_KEYS, FeeCategory } from "@/constants/feeCategories";
+import { FEE_CATEGORY_I18N_KEYS } from "@/constants/feeCategories";
 import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { MembershipFee, paymentService } from "@/services/paymentService";
@@ -154,9 +154,16 @@ export default function ManageFeesScreen() {
     }
   };
 
-  const getCategoryLabel = (cat?: string): string => {
+  const getCategoryLabel = (fee: {
+    category?: string;
+    components?: any[];
+  }): string => {
+    if (fee.components && fee.components.length > 1) {
+      return `Mixed (${fee.components.length} categories)`;
+    }
+    const cat = fee.components?.[0]?.category ?? fee.category;
     if (!cat) return "";
-    const key = FEE_CATEGORY_I18N_KEYS[cat as FeeCategory];
+    const key = FEE_CATEGORY_I18N_KEYS[cat];
     if (!key) return cat;
     return t(`components:feeCategory.${key}`);
   };
@@ -258,10 +265,10 @@ export default function ManageFeesScreen() {
 
               {/* Meta row */}
               <View style={styles.metaRow}>
-                {fee.category ? (
+                {fee.category || fee.components?.length ? (
                   <View style={styles.metaChip}>
                     <Text style={styles.metaChipText}>
-                      {getCategoryLabel(fee.category)}
+                      {getCategoryLabel(fee)}
                     </Text>
                   </View>
                 ) : null}

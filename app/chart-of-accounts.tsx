@@ -3,7 +3,6 @@
 // Admins can change account numbers and names; system accounts are locked
 // against deactivation or type changes.
 
-import ConfirmationModal from "@/components/ConfirmationModal";
 import { theme } from "@/constants/theme";
 import { paymentService } from "@/services/paymentService";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,9 +17,12 @@ import React, {
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
+    Alert,
+    Modal,
     RefreshControl,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     TouchableOpacity,
@@ -68,12 +70,21 @@ export default function AccountingSettingsScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNumber, setEditNumber] = useState("");
   const [editName, setEditName] = useState("");
+  const [editVatRate, setEditVatRate] = useState(0);
+  const [editTaxExempt, setEditTaxExempt] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [resultModal, setResultModal] = useState<{
-    visible: boolean;
-    title: string;
-    message: string;
-  }>({ visible: false, title: "", message: "" });
+  // Create custom category state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatAccountNumber, setNewCatAccountNumber] = useState("");
+  const [newCatVatRate, setNewCatVatRate] = useState(0);
+  const [newCatTaxExempt, setNewCatTaxExempt] = useState(false);
+  const [newCatEarmarkable, setNewCatEarmarkable] = useState(false);
+  const [creatingCat, setCreatingCat] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("active");
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -116,56 +127,71 @@ export default function AccountingSettingsScreen() {
     setEditingId(account.id);
     setEditNumber(String(account.number));
     setEditName(account.name);
+    setEditVatRate(account.vatRate ?? 0);
+    setEditTaxExempt(account.taxExempt ?? false);
   };
 
   const cancelEditing = () => {
     setEditingId(null);
     setEditNumber("");
     setEditName("");
+    setEditVatRate(0);
+    setEditTaxExempt(false);
   };
 
   const saveAccount = async (account: ChartAccount) => {
     if (!clubId) return;
     const newNumber = parseInt(editNumber, 10);
     if (isNaN(newNumber) || newNumber < 1 || newNumber > 99999) {
-      setResultModal({
-        visible: true,
-        title: t("common:error"),
-        message: t("screens:accountingSettings.invalidAccountNumber"),
-      });
+      Alert.alert(
+        t("common:error"),
+        t("screens:accountingSettings.invalidAccountNumber"),
+      );
       return;
     }
     const trimmedName = editName.trim();
     if (!trimmedName) {
-      setResultModal({
-        visible: true,
-        title: t("common:error"),
-        message: t("screens:accountingSettings.accountNameRequired"),
-      });
+      Alert.alert(
+        t("common:error"),
+        t("screens:accountingSettings.accountNameRequired"),
+      );
       return;
     }
 
     setSaving(true);
     try {
-      await paymentService.updateChartAccount(clubId as string, account.id, {
+      const updates: Parameters<typeof paymentService.updateChartAccount>[2] = {
         number: newNumber,
         name: trimmedName,
-      });
+      };
+      if (!account.isSystem) {
+        updates.vatRate = editVatRate;
+        updates.taxExempt = editTaxExempt;
+      }
+      await paymentService.updateChartAccount(
+        clubId as string,
+        account.id,
+        updates,
+      );
       // Update local state immediately
       setAccounts((prev) =>
         prev.map((a) =>
           a.id === account.id
-            ? { ...a, number: newNumber, name: trimmedName }
+            ? {
+                ...a,
+                number: newNumber,
+                name: trimmedName,
+                ...(!account.isSystem && {
+                  vatRate: editVatRate,
+                  taxExempt: editTaxExempt,
+                }),
+              }
             : a,
         ),
       );
       setEditingId(null);
     } catch (e: any) {
-      setResultModal({
-        visible: true,
-        title: t("common:error"),
-        message: e?.message ?? t("common:genericError"),
-      });
+      Alert.alert(t("common:error"), e?.message ?? t("common:genericError"));
     } finally {
       setSaving(false);
     }
@@ -174,11 +200,10 @@ export default function AccountingSettingsScreen() {
   const toggleActive = async (account: ChartAccount) => {
     if (!clubId) return;
     if (account.id === "bank" && account.isActive) {
-      setResultModal({
-        visible: true,
-        title: t("common:error"),
-        message: t("screens:accountingSettings.cannotDeactivateBank"),
-      });
+      Alert.alert(
+        t("common:error"),
+        t("screens:accountingSettings.cannotDeactivateBank"),
+      );
       return;
     }
     try {
@@ -191,23 +216,65 @@ export default function AccountingSettingsScreen() {
         ),
       );
     } catch (e: any) {
-      setResultModal({
-        visible: true,
-        title: t("common:error"),
-        message: e?.message ?? t("common:genericError"),
-      });
+      Alert.alert(t("common:error"), e?.message ?? t("common:genericError"));
     }
   };
 
-  // Group accounts by type for display
-  const groupedAccounts = accounts.reduce<Record<string, ChartAccount[]>>(
-    (acc, account) => {
-      if (!acc[account.type]) acc[account.type] = [];
-      acc[account.type].push(account);
-      return acc;
-    },
-    {},
-  );
+  const createCustomCategory = async () => {
+    if (!clubId) return;
+    const trimmedName = newCatName.trim();
+    const accountNum = parseInt(newCatAccountNumber, 10);
+    if (!trimmedName) {
+      setCreateError("Category name is required");
+      return;
+    }
+    if (isNaN(accountNum) || accountNum < 1 || accountNum > 99999) {
+      setCreateError("Account number must be 1–99999");
+      return;
+    }
+    setCreateError(null);
+    setCreatingCat(true);
+    try {
+      const result = await paymentService.createCustomFeeCategory({
+        clubId: clubId as string,
+        label: trimmedName,
+        accountNumber: accountNum,
+        vatRate: newCatVatRate,
+        taxExempt: newCatTaxExempt,
+        isEarmarkable: newCatEarmarkable,
+      });
+      if (result.success) {
+        setShowCreateModal(false);
+        setCreateError(null);
+        setNewCatName("");
+        setNewCatAccountNumber("");
+        setNewCatVatRate(0);
+        setNewCatTaxExempt(false);
+        setNewCatEarmarkable(false);
+        loadData(true);
+      } else {
+        setCreateError(result.error ?? "Failed to create category");
+      }
+    } catch (e: any) {
+      setCreateError(e?.message ?? "Unknown error");
+    } finally {
+      setCreatingCat(false);
+    }
+  };
+
+  // Group accounts by type for display, respecting the status filter
+  const filteredAccounts = accounts.filter((a) => {
+    if (statusFilter === "active") return a.isActive;
+    if (statusFilter === "inactive") return !a.isActive;
+    return true;
+  });
+  const groupedAccounts = filteredAccounts.reduce<
+    Record<string, ChartAccount[]>
+  >((acc, account) => {
+    if (!acc[account.type]) acc[account.type] = [];
+    acc[account.type].push(account);
+    return acc;
+  }, {});
   const TYPE_ORDER = ["Asset", "Liability", "Equity", "Revenue", "Expense"];
 
   return (
@@ -252,6 +319,33 @@ export default function AccountingSettingsScreen() {
             {t("screens:accountingSettings.editHint")}
           </Text>
 
+          {/* Status filter bar */}
+          <View style={styles.filterBar}>
+            {(["all", "active", "inactive"] as const).map((opt) => (
+              <TouchableOpacity
+                key={opt}
+                style={[
+                  styles.filterPill,
+                  statusFilter === opt && styles.filterPillActive,
+                ]}
+                onPress={() => setStatusFilter(opt)}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    statusFilter === opt && styles.filterPillTextActive,
+                  ]}
+                >
+                  {opt === "all"
+                    ? "All"
+                    : opt === "active"
+                      ? "Active"
+                      : "Inactive"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           {TYPE_ORDER.map((type) => {
             const typeAccounts = groupedAccounts[type];
             if (!typeAccounts?.length) return null;
@@ -279,7 +373,6 @@ export default function AccountingSettingsScreen() {
                       ]}
                     >
                       {isEditing ? (
-                        /* Edit mode */
                         <View style={styles.editContainer}>
                           <View style={styles.editRow}>
                             <View style={styles.editNumberWrapper}>
@@ -313,6 +406,65 @@ export default function AccountingSettingsScreen() {
                               />
                             </View>
                           </View>
+                          {!account.isSystem && (
+                            <>
+                              <Text style={styles.editFieldLabel}>
+                                VAT Rate
+                              </Text>
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  marginBottom: 4,
+                                }}
+                              >
+                                <TextInput
+                                  style={[
+                                    styles.editInput,
+                                    { flex: 0, width: 80 },
+                                  ]}
+                                  value={
+                                    editVatRate > 0 ? String(editVatRate) : ""
+                                  }
+                                  placeholder="0"
+                                  placeholderTextColor={
+                                    theme.colors.textSecondary
+                                  }
+                                  onChangeText={(t) => {
+                                    const cleaned = t.replace(/[^0-9]/g, "");
+                                    const n =
+                                      cleaned === ""
+                                        ? 0
+                                        : Math.min(100, parseInt(cleaned, 10));
+                                    setEditVatRate(n);
+                                    if (n > 0) setEditTaxExempt(false);
+                                  }}
+                                  keyboardType="number-pad"
+                                  editable={!saving}
+                                />
+                                <Text style={styles.editFieldLabel}>%</Text>
+                              </View>
+                              <View style={styles.taxExemptRow}>
+                                <Text style={styles.editFieldLabel}>
+                                  Tax Exempt
+                                </Text>
+                                <Switch
+                                  value={editTaxExempt}
+                                  onValueChange={(v) => {
+                                    setEditTaxExempt(v);
+                                    if (v) setEditVatRate(0);
+                                  }}
+                                  disabled={saving}
+                                  trackColor={{
+                                    false: theme.colors.inputBorder,
+                                    true: theme.colors.secondary,
+                                  }}
+                                />
+                              </View>
+                            </>
+                          )}
+
                           <View style={styles.editActions}>
                             <TouchableOpacity
                               style={styles.cancelButton}
@@ -394,24 +546,26 @@ export default function AccountingSettingsScreen() {
                                 color={theme.colors.secondary}
                               />
                             </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.toggleButton}
-                              onPress={() => toggleActive(account)}
-                            >
-                              <Ionicons
-                                name={
-                                  account.isActive
-                                    ? "eye-outline"
-                                    : "eye-off-outline"
-                                }
-                                size={18}
-                                color={
-                                  account.isActive
-                                    ? theme.colors.secondary
-                                    : theme.colors.textSecondary
-                                }
-                              />
-                            </TouchableOpacity>
+                            {!account.isSystem ? (
+                              <TouchableOpacity
+                                style={styles.toggleButton}
+                                onPress={() => toggleActive(account)}
+                              >
+                                <Ionicons
+                                  name={
+                                    account.isActive
+                                      ? "checkmark-circle-outline"
+                                      : "ban-outline"
+                                  }
+                                  size={18}
+                                  color={
+                                    account.isActive
+                                      ? theme.colors.secondary
+                                      : "#d9534f"
+                                  }
+                                />
+                              </TouchableOpacity>
+                            ) : null}
                           </View>
                         </View>
                       )}
@@ -421,17 +575,158 @@ export default function AccountingSettingsScreen() {
               </View>
             );
           })}
+
+          {/* Add custom fee category */}
+          <TouchableOpacity
+            style={styles.addCategoryBtn}
+            onPress={() => {
+              setShowCreateModal(true);
+              setCreateError(null);
+            }}
+          >
+            <Ionicons
+              name="add-circle-outline"
+              size={18}
+              color={theme.colors.secondary}
+            />
+            <Text style={styles.addCategoryBtnText}>
+              Add Custom Fee Category
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       )}
 
-      <ConfirmationModal
-        visible={resultModal.visible}
-        title={resultModal.title}
-        message={resultModal.message}
-        confirmText="OK"
-        onConfirm={() => setResultModal({ ...resultModal, visible: false })}
-        onCancel={() => setResultModal({ ...resultModal, visible: false })}
-      />
+      {/* Create custom category modal */}
+      <Modal
+        visible={showCreateModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowCreateModal(false);
+          setCreateError(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>New Fee Category</Text>
+
+            <Text style={styles.editFieldLabel}>Category Name *</Text>
+            <TextInput
+              style={styles.editInput}
+              value={newCatName}
+              onChangeText={setNewCatName}
+              placeholder="e.g. Cup Registration"
+              placeholderTextColor={theme.colors.textSecondary}
+              editable={!creatingCat}
+            />
+
+            <Text style={[styles.editFieldLabel, { marginTop: 10 }]}>
+              Account Number *
+            </Text>
+            <TextInput
+              style={styles.editInput}
+              value={newCatAccountNumber}
+              onChangeText={setNewCatAccountNumber}
+              keyboardType="number-pad"
+              maxLength={5}
+              placeholder="e.g. 3910"
+              placeholderTextColor={theme.colors.textSecondary}
+              editable={!creatingCat}
+            />
+
+            <Text style={[styles.editFieldLabel, { marginTop: 10 }]}>
+              VAT Rate
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 4,
+              }}
+            >
+              <TextInput
+                style={[styles.editInput, { flex: 0, width: 80 }]}
+                value={newCatVatRate > 0 ? String(newCatVatRate) : ""}
+                placeholder="0"
+                placeholderTextColor={theme.colors.textSecondary}
+                onChangeText={(t) => {
+                  const cleaned = t.replace(/[^0-9]/g, "");
+                  const n =
+                    cleaned === "" ? 0 : Math.min(100, parseInt(cleaned, 10));
+                  setNewCatVatRate(n);
+                  if (n > 0) setNewCatTaxExempt(false);
+                }}
+                keyboardType="number-pad"
+                editable={!creatingCat}
+              />
+              <Text style={styles.editFieldLabel}>%</Text>
+            </View>
+
+            <View style={[styles.taxExemptRow, { marginTop: 10 }]}>
+              <Text style={styles.editFieldLabel}>Tax Exempt</Text>
+              <Switch
+                value={newCatTaxExempt}
+                onValueChange={(v) => {
+                  setNewCatTaxExempt(v);
+                  if (v) setNewCatVatRate(0);
+                }}
+                disabled={creatingCat}
+                trackColor={{
+                  false: theme.colors.inputBorder,
+                  true: theme.colors.secondary,
+                }}
+              />
+            </View>
+
+            <View style={[styles.taxExemptRow, { marginTop: 4 }]}>
+              <Text style={styles.editFieldLabel}>Earmarkable (lagkassa)</Text>
+              <Switch
+                value={newCatEarmarkable}
+                onValueChange={setNewCatEarmarkable}
+                disabled={creatingCat}
+                trackColor={{
+                  false: theme.colors.inputBorder,
+                  true: theme.colors.secondary,
+                }}
+              />
+            </View>
+
+            {createError ? (
+              <Text style={{ color: "#d9534f", marginTop: 10, fontSize: 13 }}>
+                {createError}
+              </Text>
+            ) : null}
+
+            <View style={[styles.editActions, { marginTop: 16 }]}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowCreateModal(false);
+                  setCreateError(null);
+                }}
+                disabled={creatingCat}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={createCustomCategory}
+                disabled={creatingCat}
+              >
+                {creatingCat ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.primary}
+                  />
+                ) : (
+                  <Text style={styles.saveButtonText}>Create</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -579,5 +874,87 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: theme.colors.primary,
+  },
+  // VAT editing
+  vatRateRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
+  vatRateBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.background,
+  },
+  vatRateBtnActive: {
+    borderColor: theme.colors.secondary,
+    backgroundColor: theme.colors.secondary,
+  },
+  vatRateBtnText: { fontSize: 13, color: theme.colors.textSecondary },
+  vatRateBtnTextActive: { color: theme.colors.primary, fontWeight: "700" },
+  taxExemptRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  // Status filter bar
+  filterBar: {
+    flexDirection: "row",
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 8,
+  },
+  filterPill: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: "center",
+    borderRadius: 7,
+  },
+  filterPillActive: {
+    backgroundColor: theme.colors.secondary,
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: theme.colors.textSecondary,
+  },
+  filterPillTextActive: {
+    color: theme.colors.primary,
+    fontWeight: "700",
+  },
+  // Add category button
+  addCategoryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    marginTop: 12,
+  },
+  addCategoryBtnText: {
+    fontSize: 14,
+    color: theme.colors.secondary,
+    fontWeight: "600",
+  },
+  // Create category modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalCard: {
+    backgroundColor: theme.colors.inputBackground,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+    gap: 6,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: theme.colors.text,
+    marginBottom: 12,
   },
 });

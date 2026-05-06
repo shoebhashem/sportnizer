@@ -36,10 +36,17 @@ const getUserPendingPaymentsFn = httpsCallable(
 const deleteMembershipFeeFn = httpsCallable(functions, "deleteMembershipFee");
 const updateMembershipFeeFn = httpsCallable(functions, "updateMembershipFee");
 const getAccountingDataFn = httpsCallable(functions, "getAccountingData");
-const generateSIEExportFn = httpsCallable(functions, "generateSIEExport");
 const exportAccountingDataFn = httpsCallable(functions, "exportAccountingData");
 const getChartOfAccountsFn = httpsCallable(functions, "getChartOfAccounts");
 const updateChartAccountFn = httpsCallable(functions, "updateChartAccount");
+const createCustomFeeCategoryFn = httpsCallable(
+  functions,
+  "createCustomFeeCategory",
+);
+const deleteCustomFeeCategoryFn = httpsCallable(
+  functions,
+  "deleteCustomFeeCategory",
+);
 
 // Types
 export interface PendingPayment {
@@ -59,6 +66,17 @@ export interface PendingPayment {
   status?: "pending" | "processing" | "paid"; // Payment status
 }
 
+/** Mirrors FeeComponent from functions/src/config/accounting.ts */
+export interface FeeComponent {
+  category: string;
+  label: string;
+  amount: number;
+  note?: string;
+  resolvedRevenueAccount: number;
+  vatRate: number;
+  taxExempt: boolean;
+}
+
 export interface MembershipFee {
   feeId: string;
   title: string;
@@ -76,19 +94,19 @@ export interface MembershipFee {
   includedMembers: string[];
   category?: string;
   basAccount?: number;
+  components?: FeeComponent[];
   earmarkedGroupId?: string;
 }
-
+[]
 export interface CreateFeeParams {
   clubId: string;
   groupId: string;
   title: string;
   description?: string;
-  amount: number; // In smallest currency unit (öre/cents)
+  components: Array<{ category: string; amount: number; note?: string }>;
   currency: string;
   dueDate?: Date;
   targetRoles: string[];
-  category: string;
   earmarkedGroupId?: string;
   specificMemberIds?: string[];
 }
@@ -549,20 +567,14 @@ export const paymentService = {
   },
 
   async generateSIEExport(
-    clubId: string,
-    year?: number,
-  ): Promise<{
-    success: boolean;
-    content?: string;
-    filename?: string;
-    error?: string;
-  }> {
-    try {
-      const result = await generateSIEExportFn({ clubId, year });
-      return result.data as any;
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+    _clubId: string,
+    _year?: number,
+  ): Promise<{ success: boolean; error: string }> {
+    return {
+      success: false,
+      error:
+        "generateSIEExport has been removed. Use exportAccountingData instead.",
+    };
   },
 
   async exportAccountingData(
@@ -580,13 +592,14 @@ export const paymentService = {
       return result.data as any;
     } catch (error: any) {
       return { success: false, error: error.message };
-    }
+    }[]
   },
 
   async getChartOfAccounts(clubId: string): Promise<{
     success: boolean;
     settings?: Record<string, any>;
     accounts?: any[];
+    categories?: Array<{ id: string; name: string; [key: string]: any }>;
     error?: string;
   }> {
     try {
@@ -610,6 +623,34 @@ export const paymentService = {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const result = await updateChartAccountFn({ clubId, accountId, updates });
+      return result.data as { success: boolean; error?: string };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async createCustomFeeCategory(params: {
+    clubId: string;
+    label: string;
+    accountNumber: number;
+    vatRate?: number;
+    taxExempt?: boolean;
+    isEarmarkable?: boolean;
+  }): Promise<{ success: boolean; categoryKey?: string; error?: string }> {
+    try {
+      const result = await createCustomFeeCategoryFn(params);
+      return result.data as any;
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async deleteCustomFeeCategory(
+    clubId: string,
+    categoryKey: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await deleteCustomFeeCategoryFn({ clubId, categoryKey });
       return result.data as any;
     } catch (error: any) {
       return { success: false, error: error.message };

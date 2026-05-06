@@ -2,11 +2,10 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import {
-    BAS_ACCOUNT_MAP,
-    ChartAccount,
-    FeeCategory,
-    getDefaultChartForCountry,
-    SPECIAL_ACCOUNTS,
+  BAS_ACCOUNT_MAP,
+  ChartAccount,
+  getDefaultChartForCountry,
+  SPECIAL_ACCOUNTS,
 } from "../config/accounting";
 import { config } from "../utils/config";
 
@@ -78,17 +77,18 @@ export async function resolveClubAccountNumbers(
   paymentFeeAccount: number;
   platformFeeAccount: number;
   teamFundAccount: number;
+  vatOutputAccount: number;
 }> {
   const FALLBACK = {
     revenueAccount:
-      feeCategory &&
-      BAS_ACCOUNT_MAP["SE"][feeCategory as FeeCategory] !== undefined
-        ? BAS_ACCOUNT_MAP["SE"][feeCategory as FeeCategory]
+      feeCategory && BAS_ACCOUNT_MAP["SE"][feeCategory] !== undefined
+        ? BAS_ACCOUNT_MAP["SE"][feeCategory]
         : 3890,
     bankAccount: SPECIAL_ACCOUNTS.bank,
     paymentFeeAccount: SPECIAL_ACCOUNTS.stripeFee,
     platformFeeAccount: SPECIAL_ACCOUNTS.platformFee,
     teamFundAccount: SPECIAL_ACCOUNTS.lagkassa,
+    vatOutputAccount: SPECIAL_ACCOUNTS.vatOutput,
   };
 
   try {
@@ -120,6 +120,7 @@ export async function resolveClubAccountNumbers(
       platformFeeAccount:
         find("platform_fee")?.number ?? FALLBACK.platformFeeAccount,
       teamFundAccount: find("team_fund")?.number ?? FALLBACK.teamFundAccount,
+      vatOutputAccount: find("vat_output")?.number ?? FALLBACK.vatOutputAccount,
     };
   } catch (e) {
     console.warn(
@@ -144,6 +145,7 @@ export const getChartOfAccounts = onCall(
     success: boolean;
     settings: Record<string, unknown>;
     accounts: ChartAccount[];
+    categories: ChartAccount[];
   }> => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -198,14 +200,27 @@ export const getChartOfAccounts = onCall(
         .collection("chartOfAccounts")
         .orderBy("number", "asc")
         .get();
+      const seededAccounts = seededSnap.docs.map(
+        (d) => d.data() as ChartAccount,
+      );
       return {
         success: true,
         settings: { country },
-        accounts: seededSnap.docs.map((d) => d.data() as ChartAccount),
+        accounts: seededAccounts,
+        categories: seededAccounts.filter(
+          (a) => a.isActive && a.categoryMapping !== null,
+        ),
       };
     }
 
-    return { success: true, settings, accounts };
+    return {
+      success: true,
+      settings,
+      accounts,
+      categories: accounts.filter(
+        (a) => a.isActive && a.categoryMapping !== null,
+      ),
+    };
   },
 );
 
@@ -300,10 +315,14 @@ export const updateChartAccount = onCall(
     // vatRate and taxExempt: only on non-system accounts
     if (!existing.isSystem) {
       if (typeof updates.vatRate === "number") {
-        if (![0, 6, 12, 25].includes(updates.vatRate)) {
+        if (
+          !Number.isInteger(updates.vatRate) ||
+          updates.vatRate < 0 ||
+          updates.vatRate > 100
+        ) {
           throw new HttpsError(
             "invalid-argument",
-            "vatRate must be 0, 6, 12, or 25",
+            "vatRate must be an integer between 0 and 100",
           );
         }
         allowedUpdate.vatRate = updates.vatRate;
@@ -318,6 +337,232 @@ export const updateChartAccount = onCall(
     }
 
     await accountRef.update(allowedUpdate as Record<string, unknown>);
+    return { success: true };
+  },
+);
+
+// ─── Cloud Function: createCustomFeeCategory ─────────────────────────────────
+
+/**
+ * Create a custom fee category for a club.
+ * Generates a slug from the supplied label, creates a Revenue ChartAccount doc,
+ * and optionally marks the category as earmarkable.
+ * SECURITY: Only club admins may create custom categories.
+ */
+export const createCustomFeeCategory = onCall(
+  { region: config.region },
+  async (request): Promise<{ success: boolean; categoryKey: string }> => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const { clubId, label, accountNumber, vatRate, taxExempt, isEarmarkable } =
+      request.data;
+
+    if (!clubId || typeof clubId !== "string") {
+      throw new HttpsError("invalid-argument", "clubId is required");
+    }
+    if (!label || typeof label !== "string" || !label.trim()) {
+      throw new HttpsError("invalid-argument", "label is required");
+    }
+    if (
+      typeof accountNumber !== "number" ||
+      accountNumber < 1 ||
+      accountNumber > 99999
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "accountNumber must be between 1 and 99999",
+      );
+    }
+    if (
+      typeof vatRate !== "number" ||
+      !Number.isInteger(vatRate) ||
+      vatRate < 0 ||
+      vatRate > 100
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "vatRate must be an integer between 0 and 100",
+      );
+    }
+    if (typeof taxExempt !== "boolean") {
+      throw new HttpsError("invalid-argument", "taxExempt must be a boolean");
+    }
+
+    const db = admin.firestore();
+
+    const userDoc = await db.collection("users").doc(request.auth.uid).get();
+    if (!userDoc.exists) throw new HttpsError("not-found", "User not found");
+    const clubAccess: any[] = userDoc.data()?.clubAccess || [];
+    const access = clubAccess.find((a: any) => a.clubId === clubId);
+    if (!access || access.role !== "club-admin") {
+      throw new HttpsError("permission-denied", "Club admin access required");
+    }
+
+    // Generate a slug from the label
+    const slug = label
+      .trim()
+      .toLowerCase()
+      .replace(/[åä]/g, "a")
+      .replace(/ö/g, "o")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .substring(0, 40);
+
+    if (!slug) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Label must contain at least one alphanumeric character",
+      );
+    }
+
+    // Check uniqueness within this club's chart
+    const chartSnap = await db
+      .collection("clubs")
+      .doc(clubId)
+      .collection("chartOfAccounts")
+      .get();
+
+    const existing = chartSnap.docs.map((d) => d.data() as ChartAccount);
+    const duplicateMapping = existing.find((a) => a.categoryMapping === slug);
+    if (duplicateMapping) {
+      if (duplicateMapping.isSystem) {
+        throw new HttpsError(
+          "already-exists",
+          `A system category with key "${slug}" already exists and cannot be replaced`,
+        );
+      }
+      if (duplicateMapping.isActive) {
+        throw new HttpsError(
+          "already-exists",
+          `A category with key "${slug}" already exists in this club's chart`,
+        );
+      }
+      // Soft-deleted custom category — re-activate with the new values
+      const accountRef = db
+        .collection("clubs")
+        .doc(clubId)
+        .collection("chartOfAccounts")
+        .doc(slug);
+      await accountRef.set({
+        id: slug,
+        number: accountNumber,
+        name: label.trim(),
+        type: "Revenue",
+        vatRate,
+        taxExempt,
+        categoryMapping: slug,
+        isActive: true,
+        isSystem: false,
+      } as ChartAccount);
+      return { success: true, categoryKey: slug };
+    }
+    const duplicateNumber = existing.find(
+      (a) => a.number === accountNumber && a.isActive,
+    );
+    if (duplicateNumber) {
+      throw new HttpsError(
+        "already-exists",
+        `Account number ${accountNumber} is already in use`,
+      );
+    }
+
+    const newAccount: ChartAccount = {
+      id: slug,
+      number: accountNumber,
+      name: label.trim(),
+      type: "Revenue",
+      vatRate,
+      taxExempt,
+      categoryMapping: slug,
+      isActive: true,
+      isSystem: false,
+    };
+
+    const accountRef = db
+      .collection("clubs")
+      .doc(clubId)
+      .collection("chartOfAccounts")
+      .doc(slug);
+
+    await accountRef.set(newAccount);
+
+    // If earmarkable, persist in accountingConfig/settings
+    if (isEarmarkable === true) {
+      const settingsRef = db
+        .collection("clubs")
+        .doc(clubId)
+        .collection("accountingConfig")
+        .doc("settings");
+      const settingsDoc = await settingsRef.get();
+      const currentEarmarkable: string[] =
+        settingsDoc.data()?.earmarkableCategories ?? [];
+      if (!currentEarmarkable.includes(slug)) {
+        await settingsRef.set(
+          { earmarkableCategories: [...currentEarmarkable, slug] },
+          { merge: true },
+        );
+      }
+    }
+
+    return { success: true, categoryKey: slug };
+  },
+);
+
+// ─── Cloud Function: deleteCustomFeeCategory ─────────────────────────────────
+
+/**
+ * Soft-delete a custom (non-system) fee category by setting isActive = false.
+ * SECURITY: Only club admins may delete custom categories.
+ */
+export const deleteCustomFeeCategory = onCall(
+  { region: config.region },
+  async (request): Promise<{ success: boolean }> => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const { clubId, categoryKey } = request.data;
+
+    if (!clubId || typeof clubId !== "string") {
+      throw new HttpsError("invalid-argument", "clubId is required");
+    }
+    if (!categoryKey || typeof categoryKey !== "string") {
+      throw new HttpsError("invalid-argument", "categoryKey is required");
+    }
+
+    const db = admin.firestore();
+
+    const userDoc = await db.collection("users").doc(request.auth.uid).get();
+    if (!userDoc.exists) throw new HttpsError("not-found", "User not found");
+    const clubAccess: any[] = userDoc.data()?.clubAccess || [];
+    const access = clubAccess.find((a: any) => a.clubId === clubId);
+    if (!access || access.role !== "club-admin") {
+      throw new HttpsError("permission-denied", "Club admin access required");
+    }
+
+    const accountRef = db
+      .collection("clubs")
+      .doc(clubId)
+      .collection("chartOfAccounts")
+      .doc(categoryKey);
+
+    const accountDoc = await accountRef.get();
+    if (!accountDoc.exists) {
+      throw new HttpsError("not-found", "Category not found");
+    }
+
+    const account = accountDoc.data() as ChartAccount;
+
+    if (account.isSystem) {
+      throw new HttpsError(
+        "failed-precondition",
+        "System categories cannot be deleted",
+      );
+    }
+
+    await accountRef.update({ isActive: false });
     return { success: true };
   },
 );

@@ -2,8 +2,8 @@
  * Accounting Integration Tests
  *
  * Tests: verificationService (createVerification — sequential numbering),
- *        getAccountingData (fetch verifications, date filters, access control),
- *        generateSIEExport (SIE 4 format content, year filter, access control)
+ *        getAccountingData (fetch verifications, date filters, P&L totals, access control),
+ *        exportAccountingData (CSV / SIE / SAF-T formats, year filter, access control)
  *
  * Runs against Firebase Emulators.
  */
@@ -507,9 +507,9 @@ describe("getAccountingData", () => {
   });
 }); // end describe("getAccountingData")
 
-// ─── generateSIEExport ─────────────────────────────────────────
+// ─── exportAccountingData ──────────────────────────────────────
 
-describe("generateSIEExport", () => {
+describe("exportAccountingData", () => {
   beforeEach(async () => {
     await clearAll();
   });
@@ -524,7 +524,6 @@ describe("generateSIEExport", () => {
       description: "Membership payment",
       sourceType: "stripe_payment",
       category: "membership_fee",
-      basAccount: 3010,
       lines: [
         { account: 1930, debit: 48550, credit: 0, description: "Bank net" },
         { account: 6570, debit: 1450, credit: 0, description: "Stripe fee" },
@@ -535,109 +534,116 @@ describe("generateSIEExport", () => {
     return { user, clubId };
   }
 
-  it("returns success with SIE content and filename", async () => {
+  // ── CSV format ──────────────────────────────────────────────
+
+  it("returns valid CSV content and .csv filename", async () => {
     const { user, clubId } = await setupClubWithVerifications();
 
-    const result = await callFunction("generateSIEExport", user.idToken, {
+    const result = await callFunction("exportAccountingData", user.idToken, {
       clubId,
       year: 2026,
+      format: "csv",
     });
 
     expect(result.success).toBe(true);
     expect(typeof result.content).toBe("string");
     expect(result.content.length).toBeGreaterThan(0);
-    expect(result.filename).toMatch(/\.se$/i); // e.g. "clubname_2026.se"
+    expect(result.filename).toMatch(/\.csv$/i);
   });
 
-  it("SIE content starts with required #FLAGGA 0 header", async () => {
+  it("CSV defaults when format is omitted", async () => {
     const { user, clubId } = await setupClubWithVerifications();
 
-    const result = await callFunction("generateSIEExport", user.idToken, {
+    const result = await callFunction("exportAccountingData", user.idToken, {
       clubId,
       year: 2026,
+      // format omitted → defaults to csv
     });
 
+    expect(result.success).toBe(true);
+    expect(result.filename).toMatch(/\.csv$/i);
+  });
+
+  // ── SIE format ──────────────────────────────────────────────
+
+  it("returns valid SIE content and .se filename", async () => {
+    const { user, clubId } = await setupClubWithVerifications();
+
+    const result = await callFunction("exportAccountingData", user.idToken, {
+      clubId,
+      year: 2026,
+      format: "sie",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.filename).toMatch(/\.se$/i);
     expect(result.content).toMatch(/^#FLAGGA 0/);
   });
 
-  it("SIE content contains #SIETYP 4 declaration", async () => {
+  it("SIE content contains required header declarations", async () => {
     const { user, clubId } = await setupClubWithVerifications();
 
-    const result = await callFunction("generateSIEExport", user.idToken, {
+    const result = await callFunction("exportAccountingData", user.idToken, {
       clubId,
       year: 2026,
+      format: "sie",
     });
 
     expect(result.content).toContain("#SIETYP 4");
-  });
-
-  it("SIE content contains #FORMAT PC8", async () => {
-    const { user, clubId } = await setupClubWithVerifications();
-
-    const result = await callFunction("generateSIEExport", user.idToken, {
-      clubId,
-      year: 2026,
-    });
-
     expect(result.content).toContain("#FORMAT PC8");
+    expect(result.content).toContain("#RAR 0 20260101 20261231");
   });
 
-  it("SIE content contains #VER entries for verifications", async () => {
+  it("SIE content contains #VER and #TRANS entries", async () => {
     const { user, clubId } = await setupClubWithVerifications();
 
-    const result = await callFunction("generateSIEExport", user.idToken, {
+    const result = await callFunction("exportAccountingData", user.idToken, {
       clubId,
       year: 2026,
+      format: "sie",
     });
 
     expect(result.content).toContain("#VER");
     expect(result.content).toContain("#TRANS");
   });
 
-  it("SIE content contains #KONTO account declarations", async () => {
+  it("SIE amounts are in kronor (not öre)", async () => {
     const { user, clubId } = await setupClubWithVerifications();
 
-    const result = await callFunction("generateSIEExport", user.idToken, {
+    const result = await callFunction("exportAccountingData", user.idToken, {
       clubId,
       year: 2026,
+      format: "sie",
     });
 
-    // Should declare BAS accounts used (1930, 6570, 3010)
-    expect(result.content).toContain("#KONTO 1930");
-    expect(result.content).toContain("#KONTO 3010");
-    expect(result.content).toContain("#KONTO 6570");
-  });
-
-  it("SIE content contains #RAR fiscal year declaration", async () => {
-    const { user, clubId } = await setupClubWithVerifications(2026);
-
-    const result = await callFunction("generateSIEExport", user.idToken, {
-      clubId,
-      year: 2026,
-    });
-
-    expect(result.content).toContain("#RAR 0 20260101 20261231");
-  });
-
-  it("amounts in SIE are in kronor (not öre)", async () => {
-    const { user, clubId } = await setupClubWithVerifications();
-
-    const result = await callFunction("generateSIEExport", user.idToken, {
-      clubId,
-      year: 2026,
-    });
-
-    // 50000 öre = 500.00 SEK — SIE should have "500.00" not "50000"
+    // 50000 öre = 500.00 SEK
     expect(result.content).toContain("500.00");
     // 48550 öre = 485.50 SEK
     expect(result.content).toContain("485.50");
   });
 
-  it("only exports verifications for the requested fiscal year", async () => {
+  // ── SAF-T format ────────────────────────────────────────────
+
+  it("returns valid SAF-T XML content and .xml filename", async () => {
+    const { user, clubId } = await setupClubWithVerifications();
+
+    const result = await callFunction("exportAccountingData", user.idToken, {
+      clubId,
+      year: 2026,
+      format: "saft",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.filename).toMatch(/\.xml$/i);
+    expect(result.content).toMatch(/<\?xml/i);
+  });
+
+  // ── Year filter ─────────────────────────────────────────────
+
+  it("only exports verifications for the requested fiscal year (SIE)", async () => {
     const { user, clubId } = await setupAdminClub();
     const db = getFirestore();
 
-    // 2025 verification
     await createVerification(db, {
       clubId,
       date: new Date("2025-06-01"),
@@ -649,7 +655,6 @@ describe("generateSIEExport", () => {
       ],
     });
 
-    // 2026 verification
     await createVerification(db, {
       clubId,
       date: new Date("2026-03-01"),
@@ -661,47 +666,49 @@ describe("generateSIEExport", () => {
       ],
     });
 
-    const result = await callFunction("generateSIEExport", user.idToken, {
+    const result = await callFunction("exportAccountingData", user.idToken, {
       clubId,
       year: 2026,
+      format: "sie",
     });
 
-    // Should contain "Current payment" but not "Old payment"
     expect(result.content).toContain("Current payment");
     expect(result.content).not.toContain("Old payment");
   });
 
-  it("returns empty-body SIE (only headers) when no verifications for the year", async () => {
+  it("returns empty-body export when no verifications exist for the year", async () => {
     const { user, clubId } = await setupAdminClub();
 
-    const result = await callFunction("generateSIEExport", user.idToken, {
+    const result = await callFunction("exportAccountingData", user.idToken, {
       clubId,
-      year: 2099, // far future — no data
+      year: 2099,
+      format: "sie",
     });
 
     expect(result.success).toBe(true);
     expect(result.content).toContain("#FLAGGA 0");
-    // No #VER entries expected
     expect(result.content).not.toContain("#VER");
   });
+
+  // ── Access control ──────────────────────────────────────────
 
   it("rejects access from a non-admin user", async () => {
     const { clubId } = await setupAdminClub();
     const outsider = await createFullTestUser({ email: "outsider2@test.com" });
 
     await expectFunctionError(
-      "generateSIEExport",
+      "exportAccountingData",
       outsider.idToken,
-      { clubId, year: 2026 },
+      { clubId, year: 2026, format: "csv" },
       "permission-denied",
     );
   });
 
   it("rejects unauthenticated calls", async () => {
     await expectFunctionError(
-      "generateSIEExport",
+      "exportAccountingData",
       "",
-      { clubId: "any", year: 2026 },
+      { clubId: "any", year: 2026, format: "csv" },
       "unauthenticated",
     );
   });
@@ -710,9 +717,9 @@ describe("generateSIEExport", () => {
     const { user } = await setupAdminClub();
 
     await expectFunctionError(
-      "generateSIEExport",
+      "exportAccountingData",
       user.idToken,
-      { year: 2026 },
+      { year: 2026, format: "csv" },
       "invalid-argument",
     );
   });
@@ -720,11 +727,11 @@ describe("generateSIEExport", () => {
   it("defaults to current year when year is omitted", async () => {
     const { user, clubId } = await setupAdminClub();
 
-    const result = await callFunction("generateSIEExport", user.idToken, {
+    const result = await callFunction("exportAccountingData", user.idToken, {
       clubId,
+      format: "sie",
     });
 
-    // Should still succeed and return valid SIE headers
     expect(result.success).toBe(true);
     const currentYear = new Date().getFullYear();
     expect(result.content).toContain(

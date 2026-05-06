@@ -334,10 +334,9 @@ describe("Suite Q: Notification Side-Effects Across Cloud Functions", () => {
       groupId,
       title: "Season Fee",
       description: "Annual membership fee.",
-      amount: 50000, // 500.00 SEK
       currency: "sek",
       targetRoles: ["player"],
-      category: "membership_fee",
+      components: [{ category: "membership_fee", amount: 50000 }],
     });
 
     expect(result.success).toBe(true);

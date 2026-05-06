@@ -30,7 +30,7 @@
 - [Push Notification Architecture](#push-notification-architecture)
 - [Firestore Security Rules & Access Control](#-firestore-security-rules--access-control)
 - [Stripe Connect & Payment System](#-stripe-connect--payment-system)
-- [Pre-Accounting Engine & SIE Export](#-pre-accounting-engine--sie-export)
+- [Accounting Engine](#-accounting-engine--three-layer-architecture)
 - [Legal & Compliance System](#-legal--compliance-system)
 - [Internationalization (i18n)](#-internationalization-i18n)
 - [Implementation Notes](#implementation-notes)
@@ -18040,11 +18040,63 @@ The language will automatically appear in the profile dropdown.
 
 ## 📊 Accounting Engine — Three-Layer Architecture
 
-Clubnizer includes an automated bookkeeping system built on a three-layer model:
+Clubfee accounting is automated through a three-layer model:
 
-1. **Product Layer** — `FeeCategory` constants (`membership_fee`, `training_fee`, etc.) defined in `constants/feeCategories.ts`
-2. **Mapping Layer** — Per-club **chart of accounts** stored in `clubs/{clubId}/chartOfAccounts/` providing customizable account number → account name mappings
-3. **Ledger Layer** — Double-entry **verifications** in `clubs/{clubId}/verifications/` generated automatically from Stripe webhook events
+1. **Product Layer** — `FeeCategory = string` (open type, not a fixed enum). Built-in system keys are in `SYSTEM_FEE_CATEGORY_KEYS`; clubs may add custom keys via `createCustomFeeCategory`.
+2. **Mapping Layer** — Per-club **chart of accounts** stored in `clubs/{clubId}/chartOfAccounts/` providing customizable account number → account name mappings with VAT metadata.
+3. **Ledger Layer** — Double-entry **verifications** in `clubs/{clubId}/verifications/` written automatically from Stripe webhook events, one verification per component.
+
+### FeeCategory & FeeComponent Types
+
+```typescript
+// Open string type — custom slugs created by club admins are valid at runtime
+export type FeeCategory = string;
+export const SYSTEM_FEE_CATEGORY_KEYS = [
+  "membership_fee",
+  "training_fee",
+  "event_fee",
+  "sponsorship",
+  "sales_kiosk",
+  "other",
+] as const;
+
+/**
+ * One line in a multi-component fee.
+ * Amounts are in smallest currency unit (öre/cents).
+ * Revenue account numbers and VAT figures are snapshotted at fee creation time
+ * so that later chart edits never affect historical bookkeeping.
+ */
+export interface FeeComponent {
+  category: string; // Category slug matching ChartAccount.categoryMapping
+  label: string; // Snapshotted account name
+  amount: number; // Smallest currency unit
+  note?: string; // Optional admin note
+  resolvedRevenueAccount: number; // Revenue account number from chart, resolved at creation
+  vatRate: number; // VAT % (0, 6, 12, 25, …), snapshotted
+  taxExempt: boolean; // True = outside VAT scope entirely
+}
+```
+
+### Multi-Component Fee Model
+
+A membership fee is composed of one or more `FeeComponent` entries. This allows a single payment request to split income across multiple revenue accounts:
+
+```
+membershipFees/{feeId}/
+  amount: number            # Total = sum of all component amounts
+  currency: string
+  components: FeeComponent[] # One entry per fee line; account details snapshotted
+  category: string | null    # Convenience: single-component category, or null if mixed
+  earmarkedGroupId?: string  # Lagkassa earmark (single-component earmarkable fees only)
+```
+
+**Backend flow:**
+
+1. `createMembershipFee` receives `components: [{ category, amount, note? }]`
+2. Validates each category against the club's live chart (`isActive && categoryMapping != null`)
+3. Snapshots `FeeComponent[]` (label, vatRate, taxExempt, resolvedRevenueAccount) at creation time
+4. Stores `components[]` + `amount` (sum) + `category` (null if mixed) on the fee doc
+5. Webhook handler creates one accounting verification per component
 
 ### Chart of Accounts
 
@@ -18060,15 +18112,16 @@ clubs/{clubId}/
       fiscalYearStartMonth: number    # 1 = January
       vatExempt: boolean
       chartVersion: number
+      earmarkableCategories?: string[] # Slugs of categories that support lagkassa earmark
 
   chartOfAccounts/
     {accountId}/
-      number: number                  # e.g. 1930, 3010
-      name: string                    # e.g. "Bankgiro"
+      number: number                  # e.g. 1930, 3010 — editable by admin
+      name: string                    # e.g. "Bankgiro" — editable by admin
       type: AccountType               # "Asset"|"Liability"|"Equity"|"Revenue"|"Expense"
-      vatRate: 0|6|12|25             # VAT percentage
+      vatRate: number                 # VAT % (any integer 0–100); validated by backend
       taxExempt: boolean
-      categoryMapping: string|null    # FeeCategory key or null
+      categoryMapping: string|null    # FeeCategory slug or null (system accounts)
       isActive: boolean
       isSystem: boolean               # system accounts cannot be deactivated or have vatRate changed
 ```
@@ -18084,6 +18137,14 @@ clubs/{clubId}/
 | Other   | Generic EU     | 1200 | 4100 (membership)                  |
 
 **Backwards compatibility**: `resolveClubAccountNumbers()` falls back to the hardcoded BAS defaults (1930, 6570, etc.) for clubs that have no chart in Firestore. New clubs are seeded on-demand via `seedClubAccountingConfig()`.
+
+### Custom Fee Categories
+
+Club admins can create custom income categories beyond the built-in system keys:
+
+1. `createCustomFeeCategory` CF — validates label/accountNumber/vatRate (0–100), derives a slug, writes a Revenue `ChartAccount` doc (`isSystem: false`), optionally marks as earmarkable in `accountingConfig/settings`. If a non-system category with the same slug was previously soft-deleted, it is **re-activated** with the new values instead of returning an error.
+2. `deleteCustomFeeCategory` CF — soft-deletes by setting `isActive: false`; system accounts are protected
+3. Custom categories are returned in `getChartOfAccounts` → `categories[]` and immediately available as fee component categories
 
 ### Fee Categories & Account Resolution
 
@@ -18195,22 +18256,24 @@ Export is handled by `exportAccountingData` (Cloud Function in `functions/src/ac
 
 ### Backend Functions
 
-| Function               | File                                               | Description                                                                                                                               |
-| ---------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `getAccountingData`    | `functions/src/accounting/getAccountingData.ts`    | Fetch verifications + server-computed P&L totals (`totalRevenue`, `totalExpenses`, `totalNetRevenue`) via chart-of-accounts account types |
-| `exportAccountingData` | `functions/src/accounting/exportAccountingData.ts` | Export verifications as CSV, SIE, or SAF-T (club admin only)                                                                              |
-| `getChartOfAccounts`   | `functions/src/accounting/chartOfAccounts.ts`      | Fetch or seed-on-demand the club's chart of accounts                                                                                      |
-| `updateChartAccount`   | `functions/src/accounting/chartOfAccounts.ts`      | Update an account's number, name, isActive, vatRate                                                                                       |
-| `createVerification`   | `functions/src/accounting/verificationService.ts`  | Internal helper — atomic sequential ver number + Firestore write                                                                          |
+| Function                  | File                                               | Description                                                                                                                               |
+| ------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `getAccountingData`       | `functions/src/accounting/getAccountingData.ts`    | Fetch verifications + server-computed P&L totals (`totalRevenue`, `totalExpenses`, `totalNetRevenue`) via chart-of-accounts account types |
+| `exportAccountingData`    | `functions/src/accounting/exportAccountingData.ts` | Export verifications as CSV, SIE 4E, or SAF-T XML (club admin only); format selected by caller                                            |
+| `getChartOfAccounts`      | `functions/src/accounting/chartOfAccounts.ts`      | Fetch or seed-on-demand the club's chart of accounts; returns `accounts[]`, `categories[]` (active Revenue accounts), and `settings`      |
+| `updateChartAccount`      | `functions/src/accounting/chartOfAccounts.ts`      | Update an account's number, name, isActive, vatRate (any integer 0–100)                                                                   |
+| `createCustomFeeCategory` | `functions/src/accounting/chartOfAccounts.ts`      | Create a new custom Revenue account + category slug for the club                                                                          |
+| `deleteCustomFeeCategory` | `functions/src/accounting/chartOfAccounts.ts`      | Soft-delete a custom (non-system) category by setting `isActive: false`                                                                   |
+| `createVerification`      | `functions/src/accounting/verificationService.ts`  | Internal helper — atomic sequential ver number + Firestore write                                                                          |
 
 ### Frontend Screens
 
-| Screen              | Path                          | Description                                                |
-| ------------------- | ----------------------------- | ---------------------------------------------------------- |
-| Accounting          | `app/accounting.tsx`          | P&L summary, verification list, multi-format export picker |
-| Accounting Settings | `app/accounting-settings.tsx` | View and edit the club's chart of accounts                 |
-| Create Fee          | `app/create-fee.tsx`          | Create fee with category chips + earmark toggle            |
-| Manage Fees         | `app/manage-fees.tsx`         | List fees, edit title/desc/dueDate, close fee              |
+| Screen            | Path                        | Description                                                                                                 |
+| ----------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Accounting        | `app/accounting.tsx`        | P&L summary, verification list, multi-format export picker (CSV / SIE / SAF-T)                              |
+| Chart of Accounts | `app/chart-of-accounts.tsx` | View and edit the club's chart of accounts; create/delete custom fee categories; free-form VAT rate editing |
+| Create Fee        | `app/create-fee.tsx`        | Multi-component fee builder with `DropdownInput` category picker per line + earmark toggle                  |
+| Manage Fees       | `app/manage-fees.tsx`       | List fees, edit title/desc/dueDate, close fee; shows category grouping                                      |
 
 Both Accounting screens are accessible from **Club Settings → Accounting** / **Club Settings → Chart of Accounts**.
 

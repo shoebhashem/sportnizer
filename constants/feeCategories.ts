@@ -12,10 +12,11 @@ export const FEE_CATEGORIES = [
   "other",
 ] as const;
 
-export type FeeCategory = (typeof FEE_CATEGORIES)[number];
+/** Open string type — system slugs plus any custom club category slugs. */
+export type FeeCategory = string;
 
 /** i18n key prefix: components:feeCategory.{key} */
-export const FEE_CATEGORY_I18N_KEYS: Record<FeeCategory, string> = {
+export const FEE_CATEGORY_I18N_KEYS: Record<string, string> = {
   membership_fee: "membershipFee",
   training_fee: "trainingFee",
   event_fee: "eventFee",
@@ -25,7 +26,7 @@ export const FEE_CATEGORY_I18N_KEYS: Record<FeeCategory, string> = {
 };
 
 /** English display labels used as i18n fallbacks (shown before translations load). */
-export const FEE_CATEGORY_LABELS: Record<FeeCategory, string> = {
+export const FEE_CATEGORY_LABELS: Record<string, string> = {
   membership_fee: "Membership Fee",
   training_fee: "Training Fee",
   event_fee: "Event Fee",
@@ -38,8 +39,8 @@ export const FEE_CATEGORY_LABELS: Record<FeeCategory, string> = {
  * Categories that require the admin to decide if money should be
  * earmarked (öronmärkt) for a specific group's lagkassa.
  */
-export const EARMARKABLE_CATEGORIES: FeeCategory[] = ["sales_kiosk", "other"];
+export const EARMARKABLE_CATEGORIES: string[] = ["sales_kiosk", "other"];
 
-export function isEarmarkable(category: FeeCategory): boolean {
+export function isEarmarkable(category: string): boolean {
   return EARMARKABLE_CATEGORIES.includes(category);
 }

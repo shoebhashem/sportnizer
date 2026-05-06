@@ -4,6 +4,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import Stripe from "stripe";
 import { resolveClubAccountNumbers } from "../accounting/chartOfAccounts";
 import { createVerification } from "../accounting/verificationService";
+import { FeeComponent } from "../config/accounting";
 import { config } from "../utils/config";
 
 /**
@@ -498,13 +499,15 @@ async function handleChargeRefunded(
       .get();
     const fee = feeDoc.data() ?? {};
 
-    // Resolve account numbers from the club's chart
+    // Resolve system account numbers for refund
     const {
-      revenueAccount: refundRevenueAccount,
       bankAccount: refundBankAccount,
       paymentFeeAccount: refundFeeAccount,
       platformFeeAccount: refundPlatformFeeAccount,
-    } = await resolveClubAccountNumbers(db, paymentData.clubId, fee.category);
+      vatOutputAccount: refundVatOutputAccount,
+    } = await resolveClubAccountNumbers(db, paymentData.clubId, undefined);
+    const refundComponents: FeeComponent[] =
+      (fee.components as FeeComponent[]) ?? [];
 
     // Get the gross amount from the charge (in cents/öre)
     const grossAmount = charge.amount;
@@ -542,17 +545,61 @@ async function handleChargeRefunded(
     const totalRefundFee = refundStripeFeeAmount + refundPlatformFeeAmount;
     const netAmount = grossAmount - totalRefundFee;
 
+    // Build reversal lines (mirror original payment journal in reverse)
+    type RefundLine = {
+      account: number;
+      debit: number;
+      credit: number;
+      description: string;
+    };
+    const refundRevenueLines: RefundLine[] = [];
+
+    if (refundComponents.length > 0) {
+      for (const comp of refundComponents) {
+        if (comp.taxExempt || comp.vatRate === 0) {
+          refundRevenueLines.push({
+            account: comp.resolvedRevenueAccount,
+            debit: comp.amount,
+            credit: 0,
+            description: `Återföring: ${comp.label ?? comp.category}`,
+          });
+        } else {
+          const netRevenue = Math.round(comp.amount / (1 + comp.vatRate / 100));
+          const vatAmount = comp.amount - netRevenue;
+          refundRevenueLines.push({
+            account: comp.resolvedRevenueAccount,
+            debit: netRevenue,
+            credit: 0,
+            description: `Återföring: ${comp.label ?? comp.category} (excl. VAT)`,
+          });
+          if (vatAmount > 0) {
+            refundRevenueLines.push({
+              account: refundVatOutputAccount,
+              debit: vatAmount,
+              credit: 0,
+              description: `Återföring moms ${comp.vatRate}%`,
+            });
+          }
+        }
+      }
+    } else {
+      // Fallback: fee predates components model.
+      const { revenueAccount: fallbackRevenue } =
+        await resolveClubAccountNumbers(db, paymentData.clubId, fee.category);
+      refundRevenueLines.push({
+        account: fallbackRevenue,
+        debit: grossAmount,
+        credit: 0,
+        description: "Återföring intäkt",
+      });
+    }
+
     await createVerification(db, {
       clubId: paymentData.clubId,
       date: new Date(),
       description: `Återbetalning: ${fee.title ?? paymentData.feeId}`,
       lines: [
-        {
-          account: refundRevenueAccount,
-          debit: grossAmount,
-          credit: 0,
-          description: "Återföring intäkt",
-        },
+        ...refundRevenueLines,
         ...(refundStripeFeeAmount > 0
           ? [
               {
@@ -588,8 +635,14 @@ async function handleChargeRefunded(
           : undefined,
       feeId: paymentData.feeId,
       feeTitle: fee.title,
-      category: fee.category,
-      basAccount: refundRevenueAccount,
+      category:
+        refundComponents.length === 1
+          ? refundComponents[0].category
+          : (fee.category ?? undefined),
+      basAccount:
+        refundComponents.length === 1
+          ? refundComponents[0].resolvedRevenueAccount
+          : undefined,
       earmarkedGroupId: fee.earmarkedGroupId,
       memberId: paymentData.beneficiaryId,
       memberName: paymentData.beneficiaryName,
@@ -799,14 +852,20 @@ async function createAccountingVerification({
   stripe,
   stripeAccountId,
 }: AccountingVerificationInput): Promise<void> {
-  // 1. Fetch the fee to get category
+  // 1. Fetch the fee and its components
   const feeDoc = await db.collection("membershipFees").doc(feeId).get();
   const fee = feeDoc.data() ?? {};
+  const feeComponents: FeeComponent[] =
+    (fee.components as FeeComponent[]) ?? [];
 
-  // 2. Resolve account numbers from the club's chart of accounts
-  //    Falls back gracefully to BAS defaults for clubs without a chart.
-  const { revenueAccount, bankAccount, paymentFeeAccount, platformFeeAccount } =
-    await resolveClubAccountNumbers(db, clubId, fee.category);
+  // 2. Resolve system account numbers (bank, fee accounts, VAT output).
+  //    Component-level revenue accounts are already snapshotted in fee.components.
+  const {
+    bankAccount,
+    paymentFeeAccount,
+    platformFeeAccount,
+    vatOutputAccount,
+  } = await resolveClubAccountNumbers(db, clubId, undefined);
 
   // 3. Gross amount is the checkout amount_total (in smallest currency unit)
   const grossAmount = session.amount_total ?? 0;
@@ -868,9 +927,59 @@ async function createAccountingVerification({
     paymentData.beneficiaryName ?? paymentData.payerName ?? "Okänd medlem";
 
   // 5. Build double-entry lines
-  //    Debit: bank (net) + Stripe fee + platform fee (each as a separate expense)
-  //    Credit: revenue account (gross)
-  const lines = [
+  //    Per-component revenue credits with VAT split; single bank debit.
+  type JournalLine = {
+    account: number;
+    debit: number;
+    credit: number;
+    description: string;
+  };
+  const revenueLines: JournalLine[] = [];
+
+  if (feeComponents.length > 0) {
+    for (const comp of feeComponents) {
+      if (comp.taxExempt || comp.vatRate === 0) {
+        revenueLines.push({
+          account: comp.resolvedRevenueAccount,
+          debit: 0,
+          credit: comp.amount,
+          description: comp.label ?? comp.category,
+        });
+      } else {
+        const netRevenue = Math.round(comp.amount / (1 + comp.vatRate / 100));
+        const vatAmount = comp.amount - netRevenue;
+        revenueLines.push({
+          account: comp.resolvedRevenueAccount,
+          debit: 0,
+          credit: netRevenue,
+          description: `${comp.label ?? comp.category} (excl. VAT)`,
+        });
+        if (vatAmount > 0) {
+          revenueLines.push({
+            account: vatOutputAccount,
+            debit: 0,
+            credit: vatAmount,
+            description: `Utgående moms ${comp.vatRate}%`,
+          });
+        }
+      }
+    }
+  } else {
+    // Fallback: fee predates components model — use top-level category.
+    const { revenueAccount: fallbackRevenue } = await resolveClubAccountNumbers(
+      db,
+      clubId,
+      fee.category,
+    );
+    revenueLines.push({
+      account: fallbackRevenue,
+      debit: 0,
+      credit: grossAmount,
+      description: fee.title ?? feeId,
+    });
+  }
+
+  const lines: JournalLine[] = [
     {
       account: bankAccount,
       debit: netAmount,
@@ -897,12 +1006,7 @@ async function createAccountingVerification({
           },
         ]
       : []),
-    {
-      account: revenueAccount,
-      debit: 0,
-      credit: grossAmount,
-      description: fee.title ?? feeId,
-    },
+    ...revenueLines,
   ];
 
   await createVerification(db, {
@@ -918,8 +1022,14 @@ async function createAccountingVerification({
         : undefined,
     feeId,
     feeTitle: fee.title,
-    category: fee.category,
-    basAccount: revenueAccount,
+    category:
+      feeComponents.length === 1
+        ? feeComponents[0].category
+        : (fee.category ?? undefined),
+    basAccount:
+      feeComponents.length === 1
+        ? feeComponents[0].resolvedRevenueAccount
+        : undefined,
     earmarkedGroupId: fee.earmarkedGroupId,
     memberId: beneficiaryId,
     memberName,

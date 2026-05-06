@@ -1,4 +1,4 @@
-// Create Fee Screen - Club admins create payment requests with category
+// Create Fee Screen - Club admins create payment requests with components
 import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import DateTimePicker from "@/components/DateTimePicker";
@@ -9,7 +9,6 @@ import {
     FEE_CATEGORIES,
     FEE_CATEGORY_I18N_KEYS,
     FEE_CATEGORY_LABELS,
-    FeeCategory,
     isEarmarkable,
 } from "@/constants/feeCategories";
 import { theme } from "@/constants/theme";
@@ -59,6 +58,17 @@ interface RoleCount {
   selected: boolean;
 }
 
+interface CategoryOption {
+  id: string;
+  name: string;
+}
+
+interface ComponentInput {
+  category: string;
+  amount: string; // display string in major units
+  note: string;
+}
+
 export default function CreateFeeScreen() {
   const { t } = useTranslation(["screens", "common", "components"]);
   const insets = useSafeAreaInsets();
@@ -71,17 +81,22 @@ export default function CreateFeeScreen() {
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>(
     preselectedGroupId ? [preselectedGroupId as string] : [],
   );
-  const [category, setCategory] = useState<FeeCategory>("membership_fee");
+  // Multi-component fee lines
+  const [components, setComponents] = useState<ComponentInput[]>([
+    { category: "membership_fee", amount: "", note: "" },
+  ]);
   const [earmarkForGroup, setEarmarkForGroup] = useState(false);
 
   // Data state
   const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<
+    CategoryOption[]
+  >([]);
   const [roleCounts, setRoleCounts] = useState<RoleCount[]>([]);
   const [clubCountry, setClubCountry] = useState("SE");
   const [clubCurrency, setClubCurrency] = useState("sek");
@@ -164,6 +179,39 @@ export default function CreateFeeScreen() {
           await loadGroupsMembers([preselectedGroupId as string]);
         }
       }
+      // Load available fee categories (system + custom)
+      try {
+        const chartResult = await paymentService.getChartOfAccounts(
+          clubId as string,
+        );
+        if (chartResult.success && chartResult.categories?.length) {
+          setAvailableCategories(
+            chartResult.categories.map((c: any) => ({
+              id: c.categoryMapping ?? c.id,
+              name: c.name,
+            })),
+          );
+        } else {
+          // Fallback to system categories
+          setAvailableCategories(
+            FEE_CATEGORIES.map((cat) => ({
+              id: cat,
+              name: t(`components:feeCategory.${FEE_CATEGORY_I18N_KEYS[cat]}`, {
+                defaultValue: FEE_CATEGORY_LABELS[cat],
+              }),
+            })),
+          );
+        }
+      } catch {
+        setAvailableCategories(
+          FEE_CATEGORIES.map((cat) => ({
+            id: cat,
+            name: t(`components:feeCategory.${FEE_CATEGORY_I18N_KEYS[cat]}`, {
+              defaultValue: FEE_CATEGORY_LABELS[cat],
+            }),
+          })),
+        );
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -206,24 +254,43 @@ export default function CreateFeeScreen() {
   const totalMembers = selectedRoles.reduce((sum, rc) => sum + rc.count, 0);
   const effectiveMemberCount =
     selectedMemberIds.length > 0 ? selectedMemberIds.length : totalMembers;
-  const amountInSmallestUnit = Math.round(parseFloat(amount || "0") * 100);
+
+  // Calculate total across all components
+  const totalAmountInSmallestUnit = components.reduce((sum, comp) => {
+    const amt = Math.round(parseFloat(comp.amount || "0") * 100);
+    return sum + (isNaN(amt) ? 0 : amt);
+  }, 0);
+
   const feeEstimate = paymentService.estimateFees(
-    amountInSmallestUnit,
+    totalAmountInSmallestUnit,
     clubCountry,
     clubPlatformFeePercent,
   );
-  const totalExpected = effectiveMemberCount * amountInSmallestUnit;
+  const totalExpected = effectiveMemberCount * totalAmountInSmallestUnit;
+
+  // Single-component earmark check
+  const singleCategory =
+    components.length === 1 ? components[0].category : null;
+  const showEarmark =
+    singleCategory !== null &&
+    isEarmarkable(singleCategory) &&
+    selectedGroupIds.length > 0;
 
   const isValid =
     title.trim().length > 0 &&
     selectedGroupIds.length > 0 &&
-    amountInSmallestUnit >= 300 &&
-    (selectedRoles.length > 0 || selectedMemberIds.length > 0) &&
-    category.length > 0;
+    components.length > 0 &&
+    components.every(
+      (comp) =>
+        comp.category.length > 0 &&
+        Math.round(parseFloat(comp.amount || "0") * 100) >= 100,
+    ) &&
+    totalAmountInSmallestUnit >= 300 &&
+    (selectedRoles.length > 0 || selectedMemberIds.length > 0);
 
   // Earmark group: if earmark is on, use the first selected group as the earmarked group
   const earmarkedGroupId =
-    earmarkForGroup && isEarmarkable(category) && selectedGroupIds.length > 0
+    earmarkForGroup && showEarmark && selectedGroupIds.length > 0
       ? selectedGroupIds[0]
       : undefined;
 
@@ -241,11 +308,14 @@ export default function CreateFeeScreen() {
           groupId,
           title: title.trim(),
           description: description.trim() || undefined,
-          amount: amountInSmallestUnit,
+          components: components.map((comp) => ({
+            category: comp.category,
+            amount: Math.round(parseFloat(comp.amount || "0") * 100),
+            note: comp.note || undefined,
+          })),
           currency: clubCurrency,
           dueDate: dueDate || undefined,
           targetRoles: selectedRoles.map((rc) => rc.role),
-          category,
           earmarkedGroupId,
           specificMemberIds:
             selectedMemberIds.length > 0 ? selectedMemberIds : undefined,
@@ -359,24 +429,135 @@ export default function CreateFeeScreen() {
             textAlignVertical="top"
           />
 
-          {/* Category picker */}
-          <DropdownInput
-            label={`${t("screens:createFee.categoryRequired")} *`}
-            value={category}
-            onValueChange={(val) => {
-              setCategory(val as FeeCategory);
-              if (!isEarmarkable(val as FeeCategory)) setEarmarkForGroup(false);
-            }}
-            options={FEE_CATEGORIES.map((cat) => ({
-              id: cat,
-              name: t(`components:feeCategory.${FEE_CATEGORY_I18N_KEYS[cat]}`, {
-                defaultValue: FEE_CATEGORY_LABELS[cat],
-              }),
-            }))}
-          />
+          {/* Fee Components (multi-line fee builder) */}
+          <Text style={styles.inputLabel}>Fee Lines *</Text>
+          {components.map((comp, idx) => {
+            const amtSmallest = Math.round(
+              parseFloat(comp.amount || "0") * 100,
+            );
+            const showAmtError = comp.amount.length > 0 && amtSmallest < 100;
+            return (
+              <View key={idx} style={styles.componentCard}>
+                <View style={styles.componentHeader}>
+                  <Text style={styles.componentLabel}>Line {idx + 1}</Text>
+                  {components.length > 1 && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        setComponents((prev) =>
+                          prev.filter((_, i) => i !== idx),
+                        )
+                      }
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color={theme.colors.error}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {/* Category picker */}
+                <DropdownInput
+                  label="Category *"
+                  value={comp.category}
+                  onValueChange={(val) =>
+                    setComponents((prev) =>
+                      prev.map((c, i) =>
+                        i === idx ? { ...c, category: val } : c,
+                      ),
+                    )
+                  }
+                  options={availableCategories.map((cat) => ({
+                    id: cat.id,
+                    name: cat.name,
+                  }))}
+                />
+                {/* Amount */}
+                <Text style={styles.componentFieldLabel}>
+                  Amount ({clubCurrency.toUpperCase()}) *
+                </Text>
+                <View style={styles.amountInputContainer}>
+                  <TextInput
+                    style={styles.amountInput}
+                    placeholder="0.00"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    value={comp.amount}
+                    onChangeText={(text) => {
+                      const cleaned = text.replace(/[^0-9.]/g, "");
+                      const parts = cleaned.split(".");
+                      if (parts.length <= 2) {
+                        if (parts[1]?.length > 2)
+                          parts[1] = parts[1].substring(0, 2);
+                        setComponents((prev) =>
+                          prev.map((c, i) =>
+                            i === idx ? { ...c, amount: parts.join(".") } : c,
+                          ),
+                        );
+                      }
+                    }}
+                    keyboardType="decimal-pad"
+                  />
+                  <Text style={styles.currencyLabel}>
+                    {clubCurrency.toUpperCase()}
+                  </Text>
+                </View>
+                {showAmtError && (
+                  <Text style={styles.errorHint}>
+                    Minimum 1.00 {clubCurrency.toUpperCase()} per line
+                  </Text>
+                )}
+                {/* Optional note */}
+                <Text style={[styles.componentFieldLabel, { marginTop: 6 }]}>
+                  Note (optional)
+                </Text>
+                <TextInput
+                  style={styles.noteInput}
+                  placeholder="e.g. Spring season"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  value={comp.note}
+                  onChangeText={(text) =>
+                    setComponents((prev) =>
+                      prev.map((c, i) =>
+                        i === idx ? { ...c, note: text } : c,
+                      ),
+                    )
+                  }
+                />
+              </View>
+            );
+          })}
+          <TouchableOpacity
+            style={styles.addLineBtn}
+            onPress={() =>
+              setComponents((prev) => [
+                ...prev,
+                {
+                  category: availableCategories[0]?.id ?? "membership_fee",
+                  amount: "",
+                  note: "",
+                },
+              ])
+            }
+          >
+            <Ionicons
+              name="add-circle-outline"
+              size={16}
+              color={theme.colors.secondary}
+            />
+            <Text style={styles.addLineBtnText}>Add fee line</Text>
+          </TouchableOpacity>
 
-          {/* Earmark toggle — only for earmarkable categories */}
-          {isEarmarkable(category) && selectedGroupIds.length > 0 && (
+          {totalAmountInSmallestUnit > 0 && totalAmountInSmallestUnit < 300 && (
+            <Text style={styles.errorHint}>
+              {t("screens:createFee.minimumAmountError", {
+                min: "3.00",
+                currency: clubCurrency.toUpperCase(),
+              })}
+            </Text>
+          )}
+
+          {/* Earmark toggle — only for single earmarkable category */}
+          {showEarmark && (
             <View style={styles.earmarkRow}>
               <View style={styles.earmarkTextContainer}>
                 <Text style={styles.earmarkTitle}>
@@ -395,40 +576,6 @@ export default function CreateFeeScreen() {
                 }}
               />
             </View>
-          )}
-
-          <Text style={styles.inputLabel}>
-            {t("screens:createFee.amountRequired", {
-              currency: clubCurrency.toUpperCase(),
-            })}
-          </Text>
-          <View style={styles.amountInputContainer}>
-            <TextInput
-              style={styles.amountInput}
-              placeholder={t("screens:createFee.amountPlaceholder")}
-              placeholderTextColor={theme.colors.textSecondary}
-              value={amount}
-              onChangeText={(text) => {
-                const cleaned = text.replace(/[^0-9.]/g, "");
-                const parts = cleaned.split(".");
-                if (parts.length <= 2) {
-                  if (parts[1]?.length > 2) parts[1] = parts[1].substring(0, 2);
-                  setAmount(parts.join("."));
-                }
-              }}
-              keyboardType="decimal-pad"
-            />
-            <Text style={styles.currencyLabel}>
-              {clubCurrency.toUpperCase()}
-            </Text>
-          </View>
-          {amountInSmallestUnit > 0 && amountInSmallestUnit < 300 && (
-            <Text style={styles.errorHint}>
-              {t("screens:createFee.minimumAmountError", {
-                min: "3.00",
-                currency: clubCurrency.toUpperCase(),
-              })}
-            </Text>
           )}
 
           {/* Due Date */}
@@ -689,7 +836,7 @@ export default function CreateFeeScreen() {
         )}
 
         {/* Fee Breakdown Preview */}
-        {amountInSmallestUnit > 0 &&
+        {totalAmountInSmallestUnit > 0 &&
           (selectedRoles.length > 0 || selectedMemberIds.length > 0) && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
@@ -701,14 +848,15 @@ export default function CreateFeeScreen() {
                     {t("screens:createFee.membersPay")}
                   </Text>
                   <Text style={styles.breakdownValue}>
-                    {formatCurrency(amountInSmallestUnit)}
+                    {formatCurrency(totalAmountInSmallestUnit)}
                   </Text>
                 </View>
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>
                     {t("screens:createFee.stripeFee", {
                       percent: (
-                        (feeEstimate.stripeFeeEstimate / amountInSmallestUnit) *
+                        (feeEstimate.stripeFeeEstimate /
+                          totalAmountInSmallestUnit) *
                         100
                       ).toFixed(1),
                     })}
@@ -743,7 +891,7 @@ export default function CreateFeeScreen() {
                   </Text>
                   <Text style={styles.breakdownValue}>
                     {effectiveMemberCount} ×{" "}
-                    {formatCurrency(amountInSmallestUnit)} ={" "}
+                    {formatCurrency(totalAmountInSmallestUnit)} ={" "}
                     {formatCurrency(totalExpected)}
                   </Text>
                 </View>
@@ -798,8 +946,10 @@ export default function CreateFeeScreen() {
   );
 }
 
-// Keep reference to EARMARKABLE_CATEGORIES to suppress lint warning
+// Keep references to suppress lint warnings
 void EARMARKABLE_CATEGORIES;
+void FEE_CATEGORIES;
+void isEarmarkable;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.primary },
@@ -840,7 +990,76 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
   },
-
+  // Multi-component builder
+  componentCard: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    gap: 4,
+  },
+  componentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  componentLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: theme.colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  componentFieldLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
+  },
+  categoryChipsRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingBottom: 2,
+  },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.background,
+  },
+  categoryChipActive: {
+    borderColor: theme.colors.secondary,
+    backgroundColor: theme.colors.secondary,
+  },
+  categoryChipText: { fontSize: 13, color: theme.colors.textSecondary },
+  categoryChipTextActive: { color: theme.colors.primary, fontWeight: "600" },
+  noteInput: {
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: theme.colors.text,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+  },
+  addLineBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  addLineBtnText: {
+    fontSize: 14,
+    color: theme.colors.secondary,
+    fontWeight: "500",
+  },
   earmarkRow: {
     flexDirection: "row",
     alignItems: "center",
