@@ -160,8 +160,12 @@ export const createOrUpdateUserWithGroup = async (
 
     await userRef.set({
       ...defaultUserData,
-      // Flat role arrays derived from initial clubAccess
+      // Flat role arrays derived from initial clubAccess.
+      // guardianOfGroups must be initialised explicitly here because
+      // flatArrayFieldsFromClubAccess intentionally omits it (it is owned
+      // by the guardian enrollment flow for all subsequent mutations).
       ...flatArrayFieldsFromClubAccess(defaultUserData.clubAccess),
+      guardianOfGroups: [],
       ...additionalData,
     });
   }

@@ -14,6 +14,7 @@
 import {
     addGuardianOfGroupField,
     buildFlatArraysFromClubAccess,
+    ClubAccessFlatArrayFields,
     collectDependentGroupIds,
     emptyFlatArrays,
     flatArrayFieldsFromClubAccess,
@@ -324,14 +325,44 @@ describe("buildFlatArraysFromClubAccess", () => {
   });
 });
 
-// ─── flatArrayFieldsFromClubAccess (alias) ──────────────────
+// ─── flatArrayFieldsFromClubAccess ──────────────────────────
 
 describe("flatArrayFieldsFromClubAccess", () => {
-  it("produces same result as buildFlatArraysFromClubAccess", () => {
+  it("returns the same five arrays as buildFlatArraysFromClubAccess (excludes guardianOfGroups)", () => {
     const ca = [adminClubAccess("c1", "g1", ["admin", "coach"])];
-    expect(flatArrayFieldsFromClubAccess(ca)).toEqual(
-      buildFlatArraysFromClubAccess(ca),
-    );
+    const full = buildFlatArraysFromClubAccess(ca);
+    const fields: ClubAccessFlatArrayFields = flatArrayFieldsFromClubAccess(ca);
+
+    expect(fields.adminOfClubs).toEqual(full.adminOfClubs);
+    expect(fields.memberOfClubs).toEqual(full.memberOfClubs);
+    expect(fields.adminOfGroups).toEqual(full.adminOfGroups);
+    expect(fields.coachOfGroups).toEqual(full.coachOfGroups);
+    expect(fields.memberOfGroups).toEqual(full.memberOfGroups);
+  });
+
+  it("does NOT include guardianOfGroups in its output", () => {
+    const ca = [memberClubAccess("c1", "g1", ["player"])];
+    const fields = flatArrayFieldsFromClubAccess(ca);
+    expect(fields).not.toHaveProperty("guardianOfGroups");
+  });
+
+  it("does NOT clobber guardianOfGroups even when guardian role appears in groupAccess", () => {
+    // Defensive: even if someone stored "guardian" in groupAccess.roles (not the standard
+    // pattern), flatArrayFieldsFromClubAccess must not emit guardianOfGroups at all.
+    const ca = [memberClubAccess("c1", "g1", ["guardian"])];
+    const fields = flatArrayFieldsFromClubAccess(ca);
+    expect(fields).not.toHaveProperty("guardianOfGroups");
+  });
+
+  it("spreading into an update object leaves guardianOfGroups untouched (no key present)", () => {
+    const ca = [memberClubAccess("c1", "g1", ["player"])];
+    const updatePayload = {
+      clubAccess: ca,
+      ...flatArrayFieldsFromClubAccess(ca),
+    };
+    // If guardianOfGroups were present it would overwrite the stored value in Firestore.
+    // The key must be absent so Firestore's update() leaves the field alone.
+    expect(Object.keys(updatePayload)).not.toContain("guardianOfGroups");
   });
 });
 

@@ -9,7 +9,7 @@
 // ─── Constants (mirror server-side) ────────────────────────────
 
 export const LOK_RULES = {
-  MIN_AGE: 7,
+  MIN_AGE: 6,
   MAX_AGE: 25,
   MIN_PARTICIPANTS: 3,
   MAX_COUNTED_PARTICIPANTS: 30,

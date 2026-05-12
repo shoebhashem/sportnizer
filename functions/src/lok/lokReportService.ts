@@ -3,6 +3,7 @@
  *
  * Manages LOK-stöd report lifecycle:
  * - Generate draft reports from completed events
+ * - Detect conflicts (time-overlap + same-day same-sport)
  * - Validate reports against LOK rules
  * - Submit reports to RF via API
  * - Track report status
@@ -20,12 +21,116 @@ import {
     validateLokActivity,
 } from "./lokValidation";
 
+// ─── Conflict Detection ────────────────────────────────────────
+
+interface LokConflict {
+  type: "TIME_OVERLAP" | "SAME_DAY_SAME_SPORT";
+  activityIds: string[]; // The two conflicting event IDs
+  affectedUserIds: string[]; // Users that appear in both
+  resolved: boolean;
+  resolution?: "keep_first" | "keep_second" | "exclude_both";
+  resolvedBy?: string;
+  resolvedAt?: Date;
+}
+
+/**
+ * Detect TYPE A conflicts: participant physically in two overlapping activities.
+ * RF requires a person can only attend one activity at a time.
+ */
+function detectTimeOverlapConflicts(
+  activities: {
+    eventId: string;
+    startTime: Date;
+    endTime: Date;
+    participants: LokParticipantInput[];
+  }[],
+): LokConflict[] {
+  const conflicts: LokConflict[] = [];
+
+  for (let i = 0; i < activities.length; i++) {
+    for (let j = i + 1; j < activities.length; j++) {
+      const a = activities[i];
+      const b = activities[j];
+
+      // Check time overlap: a starts before b ends AND b starts before a ends
+      const overlaps = a.startTime < b.endTime && b.startTime < a.endTime;
+      if (!overlaps) continue;
+
+      const aUserIds = new Set(a.participants.map((p) => p.userId));
+      const bUserIds = new Set(b.participants.map((p) => p.userId));
+      const sharedUsers = [...aUserIds].filter((uid) => bUserIds.has(uid));
+
+      if (sharedUsers.length > 0) {
+        conflicts.push({
+          type: "TIME_OVERLAP",
+          activityIds: [a.eventId, b.eventId],
+          affectedUserIds: sharedUsers,
+          resolved: false,
+        });
+      }
+    }
+  }
+
+  return conflicts;
+}
+
+/**
+ * Detect TYPE B conflicts: same participant in two activities of same sport on same day.
+ * RF rules: a participant counts in only ONE activity per SF-sport per calendar day.
+ * Weekly caps: ages 6–9 → max 3/week/sport; ages 10–25 → max 5/week/sport.
+ */
+function detectSameDaySameSportConflicts(
+  activities: {
+    eventId: string;
+    date: Date;
+    sport: string;
+    participants: LokParticipantInput[];
+  }[],
+): LokConflict[] {
+  const conflicts: LokConflict[] = [];
+
+  // Group by date + sport
+  const daySportMap = new Map<string, typeof activities>();
+  for (const act of activities) {
+    const dayKey = act.date.toISOString().split("T")[0];
+    const key = `${dayKey}::${act.sport.toLowerCase()}`;
+    if (!daySportMap.has(key)) daySportMap.set(key, []);
+    daySportMap.get(key)!.push(act);
+  }
+
+  for (const [, group] of daySportMap) {
+    if (group.length < 2) continue;
+
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const a = group[i];
+        const b = group[j];
+
+        const aUserIds = new Set(a.participants.map((p) => p.userId));
+        const bUserIds = new Set(b.participants.map((p) => p.userId));
+        const sharedUsers = [...aUserIds].filter((uid) => bUserIds.has(uid));
+
+        if (sharedUsers.length > 0) {
+          conflicts.push({
+            type: "SAME_DAY_SAME_SPORT",
+            activityIds: [a.eventId, b.eventId],
+            affectedUserIds: sharedUsers,
+            resolved: false,
+          });
+        }
+      }
+    }
+  }
+
+  return conflicts;
+}
+
 // ─── Cloud Functions ───────────────────────────────────────────
 
 /**
  * Generate a draft LOK report for a given period.
  * Collects all LOK-eligible completed events, validates them,
- * and creates a report document.
+ * detects conflicts, and creates a report document.
  */
 export const generateLokReport = onCall(
   { region: "europe-north1" },
@@ -61,14 +166,6 @@ export const generateLokReport = onCall(
       );
     }
 
-    // Check RF integration is enabled
-    if (!clubData.rf?.integrationEnabled) {
-      throw new HttpsError(
-        "failed-precondition",
-        "RF integration is not enabled for this club.",
-      );
-    }
-
     // Get period bounds
     const bounds = getPeriodBounds(period);
     if (!bounds) {
@@ -98,11 +195,7 @@ export const generateLokReport = onCall(
       .collection("clubs")
       .doc(clubId)
       .collection("events")
-      .where(
-        "startDate",
-        ">=",
-        Timestamp.fromDate(bounds.start),
-      )
+      .where("startDate", ">=", Timestamp.fromDate(bounds.start))
       .where("startDate", "<=", Timestamp.fromDate(bounds.end))
       .get();
 
@@ -113,10 +206,12 @@ export const generateLokReport = onCall(
     });
 
     if (lokEvents.length === 0) {
-      throw new HttpsError(
-        "failed-precondition",
-        `No LOK-eligible completed events found for period ${period}.`,
-      );
+      return {
+        success: true,
+        empty: true,
+        totalActivities: 0,
+        info: `Inga LOK-berättigade avklarade aktiviteter hittades för period ${period}.`,
+      };
     }
 
     // Collect all participant user IDs for batch decryption
@@ -223,6 +318,27 @@ export const generateLokReport = onCall(
 
     const now = FieldValue.serverTimestamp();
 
+    // ── Conflict detection ──────────────────────────────────────
+    const activityInputsForConflict = eligibleActivities.map((a) => ({
+      eventId: a.eventId,
+      date: a.input.date,
+      startTime: a.input.startTime,
+      endTime: a.input.endTime,
+      sport: a.input.sport,
+      participants: a.input.participants,
+    }));
+
+    const timeOverlapConflicts = detectTimeOverlapConflicts(
+      activityInputsForConflict,
+    );
+    const sameDayConflicts = detectSameDaySameSportConflicts(
+      activityInputsForConflict,
+    );
+    const allConflicts: LokConflict[] = [
+      ...timeOverlapConflicts,
+      ...sameDayConflicts,
+    ];
+
     // Create the report document
     const reportData = {
       clubId,
@@ -236,6 +352,8 @@ export const generateLokReport = onCall(
       totalParticipants: uniqueParticipants.size,
       totalLeaders: uniqueLeaders.size,
       activities: reportActivities,
+      conflicts: allConflicts,
+      hasUnresolvedConflicts: allConflicts.some((c) => !c.resolved),
       createdAt: now,
       lastUpdatedAt: now,
       createdBy: userId,
@@ -271,6 +389,8 @@ export const generateLokReport = onCall(
         totalLeaders: uniqueLeaders.size,
         skippedActivities:
           validatedActivities.length - eligibleActivities.length,
+        conflicts: allConflicts.length,
+        hasUnresolvedConflicts: allConflicts.some((c) => !c.resolved),
         warnings: validatedActivities
           .flatMap((a) => a.validation.warnings)
           .map((w) => w.message),
@@ -457,5 +577,98 @@ export const deleteLokReport = onCall(
     console.log(`🗑️ Deleted LOK report ${reportId}`);
 
     return { success: true };
+  },
+);
+
+/**
+ * Resolve a conflict in a LOK report.
+ * resolution options:
+ *   "keep_first"  – count only the first (chronologically earlier) activity
+ *   "keep_second" – count only the second activity
+ *   "exclude_both"– exclude both activities from the report
+ */
+export const resolveReportConflict = onCall(
+  { region: "europe-north1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be authenticated.");
+    }
+
+    const { reportId, conflictIndex, resolution } = request.data as {
+      reportId: string;
+      conflictIndex: number;
+      resolution: "keep_first" | "keep_second" | "exclude_both";
+    };
+
+    if (!reportId) {
+      throw new HttpsError("invalid-argument", "reportId is required.");
+    }
+    if (typeof conflictIndex !== "number") {
+      throw new HttpsError(
+        "invalid-argument",
+        "conflictIndex must be a number.",
+      );
+    }
+    if (!["keep_first", "keep_second", "exclude_both"].includes(resolution)) {
+      throw new HttpsError(
+        "invalid-argument",
+        "resolution must be keep_first, keep_second, or exclude_both.",
+      );
+    }
+
+    const db = admin.firestore();
+    const reportRef = db.collection("lokReports").doc(reportId);
+    const reportDoc = await reportRef.get();
+
+    if (!reportDoc.exists) {
+      throw new HttpsError("not-found", "Report not found.");
+    }
+
+    const reportData = reportDoc.data()!;
+
+    if (reportData.status !== "draft") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Conflicts can only be resolved on draft reports.",
+      );
+    }
+
+    const hasPermission = await isClubAdmin(
+      request.auth.uid,
+      reportData.clubId,
+    );
+    if (!hasPermission) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only club admins can resolve report conflicts.",
+      );
+    }
+
+    const conflicts: LokConflict[] = reportData.conflicts || [];
+    if (conflictIndex < 0 || conflictIndex >= conflicts.length) {
+      throw new HttpsError("out-of-range", "conflictIndex is out of range.");
+    }
+
+    conflicts[conflictIndex] = {
+      ...conflicts[conflictIndex],
+      resolved: true,
+      resolution,
+      resolvedBy: request.auth.uid,
+      resolvedAt: new Date(),
+    };
+
+    const hasUnresolvedConflicts = conflicts.some((c) => !c.resolved);
+
+    await reportRef.update({
+      conflicts,
+      hasUnresolvedConflicts,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    console.log(
+      `✅ Resolved conflict ${conflictIndex} in LOK report ${reportId} (${resolution})`,
+    );
+
+    return { success: true, hasUnresolvedConflicts };
   },
 );

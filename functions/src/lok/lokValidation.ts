@@ -41,9 +41,11 @@ export interface LokValidationResult {
   warnings: LokValidationWarning[];
   summary: {
     totalParticipants: number;
-    eligibleParticipants: number; // Age 7–25 who attended
-    countedParticipants: number; // min(eligibleParticipants, 30)
+    eligibleParticipants: number; // Age 6–25 who attended
+    eligibleLeadersForDeltagar: number; // Leaders aged 13–25 who also qualify
+    countedParticipants: number; // min(eligible + eligibleLeaders, 30)
     leaderCount: number;
+    leaderBonus: boolean; // true when ≥2 leaders present (extra 5 SEK)
     durationMinutes: number;
     activityDate: Date;
   };
@@ -63,7 +65,7 @@ export interface LokValidationWarning {
 // ─── Constants ─────────────────────────────────────────────────
 
 export const LOK_CONSTANTS = {
-  MIN_AGE: 7,
+  MIN_AGE: 6,
   MAX_AGE: 25,
   MIN_PARTICIPANTS: 3, // Minimum eligible participants (excluding leaders)
   MAX_COUNTED_PARTICIPANTS: 30, // Maximum participants counted for funding
@@ -141,6 +143,8 @@ export const validateLokActivity = (
   const activityDate =
     activity.date instanceof Date ? activity.date : new Date(activity.date);
 
+  // Leaders aged 13–25 also qualify for deltagarstöd (RF rules)
+  const eligibleLeadersForDeltagar: LokParticipantInput[] = [];
   const eligibleParticipants: LokParticipantInput[] = [];
   const ineligibleDueToAge: string[] = [];
 
@@ -162,6 +166,15 @@ export const validateLokActivity = (
     }
   }
 
+  // Leaders aged 13–25 also qualify for deltagarstöd per RF rules
+  for (const leader of attendingLeaders) {
+    if (!leader.personnummer) continue;
+    const age = getAgeAtDate(leader.personnummer, activityDate);
+    if (age >= 13 && age <= LOK_CONSTANTS.MAX_AGE) {
+      eligibleLeadersForDeltagar.push(leader);
+    }
+  }
+
   if (ineligibleDueToAge.length > 0) {
     warnings.push({
       code: "PARTICIPANTS_OUTSIDE_AGE_RANGE",
@@ -178,16 +191,18 @@ export const validateLokActivity = (
     });
   }
 
-  // 8. Cap at max counted participants
+  // 8. Cap at max counted participants (includes eligible leaders per RF deltagarstöd rules)
+  const totalEligibleForDeltagar =
+    eligibleParticipants.length + eligibleLeadersForDeltagar.length;
   const countedParticipants = Math.min(
-    eligibleParticipants.length,
+    totalEligibleForDeltagar,
     LOK_CONSTANTS.MAX_COUNTED_PARTICIPANTS,
   );
 
-  if (eligibleParticipants.length > LOK_CONSTANTS.MAX_COUNTED_PARTICIPANTS) {
+  if (totalEligibleForDeltagar > LOK_CONSTANTS.MAX_COUNTED_PARTICIPANTS) {
     warnings.push({
       code: "PARTICIPANTS_CAPPED",
-      message: `Eligible participants (${eligibleParticipants.length}) exceed maximum counted (${LOK_CONSTANTS.MAX_COUNTED_PARTICIPANTS}). Only ${LOK_CONSTANTS.MAX_COUNTED_PARTICIPANTS} will be reported.`,
+      message: `Eligible participants (${totalEligibleForDeltagar}) exceed maximum counted (${LOK_CONSTANTS.MAX_COUNTED_PARTICIPANTS}). Only ${LOK_CONSTANTS.MAX_COUNTED_PARTICIPANTS} will be reported.`,
     });
   }
 
@@ -210,8 +225,10 @@ export const validateLokActivity = (
     summary: {
       totalParticipants: attendingParticipants.length,
       eligibleParticipants: eligibleParticipants.length,
+      eligibleLeadersForDeltagar: eligibleLeadersForDeltagar.length,
       countedParticipants,
       leaderCount: attendingLeaders.length,
+      leaderBonus: attendingLeaders.length >= 2, // Extra 5 SEK when ≥2 leaders
       durationMinutes,
       activityDate,
     },
@@ -339,4 +356,76 @@ export const getPeriodBounds = (
       end: new Date(year, 11, 31, 23, 59, 59),
     };
   }
+};
+
+// ─── Subsidy Estimation ────────────────────────────────────────
+
+/**
+ * RF LOK subsidy rates (SEK per activity per person, 2024 rates).
+ * Deltagarstöd: flat 7 SEK per counted participant (age-independent from 2023 rules).
+ * Ledarstöd: 20 SEK base + 5 SEK bonus when ≥2 leaders attend.
+ */
+export const LOK_SUBSIDY_RATES = {
+  /** SEK per counted participant per activity */
+  deltagarstod: 7,
+  /** SEK base ledarstöd per activity */
+  ledarstodBase: 20,
+  /** Extra SEK when ≥2 leaders attend */
+  ledarstodBonus: 5,
+} as const;
+
+export interface LokSubsidyEstimate {
+  /** Estimated deltagarstöd (SEK) */
+  deltagarstod: number;
+  /** Estimated ledarstöd (SEK, base + any bonus) */
+  ledarstod: number;
+  /** Total estimated LOK subsidy (SEK) */
+  total: number;
+}
+
+/**
+ * Estimate the LOK subsidy for a single validated activity.
+ *
+ * @param summary - The summary from a LokValidationResult (activity must be eligible)
+ * @returns Estimated subsidy in SEK
+ */
+export const estimateLokSubsidy = (
+  summary: LokValidationResult["summary"],
+): LokSubsidyEstimate => {
+  const deltagarstod =
+    summary.countedParticipants * LOK_SUBSIDY_RATES.deltagarstod;
+
+  const ledarstod =
+    summary.leaderCount > 0
+      ? LOK_SUBSIDY_RATES.ledarstodBase +
+        (summary.leaderBonus ? LOK_SUBSIDY_RATES.ledarstodBonus : 0)
+      : 0;
+
+  return {
+    deltagarstod,
+    ledarstod,
+    total: deltagarstod + ledarstod,
+  };
+};
+
+/**
+ * Aggregate subsidy estimates across multiple eligible activities.
+ *
+ * @param validationResults - Array of eligible LokValidationResults
+ * @returns Total estimated subsidy breakdown
+ */
+export const estimatePeriodSubsidy = (
+  validationResults: LokValidationResult[],
+): LokSubsidyEstimate => {
+  return validationResults
+    .filter((r) => r.eligible)
+    .map((r) => estimateLokSubsidy(r.summary))
+    .reduce(
+      (acc, est) => ({
+        deltagarstod: acc.deltagarstod + est.deltagarstod,
+        ledarstod: acc.ledarstod + est.ledarstod,
+        total: acc.total + est.total,
+      }),
+      { deltagarstod: 0, ledarstod: 0, total: 0 },
+    );
 };

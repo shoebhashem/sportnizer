@@ -687,6 +687,38 @@ export default function ClubSettingsScreen() {
             </TouchableOpacity>
           )}
 
+          {/* LOK-stöd - Only for Club Admin in Swedish clubs */}
+          {isClubAdmin && club?.country === "SE" && (
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() =>
+                router.push({
+                  pathname: "/lok-reports",
+                  params: { clubId: clubId as string },
+                } as any)
+              }
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="ribbon-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>LOK-stöd</Text>
+                <Text style={styles.optionDescription}>
+                  Hantera RF-rapporter och deltagarstöd
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
           {/* Delete Club Option - Only for Club Admin and not already scheduled */}
           {isClubAdmin && !isScheduledForDeletion && (
             <TouchableOpacity

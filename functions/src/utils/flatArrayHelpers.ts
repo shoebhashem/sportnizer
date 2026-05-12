@@ -1,18 +1,23 @@
 /**
  * /functions/src/utils/flatArrayHelpers.ts
  *
- * Shared helpers that derive the six flat role arrays from a clubAccess[] array.
+ * Shared helpers that derive flat role arrays from a clubAccess[] array.
  * Every Cloud Function that mutates clubAccess on a user document should also
  * write the flat arrays so that Firestore security rules can cheaply verify
  * permissions with a single cached document read.
  *
- * Flat arrays:
- *   adminOfClubs     – clubIds where role === "club-admin" & isActive !== false
- *   memberOfClubs    – clubIds where role === "member"     & isActive !== false
- *   adminOfGroups    – groupIds where roles includes "admin"
- *   coachOfGroups    – groupIds where roles includes "coach"
- *   memberOfGroups   – ALL groupIds the user has any role in
- *   guardianOfGroups – groupIds where roles includes "guardian"
+ * Flat arrays derivable from clubAccess[].groupAccess[].roles:
+ *   adminOfClubs   – clubIds where role === "club-admin" & isActive !== false
+ *   memberOfClubs  – clubIds where role === "member"     & isActive !== false
+ *   adminOfGroups  – groupIds where roles includes "admin"
+ *   coachOfGroups  – groupIds where roles includes "coach"
+ *   memberOfGroups – ALL groupIds where the user has any role
+ *
+ * NOT derivable from clubAccess — managed separately via atomic arrayUnion/arrayRemove:
+ *   guardianOfGroups – set by addGuardianToYouth / updateGuardianDependentAccess,
+ *                      removed by removeGuardianFromYouth / removeGuardianOfGroupField.
+ *                      NEVER written by flatArrayFieldsFromClubAccess() to prevent
+ *                      accidental overwrites when a guardian also holds a player/coach role.
  */
 
 import { FieldValue } from "firebase-admin/firestore";
@@ -90,18 +95,35 @@ export function buildFlatArraysFromClubAccess(
 // ---- Convenience: spread into an update object ---------------------------
 
 /**
- * Returns the flat arrays as a plain object ready to spread into a
+ * Fields returned by flatArrayFieldsFromClubAccess — intentionally excludes
+ * guardianOfGroups, which is owned by the guardian enrollment flow and must
+ * never be overwritten by a clubAccess rebuild.
+ */
+export type ClubAccessFlatArrayFields = Omit<
+  FlatRoleArrays,
+  "guardianOfGroups"
+>;
+
+/**
+ * Returns flat role arrays as a plain object ready to spread into a
  * Firestore update() call:
  *
  *   await userRef.update({
  *     clubAccess,
  *     ...flatArrayFieldsFromClubAccess(clubAccess),
  *   });
+ *
+ * guardianOfGroups is deliberately excluded — it is written atomically by
+ * the guardian enrollment / removal flows and must not be overwritten here.
+ * Any caller using set() (e.g. new-user creation) must add guardianOfGroups: []
+ * explicitly alongside this call.
  */
 export function flatArrayFieldsFromClubAccess(
   clubAccess: any[] | undefined | null,
-): FlatRoleArrays {
-  return buildFlatArraysFromClubAccess(clubAccess);
+): ClubAccessFlatArrayFields {
+  const { guardianOfGroups: _omitted, ...rest } =
+    buildFlatArraysFromClubAccess(clubAccess);
+  return rest;
 }
 
 /**

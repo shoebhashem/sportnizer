@@ -22,7 +22,7 @@ import { isClubAdmin } from "../utils/roleValidation";
 interface KommunExportOptions {
   clubId: string;
   period: string; // e.g. "2026-H1"
-  format: "csv" | "json";
+  format: "csv" | "json" | "xml";
   includeParticipantDetails: boolean; // If false, only summary data
 }
 
@@ -146,6 +146,10 @@ export const generateKommunExport = onCall(
       );
       mimeType = "text/csv;charset=utf-8";
       filename = `${clubNameSafe}_kommun_${period}.csv`;
+    } else if (format === "xml") {
+      content = generateXml(rows, clubData, report, period);
+      mimeType = "application/xml;charset=utf-8";
+      filename = `${clubNameSafe}_kommun_${period}.xml`;
     } else {
       content = generateJson(rows, clubData, report, period);
       mimeType = "application/json";
@@ -266,6 +270,73 @@ const generateJson = (
   };
 
   return JSON.stringify(exportData, null, 2);
+};
+
+/**
+ * Generate XML content for kommun export.
+ * Produces a simple element-based format suitable for municipality import systems.
+ */
+const generateXml = (
+  rows: KommunExportRow[],
+  clubData: any,
+  report: any,
+  period: string,
+): string => {
+  const esc = (v: string | number): string =>
+    String(v)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const lines: string[] = [];
+  lines.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+  lines.push(`<KommunNarvarorapport>`);
+  lines.push(`  <Metadata>`);
+  lines.push(`    <Klubbnamn>${esc(clubData.name)}</Klubbnamn>`);
+  lines.push(
+    `    <Organisationsnummer>${esc(clubData.rf?.organizationNumber || "")}</Organisationsnummer>`,
+  );
+  lines.push(`    <Kommun>${esc(clubData.rf?.municipality || "")}</Kommun>`);
+  lines.push(`    <Period>${esc(period)}</Period>`);
+  lines.push(`    <Genererad>${new Date().toISOString()}</Genererad>`);
+  lines.push(`  </Metadata>`);
+  lines.push(`  <Sammanfattning>`);
+  lines.push(
+    `    <TotaltAntalAktiviteter>${rows.length}</TotaltAntalAktiviteter>`,
+  );
+  lines.push(
+    `    <TotaltAntalDeltagare>${report.totalParticipants ?? 0}</TotaltAntalDeltagare>`,
+  );
+  lines.push(
+    `    <TotaltAntalLedare>${report.totalLeaders ?? 0}</TotaltAntalLedare>`,
+  );
+  lines.push(`  </Sammanfattning>`);
+  lines.push(`  <Aktiviteter>`);
+  for (const row of rows) {
+    lines.push(`    <Aktivitet>`);
+    lines.push(`      <Datum>${esc(row.date)}</Datum>`);
+    lines.push(
+      `      <Typ>${esc(translateActivityType(row.activityType))}</Typ>`,
+    );
+    lines.push(`      <Idrott>${esc(row.sport)}</Idrott>`);
+    lines.push(`      <Grupp>${esc(row.groupName)}</Grupp>`);
+    lines.push(`      <LangdMinuter>${row.durationMinutes}</LangdMinuter>`);
+    lines.push(
+      `      <BehorigaDeltagare>${row.eligibleParticipants}</BehorigaDeltagare>`,
+    );
+    lines.push(`      <Ledare>${row.leaderCount}</Ledare>`);
+    lines.push(
+      `      <TotaltNarvarande>${row.eligibleParticipants + row.leaderCount}</TotaltNarvarande>`,
+    );
+    if (row.location) {
+      lines.push(`      <Plats>${esc(row.location)}</Plats>`);
+    }
+    lines.push(`    </Aktivitet>`);
+  }
+  lines.push(`  </Aktiviteter>`);
+  lines.push(`</KommunNarvarorapport>`);
+  return lines.join("\n");
 };
 
 // ─── Helpers ───────────────────────────────────────────────────

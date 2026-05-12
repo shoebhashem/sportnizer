@@ -16,8 +16,8 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | 668                                                           |
-| **Test suites**  | 33                                                            |
+| **Total tests**  | ~728                                                          |
+| **Test suites**  | 34                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
 | **Backend**      | Firebase Emulator Suite (Auth, Firestore, Functions, Storage) |
@@ -40,7 +40,8 @@
 | News & Notifications  | `functions/test/news-notifications.test.ts`           | 21    | News CRUD, permissions, recipient logic, youth→guardian, role filter, selectedMemberIds, comments                                                                                                                                                                                                                                                                                                                                                                   |
 | Notification Side-Fx  | `functions/test/notification-side-effects.test.ts`    | 7     | Event/invitation/fee/callable notification docs + auth/not-found errors + push degradation                                                                                                                                                                                                                                                                                                                                                                          |
 | Push Notifications    | `functions/test/push-notifications.test.ts`           | 10    | sendPushNotification: no-op, multi-device, DeviceNotRegistered cleanup, channel mapping, graceful degradation                                                                                                                                                                                                                                                                                                                                                       |
-| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | 82    | Validation, roles, limits, LOK rules                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Pure Logic Unit Tests | `functions/test/unit-pure-logic.test.ts`              | ~117  | Validation, roles, limits, LOK rules, age boundaries, leader deltagarstöd, leaderBonus, subsidy estimation                                                                                                                                                                                                                                                                                                                                                          |
+| LOK Cloud Functions   | `functions/test/lok.test.ts`                          | 25    | storePersonnummer, removePersonnummer, getPersonnummerStatus, updateClubRfSettings, generateLokReport, listLokReports, getLokReport, deleteLokReport, resolveReportConflict, generateKommunExport                                                                                                                                                                                                                                                                   |
 | Permission Helpers    | `functions/test/permission-helpers.test.ts`           | 45    | permissionHelpers: isClubAdmin, canManageGroup, getHighestRole, etc.                                                                                                                                                                                                                                                                                                                                                                                                |
 | Flat Array Helpers    | `functions/test/flat-array-helpers.test.ts`           | 24    | buildFlatArraysFromClubAccess, emptyFlatArrays, inactive filtering                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -587,7 +588,12 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | 9-11  | `getReportingPeriod`      | 3     | Jan-Jun → period 1, Jul-Dec → period 2, boundary month (June)                                                                                                                |
 | 12-14 | `getPeriodBounds`         | 3     | Period 1 bounds (Jan 1 – Jun 30), period 2 bounds (Jul 1 – Dec 31), year boundary                                                                                            |
 | 15-18 | `validateLokReportPeriod` | 4     | Valid period, future period rejected, period 1 after Jun rejected, period 2 before Jul rejected                                                                              |
-| 19-22 | `LOK_CONSTANTS`           | 4     | MIN_AGE = 7, MAX_AGE = 25, MIN_DURATION_MINUTES exists, MAX_ACTIVITIES_PER_DAY exists                                                                                        |
+| 19-22 | `LOK_CONSTANTS`           | 4     | MIN_AGE = 6, MAX_AGE = 25, MIN_DURATION_MINUTES exists, MAX_ACTIVITIES_PER_DAY exists                                                                                        |
+| 23-32 | Age boundary tests        | 10    | Age 6 eligible (MIN_AGE boundary), age 5 ineligible, age 25 eligible, age 26 ineligible                                                                                      |
+| 33-42 | Leader deltagarstöd       | 10    | Leader aged 13–25 counts toward countedParticipants; leader aged 26+ does not; mixed scenarios                                                                               |
+| 43-52 | `leaderBonus`             | 10    | ≥2 eligible leaders → leaderBonus=true; 1 leader → leaderBonus=false; 0 leaders → leaderBonus=false                                                                          |
+| 53-62 | `estimateLokSubsidy`      | 10    | Correct deltagarstöd calc, leaderBonus included, 0 ledarstöd with no leaders, boundary counts                                                                                |
+| 63-67 | `estimatePeriodSubsidy`   | 5     | Aggregates multiple activity results into combined period estimate                                                                                                           |
 
 ---
 
@@ -896,10 +902,10 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | **Subscriptions** | 5         | 0                                                                                                                                                                                                                                        | 0% ★     |
 | **News**          | 1         | 0                                                                                                                                                                                                                                        | 0%       |
 | **Legal**         | 2         | 0                                                                                                                                                                                                                                        | 0%       |
-| **LOK/RF**        | 11        | 0                                                                                                                                                                                                                                        | 0%       |
+| **LOK/RF**        | 12        | 9 (`storePersonnummer`, `removePersonnummer`, `getPersonnummerStatus`, `updateClubRfSettings`, `generateLokReport`, `listLokReports`, `getLokReport`, `deleteLokReport`, `resolveReportConflict`)                                        | 75%      |
 | **Profile**       | 2         | 0                                                                                                                                                                                                                                        | 0%       |
 | **Scheduled**     | 2         | 0                                                                                                                                                                                                                                        | 0%       |
-| **TOTAL**         | **~103**  | **42**                                                                                                                                                                                                                                   | **~41%** |
+| **TOTAL**         | **~104**  | **51**                                                                                                                                                                                                                                   | **~49%** |
 
 ★ Stripe/Subscription functions require external Stripe API — need mocking strategy
 
@@ -910,7 +916,7 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | `validation.ts`        | 8 / 8            | 100%     |
 | `roleValidation.ts`    | 8 / 8            | 100%     |
 | `limits.ts`            | 8 / 8            | 100%     |
-| `lokValidation.ts`     | 4 / 4            | 100%     |
+| `lokValidation.ts`     | 9 / 9            | 100%     |
 | `permissionHelpers.ts` | 9 / 9            | 100%     |
 | `flatArrayHelpers.ts`  | 3 / 3            | 100%     |
 
@@ -919,7 +925,7 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 1. ~~**Auth flow** — user creation, email verification, profile retrieval~~ ✅ Covered
 2. ~~**Events** — create, update, delete, RSVP, attendance, statistics~~ ✅ Covered
 3. ~~**Invitation system** — send, respond, validate token, process post-signup~~ ✅ Covered
-4. **LOK/RF integration** — LOK reports, RF API calls (Cloud Functions)
+4. ~~**LOK/RF integration** — LOK reports, RF API calls (Cloud Functions)~~ ✅ Covered (9/12 functions tested; `submitLokReportToRf`, `checkRfApiStatus`, `generateKommunExport` still pending due to external RF API dependency)
 5. **Legal compliance** — config fetch, acceptance recording
 6. **News** — creation with notifications
 7. **User doc management** — club info updates, group info updates, inactivity marking

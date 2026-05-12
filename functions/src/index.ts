@@ -160,7 +160,8 @@ export { updateMembershipFee } from "./payments/updateMembershipFee";
 // Accounting Functions
 export {
     createCustomFeeCategory,
-    deleteCustomFeeCategory, getChartOfAccounts,
+    deleteCustomFeeCategory,
+    getChartOfAccounts,
     updateChartAccount
 } from "./accounting/chartOfAccounts";
 export { exportAccountingData } from "./accounting/exportAccountingData";
@@ -185,7 +186,8 @@ export {
     deleteLokReport,
     generateLokReport,
     getLokReport,
-    listLokReports
+    listLokReports,
+    resolveReportConflict
 } from "./lok/lokReportService";
 export {
     checkRfApiStatus,

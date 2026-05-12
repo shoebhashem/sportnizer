@@ -546,3 +546,339 @@ describe("Fee Cleanup on Member Removal", () => {
     expect(feeDoc!.totalExpected).toBe(1);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  Dual-Role: Player/Coach + Guardian                                 */
+/*                                                                     */
+/*  Regression tests for the bug where a user who held both a         */
+/*  player/coach role and a guardian role (via a dependent child)      */
+/*  had their guardianOfGroups flat array wiped when they left/were    */
+/*  removed as a player. After the fix, flatArrayFieldsFromClubAccess  */
+/*  omits guardianOfGroups so the guardian access is never touched by  */
+/*  the club-access rebuild path.                                      */
+/* ------------------------------------------------------------------ */
+
+describe("Dual-Role: Player/Coach + Guardian flat-array preservation", () => {
+  beforeEach(async () => {
+    await clearAll();
+  });
+
+  // ---------------------------------------------------------------
+  // DR-1: Player who is also guardian self-leaves as player
+  //       → guardianOfGroups retained, memberOfGroups cleared
+  // ---------------------------------------------------------------
+  it("DR-1: player+guardian self-leave keeps guardianOfGroups intact", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    // Create dual-role user and add them as player
+    const guardian = await addMemberToClubAndGroup(
+      admin,
+      `dr1_guardian_${Date.now()}@test.com`,
+      clubId,
+      groupId,
+      ["player"],
+    );
+
+    // Simulate guardian relationship: set guardianOfGroups atomically
+    // (as addGuardianToYouth would have done) and add a fake dependent entry
+    const db = getFirestore();
+    await db.doc(`users/${guardian.uid}`).update({
+      guardianOfGroups: [groupId],
+      dependents: [
+        {
+          uid: "fake-youth-uid",
+          name: "Test Child",
+          clubAccess: [
+            {
+              clubId,
+              isActive: true,
+              groupAccess: [{ groupId, roles: ["player-underage"] }],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Self-leave as player
+    const result = await callFunction(
+      "removeMemberFromGroup",
+      guardian.idToken,
+      {
+        clubId,
+        groupId,
+        userId: guardian.uid,
+        roleToRemove: "player",
+      },
+    );
+    expect(result.success).toBe(true);
+
+    // guardianOfGroups must still contain groupId
+    const userDoc = await getDocument(`users/${guardian.uid}`);
+    expect(userDoc).toBeDefined();
+    expect(userDoc!.guardianOfGroups).toContain(groupId);
+
+    // memberOfGroups must no longer contain groupId
+    expect(userDoc!.memberOfGroups ?? []).not.toContain(groupId);
+  });
+
+  // ---------------------------------------------------------------
+  // DR-2: Admin removes player who is also guardian
+  //       → same code path as self-leave inside the CF; guardianOfGroups retained
+  // ---------------------------------------------------------------
+  it("DR-2: admin-removal of player+guardian keeps guardianOfGroups intact", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    const guardian = await addMemberToClubAndGroup(
+      admin,
+      `dr2_guardian_${Date.now()}@test.com`,
+      clubId,
+      groupId,
+      ["player"],
+    );
+
+    const db = getFirestore();
+    await db.doc(`users/${guardian.uid}`).update({
+      guardianOfGroups: [groupId],
+      dependents: [
+        {
+          uid: "fake-youth-uid-2",
+          name: "Test Child 2",
+          clubAccess: [
+            {
+              clubId,
+              isActive: true,
+              groupAccess: [{ groupId, roles: ["player-underage"] }],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Admin removes the player
+    const result = await callFunction("removeMemberFromGroup", admin.idToken, {
+      clubId,
+      groupId,
+      userId: guardian.uid,
+      roleToRemove: "player",
+    });
+    expect(result.success).toBe(true);
+
+    const userDoc = await getDocument(`users/${guardian.uid}`);
+    expect(userDoc!.guardianOfGroups).toContain(groupId);
+    expect(userDoc!.memberOfGroups ?? []).not.toContain(groupId);
+  });
+
+  // ---------------------------------------------------------------
+  // DR-3: Coach who is also guardian self-leaves as coach
+  //       → guardianOfGroups retained
+  // ---------------------------------------------------------------
+  it("DR-3: coach+guardian self-leave keeps guardianOfGroups intact", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    const guardian = await addMemberToClubAndGroup(
+      admin,
+      `dr3_guardian_${Date.now()}@test.com`,
+      clubId,
+      groupId,
+      ["coach"],
+    );
+
+    const db = getFirestore();
+    await db.doc(`users/${guardian.uid}`).update({
+      guardianOfGroups: [groupId],
+      dependents: [
+        {
+          uid: "fake-youth-uid-3",
+          name: "Test Child 3",
+          clubAccess: [
+            {
+              clubId,
+              isActive: true,
+              groupAccess: [{ groupId, roles: ["player-underage"] }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await callFunction(
+      "removeMemberFromGroup",
+      guardian.idToken,
+      {
+        clubId,
+        groupId,
+        userId: guardian.uid,
+        roleToRemove: "coach",
+      },
+    );
+    expect(result.success).toBe(true);
+
+    const userDoc = await getDocument(`users/${guardian.uid}`);
+    expect(userDoc!.guardianOfGroups).toContain(groupId);
+    expect(userDoc!.memberOfGroups ?? []).not.toContain(groupId);
+  });
+
+  // ---------------------------------------------------------------
+  // DR-4: Guardian is a member of two groups (via two dependents).
+  //       Leaving one group as player must not wipe the other groupId
+  //       from guardianOfGroups.
+  // ---------------------------------------------------------------
+  it("DR-4: leaving one group as player preserves guardianOfGroups entry for a different group", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    // Create a second group so we have two distinct groupIds
+    const group2Result = await callFunction<{ groupId: string }>(
+      "createGroup",
+      admin.idToken,
+      { clubId, groupData: { name: "Group B" } },
+    );
+    const groupId2 = group2Result.groupId;
+
+    const guardian = await addMemberToClubAndGroup(
+      admin,
+      `dr4_guardian_${Date.now()}@test.com`,
+      clubId,
+      groupId,
+      ["player"],
+    );
+
+    const db = getFirestore();
+    // Guardian is guardian in BOTH groups (two different children)
+    await db.doc(`users/${guardian.uid}`).update({
+      guardianOfGroups: [groupId, groupId2],
+      dependents: [
+        {
+          uid: "fake-youth-uid-4a",
+          name: "Child A",
+          clubAccess: [
+            {
+              clubId,
+              isActive: true,
+              groupAccess: [{ groupId, roles: ["player-underage"] }],
+            },
+          ],
+        },
+        {
+          uid: "fake-youth-uid-4b",
+          name: "Child B",
+          clubAccess: [
+            {
+              clubId,
+              isActive: true,
+              groupAccess: [{ groupId: groupId2, roles: ["player-underage"] }],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Self-leave group 1 as player — should NOT disturb groupId2 in guardianOfGroups
+    await callFunction("removeMemberFromGroup", guardian.idToken, {
+      clubId,
+      groupId,
+      userId: guardian.uid,
+      roleToRemove: "player",
+    });
+
+    const userDoc = await getDocument(`users/${guardian.uid}`);
+    // Both guardian relationships must survive
+    expect(userDoc!.guardianOfGroups).toContain(groupId); // still guardian via child
+    expect(userDoc!.guardianOfGroups).toContain(groupId2); // second child unaffected
+    expect(userDoc!.memberOfGroups ?? []).not.toContain(groupId); // player role gone
+  });
+
+  // ---------------------------------------------------------------
+  // DR-5: updateMemberRole (player → coach promotion) for a user
+  //       who is also a guardian must not wipe guardianOfGroups
+  // ---------------------------------------------------------------
+  it("DR-5: updateMemberRole (add coach role) for player+guardian keeps guardianOfGroups", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    const guardian = await addMemberToClubAndGroup(
+      admin,
+      `dr5_guardian_${Date.now()}@test.com`,
+      clubId,
+      groupId,
+      ["player"],
+    );
+
+    const db = getFirestore();
+    await db.doc(`users/${guardian.uid}`).update({
+      guardianOfGroups: [groupId],
+      dependents: [
+        {
+          uid: "fake-youth-uid-5",
+          name: "Test Child 5",
+          clubAccess: [
+            {
+              clubId,
+              isActive: true,
+              groupAccess: [{ groupId, roles: ["player-underage"] }],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Add coach role via updateMemberRole
+    await callFunction("updateMemberRole", admin.idToken, {
+      clubId,
+      groupId,
+      userId: guardian.uid,
+      roleToAdd: "coach",
+      operation: "add",
+    });
+
+    const userDoc = await getDocument(`users/${guardian.uid}`);
+    expect(userDoc!.guardianOfGroups).toContain(groupId);
+    // Both player and coach should now be in memberOfGroups
+    expect(userDoc!.memberOfGroups).toContain(groupId);
+    expect(userDoc!.coachOfGroups).toContain(groupId);
+  });
+
+  // ---------------------------------------------------------------
+  // DR-6: updateMemberRole (remove player role) for a user who is
+  //       also a guardian must not wipe guardianOfGroups
+  // ---------------------------------------------------------------
+  it("DR-6: updateMemberRole (remove player role) for player+guardian keeps guardianOfGroups", async () => {
+    const { admin, clubId, groupId } = await setupClubAndGroup();
+
+    const guardian = await addMemberToClubAndGroup(
+      admin,
+      `dr6_guardian_${Date.now()}@test.com`,
+      clubId,
+      groupId,
+      ["player"],
+    );
+
+    const db = getFirestore();
+    await db.doc(`users/${guardian.uid}`).update({
+      guardianOfGroups: [groupId],
+      dependents: [
+        {
+          uid: "fake-youth-uid-6",
+          name: "Test Child 6",
+          clubAccess: [
+            {
+              clubId,
+              isActive: true,
+              groupAccess: [{ groupId, roles: ["player-underage"] }],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Remove player role via updateMemberRole
+    await callFunction("updateMemberRole", admin.idToken, {
+      clubId,
+      groupId,
+      userId: guardian.uid,
+      roleToRemove: "player",
+      operation: "remove",
+    });
+
+    const userDoc = await getDocument(`users/${guardian.uid}`);
+    expect(userDoc!.guardianOfGroups).toContain(groupId);
+  });
+});

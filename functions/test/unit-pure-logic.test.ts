@@ -54,9 +54,12 @@ import {
 } from "../src/utils/limits";
 
 import {
+    estimateLokSubsidy,
+    estimatePeriodSubsidy,
     getPeriodBounds,
     getReportingPeriod,
     LOK_CONSTANTS,
+    LOK_SUBSIDY_RATES,
     validateLokActivity,
     validateLokReportPeriod,
 } from "../src/lok/lokValidation";
@@ -809,12 +812,286 @@ describe("lokValidation.ts", () => {
 
   describe("LOK_CONSTANTS", () => {
     it("should have correct values", () => {
-      expect(LOK_CONSTANTS.MIN_AGE).toBe(7);
+      expect(LOK_CONSTANTS.MIN_AGE).toBe(6);
       expect(LOK_CONSTANTS.MAX_AGE).toBe(25);
       expect(LOK_CONSTANTS.MIN_PARTICIPANTS).toBe(3);
       expect(LOK_CONSTANTS.MAX_COUNTED_PARTICIPANTS).toBe(30);
       expect(LOK_CONSTANTS.MIN_DURATION_MINUTES).toBe(60);
       expect(LOK_CONSTANTS.MIN_LEADERS).toBe(1);
+    });
+  });
+
+  describe("age boundary — MIN_AGE 6", () => {
+    const baseActivity = {
+      eventId: "e-age-boundary",
+      clubId: "club1",
+      sport: "fotboll",
+      date: new Date("2025-09-01"),
+      startTime: new Date("2025-09-01T10:00:00"),
+      endTime: new Date("2025-09-01T12:00:00"),
+      attendees: [] as any[],
+    };
+
+    it("age 6 participant is eligible", () => {
+      const activity = {
+        ...baseActivity,
+        attendees: [
+          {
+            userId: "l1",
+            role: "leader" as const,
+            dateOfBirth: new Date("2019-09-01"),
+          },
+          {
+            userId: "p1",
+            role: "participant" as const,
+            dateOfBirth: new Date("2019-09-01"),
+          },
+          {
+            userId: "p2",
+            role: "participant" as const,
+            dateOfBirth: new Date("2019-09-01"),
+          },
+          {
+            userId: "p3",
+            role: "participant" as const,
+            dateOfBirth: new Date("2019-09-01"),
+          },
+        ],
+      };
+      const result = validateLokActivity(activity);
+      expect(result.summary.eligibleParticipants).toBeGreaterThanOrEqual(3);
+    });
+
+    it("age 5 participant is NOT eligible", () => {
+      const activity = {
+        ...baseActivity,
+        attendees: [
+          {
+            userId: "l1",
+            role: "leader" as const,
+            dateOfBirth: new Date("2019-09-01"),
+          },
+          // three 5-year-olds (born after activity date, so age 5 on 2025-09-01)
+          {
+            userId: "p1",
+            role: "participant" as const,
+            dateOfBirth: new Date("2020-09-02"),
+          },
+          {
+            userId: "p2",
+            role: "participant" as const,
+            dateOfBirth: new Date("2020-09-02"),
+          },
+          {
+            userId: "p3",
+            role: "participant" as const,
+            dateOfBirth: new Date("2020-09-02"),
+          },
+        ],
+      };
+      const result = validateLokActivity(activity);
+      expect(result.summary.eligibleParticipants).toBe(0);
+    });
+  });
+
+  describe("leader deltagarstöd (age 13–25)", () => {
+    const makeActivity = (leaderDob: Date) => ({
+      eventId: "e-leader-deltagar",
+      clubId: "club1",
+      sport: "basket",
+      date: new Date("2025-09-01"),
+      startTime: new Date("2025-09-01T10:00:00"),
+      endTime: new Date("2025-09-01T12:00:00"),
+      attendees: [
+        { userId: "l1", role: "leader" as const, dateOfBirth: leaderDob },
+        {
+          userId: "p1",
+          role: "participant" as const,
+          dateOfBirth: new Date("2010-01-01"),
+        },
+        {
+          userId: "p2",
+          role: "participant" as const,
+          dateOfBirth: new Date("2010-01-01"),
+        },
+        {
+          userId: "p3",
+          role: "participant" as const,
+          dateOfBirth: new Date("2010-01-01"),
+        },
+      ],
+    });
+
+    it("leader aged 15 is counted in deltagarstöd", () => {
+      const result = validateLokActivity(makeActivity(new Date("2010-01-01")));
+      expect(result.summary.eligibleLeadersForDeltagar).toBe(1);
+      expect(result.summary.countedParticipants).toBe(4); // 3 participants + 1 leader
+    });
+
+    it("leader aged 30 is NOT counted in deltagarstöd", () => {
+      const result = validateLokActivity(makeActivity(new Date("1995-01-01")));
+      expect(result.summary.eligibleLeadersForDeltagar).toBe(0);
+      expect(result.summary.countedParticipants).toBe(3);
+    });
+  });
+
+  describe("leaderBonus", () => {
+    const baseActivity = {
+      eventId: "e-leader-bonus",
+      clubId: "club1",
+      sport: "tennis",
+      date: new Date("2025-09-01"),
+      startTime: new Date("2025-09-01T10:00:00"),
+      endTime: new Date("2025-09-01T12:00:00"),
+    };
+
+    it("leaderBonus is true when ≥2 leaders attend", () => {
+      const result = validateLokActivity({
+        ...baseActivity,
+        attendees: [
+          {
+            userId: "l1",
+            role: "leader" as const,
+            dateOfBirth: new Date("1990-01-01"),
+          },
+          {
+            userId: "l2",
+            role: "leader" as const,
+            dateOfBirth: new Date("1990-01-01"),
+          },
+          {
+            userId: "p1",
+            role: "participant" as const,
+            dateOfBirth: new Date("2010-01-01"),
+          },
+          {
+            userId: "p2",
+            role: "participant" as const,
+            dateOfBirth: new Date("2010-01-01"),
+          },
+          {
+            userId: "p3",
+            role: "participant" as const,
+            dateOfBirth: new Date("2010-01-01"),
+          },
+        ],
+      });
+      expect(result.summary.leaderBonus).toBe(true);
+    });
+
+    it("leaderBonus is false when only 1 leader attends", () => {
+      const result = validateLokActivity({
+        ...baseActivity,
+        attendees: [
+          {
+            userId: "l1",
+            role: "leader" as const,
+            dateOfBirth: new Date("1990-01-01"),
+          },
+          {
+            userId: "p1",
+            role: "participant" as const,
+            dateOfBirth: new Date("2010-01-01"),
+          },
+          {
+            userId: "p2",
+            role: "participant" as const,
+            dateOfBirth: new Date("2010-01-01"),
+          },
+          {
+            userId: "p3",
+            role: "participant" as const,
+            dateOfBirth: new Date("2010-01-01"),
+          },
+        ],
+      });
+      expect(result.summary.leaderBonus).toBe(false);
+    });
+  });
+
+  describe("estimateLokSubsidy", () => {
+    it("calculates deltagarstöd correctly", () => {
+      const estimate = estimateLokSubsidy({
+        totalParticipants: 10,
+        eligibleParticipants: 8,
+        eligibleLeadersForDeltagar: 0,
+        countedParticipants: 8,
+        leaderCount: 1,
+        leaderBonus: false,
+        durationMinutes: 90,
+        activityDate: new Date("2025-09-01"),
+      });
+      expect(estimate.deltagarstod).toBe(8 * LOK_SUBSIDY_RATES.deltagarstod);
+      expect(estimate.ledarstod).toBe(LOK_SUBSIDY_RATES.ledarstodBase);
+      expect(estimate.total).toBe(estimate.deltagarstod + estimate.ledarstod);
+    });
+
+    it("includes leaderBonus when ≥2 leaders", () => {
+      const estimate = estimateLokSubsidy({
+        totalParticipants: 5,
+        eligibleParticipants: 5,
+        eligibleLeadersForDeltagar: 0,
+        countedParticipants: 5,
+        leaderCount: 2,
+        leaderBonus: true,
+        durationMinutes: 90,
+        activityDate: new Date("2025-09-01"),
+      });
+      expect(estimate.ledarstod).toBe(
+        LOK_SUBSIDY_RATES.ledarstodBase + LOK_SUBSIDY_RATES.ledarstodBonus,
+      );
+    });
+
+    it("returns 0 ledarstöd when no leaders", () => {
+      const estimate = estimateLokSubsidy({
+        totalParticipants: 5,
+        eligibleParticipants: 5,
+        eligibleLeadersForDeltagar: 0,
+        countedParticipants: 5,
+        leaderCount: 0,
+        leaderBonus: false,
+        durationMinutes: 90,
+        activityDate: new Date("2025-09-01"),
+      });
+      expect(estimate.ledarstod).toBe(0);
+    });
+
+    it("aggregates multiple activities with estimatePeriodSubsidy", () => {
+      const result1 = validateLokActivity({
+        eventId: "e1",
+        clubId: "c1",
+        sport: "fotboll",
+        date: new Date("2025-09-01"),
+        startTime: new Date("2025-09-01T10:00:00"),
+        endTime: new Date("2025-09-01T12:00:00"),
+        attendees: [
+          {
+            userId: "l1",
+            role: "leader" as const,
+            dateOfBirth: new Date("1990-01-01"),
+          },
+          {
+            userId: "p1",
+            role: "participant" as const,
+            dateOfBirth: new Date("2010-01-01"),
+          },
+          {
+            userId: "p2",
+            role: "participant" as const,
+            dateOfBirth: new Date("2010-01-01"),
+          },
+          {
+            userId: "p3",
+            role: "participant" as const,
+            dateOfBirth: new Date("2010-01-01"),
+          },
+        ],
+      });
+      const aggregate = estimatePeriodSubsidy([result1]);
+      expect(aggregate.total).toBeGreaterThan(0);
+      expect(aggregate.deltagarstod).toBe(
+        result1.summary.countedParticipants * LOK_SUBSIDY_RATES.deltagarstod,
+      );
     });
   });
 });

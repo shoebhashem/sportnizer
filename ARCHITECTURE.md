@@ -12122,44 +12122,89 @@ The personnummer is validated both client-side (for instant feedback) and server
 
 The LOK validation engine (`lokValidation.ts`) enforces RF's rules for qualifying activities:
 
-| Rule                     | Requirement                                | Constant                       |
-| ------------------------ | ------------------------------------------ | ------------------------------ |
-| **Participant age**      | 7-25 years old on the activity date        | `MIN_AGE: 7`, `MAX_AGE: 25`    |
-| **Minimum participants** | ≥ 3 LOK-eligible participants per activity | `MIN_PARTICIPANTS: 3`          |
-| **Maximum counted**      | Max 30 participants counted per activity   | `MAX_PARTICIPANTS_COUNTED: 30` |
-| **Minimum duration**     | ≥ 60 minutes                               | `MIN_DURATION_MINUTES: 60`     |
-| **Leader requirement**   | ≥ 1 leader per activity                    | `MIN_LEADERS: 1`               |
-| **Activity types**       | training, match, meeting (not "other")     | Validated against list         |
-| **Reporting periods**    | H1 (Jan-Jun) or H2 (Jul-Dec)               | Two periods per year           |
-| **Submission deadline**  | 25th of the month after the period ends    | H1: July 25, H2: January 25    |
+| Rule                     | Requirement                                       | Constant                       |
+| ------------------------ | ------------------------------------------------- | ------------------------------ |
+| **Participant age**      | 6-25 years old on the activity date               | `MIN_AGE: 6`, `MAX_AGE: 25`    |
+| **Leader deltagarstöd**  | Leaders aged 13-25 also count as participants     | Age range 13–`MAX_AGE`         |
+| **Leader bonus**         | ≥2 leaders: +5 SEK ledarstöd bonus per activity   | `leaderBonus: boolean`         |
+| **Minimum participants** | ≥ 3 LOK-eligible participants per activity        | `MIN_PARTICIPANTS: 3`          |
+| **Maximum counted**      | Max 30 (participants + eligible leaders) per act. | `MAX_COUNTED_PARTICIPANTS: 30` |
+| **Minimum duration**     | ≥ 60 minutes                                      | `MIN_DURATION_MINUTES: 60`     |
+| **Leader requirement**   | ≥ 1 leader per activity                           | `MIN_LEADERS: 1`               |
+| **Activity types**       | training, match, meeting (not "other")            | Validated against list         |
+| **Reporting periods**    | H1 (Jan-Jun) or H2 (Jul-Dec)                      | Two periods per year           |
+| **Submission deadline**  | 25th of the month after the period ends           | H1: July 25, H2: January 25    |
 
 **Client-side helper** (`lokValidationService.ts`) provides the same rules for pre-flight checks in the UI without calling Cloud Functions.
+
+#### Subsidy Estimation
+
+`estimateLokSubsidy(summary)` and `estimatePeriodSubsidy(results[])` compute expected RF subsidy in SEK:
+
+| Component       | Amount                                      |
+| --------------- | ------------------------------------------- |
+| Deltagarstöd    | 7 SEK × `countedParticipants`               |
+| Ledarstöd base  | 20 SEK (when ≥1 leader present)             |
+| Ledarstöd bonus | +5 SEK (when `leaderBonus` = true, ≥2 ldrs) |
 
 ### LOK Report Lifecycle
 
 ```
-1. GENERATE              2. REVIEW                3. SUBMIT              4. RESULT
-┌───────────────┐      ┌───────────────┐      ┌───────────────┐      ┌───────────────┐
-│ Club admin    │      │ Review draft  │      │ Submit to RF  │      │ RF returns    │
-│ selects period│─────►│ - activities  │─────►│ via API 2.0   │─────►│ receipt_id +  │
-│ → generates   │      │ - participants│      │ (Gravitee)    │      │ status:       │
-│   draft report│      │ - validation  │      │               │      │ accepted /    │
-│               │      │   warnings    │      │               │      │ rejected /    │
-└───────────────┘      └───────────────┘      └───────────────┘      │ pending_review│
-                                                                      └───────────────┘
+1. GENERATE              2. REVIEW/RESOLVE         3. SUBMIT              4. RESULT
+┌───────────────┐      ┌───────────────────┐      ┌───────────────┐      ┌───────────────┐
+│ Club admin    │      │  Review draft:    │      │ Submit to RF  │      │ RF returns    │
+│ selects period│─────►│  - activities     │─────►│ via API 2.0   │─────►│ receipt_id +  │
+│ → generates   │      │  - participants   │      │ (Gravitee)    │      │ status:       │
+│   draft report│      │  - conflicts ①    │      │               │      │ accepted /    │
+│               │      │  - warnings       │      │               │      │ rejected /    │
+└───────────────┘      └───────────────────┘      └───────────────┘      │ pending_review│
+                                                                          └───────────────┘
 ```
+
+① **Conflict detection** runs automatically during `generateLokReport`:
+
+- **TYPE A — TIME_OVERLAP**: Two activities in the same reporting period have overlapping time windows AND share at least one participant. RF would count that participant twice.
+- **TYPE B — SAME_DAY_SAME_SPORT**: Two activities on the same calendar day in the same sport (RF rule: one activity per SF-sport per day). Each conflict has `resolved: boolean` and a `resolution` field.
+
+**Conflicts are resolved** via `resolveReportConflict(reportId, conflictIndex, resolution)` where resolution is one of:
+
+- `"keep_first"` — count only the first (earlier) activity for affected users
+- `"keep_second"` — count only the second activity
+- `"exclude_both"` — exclude both activities from the RF payload
+
+**Reports with `hasUnresolvedConflicts: true` cannot be submitted** to RF.
 
 **Report statuses**: `draft` → `submitted` → `accepted` | `rejected` | `pending_review`
 
 **What happens during generation** (`generateLokReport`):
 
-1. Fetches all completed events in the period for the club
+1. Fetches all completed events (`lok.eligible: true`) in the period for the club
 2. Filters LOK-eligible events (correct type, duration, participant count)
 3. Decrypts personnummer for all participants server-side
 4. Calculates age at activity date for each participant
-5. Validates each activity against LOK rules
-6. Creates `lokReports/{reportId}` document with full activity+participant data
-7. Updates each event's `lok.reportingPeriod` and `lok.reportId`
+5. Validates each activity against LOK rules (including leader deltagarstöd)
+6. **Runs conflict detection** — detects TYPE A (time overlap) and TYPE B (same-day/same-sport)
+7. Creates `lokReports/{reportId}` document with full activity+participant data
+8. Stores `conflicts[]` and `hasUnresolvedConflicts` in the report
+9. Updates each event's `lok.reportingPeriod` and `lok.reportId`
+
+#### SE Auto-Enablement on Club Creation
+
+When a new club is created with `country: "SE"`, `createClub` automatically initialises the RF sub-document:
+
+```typescript
+rf: {
+  integrationEnabled: true,
+  integrationStatus: "pending",
+  organizationNumber: "",
+  rfOrganizationId: "",
+  districtId: "",
+  kommunKod: "",
+  defaultSport: "",
+}
+```
+
+The admin then fills in the RF details via the LOK-stöd settings screen (`club-settings` → "LOK-stöd" menu item, visible only for SE clubs).
 
 **Stored at**: `lokReports/{reportId}` (top-level collection)
 
@@ -12257,6 +12302,7 @@ The data collection logic is shared — only the rendering layer changes.
 | `getLokReport`          | Club admins only                   | Same check                                     |
 | `listLokReports`        | Club admins only                   | Same check                                     |
 | `deleteLokReport`       | Club admins only (draft only)      | Same check + `report.status === "draft"`       |
+| `resolveReportConflict` | Club admins only (draft only)      | Same check + `report.status === "draft"`       |
 | `submitLokReportToRf`   | Club admins only (draft only)      | Same check + `report.status === "draft"`       |
 | `checkRfApiStatus`      | Any authenticated user             | Credentials test only                          |
 | `updateClubRfSettings`  | Club admins only                   | Same admin check                               |
@@ -12279,13 +12325,13 @@ The 7-year retention for LOK reports aligns with Swedish bookkeeping requirement
 
 ### Cloud Functions — File Reference
 
-| File                                       | Exported Functions                                                       | Purpose                                    |
-| ------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------ |
-| `functions/src/lok/encryptPersonnummer.ts` | `storePersonnummer`, `removePersonnummer`, `getPersonnummerStatus`       | Personnummer CRUD + AES-256-GCM encryption |
-| `functions/src/lok/lokValidation.ts`       | _(internal only)_                                                        | LOK eligibility rules engine               |
-| `functions/src/lok/lokReportService.ts`    | `generateLokReport`, `getLokReport`, `listLokReports`, `deleteLokReport` | Report lifecycle management                |
-| `functions/src/lok/rfApiService.ts`        | `submitLokReportToRf`, `checkRfApiStatus`, `updateClubRfSettings`        | RF API 2.0 communication                   |
-| `functions/src/lok/kommunExport.ts`        | `generateKommunExport`                                                   | Municipality attendance export             |
+| File                                       | Exported Functions                                                                                | Purpose                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `functions/src/lok/encryptPersonnummer.ts` | `storePersonnummer`, `removePersonnummer`, `getPersonnummerStatus`                                | Personnummer CRUD + AES-256-GCM encryption |
+| `functions/src/lok/lokValidation.ts`       | _(internal only)_                                                                                 | LOK eligibility rules engine               |
+| `functions/src/lok/lokReportService.ts`    | `generateLokReport`, `getLokReport`, `listLokReports`, `deleteLokReport`, `resolveReportConflict` | Report lifecycle + conflict resolution     |
+| `functions/src/lok/rfApiService.ts`        | `submitLokReportToRf`, `checkRfApiStatus`, `updateClubRfSettings`                                 | RF API 2.0 communication                   |
+| `functions/src/lok/kommunExport.ts`        | `generateKommunExport`                                                                            | Municipality attendance export             |
 
 ### Frontend Services — File Reference
 
@@ -12303,6 +12349,7 @@ The 7-year retention for LOK reports aligns with Swedish bookkeeping requirement
 | `components/LinkedText.tsx`        | Reusable text component that auto-detects URLs and renders them as clickable links via `expo-linking`. Scheme-validated (http/https/mailto only). Drop-in replacement for `<Text>` — used in news descriptions, news comments, event descriptions, and RSVP comments |
 | `components/PersonnummerInput.tsx` | Specialized input: auto-format with hyphen, real-time Luhn validation, masked display for stored values, inline consent checkbox, replace mode                                                                                                                       |
 | `app/lok-personnummer.tsx`         | Collection screen: explanation of purpose, security info, PersonnummerInput, privacy link, submit/update/remove actions                                                                                                                                              |
+| `app/lok-reports.tsx`              | LOK report management: period selector, generate report, review/resolve TYPE A+B conflicts (table on web / accordion on mobile), submit to RF, download kommun export. SE clubs + club admins only.                                                                  |
 
 ### i18n
 
@@ -12325,34 +12372,35 @@ The `lokPersonnummer` screen namespace is translated in all 8 languages:
 
 1. **Personnummer collection & encryption** — Full end-to-end: UI → Cloud Function → AES-256-GCM → Firestore
 2. **Personnummer lifecycle** — Store, replace, remove (GDPR), status check
-3. **LOK validation engine** — All RF rules enforced server-side + client-side helpers
-4. **LOK report generation** — Collect events, decrypt personnummer, validate, create report
-5. **LOK report management** — List, get, delete (drafts only)
-6. **RF API submission** — OAuth2 auth, payload construction, status tracking, error handling
-7. **Kommun CSV/JSON export** — Municipality-friendly reports from LOK data
-8. **Cleanup worker** — RF-aware data retention (12 mo events, 7 yr reports)
-9. **Data model** — All types on `UserProfile`, `ClubData`, `EventData`, `EventResponse`
-10. **Privacy policy** — Bumped to `PRIVACY_2026.2` with LOK consent version
-11. **i18n** — Personnummer collection screen in 8 languages
+3. **LOK validation engine** — All RF rules enforced server-side + client-side helpers (MIN_AGE=6, leader deltagarstöd ages 13–25, leaderBonus ≥2 leaders, MAX_COUNTED=30)
+4. **Subsidy estimation** — `estimateLokSubsidy()` / `estimatePeriodSubsidy()` helpers for pre-submission cost preview
+5. **LOK report generation** — Collect events, decrypt personnummer, validate, detect conflicts, create report
+6. **Conflict detection** — TYPE A (time overlap + shared users) and TYPE B (same-day same-sport RF rule) auto-detected on report generation
+7. **Conflict resolution** — `resolveReportConflict` Cloud Function; UI in `lok-reports.tsx` with three resolution options (keep_first / keep_second / exclude_both)
+8. **LOK report management** — List, get, delete (drafts only)
+9. **LOK report management UI** — `app/lok-reports.tsx`: period selector, generate, review, resolve conflicts, submit, download export
+10. **LOK-stöd menu entry** — SE-only item in club-settings.tsx (`club?.country === "SE"`)
+11. **SE auto-enablement** — `createClub` with `country=="SE"` auto-initialises `club.rf` sub-document
+12. **RF API submission** — OAuth2 auth, payload construction, status tracking, error handling
+13. **Kommun CSV/JSON export** — Municipality-friendly reports from LOK data
+14. **Cleanup worker** — RF-aware data retention (12 mo events, 7 yr reports)
+15. **Data model** — All types on `UserProfile`, `ClubData`, `EventData`, `EventResponse`
+16. **Privacy policy** — Bumped to `PRIVACY_2026.2` with LOK consent version
+17. **i18n** — Personnummer collection screen in 8 languages
 
 #### 📋 Not Yet Implemented (Future Work)
 
 | #   | Feature                                     | Complexity | Notes                                                       |
 | --- | ------------------------------------------- | ---------- | ----------------------------------------------------------- |
 | 1   | **RF API credential setup**                 | External   | Requires agreement with RF + Gravitee registration          |
-| 2   | **LOK report review UI**                    | Medium     | Admin screen to review draft reports before submission      |
-| 3   | **LOK report submission UI**                | Medium     | Admin screen to submit and track RF responses               |
-| 4   | **LOK eligibility indicators on events**    | Low        | Badge/icon on event cards showing LOK eligibility           |
-| 5   | **LOK role assignment UI**                  | Low        | Assign "participant" vs "leader" role per event response    |
-| 6   | **RF settings admin screen**                | Medium     | Club settings page for org number, RF ID, district, kommun  |
-| 7   | **Kommun export UI**                        | Low        | Download button on LOK report detail screen                 |
-| 8   | **Excel (.xlsx) export**                    | Low        | Add `exceljs` to functions, write `generateXlsx()`          |
-| 9   | **PDF export**                              | Low        | Add `pdfkit` to functions, write `generatePdf()`            |
-| 10  | **LOK-ansvarig role**                       | Medium     | Dedicated sub-role for LOK administration                   |
-| 11  | **Consent re-prompt**                       | Low        | Detect outdated consent version, prompt user to re-accept   |
-| 12  | **LOK dashboard/statistics**                | Medium     | Overview of LOK-eligible activities, coverage, trends       |
-| 13  | **Firestore security rules for lokReports** | Low        | Add read/write rules for `lokReports/{reportId}` collection |
-| 14  | **Navigation entry point**                  | Low        | Add LOK menu item in club settings or manage-club screen    |
+| 2   | **LOK eligibility indicators on events**    | Low        | Badge/icon on event cards showing LOK eligibility           |
+| 3   | **LOK role assignment UI**                  | Low        | Assign "participant" vs "leader" role per event response    |
+| 4   | **Excel (.xlsx) export**                    | Low        | Add `exceljs` to functions, write `generateXlsx()`          |
+| 5   | **PDF export**                              | Low        | Add `pdfkit` to functions, write `generatePdf()`            |
+| 6   | **LOK-ansvarig role**                       | Medium     | Dedicated sub-role for LOK administration                   |
+| 7   | **Consent re-prompt**                       | Low        | Detect outdated consent version, prompt user to re-accept   |
+| 8   | **LOK dashboard/statistics**                | Medium     | Overview of LOK-eligible activities, coverage, trends       |
+| 9   | **Firestore security rules for lokReports** | Low        | Add read/write rules for `lokReports/{reportId}` collection |
 
 ---
 

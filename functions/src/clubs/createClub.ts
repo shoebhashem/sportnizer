@@ -139,6 +139,26 @@ export const createClub = onCall(
         console.error("Failed to seed accounting config:", accountingErr);
       }
 
+      // Auto-enable RF/LOK integration for Swedish clubs
+      if (country === "SE") {
+        try {
+          await clubRef.update({
+            rf: {
+              integrationEnabled: true,
+              integrationStatus: "pending",
+              organizationNumber: "",
+              rfOrganizationId: "",
+              districtId: "",
+              kommunKod: "",
+              defaultSport: "",
+            },
+          });
+        } catch (rfErr) {
+          // Non-critical: log but don't fail club creation
+          console.error("Failed to initialize RF settings:", rfErr);
+        }
+      }
+
       // Increment user's active clubs counter
       await userRef.update({
         activeClubsAsAdmin: FieldValue.increment(1),

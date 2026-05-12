@@ -581,6 +581,30 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="lok-reports"
+        options={{
+          headerShown: true,
+          title: "LOK-stöd",
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="lok-settings"
+        options={{
+          headerShown: true,
+          title: "LOK-inställningar",
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
         name="chart-of-accounts"
         options={{
           headerShown: true,

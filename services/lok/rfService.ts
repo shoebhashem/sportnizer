@@ -27,6 +27,9 @@ export interface LokReportSummary {
 
 export interface GenerateReportResult {
   success: boolean;
+  empty?: boolean;
+  info?: string;
+  totalActivities?: number;
   reportId?: string;
   summary?: {
     totalActivities: number;
@@ -160,6 +163,31 @@ export const deleteLokReport = async (
   }
 };
 
+/**
+ * Resolve a conflict in a draft LOK report.
+ */
+export const resolveReportConflict = async (
+  reportId: string,
+  conflictIndex: number,
+  resolution: "keep_first" | "keep_second" | "exclude_both",
+): Promise<{
+  success: boolean;
+  hasUnresolvedConflicts?: boolean;
+  error?: string;
+}> => {
+  try {
+    const fn = httpsCallable(functions, "resolveReportConflict");
+    const result = await fn({ reportId, conflictIndex, resolution });
+    return result.data as any;
+  } catch (error: any) {
+    console.error("Error resolving LOK report conflict:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to resolve conflict.",
+    };
+  }
+};
+
 // ─── RF API Functions ──────────────────────────────────────────
 
 /**
@@ -227,7 +255,7 @@ export const updateClubRfSettings = async (
 export const generateKommunExport = async (
   clubId: string,
   period: string,
-  format: "csv" | "json" = "csv",
+  format: "csv" | "json" | "xml" = "csv",
 ): Promise<KommunExportResult> => {
   try {
     const fn = httpsCallable(functions, "generateKommunExport");
@@ -269,6 +297,7 @@ export const rfService = {
   getLokReport,
   listLokReports,
   deleteLokReport,
+  resolveReportConflict,
   submitLokReportToRf,
   checkRfApiStatus,
   updateClubRfSettings,
