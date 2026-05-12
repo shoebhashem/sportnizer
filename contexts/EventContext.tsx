@@ -21,6 +21,7 @@ import {
     fetchEvents,
 } from "@/services/event/eventListener";
 import { storage } from "@/utils/CrossPlatformStorage";
+import { getActiveClubIds } from "@/utils/permissionHelpers";
 import React, {
     createContext,
     ReactNode,
@@ -78,8 +79,10 @@ export function EventProvider({ children }: EventProviderProps) {
   const listenerUnsubscribeRef = useRef<(() => void) | null>(null);
   const lastRefreshTimeRef = useRef<number>(0);
 
-  // Get current club ID from user profile
-  const currentClubId = userProfile?.clubAccess?.[0]?.clubId || null;
+  // Get all active club IDs from user profile (user may belong to multiple clubs)
+  const activeClubIds = getActiveClubIds(userProfile);
+  // Stable string key so useEffect only re-runs when club membership changes
+  const clubIdsKey = activeClubIds.join(",");
 
   // ============================================================================
   // Cache Management
@@ -179,7 +182,7 @@ export function EventProvider({ children }: EventProviderProps) {
   const fetchEventsFromFirestore = useCallback(
     async (
       userId: string,
-      clubId: string,
+      clubIds: string[],
       forceRefresh: boolean = false,
     ): Promise<void> => {
       // Rate limiting check
@@ -199,17 +202,26 @@ export function EventProvider({ children }: EventProviderProps) {
       try {
         setIsLoading(true);
 
-        console.log(`🔄 Fetching events for user ${userId} in club ${clubId}`);
-        const eventList = await fetchEvents({
-          clubId,
-          userId,
-          includePastEvents: true,
-        });
+        console.log(
+          `🔄 Fetching events for user ${userId} across ${clubIds.length} club(s)`,
+        );
+        const results = await Promise.all(
+          clubIds.map((clubId) =>
+            fetchEvents({ clubId, userId, includePastEvents: true }),
+          ),
+        );
 
-        // Update state and cache
+        // Merge and deduplicate across clubs
+        const merged = new Map<string, Event>();
+        results.flat().forEach((e) => merged.set(e.id, e));
+        const eventList = Array.from(merged.values()).sort(
+          (a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0),
+        );
+
+        // Update state and cache (use first clubId as cache key)
         setEvents(eventList);
         setIsFromCache(false);
-        await saveToCache(eventList, clubId);
+        await saveToCache(eventList, clubIds[0]);
 
         // Update rate limit timestamp
         lastRefreshTimeRef.current = now;
@@ -239,33 +251,54 @@ export function EventProvider({ children }: EventProviderProps) {
   // ============================================================================
 
   const setupEventListener = useCallback(
-    (userId: string, clubId: string) => {
+    (userId: string, clubIds: string[]) => {
       // Clean up existing listener
       if (listenerUnsubscribeRef.current) {
         listenerUnsubscribeRef.current();
         listenerUnsubscribeRef.current = null;
       }
 
-      console.log(`🎧 Setting up real-time event listener`);
-
-      const unsubscribe = attachEventListener(
-        { clubId, userId, includePastEvents: true },
-        (eventList) => {
-          console.log(`📡 Received ${eventList.length} events via listener`);
-          setEvents(eventList);
-          setIsFromCache(false);
-          saveToCache(eventList, clubId);
-        },
-        (error) => {
-          console.error("❌ Event listener error:", error);
-          // Fallback to manual fetch on error
-          fetchEventsFromFirestore(userId, clubId);
-        },
+      console.log(
+        `🎧 Setting up real-time event listeners for ${clubIds.length} club(s)`,
       );
 
-      listenerUnsubscribeRef.current = unsubscribe;
+      // Shared merged state across all club listeners
+      const clubEventMaps = new Map<string, Map<string, Event>>();
+      clubIds.forEach((id) => clubEventMaps.set(id, new Map()));
+
+      const emitMerged = () => {
+        const merged = new Map<string, Event>();
+        clubEventMaps.forEach((eventsMap) =>
+          eventsMap.forEach((e, id) => merged.set(id, e)),
+        );
+        const eventList = Array.from(merged.values()).sort(
+          (a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0),
+        );
+        console.log(`📡 Received ${eventList.length} events via listener`);
+        setEvents(eventList);
+        setIsFromCache(false);
+        saveToCache(eventList, clubIds[0]);
+      };
+
+      const unsubscribers = clubIds.map((clubId) =>
+        attachEventListener(
+          { clubId, userId, includePastEvents: true },
+          (eventList) => {
+            const mapForClub = clubEventMaps.get(clubId)!;
+            mapForClub.clear();
+            eventList.forEach((e) => mapForClub.set(e.id, e));
+            emitMerged();
+          },
+          (error) => {
+            console.error(`❌ Event listener error for club ${clubId}:`, error);
+            fetchEventsFromFirestore(userId, clubIds);
+          },
+        ),
+      );
+
+      listenerUnsubscribeRef.current = () => unsubscribers.forEach((u) => u());
       setHasActiveListener(true);
-      setIsPrivileged(true); // All users with listeners get real-time updates
+      setIsPrivileged(true);
     },
     [saveToCache, fetchEventsFromFirestore],
   );
@@ -276,8 +309,8 @@ export function EventProvider({ children }: EventProviderProps) {
 
   useEffect(() => {
     const setupEvents = async () => {
-      if (!firebaseUser || !currentClubId) {
-        // No user or no club - clear everything
+      if (!firebaseUser || activeClubIds.length === 0) {
+        // No user or no clubs - clear everything
         setEvents([]);
         setIsLoading(false);
         setIsPrivileged(false);
@@ -297,8 +330,9 @@ export function EventProvider({ children }: EventProviderProps) {
         // Load cache first for instant display
         const { events: cachedEvents, cachedClubId } = await loadFromCache();
 
-        // Check if cache is valid for current club
-        const cacheValidForClub = cachedClubId === currentClubId;
+        // Cache is valid if it was saved for any of the user's current clubs
+        const cacheValidForClub =
+          cachedClubId != null && activeClubIds.includes(cachedClubId);
 
         if (cachedEvents.length > 0 && cacheValidForClub) {
           setEvents(cachedEvents);
@@ -308,9 +342,9 @@ export function EventProvider({ children }: EventProviderProps) {
           );
         }
 
-        // Setup real-time listener for all users
-        console.log(`🎧 Setting up real-time listener for all users`);
-        setupEventListener(firebaseUser.uid, currentClubId);
+        // Setup real-time listeners across all clubs
+        console.log(`🎧 Setting up real-time listeners for all users`);
+        setupEventListener(firebaseUser.uid, activeClubIds);
       } catch (error) {
         console.error("❌ Error setting up events:", error);
       } finally {
@@ -328,21 +362,23 @@ export function EventProvider({ children }: EventProviderProps) {
         setHasActiveListener(false);
       }
     };
-  }, [firebaseUser, currentClubId, loadFromCache, setupEventListener]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firebaseUser, clubIdsKey, loadFromCache, setupEventListener]);
 
   // ============================================================================
   // Public API
   // ============================================================================
 
   const refreshEvents = useCallback(async () => {
-    if (!firebaseUser || !currentClubId) {
+    if (!firebaseUser || activeClubIds.length === 0) {
       console.log("⚠️ Cannot refresh: No user or club");
       return;
     }
 
     console.log("🔄 Manual refresh triggered");
-    await fetchEventsFromFirestore(firebaseUser.uid, currentClubId);
-  }, [firebaseUser, currentClubId, fetchEventsFromFirestore]);
+    await fetchEventsFromFirestore(firebaseUser.uid, activeClubIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firebaseUser, clubIdsKey, fetchEventsFromFirestore]);
 
   const clearEventCache = useCallback(async () => {
     await clearCache();

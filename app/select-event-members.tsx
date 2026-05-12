@@ -318,7 +318,7 @@ export default function SelectEventMembersScreen() {
             style={styles.membersList}
             contentContainerStyle={[
               styles.membersListContent,
-              selectedIds.size > 0 && styles.membersListContentWithActions,
+              styles.membersListContentWithActions,
             ]}
           />
         ) : (
@@ -338,13 +338,13 @@ export default function SelectEventMembersScreen() {
       </View>
 
       {/* Bottom Action Bar */}
-      {selectedIds.size > 0 && (
-        <View
-          style={[
-            styles.actionContainer,
-            { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
-          ]}
-        >
+      <View
+        style={[
+          styles.actionContainer,
+          { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
+        ]}
+      >
+        {selectedIds.size > 0 && (
           <View style={styles.actionButton}>
             <Button
               label={t("screens:createEvent.clearSelection")}
@@ -352,17 +352,17 @@ export default function SelectEventMembersScreen() {
               theme="secondary"
             />
           </View>
-          <View style={styles.actionButton}>
-            <Button
-              label={t("screens:createEvent.confirmSelection", {
-                count: selectedIds.size,
-              })}
-              onPress={handleConfirm}
-              theme="primary"
-            />
-          </View>
+        )}
+        <View style={styles.actionButton}>
+          <Button
+            label={t("screens:createEvent.confirmSelection", {
+              count: selectedIds.size,
+            })}
+            onPress={handleConfirm}
+            theme="primary"
+          />
         </View>
-      )}
+      </View>
     </View>
   );
 }

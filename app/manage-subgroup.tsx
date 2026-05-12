@@ -47,7 +47,7 @@ export default function ManageSubgroupScreen() {
     clubId as string,
     groupId as string,
     subgroupId as string,
-  );
+  ).filter((m) => m.isActive !== false);
 
   // Derive permission from userProfile (sync)
   const canManage = useMemo(
