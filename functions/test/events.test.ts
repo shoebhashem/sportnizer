@@ -301,6 +301,79 @@ describe("Event Lifecycle", () => {
       expect(event!.responses).toBeDefined();
       expect(event!.responses.length).toBeGreaterThanOrEqual(2);
     });
+
+    it("should populate groupAdminIds with active group admin UIDs", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      // Add a non-admin player to the group
+      const player = await createFullTestUser({
+        email: "player2@test.com",
+        displayName: "Player Two",
+      });
+      const db = getFirestore();
+      const membersRef = db.doc(
+        `clubs/${clubId}/groups/${groupId}/allMembers/members`,
+      );
+      const membersDoc = await membersRef.get();
+      const existing = membersDoc.data()?.members || [];
+      await membersRef.update({
+        members: [
+          ...existing,
+          {
+            userId: player.uid,
+            name: player.displayName,
+            email: player.email,
+            roles: ["player"],
+            isActive: true,
+            needsGuardian: false,
+          },
+        ],
+        memberCount: existing.length + 1,
+      });
+
+      const result = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(
+        `clubs/${clubId}/events/${result.eventId}`,
+      );
+      expect(event!.groupAdminIds).toBeDefined();
+      expect(Array.isArray(event!.groupAdminIds)).toBe(true);
+      // Admin UID (has roles: ["admin"]) must be present
+      expect(event!.groupAdminIds).toContain(admin.uid);
+      // Player UID (has roles: ["player"]) must NOT be present
+      expect(event!.groupAdminIds).not.toContain(player.uid);
+    });
+
+    it("should set groupAdminIds to [] for club-level events", async () => {
+      const { admin, clubId } = await setupClubGroupAndAdmin();
+
+      const result = await callFunction("createEventV2", admin.idToken, {
+        clubId,
+        clubName: "Event Club",
+        eventType: "meeting",
+        title: "Club-Wide Meeting",
+        startDate: futureDate(5),
+        startTime: futureISO(5, 9),
+        endDate: futureDate(5),
+        endTime: futureISO(5, 10),
+        targetScope: { level: "club" },
+        createdBy: admin.uid,
+        createdByName: "Event Admin",
+      });
+
+      expect(result.success).toBe(true);
+      const event = await getDocument(
+        `clubs/${clubId}/events/${result.eventId}`,
+      );
+      expect(event!.groupAdminIds).toBeDefined();
+      expect(event!.groupAdminIds).toEqual([]);
+    });
   });
 
   // ─── getEvent ──────────────────────────────────────────────

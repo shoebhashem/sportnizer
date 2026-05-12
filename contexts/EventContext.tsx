@@ -21,7 +21,11 @@ import {
     fetchEvents,
 } from "@/services/event/eventListener";
 import { storage } from "@/utils/CrossPlatformStorage";
-import { getActiveClubIds } from "@/utils/permissionHelpers";
+import {
+    getActiveClubIds,
+    getActiveGroups,
+    isClubAdmin,
+} from "@/utils/permissionHelpers";
 import React, {
     createContext,
     ReactNode,
@@ -31,6 +35,7 @@ import React, {
     useRef,
     useState,
 } from "react";
+import { useClubData } from "./ClubDataContext";
 import { useUser } from "./UserContext";
 
 // Event Context Interface
@@ -68,6 +73,7 @@ interface EventProviderProps {
 
 export function EventProvider({ children }: EventProviderProps) {
   const { firebaseUser, userProfile } = useUser();
+  const { getClubPermissions } = useClubData();
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFromCache, setIsFromCache] = useState(false);
@@ -206,9 +212,24 @@ export function EventProvider({ children }: EventProviderProps) {
           `🔄 Fetching events for user ${userId} across ${clubIds.length} club(s)`,
         );
         const results = await Promise.all(
-          clubIds.map((clubId) =>
-            fetchEvents({ clubId, userId, includePastEvents: true }),
-          ),
+          clubIds.map((clubId) => {
+            const permissions = getClubPermissions(clubId);
+            const visEvents = permissions.events.visibility;
+            const isAdmin = isClubAdmin(userProfile, clubId);
+            const isGroupAdminInClub = getActiveGroups(
+              userProfile,
+              clubId,
+            ).some((g) => g.roles.includes("admin"));
+            const includeGroupAdminEvents =
+              (isAdmin && visEvents.clubAdmin) ||
+              (isGroupAdminInClub && visEvents.groupAdmin);
+            return fetchEvents({
+              clubId,
+              userId,
+              includePastEvents: true,
+              includeGroupAdminEvents,
+            });
+          }),
         );
 
         // Merge and deduplicate across clubs
@@ -280,9 +301,21 @@ export function EventProvider({ children }: EventProviderProps) {
         saveToCache(eventList, clubIds[0]);
       };
 
-      const unsubscribers = clubIds.map((clubId) =>
-        attachEventListener(
-          { clubId, userId, includePastEvents: true },
+      const unsubscribers = clubIds.map((clubId) => {
+        const permissions = getClubPermissions(clubId);
+        const visEvents = permissions.events.visibility;
+
+        // Determine if this user should receive the groupAdminIds query for this club
+        const isAdmin = isClubAdmin(userProfile, clubId);
+        const isGroupAdmin = getActiveGroups(userProfile, clubId).some((g) =>
+          g.roles.includes("admin"),
+        );
+        const includeGroupAdminEvents =
+          (isAdmin && visEvents.clubAdmin) ||
+          (isGroupAdmin && visEvents.groupAdmin);
+
+        return attachEventListener(
+          { clubId, userId, includePastEvents: true, includeGroupAdminEvents },
           (eventList) => {
             const mapForClub = clubEventMaps.get(clubId)!;
             mapForClub.clear();
@@ -293,8 +326,8 @@ export function EventProvider({ children }: EventProviderProps) {
             console.error(`❌ Event listener error for club ${clubId}:`, error);
             fetchEventsFromFirestore(userId, clubIds);
           },
-        ),
-      );
+        );
+      });
 
       listenerUnsubscribeRef.current = () => unsubscribers.forEach((u) => u());
       setHasActiveListener(true);

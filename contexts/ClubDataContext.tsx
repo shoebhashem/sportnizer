@@ -4,6 +4,8 @@
 //   - clubs/{clubId}                    → for every club the user belongs to
 //   - clubs/{clubId}/allMembers/members → only for clubs where user is club-admin
 //     (Firestore rules restrict this path to club admins)
+//   - clubs/{clubId}/settings/permissions → for every club the user belongs to
+//     (role-visibility config; falls back to DEFAULT_PERMISSIONS if doc absent)
 //
 // Data is kept current via onSnapshot — no manual refresh needed.
 
@@ -19,6 +21,10 @@ import React, {
 } from "react";
 import { db } from "../services/core/firebase";
 import type { ClubData, ClubMemberData } from "../services/types/club";
+import {
+    ClubPermissions,
+    resolveClubPermissions
+} from "../services/types/clubPermissions";
 import { useUser } from "./UserContext";
 
 // ---------------------------------------------------------------------------
@@ -36,6 +42,13 @@ interface ClubDataContextType {
   getClub: (clubId: string) => ClubData | undefined;
   /** Shortcut accessor — returns [] for non-admin clubs or when data hasn't loaded */
   getClubMembers: (clubId: string) => ClubMemberData[];
+  /**
+   * Returns resolved permissions for a club, merging stored values with
+   * DEFAULT_PERMISSIONS. Safe to call before data loads — returns defaults.
+   */
+  getClubPermissions: (
+    clubId: string,
+  ) => ReturnType<typeof resolveClubPermissions>;
 }
 
 const ClubDataContext = createContext<ClubDataContextType | undefined>(
@@ -53,6 +66,9 @@ export function ClubDataProvider({ children }: { children: ReactNode }) {
   const [clubMembers, setClubMembers] = useState<Map<string, ClubMemberData[]>>(
     new Map(),
   );
+  const [clubPermissions, setClubPermissions] = useState<
+    Map<string, ClubPermissions>
+  >(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
   // Stable dependency key — only changes when the set of clubs or roles changes.
@@ -75,6 +91,7 @@ export function ClubDataProvider({ children }: { children: ReactNode }) {
     if (activeAccess.length === 0) {
       setClubs(new Map());
       setClubMembers(new Map());
+      setClubPermissions(new Map());
       setIsLoading(false);
       return;
     }
@@ -82,11 +99,12 @@ export function ClubDataProvider({ children }: { children: ReactNode }) {
     const unsubscribers: (() => void)[] = [];
 
     // Count expected first-snapshot callbacks:
-    //   1 per club doc  +  1 per admin-club allMembers doc
+    //   1 per club doc  +  1 per admin-club allMembers doc  +  1 per club permissions doc
     const adminCount = activeAccess.filter(
       (ca) => ca.role === "club-admin",
     ).length;
-    const totalExpected = activeAccess.length + adminCount;
+    const totalExpected =
+      activeAccess.length + adminCount + activeAccess.length;
     pendingRef.current = totalExpected;
     setIsLoading(true);
 
@@ -162,6 +180,41 @@ export function ClubDataProvider({ children }: { children: ReactNode }) {
         );
         unsubscribers.push(unsubMembers);
       }
+
+      // ── Club permissions listener (all club members) ────────────────────
+      const permissionsDocRef = doc(
+        db,
+        "clubs",
+        ca.clubId,
+        "settings",
+        "permissions",
+      );
+      const unsubPermissions = onSnapshot(
+        permissionsDocRef,
+        (snapshot) => {
+          const data = snapshot.exists()
+            ? (snapshot.data() as ClubPermissions)
+            : null;
+          setClubPermissions((prev) => {
+            const next = new Map(prev);
+            if (data) {
+              next.set(ca.clubId, data);
+            } else {
+              next.delete(ca.clubId);
+            }
+            return next;
+          });
+          onFirstSnapshot();
+        },
+        (error) => {
+          console.error(
+            `❌ ClubDataContext - Permissions listener error for ${ca.clubId}:`,
+            error,
+          );
+          onFirstSnapshot();
+        },
+      );
+      unsubscribers.push(unsubPermissions);
     }
 
     console.log(
@@ -185,12 +238,18 @@ export function ClubDataProvider({ children }: { children: ReactNode }) {
     [clubMembers],
   );
 
+  const getClubPermissions = useCallback(
+    (clubId: string) => resolveClubPermissions(clubPermissions.get(clubId)),
+    [clubPermissions],
+  );
+
   const value: ClubDataContextType = {
     clubs,
     clubMembers,
     isLoading,
     getClub,
     getClubMembers,
+    getClubPermissions,
   };
 
   return (

@@ -46,6 +46,18 @@ describe("Club Lifecycle", () => {
       );
       expect(membersExists).toBe(true);
 
+      // Verify settings/permissions doc was initialized with defaults
+      const permissions = await getDocument(
+        `clubs/${result.clubId}/settings/permissions`,
+      );
+      expect(permissions).toBeDefined();
+      expect(permissions!.events.visibility.clubAdmin).toBe(true);
+      expect(permissions!.events.visibility.groupAdmin).toBe(true);
+      expect(permissions!.events.visibility.coach).toBe(false);
+      expect(permissions!.news.visibility.clubAdmin).toBe(true);
+      expect(permissions!.news.visibility.groupAdmin).toBe(true);
+      expect(permissions!.news.visibility.coach).toBe(false);
+
       // Verify user's activeClubsAsAdmin was incremented
       const user = await getDocument(`users/${admin.uid}`);
       expect(user!.activeClubsAsAdmin).toBe(1);

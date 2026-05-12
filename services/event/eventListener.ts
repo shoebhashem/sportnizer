@@ -55,6 +55,8 @@ export interface ListenerOptions {
   userId: string;
   includeGroupEvents?: boolean;
   includePastEvents?: boolean;
+  /** When true, also fetch events where userId is in groupAdminIds */
+  includeGroupAdminEvents?: boolean;
 }
 
 /**
@@ -81,7 +83,12 @@ export function attachEventListener(
   onEventsUpdate: (events: Event[]) => void,
   onError?: (error: Error) => void,
 ): () => void {
-  const { clubId, userId, includePastEvents = false } = options;
+  const {
+    clubId,
+    userId,
+    includePastEvents = false,
+    includeGroupAdminEvents = false,
+  } = options;
 
   try {
     const eventsRef = collection(db, "clubs", clubId, "events");
@@ -107,18 +114,41 @@ export function attachEventListener(
       ...baseConstraints,
     );
 
+    // Query 3 (optional): events where user is a group admin — enabled by permissions config
+    const groupAdminQuery = includeGroupAdminEvents
+      ? query(
+          eventsRef,
+          where("groupAdminIds", "array-contains", userId),
+          ...baseConstraints,
+        )
+      : null;
+
     console.log(
-      `🎧 Attaching event listeners (invited + createdBy) for user ${userId} in club ${clubId}`,
+      `🎧 Attaching event listeners (invited + createdBy${includeGroupAdminEvents ? " + groupAdmin" : ""}) for user ${userId} in club ${clubId}`,
     );
 
-    // Shared map to merge results from both listeners — keyed by event ID
+    // Shared maps to merge results from all listeners — keyed by event ID
     const invitedEvents = new Map<string, Event>();
     const createdEvents = new Map<string, Event>();
+    const adminEvents = new Map<string, Event>();
+
+    const mapEvent = (doc: any): Event => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        clubId,
+        clubName: data.targetScope?.clubName || "",
+        groupName: data.targetScope?.groupName || "",
+        subGroupName: data.targetScope?.subgroupName || "",
+      } as Event;
+    };
 
     const mergeAndEmit = () => {
       const merged = new Map<string, Event>();
       invitedEvents.forEach((e, id) => merged.set(id, e));
       createdEvents.forEach((e, id) => merged.set(id, e));
+      adminEvents.forEach((e, id) => merged.set(id, e));
       const events = Array.from(merged.values()).sort(
         (a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0),
       );
@@ -130,17 +160,7 @@ export function attachEventListener(
       invitedQuery,
       (snapshot) => {
         invitedEvents.clear();
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          invitedEvents.set(doc.id, {
-            ...data,
-            id: doc.id,
-            clubId,
-            clubName: data.targetScope?.clubName || "",
-            groupName: data.targetScope?.groupName || "",
-            subGroupName: data.targetScope?.subgroupName || "",
-          } as Event);
-        });
+        snapshot.forEach((doc) => invitedEvents.set(doc.id, mapEvent(doc)));
         mergeAndEmit();
       },
       (error) => {
@@ -153,17 +173,7 @@ export function attachEventListener(
       createdByQuery,
       (snapshot) => {
         createdEvents.clear();
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          createdEvents.set(doc.id, {
-            ...data,
-            id: doc.id,
-            clubId,
-            clubName: data.targetScope?.clubName || "",
-            groupName: data.targetScope?.groupName || "",
-            subGroupName: data.targetScope?.subgroupName || "",
-          } as Event);
-        });
+        snapshot.forEach((doc) => createdEvents.set(doc.id, mapEvent(doc)));
         mergeAndEmit();
       },
       (error) => {
@@ -172,10 +182,25 @@ export function attachEventListener(
       },
     );
 
-    return () => {
-      unsub1();
-      unsub2();
-    };
+    const unsubFns = [unsub1, unsub2];
+
+    if (groupAdminQuery) {
+      const unsub3 = onSnapshot(
+        groupAdminQuery,
+        (snapshot) => {
+          adminEvents.clear();
+          snapshot.forEach((doc) => adminEvents.set(doc.id, mapEvent(doc)));
+          mergeAndEmit();
+        },
+        (error) => {
+          console.error("❌ Event listener (groupAdmin) error:", error);
+          if (onError) onError(error);
+        },
+      );
+      unsubFns.push(unsub3);
+    }
+
+    return () => unsubFns.forEach((u) => u());
   } catch (error) {
     console.error("❌ Failed to attach event listener:", error);
     return () => {};
@@ -195,7 +220,12 @@ export function attachEventListener(
  * saveToCache(events);
  */
 export async function fetchEvents(options: ListenerOptions): Promise<Event[]> {
-  const { clubId, userId, includePastEvents = false } = options;
+  const {
+    clubId,
+    userId,
+    includePastEvents = false,
+    includeGroupAdminEvents = false,
+  } = options;
 
   try {
     const eventsRef = collection(db, "clubs", clubId, "events");
@@ -206,7 +236,7 @@ export async function fetchEvents(options: ListenerOptions): Promise<Event[]> {
     }
     baseConstraints.push(orderBy("startDate", "asc"));
 
-    const [invitedSnap, createdSnap] = await Promise.all([
+    const snapPromises = [
       getDocs(
         query(
           eventsRef,
@@ -217,10 +247,24 @@ export async function fetchEvents(options: ListenerOptions): Promise<Event[]> {
       getDocs(
         query(eventsRef, where("createdBy", "==", userId), ...baseConstraints),
       ),
-    ]);
+    ];
+
+    if (includeGroupAdminEvents) {
+      snapPromises.push(
+        getDocs(
+          query(
+            eventsRef,
+            where("groupAdminIds", "array-contains", userId),
+            ...baseConstraints,
+          ),
+        ),
+      );
+    }
+
+    const snaps = await Promise.all(snapPromises);
 
     const merged = new Map<string, Event>();
-    for (const snap of [invitedSnap, createdSnap]) {
+    for (const snap of snaps) {
       snap.forEach((doc) => {
         const data = doc.data();
         merged.set(doc.id, {

@@ -344,6 +344,45 @@ export const createEventV2 = onCall(
       }
 
       // ============================================================================
+      // STEP 3.6: Collect Group Admin UIDs for Admin Visibility
+      // ============================================================================
+      // Store the group's admin user IDs on the event so Firestore rules can
+      // allow those users to read the event without being in invitedUserIds.
+      // Snapshot taken at creation time — existing events are unaffected by
+      // subsequent admin roster changes.
+      let groupAdminIds: string[] = [];
+      if (targetScope.level !== "club" && targetScope.groupId) {
+        try {
+          const groupMembersDoc = await db
+            .collection("clubs")
+            .doc(clubId)
+            .collection("groups")
+            .doc(targetScope.groupId)
+            .collection("allMembers")
+            .doc("members")
+            .get();
+          const groupMembersData = groupMembersDoc.data();
+          const groupMemberList: any[] = groupMembersData?.members || [];
+          groupAdminIds = groupMemberList
+            .filter(
+              (m: any) =>
+                m.isActive !== false &&
+                Array.isArray(m.roles) &&
+                m.roles.includes("admin"),
+            )
+            .map((m: any) => m.userId)
+            .filter((id: string) => !!id);
+          console.log(
+            `👑 Collected ${groupAdminIds.length} group admin(s) for visibility`,
+          );
+        } catch (adminFetchErr) {
+          // Non-critical: fall back to empty array — event is still created
+          console.error("⚠️ Failed to fetch group admins:", adminFetchErr);
+          groupAdminIds = [];
+        }
+      }
+
+      // ============================================================================
       // STEP 4: Create Event Document
       // ============================================================================
       const eventRef = db
@@ -392,6 +431,7 @@ export const createEventV2 = onCall(
           }),
         },
         invitedUserIds,
+        groupAdminIds,
         roleFilter: data.roleFilter || null,
         capacity: data.capacityLimit
           ? {

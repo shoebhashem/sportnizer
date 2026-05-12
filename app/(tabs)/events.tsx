@@ -217,6 +217,30 @@ export default function EventsTab() {
               isYouthMember: false,
               responseStatus: "organizer",
             });
+            createdCardForCurrentUser = true;
+          }
+
+          // Fallback for group admins who can see this event via groupAdminIds
+          // but are not in the responses array (they didn't create it either).
+          if (
+            !createdCardForCurrentUser &&
+            Array.isArray((event as any).groupAdminIds) &&
+            (event as any).groupAdminIds.includes(user?.uid)
+          ) {
+            expanded.push({
+              ...event,
+              startDate: startDateObj,
+              endDate: endDateObj,
+              startTime: startTime,
+              endTime: endTime,
+              gatheringTime: gatheringTime,
+              responseDeadline: responseDeadlineObj,
+              inviteeUserId: user!.uid,
+              inviteeName: userProfile?.displayName || "You",
+              isCurrentUser: true,
+              isYouthMember: false,
+              responseStatus: "organizer",
+            });
           }
         }
 

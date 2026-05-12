@@ -139,6 +139,29 @@ export const createClub = onCall(
         console.error("Failed to seed accounting config:", accountingErr);
       }
 
+      // Initialize default role-visibility permissions for the new club.
+      // All event/news domains default to: club-admins=true, group-admins=true, coaches=false.
+      try {
+        await clubRef
+          .collection("settings")
+          .doc("permissions")
+          .set({
+            events: {
+              visibility: { clubAdmin: true, groupAdmin: true, coach: false },
+            },
+            news: {
+              visibility: { clubAdmin: true, groupAdmin: true, coach: false },
+            },
+            members: {},
+            fees: {},
+            updatedAt: FieldValue.serverTimestamp(),
+            updatedBy: request.auth.uid,
+          });
+      } catch (permErr) {
+        // Non-critical: existing clubs without this doc fall back to DEFAULT_PERMISSIONS
+        console.error("Failed to init permissions settings:", permErr);
+      }
+
       // Auto-enable RF/LOK integration for Swedish clubs
       if (country === "SE") {
         try {

@@ -288,14 +288,23 @@ service cloud.firestore {
 
       // Club-level Events subcollection
       match /events/{eventId} {
-        // Read: Only invited members OR club admins can read events (privacy for group/subgroup events)
+        // Read: Invited members, group admins listed on event, or club admins
         allow read: if isSignedIn() && (
           request.auth.uid in resource.data.invitedUserIds ||
+          (resource.data.keys().hasAll(['groupAdminIds']) && request.auth.uid in resource.data.groupAdminIds) ||
           isClubAdmin(clubId)
         );
         
         // Create/Update/Delete: Only club admins can manage club-level events
         allow create, update, delete: if isClubAdmin(clubId);
+      }
+
+      // Club-level Settings subcollection (permissions, etc.)
+      match /settings/{document} {
+        // Read: Any member of the club can read settings
+        allow read: if hasClubAccess(clubId);
+        // Write: Only club admins can change settings
+        allow write: if isClubAdmin(clubId);
       }
 
       // Club-level News subcollection

@@ -824,37 +824,43 @@ describe("lokValidation.ts", () => {
   describe("age boundary — MIN_AGE 6", () => {
     const baseActivity = {
       eventId: "e-age-boundary",
-      clubId: "club1",
+      activityType: "training",
       sport: "fotboll",
+      groupId: "g1",
+      groupName: "Test Group",
       date: new Date("2025-09-01"),
       startTime: new Date("2025-09-01T10:00:00"),
       endTime: new Date("2025-09-01T12:00:00"),
-      attendees: [] as any[],
+      participants: [] as any[],
     };
 
     it("age 6 participant is eligible", () => {
       const activity = {
         ...baseActivity,
-        attendees: [
+        participants: [
           {
             userId: "l1",
             role: "leader" as const,
-            dateOfBirth: new Date("2019-09-01"),
+            personnummer: "201909010000",
+            attended: true,
           },
           {
             userId: "p1",
             role: "participant" as const,
-            dateOfBirth: new Date("2019-09-01"),
+            personnummer: "201909010000",
+            attended: true,
           },
           {
             userId: "p2",
             role: "participant" as const,
-            dateOfBirth: new Date("2019-09-01"),
+            personnummer: "201909010000",
+            attended: true,
           },
           {
             userId: "p3",
             role: "participant" as const,
-            dateOfBirth: new Date("2019-09-01"),
+            personnummer: "201909010000",
+            attended: true,
           },
         ],
       };
@@ -865,27 +871,31 @@ describe("lokValidation.ts", () => {
     it("age 5 participant is NOT eligible", () => {
       const activity = {
         ...baseActivity,
-        attendees: [
+        participants: [
           {
             userId: "l1",
             role: "leader" as const,
-            dateOfBirth: new Date("2019-09-01"),
+            personnummer: "201909010000",
+            attended: true,
           },
-          // three 5-year-olds (born after activity date, so age 5 on 2025-09-01)
+          // three under-age participants (born after activity date, age < 6 on 2025-09-01)
           {
             userId: "p1",
             role: "participant" as const,
-            dateOfBirth: new Date("2020-09-02"),
+            personnummer: "202009020000",
+            attended: true,
           },
           {
             userId: "p2",
             role: "participant" as const,
-            dateOfBirth: new Date("2020-09-02"),
+            personnummer: "202009020000",
+            attended: true,
           },
           {
             userId: "p3",
             role: "participant" as const,
-            dateOfBirth: new Date("2020-09-02"),
+            personnummer: "202009020000",
+            attended: true,
           },
         ],
       };
@@ -895,41 +905,51 @@ describe("lokValidation.ts", () => {
   });
 
   describe("leader deltagarstöd (age 13–25)", () => {
-    const makeActivity = (leaderDob: Date) => ({
+    const makeActivity = (leaderPersonnummer: string) => ({
       eventId: "e-leader-deltagar",
-      clubId: "club1",
+      activityType: "training",
       sport: "basket",
+      groupId: "g1",
+      groupName: "Test Group",
       date: new Date("2025-09-01"),
       startTime: new Date("2025-09-01T10:00:00"),
       endTime: new Date("2025-09-01T12:00:00"),
-      attendees: [
-        { userId: "l1", role: "leader" as const, dateOfBirth: leaderDob },
+      participants: [
+        {
+          userId: "l1",
+          role: "leader" as const,
+          personnummer: leaderPersonnummer,
+          attended: true,
+        },
         {
           userId: "p1",
           role: "participant" as const,
-          dateOfBirth: new Date("2010-01-01"),
+          personnummer: "201001010000",
+          attended: true,
         },
         {
           userId: "p2",
           role: "participant" as const,
-          dateOfBirth: new Date("2010-01-01"),
+          personnummer: "201001010000",
+          attended: true,
         },
         {
           userId: "p3",
           role: "participant" as const,
-          dateOfBirth: new Date("2010-01-01"),
+          personnummer: "201001010000",
+          attended: true,
         },
       ],
     });
 
     it("leader aged 15 is counted in deltagarstöd", () => {
-      const result = validateLokActivity(makeActivity(new Date("2010-01-01")));
+      const result = validateLokActivity(makeActivity("201001010000"));
       expect(result.summary.eligibleLeadersForDeltagar).toBe(1);
       expect(result.summary.countedParticipants).toBe(4); // 3 participants + 1 leader
     });
 
     it("leader aged 30 is NOT counted in deltagarstöd", () => {
-      const result = validateLokActivity(makeActivity(new Date("1995-01-01")));
+      const result = validateLokActivity(makeActivity("199501010000"));
       expect(result.summary.eligibleLeadersForDeltagar).toBe(0);
       expect(result.summary.countedParticipants).toBe(3);
     });
@@ -938,8 +958,10 @@ describe("lokValidation.ts", () => {
   describe("leaderBonus", () => {
     const baseActivity = {
       eventId: "e-leader-bonus",
-      clubId: "club1",
+      activityType: "training",
       sport: "tennis",
+      groupId: "g1",
+      groupName: "Test Group",
       date: new Date("2025-09-01"),
       startTime: new Date("2025-09-01T10:00:00"),
       endTime: new Date("2025-09-01T12:00:00"),
@@ -948,31 +970,36 @@ describe("lokValidation.ts", () => {
     it("leaderBonus is true when ≥2 leaders attend", () => {
       const result = validateLokActivity({
         ...baseActivity,
-        attendees: [
+        participants: [
           {
             userId: "l1",
             role: "leader" as const,
-            dateOfBirth: new Date("1990-01-01"),
+            personnummer: "199001010000",
+            attended: true,
           },
           {
             userId: "l2",
             role: "leader" as const,
-            dateOfBirth: new Date("1990-01-01"),
+            personnummer: "199001010000",
+            attended: true,
           },
           {
             userId: "p1",
             role: "participant" as const,
-            dateOfBirth: new Date("2010-01-01"),
+            personnummer: "201001010000",
+            attended: true,
           },
           {
             userId: "p2",
             role: "participant" as const,
-            dateOfBirth: new Date("2010-01-01"),
+            personnummer: "201001010000",
+            attended: true,
           },
           {
             userId: "p3",
             role: "participant" as const,
-            dateOfBirth: new Date("2010-01-01"),
+            personnummer: "201001010000",
+            attended: true,
           },
         ],
       });
@@ -982,26 +1009,30 @@ describe("lokValidation.ts", () => {
     it("leaderBonus is false when only 1 leader attends", () => {
       const result = validateLokActivity({
         ...baseActivity,
-        attendees: [
+        participants: [
           {
             userId: "l1",
             role: "leader" as const,
-            dateOfBirth: new Date("1990-01-01"),
+            personnummer: "199001010000",
+            attended: true,
           },
           {
             userId: "p1",
             role: "participant" as const,
-            dateOfBirth: new Date("2010-01-01"),
+            personnummer: "201001010000",
+            attended: true,
           },
           {
             userId: "p2",
             role: "participant" as const,
-            dateOfBirth: new Date("2010-01-01"),
+            personnummer: "201001010000",
+            attended: true,
           },
           {
             userId: "p3",
             role: "participant" as const,
-            dateOfBirth: new Date("2010-01-01"),
+            personnummer: "201001010000",
+            attended: true,
           },
         ],
       });
@@ -1059,31 +1090,37 @@ describe("lokValidation.ts", () => {
     it("aggregates multiple activities with estimatePeriodSubsidy", () => {
       const result1 = validateLokActivity({
         eventId: "e1",
-        clubId: "c1",
+        activityType: "training",
         sport: "fotboll",
+        groupId: "g1",
+        groupName: "Test Group",
         date: new Date("2025-09-01"),
         startTime: new Date("2025-09-01T10:00:00"),
         endTime: new Date("2025-09-01T12:00:00"),
-        attendees: [
+        participants: [
           {
             userId: "l1",
             role: "leader" as const,
-            dateOfBirth: new Date("1990-01-01"),
+            personnummer: "199001010000",
+            attended: true,
           },
           {
             userId: "p1",
             role: "participant" as const,
-            dateOfBirth: new Date("2010-01-01"),
+            personnummer: "201001010000",
+            attended: true,
           },
           {
             userId: "p2",
             role: "participant" as const,
-            dateOfBirth: new Date("2010-01-01"),
+            personnummer: "201001010000",
+            attended: true,
           },
           {
             userId: "p3",
             role: "participant" as const,
-            dateOfBirth: new Date("2010-01-01"),
+            personnummer: "201001010000",
+            attended: true,
           },
         ],
       });
@@ -1203,6 +1240,119 @@ describe("BAS Account Resolution (accounting.ts)", () => {
         expect(seMap[cat]).toBeGreaterThanOrEqual(3000);
         expect(seMap[cat]).toBeLessThan(4000);
       }
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  Section 6: services/types/clubPermissions.ts
+// ═══════════════════════════════════════════════════════════════
+
+import {
+    DEFAULT_PERMISSIONS,
+    resolveClubPermissions,
+} from "../../services/types/clubPermissions";
+
+describe("clubPermissions.ts", () => {
+  describe("DEFAULT_PERMISSIONS", () => {
+    it("has clubAdmin=true and groupAdmin=true for events visibility", () => {
+      expect(DEFAULT_PERMISSIONS.events.visibility.clubAdmin).toBe(true);
+      expect(DEFAULT_PERMISSIONS.events.visibility.groupAdmin).toBe(true);
+    });
+
+    it("has coach=false for events visibility", () => {
+      expect(DEFAULT_PERMISSIONS.events.visibility.coach).toBe(false);
+    });
+
+    it("has clubAdmin=true and groupAdmin=true for news visibility", () => {
+      expect(DEFAULT_PERMISSIONS.news.visibility.clubAdmin).toBe(true);
+      expect(DEFAULT_PERMISSIONS.news.visibility.groupAdmin).toBe(true);
+    });
+
+    it("has coach=false for news visibility", () => {
+      expect(DEFAULT_PERMISSIONS.news.visibility.coach).toBe(false);
+    });
+  });
+
+  describe("resolveClubPermissions", () => {
+    it("returns DEFAULT_PERMISSIONS when called with null", () => {
+      const result = resolveClubPermissions(null);
+      expect(result.events.visibility).toEqual(
+        DEFAULT_PERMISSIONS.events.visibility,
+      );
+      expect(result.news.visibility).toEqual(
+        DEFAULT_PERMISSIONS.news.visibility,
+      );
+    });
+
+    it("returns DEFAULT_PERMISSIONS when called with undefined", () => {
+      const result = resolveClubPermissions(undefined);
+      expect(result.events.visibility).toEqual(
+        DEFAULT_PERMISSIONS.events.visibility,
+      );
+      expect(result.news.visibility).toEqual(
+        DEFAULT_PERMISSIONS.news.visibility,
+      );
+    });
+
+    it("returns DEFAULT_PERMISSIONS when called with empty object", () => {
+      const result = resolveClubPermissions({});
+      expect(result.events.visibility).toEqual(
+        DEFAULT_PERMISSIONS.events.visibility,
+      );
+      expect(result.news.visibility).toEqual(
+        DEFAULT_PERMISSIONS.news.visibility,
+      );
+    });
+
+    it("applies partial event visibility overrides while keeping defaults for unspecified fields", () => {
+      const result = resolveClubPermissions({
+        events: { visibility: { coach: true } as any },
+      });
+      expect(result.events.visibility.coach).toBe(true);
+      // Defaults still hold for non-overridden fields
+      expect(result.events.visibility.clubAdmin).toBe(true);
+      expect(result.events.visibility.groupAdmin).toBe(true);
+      // News visibility unaffected
+      expect(result.news.visibility).toEqual(
+        DEFAULT_PERMISSIONS.news.visibility,
+      );
+    });
+
+    it("applies full stored config when all fields are provided", () => {
+      const result = resolveClubPermissions({
+        events: {
+          visibility: { clubAdmin: false, groupAdmin: false, coach: true },
+        },
+        news: {
+          visibility: { clubAdmin: true, groupAdmin: false, coach: true },
+        },
+      });
+      expect(result.events.visibility).toEqual({
+        clubAdmin: false,
+        groupAdmin: false,
+        coach: true,
+      });
+      expect(result.news.visibility).toEqual({
+        clubAdmin: true,
+        groupAdmin: false,
+        coach: true,
+      });
+    });
+
+    it("preserves stored members and fees objects", () => {
+      const result = resolveClubPermissions({
+        members: { someFlag: true } as any,
+        fees: { anotherFlag: false } as any,
+      });
+      expect((result.members as any).someFlag).toBe(true);
+      expect((result.fees as any).anotherFlag).toBe(false);
+    });
+
+    it("returns empty objects for members/fees when not stored", () => {
+      const result = resolveClubPermissions(null);
+      expect(result.members).toEqual({});
+      expect(result.fees).toEqual({});
     });
   });
 });

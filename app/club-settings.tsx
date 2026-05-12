@@ -719,6 +719,39 @@ export default function ClubSettingsScreen() {
             </TouchableOpacity>
           )}
 
+          {/* Role Permissions — navigate to dedicated screen (only for Club Admin) */}
+          {isClubAdmin && (
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() =>
+                router.push({
+                  pathname: "/role-permissions",
+                  params: { clubId: clubId as string },
+                })
+              }
+              activeOpacity={0.7}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons
+                  name="eye-outline"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Role Permissions</Text>
+                <Text style={styles.optionDescription}>
+                  Control which roles can see events, news and more
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
           {/* Delete Club Option - Only for Club Admin and not already scheduled */}
           {isClubAdmin && !isScheduledForDeletion && (
             <TouchableOpacity

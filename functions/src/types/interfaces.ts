@@ -616,6 +616,10 @@ export interface EventDocument {
   // List of user IDs invited to this event
   invitedUserIds: string[];
 
+  // Group admin UIDs — populated at creation time so admins can see the event
+  // even if they are not in invitedUserIds. Empty for club-level events.
+  groupAdminIds?: string[];
+
   // Optional role filter (if not specified, all members are invited)
   roleFilter?:
     | (

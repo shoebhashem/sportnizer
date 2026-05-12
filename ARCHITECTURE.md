@@ -19,6 +19,7 @@
 - [Event Management & Attendance Statistics](#-event-management--attendance-statistics)
 - [Event Cancellation & Recurring Events](#-event-cancellation--recurring-events)
 - [Sync Event Recipients](#-sync-event-recipients)
+- [Club Permissions Settings](#-club-permissions-settings)
 - [LOK-stöd & RF Integration (Swedish Clubs)](#-lok-stöd--rf-integration-swedish-clubs)
 - [News System](#-news-system)
 - [Data Model Conventions](#data-model-conventions)
@@ -11946,6 +11947,117 @@ Event visibility is driven exclusively by `invitedUserIds[]` (Firestore `array-c
 | `functions/test/sync-event-recipients.test.ts` | 18    |
 
 Covers: preview diff detection, confirm writes, no-op when in sync, permission checks (player, club-admin, coach), validation (missing fields, invalid mode/scope), recurring future scope, recurring single scope, youth/guardian handling, historical data preservation, creator exclusion (non-member creator not in removed diff, not in responses).
+
+---
+
+## 🔐 Club Permissions Settings
+
+### Overview
+
+Each club can configure which roles can see all events (and, in future, other content domains) beyond their own personal invitations. Settings are stored in a Firestore sub-document and surfaced in Club Settings for club admins.
+
+**Key design goals:**
+
+- **Domain-namespaced** — each feature area (`events`, `news`, `members`, `fees`) has its own config block, so adding a new domain never breaks existing settings.
+- **Zero-migration cost** — existing clubs without a settings document fall back to `DEFAULT_PERMISSIONS` (group-admins ON, coaches OFF). No Firestore migration script required.
+- **Extensible** — future toggles (e.g. "coaches see all news") can be added to the same sub-document without touching existing data.
+
+---
+
+### Data Structure
+
+#### Firestore path: `clubs/{clubId}/settings/permissions`
+
+```typescript
+interface ClubPermissions {
+  events?: {
+    visibility?: {
+      clubAdmin: boolean; // always true — club-admins have security-rule access
+      groupAdmin: boolean; // group admins see all events in their groups (default: true)
+      coach: boolean; // coaches see all events in groups they coach (default: false)
+    };
+  };
+  news?: {
+    visibility?: { clubAdmin: boolean; groupAdmin: boolean; coach: boolean };
+  };
+  members?: Record<string, unknown>; // reserved
+  fees?: Record<string, unknown>; // reserved
+  updatedAt?: Timestamp;
+  updatedBy?: string;
+}
+```
+
+Default values (applied when doc/field is absent):
+
+| Role        | Events | News   |
+| ----------- | ------ | ------ |
+| Club Admin  | ✅ ON  | ✅ ON  |
+| Group Admin | ✅ ON  | ✅ ON  |
+| Coach       | ❌ OFF | ❌ OFF |
+
+---
+
+### Group Admin Visibility — `groupAdminIds` on Event Documents
+
+Group-level admins need to see all events in their group even if they are not in `invitedUserIds`. Because Firestore security rules cannot do cross-collection lookups, the solution is to **snapshot admin UIDs onto the event document** at creation time.
+
+#### `groupAdminIds: string[]` field
+
+- Added to `EventDocument` (`functions/src/types/interfaces.ts`).
+- Populated by `createEventV2.ts` in **STEP 3.6**: reads the group's `allMembers/members` doc, extracts all active members with `roles.includes("admin")`, writes as `groupAdminIds` on the event.
+- For **club-level** events (no `groupId`), `groupAdminIds` is always `[]`.
+- Snapshot at creation — new/removed admins do not affect existing events.
+
+#### Firestore Security Rule
+
+```
+allow read: if isSignedIn() && (
+  request.auth.uid in resource.data.invitedUserIds ||
+  (resource.data.keys().hasAll(['groupAdminIds']) && request.auth.uid in resource.data.groupAdminIds) ||
+  isClubAdmin(clubId)
+);
+```
+
+---
+
+### Client-Side Event Fetching
+
+`eventListener.ts` (`services/event/eventListener.ts`) supports an optional third Firestore query per club:
+
+```typescript
+// Query 3 — only when includeGroupAdminEvents === true
+where("groupAdminIds", "array-contains", userId);
+```
+
+`EventContext.tsx` reads `getClubPermissions(clubId)` from `ClubDataContext` and enables this query when:
+
+- `permissions.events.visibility.groupAdmin === true` AND user has `"admin"` role in any group of that club, OR
+- `permissions.events.visibility.clubAdmin === true` AND user is a club-admin.
+
+---
+
+### UI — Club Settings → Role Permissions
+
+Location: `app/club-settings.tsx` → "Role Permissions" expandable section (visible to club-admins only).
+
+- Renders an **Events** sub-section with a toggle per role (Group Admins, Coaches).
+- Writes changes to `clubs/{clubId}/settings/permissions` via `setDoc(..., { merge: true })`.
+- `ClubDataContext` listens to this document in real-time, so `EventContext` picks up changes on next listener cycle without any restart.
+
+---
+
+### Relevant Files
+
+| File                                    | Role                                                                                            |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `services/types/clubPermissions.ts`     | Type definitions + `DEFAULT_PERMISSIONS` + `resolveClubPermissions()`                           |
+| `contexts/ClubDataContext.tsx`          | Per-club `onSnapshot` listener for `settings/permissions`; exposes `getClubPermissions(clubId)` |
+| `contexts/EventContext.tsx`             | Reads permissions to decide whether to run `groupAdminIds` query                                |
+| `services/event/eventListener.ts`       | `includeGroupAdminEvents` option on both listener and fetch paths                               |
+| `functions/src/events/createEventV2.ts` | STEP 3.6 — populates `groupAdminIds`                                                            |
+| `functions/src/clubs/createClub.ts`     | Initializes `settings/permissions` with defaults on club creation                               |
+| `firestore.rules`                       | `groupAdminIds` OR clause in event read rule; `settings/{document}` rule                        |
+| `app/club-settings.tsx`                 | Role Permissions UI section                                                                     |
 
 ---
 

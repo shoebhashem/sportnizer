@@ -617,6 +617,18 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="role-permissions"
+        options={{
+          headerShown: true,
+          title: t("screens.rolePermissions"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
         name="create-news"
         options={{
           headerShown: false,

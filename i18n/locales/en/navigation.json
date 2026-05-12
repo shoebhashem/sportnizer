@@ -53,6 +53,7 @@
     "invitationAccept": "Accept Invitation",
     "invitationReject": "Decline Invitation",
     "about": "About",
-    "selectEventMembers": "Select Members"
+    "selectEventMembers": "Select Members",
+    "rolePermissions": "Role Permissions"
   }
 }

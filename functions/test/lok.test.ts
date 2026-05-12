@@ -14,7 +14,7 @@ import {
     createFullTestUser,
     expectFunctionError,
     getDocument,
-    getFirestore
+    getFirestore,
 } from "./helpers";
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -36,6 +36,13 @@ async function createSwedishClub(adminIdToken: string, adminUid: string) {
     .set({
       admins: { [adminUid]: { role: "admin", joinedAt: new Date() } },
       members: {},
+    });
+  // Set clubAccess on user document so isClubAdmin() checks pass
+  await db
+    .collection("users")
+    .doc(adminUid)
+    .update({
+      clubAccess: [{ clubId: clubRef.id, role: "club-admin" }],
     });
   return clubRef.id;
 }
@@ -61,6 +68,8 @@ async function seedEligibleEvent(
       title: "Träning",
       sport: "fotboll",
       date: date,
+      startDate: startTime,
+      endDate: endTime,
       startTime: startTime,
       endTime: endTime,
       status: "completed",
@@ -100,12 +109,14 @@ describe("storePersonnummer", () => {
   it("stores personnummer for self", async () => {
     const user = await createFullTestUser();
     const result = await callFunction("storePersonnummer", user.idToken, {
-      personnummer: "199001011234",
+      personnummer: "199001010009",
+      consentVersion: "v1",
     });
     expect(result.success).toBe(true);
+    expect(result.lastFour).toBe("0009");
 
-    const doc = await getDocument(`users/${user.uid}/private/personnummer`);
-    expect(doc).toBeDefined();
+    const doc = await getDocument(`users/${user.uid}`);
+    expect(doc?.personalNumber?.lastFour).toBe("0009");
   });
 
   it("rejects unauthenticated call", async () => {
@@ -138,7 +149,8 @@ describe("removePersonnummer", () => {
   it("removes stored personnummer", async () => {
     const user = await createFullTestUser();
     await callFunction("storePersonnummer", user.idToken, {
-      personnummer: "199001011234",
+      personnummer: "199001010009",
+      consentVersion: "v1",
     });
     const result = await callFunction("removePersonnummer", user.idToken, {});
     expect(result.success).toBe(true);
@@ -163,20 +175,21 @@ describe("getPersonnummerStatus", () => {
       user.idToken,
       {},
     );
-    expect(result.stored).toBe(false);
+    expect(result.hasPersonnummer).toBe(false);
   });
 
   it("returns stored=true after storing", async () => {
     const user = await createFullTestUser();
     await callFunction("storePersonnummer", user.idToken, {
-      personnummer: "199001011234",
+      personnummer: "199001010009",
+      consentVersion: "v1",
     });
     const result = await callFunction(
       "getPersonnummerStatus",
       user.idToken,
       {},
     );
-    expect(result.stored).toBe(true);
+    expect(result.hasPersonnummer).toBe(true);
   });
 
   it("rejects unauthenticated call", async () => {
@@ -260,7 +273,7 @@ describe("generateLokReport", () => {
 
     const result = await callFunction("generateLokReport", admin.idToken, {
       clubId,
-      period: "2025-Q3",
+      period: "2025-H2",
     });
 
     expect(result.success).toBe(true);
@@ -280,7 +293,7 @@ describe("generateLokReport", () => {
     await expectFunctionError(
       "generateLokReport",
       nonAdmin.idToken,
-      { clubId, period: "2025-Q3" },
+      { clubId, period: "2025-H2" },
       "permission-denied",
     );
   });
@@ -289,7 +302,7 @@ describe("generateLokReport", () => {
     await expectFunctionError(
       "generateLokReport",
       "",
-      { clubId: "any", period: "2025-Q3" },
+      { clubId: "any", period: "2025-H2" },
       "unauthenticated",
     );
   });
@@ -333,7 +346,7 @@ describe("listLokReports", () => {
 
     await callFunction("generateLokReport", admin.idToken, {
       clubId,
-      period: "2025-Q3",
+      period: "2025-H2",
     });
 
     const result = await callFunction("listLokReports", admin.idToken, {
@@ -372,7 +385,7 @@ describe("getLokReport", () => {
 
     const genResult = await callFunction("generateLokReport", admin.idToken, {
       clubId,
-      period: "2025-Q3",
+      period: "2025-H2",
     });
 
     const getResult = await callFunction("getLokReport", admin.idToken, {
@@ -409,7 +422,7 @@ describe("deleteLokReport", () => {
 
     const genResult = await callFunction("generateLokReport", admin.idToken, {
       clubId,
-      period: "2025-Q3",
+      period: "2025-H2",
     });
 
     const deleteResult = await callFunction("deleteLokReport", admin.idToken, {
@@ -431,7 +444,7 @@ describe("deleteLokReport", () => {
 
     const genResult = await callFunction("generateLokReport", admin.idToken, {
       clubId,
-      period: "2025-Q3",
+      period: "2025-H2",
     });
 
     await expectFunctionError(
@@ -470,7 +483,7 @@ describe("resolveReportConflict", () => {
     await reportRef.set({
       clubId,
       status: "draft",
-      period: "2025-Q3",
+      period: "2025-H2",
       activities: [],
       conflicts: [
         {
@@ -508,7 +521,7 @@ describe("resolveReportConflict", () => {
     await reportRef.set({
       clubId,
       status: "draft",
-      period: "2025-Q3",
+      period: "2025-H2",
       activities: [],
       conflicts: [
         {
@@ -539,7 +552,7 @@ describe("resolveReportConflict", () => {
     await reportRef.set({
       clubId,
       status: "draft",
-      period: "2025-Q3",
+      period: "2025-H2",
       activities: [],
       conflicts: [],
       hasUnresolvedConflicts: false,
@@ -609,12 +622,12 @@ describe("generateKommunExport", () => {
 
     await callFunction("generateLokReport", admin.idToken, {
       clubId,
-      period: "2025-Q3",
+      period: "2025-H2",
     });
 
     const result = await callFunction("generateKommunExport", admin.idToken, {
       clubId,
-      period: "2025-Q3",
+      period: "2025-H2",
       format: "csv",
     });
 
@@ -631,7 +644,7 @@ describe("generateKommunExport", () => {
     await expectFunctionError(
       "generateKommunExport",
       nonAdmin.idToken,
-      { clubId, period: "2025-Q3", format: "csv" },
+      { clubId, period: "2025-H2", format: "csv" },
       "permission-denied",
     );
   });
@@ -641,7 +654,7 @@ describe("generateKommunExport", () => {
     await expectFunctionError(
       "generateKommunExport",
       admin.idToken,
-      { period: "2025-Q3", format: "csv" },
+      { period: "2025-H2", format: "csv" },
       "invalid-argument",
     );
   });

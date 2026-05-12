@@ -350,6 +350,7 @@ export const decryptPersonnummerBatch = async (
 
   // Batch read user documents
   const userRefs = userIds.map((id) => db.collection("users").doc(id));
+  if (userRefs.length === 0) return result;
   const userDocs = await db.getAll(...userRefs);
 
   for (const doc of userDocs) {
