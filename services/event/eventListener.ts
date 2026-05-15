@@ -59,6 +59,8 @@ export interface ListenerOptions {
   includeGroupAdminEvents?: boolean;
   /** When true, also fetch events where userId is in coachIds */
   includeCoachEvents?: boolean;
+  /** When true, fetch ALL active events in the club (club admin "see everything" toggle) */
+  includeAllClubAdminEvents?: boolean;
 }
 
 /**
@@ -91,6 +93,7 @@ export function attachEventListener(
     includePastEvents = false,
     includeGroupAdminEvents = false,
     includeCoachEvents = false,
+    includeAllClubAdminEvents = false,
   } = options;
 
   try {
@@ -135,8 +138,14 @@ export function attachEventListener(
         )
       : null;
 
+    // Query 5 (optional): ALL active events in the club — for club admins when toggle is ON
+    // No user-ID filter; security rule (isClubAdmin) allows this query for club admins.
+    const clubAdminAllQuery = includeAllClubAdminEvents
+      ? query(eventsRef, ...baseConstraints)
+      : null;
+
     console.log(
-      `🎧 Attaching event listeners (invited + createdBy${includeGroupAdminEvents ? " + groupAdmin" : ""}${includeCoachEvents ? " + coach" : ""}) for user ${userId} in club ${clubId}`,
+      `🎧 Attaching event listeners (invited + createdBy${includeGroupAdminEvents ? " + groupAdmin" : ""}${includeCoachEvents ? " + coach" : ""}${includeAllClubAdminEvents ? " + allClubEvents" : ""}) for user ${userId} in club ${clubId}`,
     );
 
     // Shared maps to merge results from all listeners — keyed by event ID
@@ -144,6 +153,7 @@ export function attachEventListener(
     const createdEvents = new Map<string, Event>();
     const adminEvents = new Map<string, Event>();
     const coachEvents = new Map<string, Event>();
+    const clubAdminEvents = new Map<string, Event>();
 
     const mapEvent = (doc: any): Event => {
       const data = doc.data();
@@ -163,6 +173,7 @@ export function attachEventListener(
       createdEvents.forEach((e, id) => merged.set(id, e));
       adminEvents.forEach((e, id) => merged.set(id, e));
       coachEvents.forEach((e, id) => merged.set(id, e));
+      clubAdminEvents.forEach((e, id) => merged.set(id, e));
       const events = Array.from(merged.values()).sort(
         (a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0),
       );
@@ -230,6 +241,22 @@ export function attachEventListener(
       unsubFns.push(unsub4);
     }
 
+    if (clubAdminAllQuery) {
+      const unsub5 = onSnapshot(
+        clubAdminAllQuery,
+        (snapshot) => {
+          clubAdminEvents.clear();
+          snapshot.forEach((doc) => clubAdminEvents.set(doc.id, mapEvent(doc)));
+          mergeAndEmit();
+        },
+        (error) => {
+          console.error("❌ Event listener (clubAdmin all) error:", error);
+          if (onError) onError(error);
+        },
+      );
+      unsubFns.push(unsub5);
+    }
+
     return () => unsubFns.forEach((u) => u());
   } catch (error) {
     console.error("❌ Failed to attach event listener:", error);
@@ -256,6 +283,7 @@ export async function fetchEvents(options: ListenerOptions): Promise<Event[]> {
     includePastEvents = false,
     includeGroupAdminEvents = false,
     includeCoachEvents = false,
+    includeAllClubAdminEvents = false,
   } = options;
 
   try {
@@ -301,6 +329,12 @@ export async function fetchEvents(options: ListenerOptions): Promise<Event[]> {
             ...baseConstraints,
           ),
         ),
+      );
+    }
+
+    if (includeAllClubAdminEvents) {
+      snapPromises.push(
+        getDocs(query(eventsRef, ...baseConstraints)),
       );
     }
 

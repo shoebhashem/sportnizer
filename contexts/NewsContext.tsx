@@ -204,11 +204,11 @@ export function NewsProvider({ children }: NewsProviderProps) {
         const isCoach = getActiveGroups(userProfile, clubId).some((g) =>
           g.roles.includes("coach"),
         );
-        const includeGroupAdminNews =
-          (isAdmin && visNews.clubAdmin) ||
-          (isGroupAdmin && visNews.groupAdmin);
+        const includeAllClubAdminNews = isAdmin && visNews.clubAdmin;
+        const includeGroupAdminNews = isGroupAdmin && visNews.groupAdmin;
         const includeCoachNews = isCoach && visNews.coach;
         const newsList = await fetchNews(clubId, userId, {
+          includeAllClubAdminNews,
           includeGroupAdminNews,
           includeCoachNews,
         });
@@ -238,7 +238,7 @@ export function NewsProvider({ children }: NewsProviderProps) {
         setIsLoading(false);
       }
     },
-    [saveToCache, loadFromCache],
+    [saveToCache, loadFromCache, userProfile, getClubPermissions],
   );
 
   // ============================================================================
@@ -264,12 +264,12 @@ export function NewsProvider({ children }: NewsProviderProps) {
       const isCoach = getActiveGroups(userProfile, clubId).some((g) =>
         g.roles.includes("coach"),
       );
-      const includeGroupAdminNews =
-        (isAdmin && visNews.clubAdmin) || (isGroupAdmin && visNews.groupAdmin);
+      const includeAllClubAdminNews = isAdmin && visNews.clubAdmin;
+      const includeGroupAdminNews = isGroupAdmin && visNews.groupAdmin;
       const includeCoachNews = isCoach && visNews.coach;
 
       const unsubscribe = attachNewsListener(
-        { clubId, userId, includeGroupAdminNews, includeCoachNews },
+        { clubId, userId, includeAllClubAdminNews, includeGroupAdminNews, includeCoachNews },
         (newsList) => {
           console.log(`📡 Received ${newsList.length} news items via listener`);
           setNews(newsList);
@@ -286,7 +286,7 @@ export function NewsProvider({ children }: NewsProviderProps) {
       listenerUnsubscribeRef.current = unsubscribe;
       setHasActiveListener(true);
     },
-    [saveToCache, fetchNewsFromFirestore],
+    [saveToCache, fetchNewsFromFirestore, userProfile, getClubPermissions],
   );
 
   // ============================================================================

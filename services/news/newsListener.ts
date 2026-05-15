@@ -73,6 +73,8 @@ export interface NewsListenerOptions {
   includeGroupAdminNews?: boolean;
   /** When true, also fetch news where userId is in coachIds */
   includeCoachNews?: boolean;
+  /** When true, fetch ALL active news in the club (club admin "see everything" toggle) */
+  includeAllClubAdminNews?: boolean;
 }
 
 // ===============================================================================
@@ -97,6 +99,7 @@ export function attachNewsListener(
     userId,
     includeGroupAdminNews = false,
     includeCoachNews = false,
+    includeAllClubAdminNews = false,
   } = options;
 
   try {
@@ -138,14 +141,21 @@ export function attachNewsListener(
         )
       : null;
 
+    // Query 5 (optional): ALL active news in the club — for club admins when toggle is ON
+    // No user-ID filter; security rule (isClubAdmin) allows this query for club admins.
+    const clubAdminAllQuery = includeAllClubAdminNews
+      ? query(newsRef, ...baseConstraints)
+      : null;
+
     console.log(
-      `🎧 Attaching news listeners (recipient + createdBy${includeGroupAdminNews ? " + groupAdmin" : ""}${includeCoachNews ? " + coach" : ""}) for user ${userId} in club ${clubId}`,
+      `🎧 Attaching news listeners (recipient + createdBy${includeGroupAdminNews ? " + groupAdmin" : ""}${includeCoachNews ? " + coach" : ""}${includeAllClubAdminNews ? " + allClubNews" : ""}) for user ${userId} in club ${clubId}`,
     );
 
     const recipientItems = new Map<string, News>();
     const createdItems = new Map<string, News>();
     const adminItems = new Map<string, News>();
     const coachItems = new Map<string, News>();
+    const clubAdminItems = new Map<string, News>();
 
     const mapNews = (doc: any): News => ({ id: doc.id, ...doc.data() }) as News;
 
@@ -155,6 +165,7 @@ export function attachNewsListener(
       createdItems.forEach((n, id) => merged.set(id, n));
       adminItems.forEach((n, id) => merged.set(id, n));
       coachItems.forEach((n, id) => merged.set(id, n));
+      clubAdminItems.forEach((n, id) => merged.set(id, n));
       const newsItems = Array.from(merged.values()).sort(
         (a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0),
       );
@@ -224,6 +235,22 @@ export function attachNewsListener(
       unsubFns.push(unsub4);
     }
 
+    if (clubAdminAllQuery) {
+      const unsub5 = onSnapshot(
+        clubAdminAllQuery,
+        (snapshot) => {
+          clubAdminItems.clear();
+          snapshot.forEach((doc) => clubAdminItems.set(doc.id, mapNews(doc)));
+          mergeAndEmit();
+        },
+        (error) => {
+          console.error("\u274c News listener (clubAdmin all) error:", error);
+          onError?.(error);
+        },
+      );
+      unsubFns.push(unsub5);
+    }
+
     return () => unsubFns.forEach((u) => u());
   } catch (error: any) {
     console.error("\u274c Failed to attach news listener:", error);
@@ -238,7 +265,11 @@ export function attachNewsListener(
 export async function fetchNews(
   clubId: string,
   userId: string,
-  options: { includeGroupAdminNews?: boolean; includeCoachNews?: boolean } = {},
+  options: {
+    includeGroupAdminNews?: boolean;
+    includeCoachNews?: boolean;
+    includeAllClubAdminNews?: boolean;
+  } = {},
 ): Promise<News[]> {
   try {
     const newsRef = collection(db, "clubs", clubId, "news");
@@ -280,6 +311,12 @@ export async function fetchNews(
             ...baseConstraints,
           ),
         ),
+      );
+    }
+
+    if (options.includeAllClubAdminNews) {
+      snapPromises.push(
+        getDocs(query(newsRef, ...baseConstraints)),
       );
     }
 

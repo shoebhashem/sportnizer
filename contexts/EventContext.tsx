@@ -223,14 +223,15 @@ export function EventProvider({ children }: EventProviderProps) {
             const isCoachInClub = getActiveGroups(userProfile, clubId).some(
               (g) => g.roles.includes("coach"),
             );
+            const includeAllClubAdminEvents = isAdmin && visEvents.clubAdmin;
             const includeGroupAdminEvents =
-              (isAdmin && visEvents.clubAdmin) ||
-              (isGroupAdminInClub && visEvents.groupAdmin);
+              isGroupAdminInClub && visEvents.groupAdmin;
             const includeCoachEvents = isCoachInClub && visEvents.coach;
             return fetchEvents({
               clubId,
               userId,
               includePastEvents: true,
+              includeAllClubAdminEvents,
               includeGroupAdminEvents,
               includeCoachEvents,
             });
@@ -318,9 +319,8 @@ export function EventProvider({ children }: EventProviderProps) {
         const isCoach = getActiveGroups(userProfile, clubId).some((g) =>
           g.roles.includes("coach"),
         );
-        const includeGroupAdminEvents =
-          (isAdmin && visEvents.clubAdmin) ||
-          (isGroupAdmin && visEvents.groupAdmin);
+        const includeAllClubAdminEvents = isAdmin && visEvents.clubAdmin;
+        const includeGroupAdminEvents = isGroupAdmin && visEvents.groupAdmin;
         const includeCoachEvents = isCoach && visEvents.coach;
 
         return attachEventListener(
@@ -328,6 +328,7 @@ export function EventProvider({ children }: EventProviderProps) {
             clubId,
             userId,
             includePastEvents: true,
+            includeAllClubAdminEvents,
             includeGroupAdminEvents,
             includeCoachEvents,
           },
