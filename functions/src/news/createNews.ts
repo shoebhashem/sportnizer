@@ -311,6 +311,58 @@ export const createNews = onCall(
       }
 
       // ============================================================================
+      // STEP 3.5: Collect Group Admin and Coach UIDs for Visibility
+      // ============================================================================
+      // Store group admin and coach UIDs on the news document so privileged users
+      // can see news even if they are not in recipientUserIds (e.g. news targeted
+      // at players only). Empty arrays for club-level news.
+      let groupAdminIds: string[] = [];
+      let coachIds: string[] = [];
+      if (targetScope.level !== "club" && targetScope.groupId) {
+        try {
+          const groupMembersDoc = await db
+            .collection("clubs")
+            .doc(clubId)
+            .collection("groups")
+            .doc(targetScope.groupId)
+            .collection("allMembers")
+            .doc("members")
+            .get();
+          const groupMembersData = groupMembersDoc.data();
+          const groupMemberList: any[] = groupMembersData?.members || [];
+          groupAdminIds = groupMemberList
+            .filter(
+              (m: any) =>
+                m.isActive !== false &&
+                Array.isArray(m.roles) &&
+                m.roles.includes("admin"),
+            )
+            .map((m: any) => m.userId)
+            .filter((id: string) => !!id);
+          coachIds = groupMemberList
+            .filter(
+              (m: any) =>
+                m.isActive !== false &&
+                Array.isArray(m.roles) &&
+                m.roles.includes("coach"),
+            )
+            .map((m: any) => m.userId)
+            .filter((id: string) => !!id);
+          console.log(
+            `👑 Collected ${groupAdminIds.length} group admin(s) and ${coachIds.length} coach(es) for news visibility`,
+          );
+        } catch (err) {
+          // Non-critical: fall back to empty arrays — news is still created
+          console.error(
+            "⚠️ Failed to fetch group admins/coaches for news:",
+            err,
+          );
+          groupAdminIds = [];
+          coachIds = [];
+        }
+      }
+
+      // ============================================================================
       // STEP 4: Create News Document
       // ============================================================================
       const newsRef = db
@@ -343,6 +395,8 @@ export const createNews = onCall(
           }),
         },
         recipientUserIds,
+        groupAdminIds,
+        coachIds,
         roleFilter: data.roleFilter || null,
         emailDelivery: {
           enabled: data.sendEmail || false,

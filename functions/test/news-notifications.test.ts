@@ -370,9 +370,135 @@ describe("Suite N: News Creation & Notification Verification", () => {
     expect(result.newsId).toBeDefined();
   });
 
+  it("TC-N4b: Group-level news document includes groupAdminIds with group admin UIDs", async () => {
+    const { admin: adminUser, clubId, groupId } = await setupNewsEnvironment();
+
+    const result = await callFunction<{
+      success: boolean;
+      newsId: string;
+    }>("createNews", adminUser.idToken, {
+      clubId,
+      clubName: "News Club",
+      title: "GroupAdminIds Test",
+      description: "Checking groupAdminIds field is written.",
+      targetScope: {
+        level: "group",
+        groupId,
+        groupName: "News Group",
+      },
+      createdBy: adminUser.uid,
+      createdByName: adminUser.displayName,
+    });
+
+    expect(result.success).toBe(true);
+
+    const newsDoc = await getDocument(`clubs/${clubId}/news/${result.newsId}`);
+    expect(newsDoc!.groupAdminIds).toBeDefined();
+    expect(Array.isArray(newsDoc!.groupAdminIds)).toBe(true);
+    // Admin (roles: ["admin"]) must appear
+    expect(newsDoc!.groupAdminIds).toContain(adminUser.uid);
+  });
+
+  it("TC-N4c: Group-level news document includes coachIds with coach UIDs", async () => {
+    const { admin: adminUser, clubId, groupId } = await setupNewsEnvironment();
+
+    // Add a coach to the group
+    const coach = await createFullTestUser({
+      email: `coach_cids_${Date.now()}@test.com`,
+      displayName: "CoachIds Coach",
+    });
+    await seedUserDocument(coach.uid, {
+      clubAccess: [
+        {
+          clubId,
+          clubName: "News Club",
+          role: "member",
+          isActive: true,
+          joinedAt: new Date(),
+          groupAccess: [
+            {
+              groupId,
+              groupName: "News Group",
+              roles: ["coach"],
+              joinedAt: new Date(),
+            },
+          ],
+        },
+      ],
+    });
+    const db = getFirestore();
+    const gDoc = await db
+      .doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`)
+      .get();
+    const gMembers = gDoc.data()?.members || [];
+    gMembers.push({
+      userId: coach.uid,
+      name: coach.displayName,
+      email: coach.email,
+      roles: ["coach"],
+      isActive: true,
+      needsGuardian: false,
+      guardiansContacts: [],
+    });
+    await db
+      .doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`)
+      .update({ members: gMembers, memberCount: gMembers.length });
+
+    const result = await callFunction<{
+      success: boolean;
+      newsId: string;
+    }>("createNews", adminUser.idToken, {
+      clubId,
+      clubName: "News Club",
+      title: "CoachIds Test",
+      description: "Checking coachIds field is written.",
+      targetScope: {
+        level: "group",
+        groupId,
+        groupName: "News Group",
+      },
+      createdBy: adminUser.uid,
+      createdByName: adminUser.displayName,
+    });
+
+    expect(result.success).toBe(true);
+
+    const newsDoc = await getDocument(`clubs/${clubId}/news/${result.newsId}`);
+    expect(newsDoc!.coachIds).toBeDefined();
+    expect(Array.isArray(newsDoc!.coachIds)).toBe(true);
+    // Coach UID must appear
+    expect(newsDoc!.coachIds).toContain(coach.uid);
+    // Admin UID (roles: ["admin"], not "coach") must NOT appear
+    expect(newsDoc!.coachIds).not.toContain(adminUser.uid);
+  });
+
+  it("TC-N4d: Club-level news sets groupAdminIds and coachIds to []", async () => {
+    const { admin: adminUser, clubId } = await setupNewsEnvironment();
+
+    const result = await callFunction<{
+      success: boolean;
+      newsId: string;
+    }>("createNews", adminUser.idToken, {
+      clubId,
+      clubName: "News Club",
+      title: "Club-Level Ids Test",
+      description:
+        "Club-level news should have empty groupAdminIds and coachIds.",
+      targetScope: { level: "club" },
+      createdBy: adminUser.uid,
+      createdByName: adminUser.displayName,
+    });
+
+    expect(result.success).toBe(true);
+
+    const newsDoc = await getDocument(`clubs/${clubId}/news/${result.newsId}`);
+    expect(newsDoc!.groupAdminIds).toEqual([]);
+    expect(newsDoc!.coachIds).toEqual([]);
+  });
+
   // ─── Permission Denied ───────────────────────────────────────
 
-  it("TC-N5: Regular player cannot create news → permission-denied", async () => {
+  it("TC-N5: Non-admin/coach player cannot create news → permission-denied", async () => {
     const { player, clubId } = await setupNewsEnvironment();
 
     await expectFunctionError(

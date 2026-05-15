@@ -351,6 +351,7 @@ export const createEventV2 = onCall(
       // Snapshot taken at creation time — existing events are unaffected by
       // subsequent admin roster changes.
       let groupAdminIds: string[] = [];
+      let coachIds: string[] = [];
       if (targetScope.level !== "club" && targetScope.groupId) {
         try {
           const groupMembersDoc = await db
@@ -372,13 +373,26 @@ export const createEventV2 = onCall(
             )
             .map((m: any) => m.userId)
             .filter((id: string) => !!id);
+          coachIds = groupMemberList
+            .filter(
+              (m: any) =>
+                m.isActive !== false &&
+                Array.isArray(m.roles) &&
+                m.roles.includes("coach"),
+            )
+            .map((m: any) => m.userId)
+            .filter((id: string) => !!id);
           console.log(
-            `👑 Collected ${groupAdminIds.length} group admin(s) for visibility`,
+            `👑 Collected ${groupAdminIds.length} group admin(s) and ${coachIds.length} coach(es) for visibility`,
           );
         } catch (adminFetchErr) {
-          // Non-critical: fall back to empty array — event is still created
-          console.error("⚠️ Failed to fetch group admins:", adminFetchErr);
+          // Non-critical: fall back to empty arrays — event is still created
+          console.error(
+            "⚠️ Failed to fetch group admins/coaches:",
+            adminFetchErr,
+          );
           groupAdminIds = [];
+          coachIds = [];
         }
       }
 
@@ -432,6 +446,7 @@ export const createEventV2 = onCall(
         },
         invitedUserIds,
         groupAdminIds,
+        coachIds,
         roleFilter: data.roleFilter || null,
         capacity: data.capacityLimit
           ? {

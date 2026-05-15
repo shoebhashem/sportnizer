@@ -374,6 +374,79 @@ describe("Event Lifecycle", () => {
       expect(event!.groupAdminIds).toBeDefined();
       expect(event!.groupAdminIds).toEqual([]);
     });
+
+    it("should populate coachIds with active group coach UIDs", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      // Add a coach to the group
+      const coach = await createFullTestUser({
+        email: `coach_${Date.now()}@test.com`,
+        displayName: "Test Coach",
+      });
+      const db = getFirestore();
+      const membersRef = db.doc(
+        `clubs/${clubId}/groups/${groupId}/allMembers/members`,
+      );
+      const membersDoc = await membersRef.get();
+      const existing = membersDoc.data()?.members || [];
+      await membersRef.update({
+        members: [
+          ...existing,
+          {
+            userId: coach.uid,
+            name: coach.displayName,
+            email: coach.email,
+            roles: ["coach"],
+            isActive: true,
+            needsGuardian: false,
+          },
+        ],
+        memberCount: existing.length + 1,
+      });
+
+      const result = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+      expect(result.success).toBe(true);
+
+      const event = await getDocument(
+        `clubs/${clubId}/events/${result.eventId}`,
+      );
+      expect(event!.coachIds).toBeDefined();
+      expect(Array.isArray(event!.coachIds)).toBe(true);
+      // Coach UID must be present
+      expect(event!.coachIds).toContain(coach.uid);
+      // Admin UID (roles: ["admin"]) must NOT be in coachIds
+      expect(event!.coachIds).not.toContain(admin.uid);
+    });
+
+    it("should set coachIds to [] for club-level events", async () => {
+      const { admin, clubId } = await setupClubGroupAndAdmin();
+
+      const result = await callFunction("createEventV2", admin.idToken, {
+        clubId,
+        clubName: "Event Club",
+        eventType: "meeting",
+        title: "Club-Wide Coach Test",
+        startDate: futureDate(5),
+        startTime: futureISO(5, 9),
+        endDate: futureDate(5),
+        endTime: futureISO(5, 10),
+        targetScope: { level: "club" },
+        createdBy: admin.uid,
+        createdByName: "Event Admin",
+      });
+
+      expect(result.success).toBe(true);
+      const event = await getDocument(
+        `clubs/${clubId}/events/${result.eventId}`,
+      );
+      expect(event!.coachIds).toBeDefined();
+      expect(event!.coachIds).toEqual([]);
+    });
   });
 
   // ─── getEvent ──────────────────────────────────────────────

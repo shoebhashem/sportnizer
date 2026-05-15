@@ -17,6 +17,7 @@ import {
     News,
 } from "@/services/news";
 import { storage } from "@/utils/CrossPlatformStorage";
+import { getActiveGroups, isClubAdmin } from "@/utils/permissionHelpers";
 import React, {
     createContext,
     ReactNode,
@@ -26,6 +27,7 @@ import React, {
     useRef,
     useState,
 } from "react";
+import { useClubData } from "./ClubDataContext";
 import { useUser } from "./UserContext";
 
 // News Context Interface
@@ -65,6 +67,7 @@ interface NewsProviderProps {
 
 export function NewsProvider({ children }: NewsProviderProps) {
   const { firebaseUser, userProfile } = useUser();
+  const { getClubPermissions } = useClubData();
   const [news, setNews] = useState<News[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFromCache, setIsFromCache] = useState(false);
@@ -192,7 +195,23 @@ export function NewsProvider({ children }: NewsProviderProps) {
         setIsLoading(true);
 
         console.log(`🔄 Fetching news for user ${userId} in club ${clubId}`);
-        const newsList = await fetchNews(clubId, userId);
+        const permissions = getClubPermissions(clubId);
+        const visNews = permissions.news.visibility;
+        const isAdmin = isClubAdmin(userProfile, clubId);
+        const isGroupAdmin = getActiveGroups(userProfile, clubId).some((g) =>
+          g.roles.includes("admin"),
+        );
+        const isCoach = getActiveGroups(userProfile, clubId).some((g) =>
+          g.roles.includes("coach"),
+        );
+        const includeGroupAdminNews =
+          (isAdmin && visNews.clubAdmin) ||
+          (isGroupAdmin && visNews.groupAdmin);
+        const includeCoachNews = isCoach && visNews.coach;
+        const newsList = await fetchNews(clubId, userId, {
+          includeGroupAdminNews,
+          includeCoachNews,
+        });
 
         // Update state and cache
         setNews(newsList);
@@ -236,8 +255,21 @@ export function NewsProvider({ children }: NewsProviderProps) {
 
       console.log(`🎧 Setting up real-time news listener`);
 
+      const permissions = getClubPermissions(clubId);
+      const visNews = permissions.news.visibility;
+      const isAdmin = isClubAdmin(userProfile, clubId);
+      const isGroupAdmin = getActiveGroups(userProfile, clubId).some((g) =>
+        g.roles.includes("admin"),
+      );
+      const isCoach = getActiveGroups(userProfile, clubId).some((g) =>
+        g.roles.includes("coach"),
+      );
+      const includeGroupAdminNews =
+        (isAdmin && visNews.clubAdmin) || (isGroupAdmin && visNews.groupAdmin);
+      const includeCoachNews = isCoach && visNews.coach;
+
       const unsubscribe = attachNewsListener(
-        { clubId, userId },
+        { clubId, userId, includeGroupAdminNews, includeCoachNews },
         (newsList) => {
           console.log(`📡 Received ${newsList.length} news items via listener`);
           setNews(newsList);

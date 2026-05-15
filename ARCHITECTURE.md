@@ -11923,7 +11923,7 @@ A club-admin who is **not** a member of the target group can still create events
 1. **At creation time** (`createEventV2` / `createRecurringEvent`): the creator is always added to `invitedUserIds[]` (so they can view/manage the event), but is only added to `responses[]` if they are an actual group member. This keeps the RSVP list clean.
 2. **During sync** (`syncEventRecipients`): the `createdBy` user is excluded from the `removed[]` diff as a safety net for events created before this logic was added.
 
-Event visibility is driven exclusively by `invitedUserIds[]` (Firestore `array-contains` query), **not** by `responses[]`. The `createdBy` field provides additional permission checks for edit/cancel.
+Event visibility is driven by up to four Firestore queries: `invitedUserIds[]` (always), `createdBy` (always), `groupAdminIds[]` (when group-admin visibility is enabled), and `coachIds[]` (when coach visibility is enabled). The `createdBy` field also provides additional permission checks for edit/cancel.
 
 ### Frontend
 
@@ -11997,9 +11997,9 @@ Default values (applied when doc/field is absent):
 
 ---
 
-### Group Admin Visibility — `groupAdminIds` on Event Documents
+### Group Admin & Coach Visibility — `groupAdminIds` and `coachIds` on Event Documents
 
-Group-level admins need to see all events in their group even if they are not in `invitedUserIds`. Because Firestore security rules cannot do cross-collection lookups, the solution is to **snapshot admin UIDs onto the event document** at creation time.
+Group-level admins and coaches need to see all events in their group even if they are not in `invitedUserIds`. Because Firestore security rules cannot do cross-collection lookups, the solution is to **snapshot role UIDs onto the event document** at creation time.
 
 #### `groupAdminIds: string[]` field
 
@@ -12008,12 +12008,20 @@ Group-level admins need to see all events in their group even if they are not in
 - For **club-level** events (no `groupId`), `groupAdminIds` is always `[]`.
 - Snapshot at creation — new/removed admins do not affect existing events.
 
+#### `coachIds: string[]` field
+
+- Added to `EventDocument` (`functions/src/types/interfaces.ts`).
+- Populated by `createEventV2.ts` in the same **STEP 3.6**: same member doc read, filters members with `roles.includes("coach")`, writes as `coachIds` on the event.
+- For **club-level** events, `coachIds` is always `[]`.
+- Snapshot at creation — same as `groupAdminIds`.
+
 #### Firestore Security Rule
 
 ```
 allow read: if isSignedIn() && (
   request.auth.uid in resource.data.invitedUserIds ||
   (resource.data.keys().hasAll(['groupAdminIds']) && request.auth.uid in resource.data.groupAdminIds) ||
+  (resource.data.keys().hasAll(['coachIds']) && request.auth.uid in resource.data.coachIds) ||
   isClubAdmin(clubId)
 );
 ```
@@ -12022,17 +12030,63 @@ allow read: if isSignedIn() && (
 
 ### Client-Side Event Fetching
 
-`eventListener.ts` (`services/event/eventListener.ts`) supports an optional third Firestore query per club:
+`eventListener.ts` (`services/event/eventListener.ts`) supports optional extra Firestore queries per club:
 
 ```typescript
 // Query 3 — only when includeGroupAdminEvents === true
 where("groupAdminIds", "array-contains", userId);
+
+// Query 4 — only when includeCoachEvents === true
+where("coachIds", "array-contains", userId);
 ```
 
-`EventContext.tsx` reads `getClubPermissions(clubId)` from `ClubDataContext` and enables this query when:
+`EventContext.tsx` reads `getClubPermissions(clubId)` from `ClubDataContext` and enables queries when:
 
-- `permissions.events.visibility.groupAdmin === true` AND user has `"admin"` role in any group of that club, OR
-- `permissions.events.visibility.clubAdmin === true` AND user is a club-admin.
+- `includeGroupAdminEvents`: `permissions.events.visibility.groupAdmin === true` AND user has `"admin"` role in any group of that club (or is a club-admin and `clubAdmin === true`).
+- `includeCoachEvents`: `permissions.events.visibility.coach === true` AND user has `"coach"` role in any group of that club.
+
+---
+
+### News Visibility — `groupAdminIds` and `coachIds` on News Documents
+
+The news system mirrors the events visibility pattern exactly.
+
+#### `groupAdminIds: string[]` and `coachIds: string[]` on news docs
+
+- Added to `NewsDocument` (`functions/src/types/interfaces.ts`).
+- Populated by `createNews.ts` in **STEP 3.5** (inserted before document creation): reads the group's `allMembers/members` doc, extracts admins and coaches, writes both arrays on the news document.
+- For **club-level** news, both fields are `[]`.
+
+#### Firestore Security Rule
+
+```
+allow read: if isSignedIn() && (
+  request.auth.uid in resource.data.recipientUserIds ||
+  (resource.data.keys().hasAll(['groupAdminIds']) && request.auth.uid in resource.data.groupAdminIds) ||
+  (resource.data.keys().hasAll(['coachIds']) && request.auth.uid in resource.data.coachIds) ||
+  isClubAdmin(clubId)
+);
+```
+
+#### Client-Side News Fetching
+
+`newsListener.ts` (`services/news/newsListener.ts`) runs up to 4 parallel Firestore queries:
+
+```typescript
+// Query 1 — always
+where("recipientUserIds", "array-contains", userId);
+
+// Query 2 — always (own news)
+where("createdBy", "==", userId);
+
+// Query 3 — only when includeGroupAdminNews === true
+where("groupAdminIds", "array-contains", userId);
+
+// Query 4 — only when includeCoachNews === true
+where("coachIds", "array-contains", userId);
+```
+
+`NewsContext.tsx` reads `getClubPermissions(clubId)` and enables queries using the same role+permission logic as events.
 
 ---
 
@@ -12040,24 +12094,27 @@ where("groupAdminIds", "array-contains", userId);
 
 Location: `app/club-settings.tsx` → "Role Permissions" expandable section (visible to club-admins only).
 
-- Renders an **Events** sub-section with a toggle per role (Group Admins, Coaches).
+- Renders **Events** and **News** sub-sections, each with a toggle per role (Group Admins, Coaches).
 - Writes changes to `clubs/{clubId}/settings/permissions` via `setDoc(..., { merge: true })`.
-- `ClubDataContext` listens to this document in real-time, so `EventContext` picks up changes on next listener cycle without any restart.
+- `ClubDataContext` listens to this document in real-time, so both `EventContext` and `NewsContext` pick up changes on the next listener cycle without any restart.
 
 ---
 
 ### Relevant Files
 
-| File                                    | Role                                                                                            |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `services/types/clubPermissions.ts`     | Type definitions + `DEFAULT_PERMISSIONS` + `resolveClubPermissions()`                           |
-| `contexts/ClubDataContext.tsx`          | Per-club `onSnapshot` listener for `settings/permissions`; exposes `getClubPermissions(clubId)` |
-| `contexts/EventContext.tsx`             | Reads permissions to decide whether to run `groupAdminIds` query                                |
-| `services/event/eventListener.ts`       | `includeGroupAdminEvents` option on both listener and fetch paths                               |
-| `functions/src/events/createEventV2.ts` | STEP 3.6 — populates `groupAdminIds`                                                            |
-| `functions/src/clubs/createClub.ts`     | Initializes `settings/permissions` with defaults on club creation                               |
-| `firestore.rules`                       | `groupAdminIds` OR clause in event read rule; `settings/{document}` rule                        |
-| `app/club-settings.tsx`                 | Role Permissions UI section                                                                     |
+| File                                    | Role                                                                                                     |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `services/types/clubPermissions.ts`     | Type definitions + `DEFAULT_PERMISSIONS` + `resolveClubPermissions()`                                    |
+| `contexts/ClubDataContext.tsx`          | Per-club `onSnapshot` listener for `settings/permissions`; exposes `getClubPermissions(clubId)`          |
+| `contexts/EventContext.tsx`             | Reads permissions to decide whether to run `groupAdminIds`/`coachIds` event queries                      |
+| `contexts/NewsContext.tsx`              | Reads permissions to decide whether to run `groupAdminIds`/`coachIds` news queries                       |
+| `services/event/eventListener.ts`       | `includeGroupAdminEvents` and `includeCoachEvents` options on both listener and fetch paths              |
+| `services/news/newsListener.ts`         | `includeGroupAdminNews` and `includeCoachNews` options on both listener and fetch paths; 4-query pattern |
+| `functions/src/events/createEventV2.ts` | STEP 3.6 — populates `groupAdminIds` and `coachIds`                                                      |
+| `functions/src/news/createNews.ts`      | STEP 3.5 — populates `groupAdminIds` and `coachIds`                                                      |
+| `functions/src/clubs/createClub.ts`     | Initializes `settings/permissions` with defaults on club creation                                        |
+| `firestore.rules`                       | `groupAdminIds`/`coachIds` OR clauses in both event and news read rules; `settings/{document}` rule      |
+| `app/club-settings.tsx`                 | Role Permissions UI section (events + news toggles)                                                      |
 
 ---
 

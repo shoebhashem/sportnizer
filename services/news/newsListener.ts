@@ -69,6 +69,10 @@ export interface News {
 export interface NewsListenerOptions {
   clubId: string;
   userId: string;
+  /** When true, also fetch news where userId is in groupAdminIds */
+  includeGroupAdminNews?: boolean;
+  /** When true, also fetch news where userId is in coachIds */
+  includeCoachNews?: boolean;
 }
 
 // ===============================================================================
@@ -88,44 +92,143 @@ export function attachNewsListener(
   onNewsUpdate: (news: News[]) => void,
   onError?: (error: Error) => void,
 ): () => void {
-  const { clubId, userId } = options;
+  const {
+    clubId,
+    userId,
+    includeGroupAdminNews = false,
+    includeCoachNews = false,
+  } = options;
 
   try {
-    // Query for news the user can see
     const newsRef = collection(db, "clubs", clubId, "news");
-
-    const newsQuery = query(
-      newsRef,
-      where("recipientUserIds", "array-contains", userId),
+    const baseConstraints = [
       where("isActive", "==", true),
       orderBy("createdAt", "desc"),
+    ];
+
+    // Query 1: news where user is a recipient
+    const recipientQuery = query(
+      newsRef,
+      where("recipientUserIds", "array-contains", userId),
+      ...baseConstraints,
     );
 
-    // Attach real-time listener
-    const unsubscribe = onSnapshot(
-      newsQuery,
-      (snapshot) => {
-        const newsItems: News[] = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as News[];
+    // Query 2: news created by user
+    const createdByQuery = query(
+      newsRef,
+      where("createdBy", "==", userId),
+      ...baseConstraints,
+    );
 
-        console.log(
-          `📰 News listener: ${newsItems.length} items for club ${clubId}`,
-        );
-        onNewsUpdate(newsItems);
+    // Query 3 (optional): news where user is a group admin
+    const groupAdminQuery = includeGroupAdminNews
+      ? query(
+          newsRef,
+          where("groupAdminIds", "array-contains", userId),
+          ...baseConstraints,
+        )
+      : null;
+
+    // Query 4 (optional): news where user is a coach
+    const coachQuery = includeCoachNews
+      ? query(
+          newsRef,
+          where("coachIds", "array-contains", userId),
+          ...baseConstraints,
+        )
+      : null;
+
+    console.log(
+      `🎧 Attaching news listeners (recipient + createdBy${includeGroupAdminNews ? " + groupAdmin" : ""}${includeCoachNews ? " + coach" : ""}) for user ${userId} in club ${clubId}`,
+    );
+
+    const recipientItems = new Map<string, News>();
+    const createdItems = new Map<string, News>();
+    const adminItems = new Map<string, News>();
+    const coachItems = new Map<string, News>();
+
+    const mapNews = (doc: any): News => ({ id: doc.id, ...doc.data() }) as News;
+
+    const mergeAndEmit = () => {
+      const merged = new Map<string, News>();
+      recipientItems.forEach((n, id) => merged.set(id, n));
+      createdItems.forEach((n, id) => merged.set(id, n));
+      adminItems.forEach((n, id) => merged.set(id, n));
+      coachItems.forEach((n, id) => merged.set(id, n));
+      const newsItems = Array.from(merged.values()).sort(
+        (a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0),
+      );
+      console.log(
+        `📰 News listener: ${newsItems.length} items for club ${clubId}`,
+      );
+      onNewsUpdate(newsItems);
+    };
+
+    const unsub1 = onSnapshot(
+      recipientQuery,
+      (snapshot) => {
+        recipientItems.clear();
+        snapshot.forEach((doc) => recipientItems.set(doc.id, mapNews(doc)));
+        mergeAndEmit();
       },
       (error) => {
-        console.error("❌ News listener error:", error);
+        console.error("\u274c News listener (recipient) error:", error);
         onError?.(error);
       },
     );
 
-    return unsubscribe;
+    const unsub2 = onSnapshot(
+      createdByQuery,
+      (snapshot) => {
+        createdItems.clear();
+        snapshot.forEach((doc) => createdItems.set(doc.id, mapNews(doc)));
+        mergeAndEmit();
+      },
+      (error) => {
+        console.error("\u274c News listener (createdBy) error:", error);
+        onError?.(error);
+      },
+    );
+
+    const unsubFns = [unsub1, unsub2];
+
+    if (groupAdminQuery) {
+      const unsub3 = onSnapshot(
+        groupAdminQuery,
+        (snapshot) => {
+          adminItems.clear();
+          snapshot.forEach((doc) => adminItems.set(doc.id, mapNews(doc)));
+          mergeAndEmit();
+        },
+        (error) => {
+          console.error("\u274c News listener (groupAdmin) error:", error);
+          onError?.(error);
+        },
+      );
+      unsubFns.push(unsub3);
+    }
+
+    if (coachQuery) {
+      const unsub4 = onSnapshot(
+        coachQuery,
+        (snapshot) => {
+          coachItems.clear();
+          snapshot.forEach((doc) => coachItems.set(doc.id, mapNews(doc)));
+          mergeAndEmit();
+        },
+        (error) => {
+          console.error("\u274c News listener (coach) error:", error);
+          onError?.(error);
+        },
+      );
+      unsubFns.push(unsub4);
+    }
+
+    return () => unsubFns.forEach((u) => u());
   } catch (error: any) {
-    console.error("❌ Failed to attach news listener:", error);
+    console.error("\u274c Failed to attach news listener:", error);
     onError?.(error);
-    return () => {}; // Return no-op unsubscribe
+    return () => {};
   }
 }
 
@@ -135,23 +238,61 @@ export function attachNewsListener(
 export async function fetchNews(
   clubId: string,
   userId: string,
+  options: { includeGroupAdminNews?: boolean; includeCoachNews?: boolean } = {},
 ): Promise<News[]> {
   try {
     const newsRef = collection(db, "clubs", clubId, "news");
-
-    const newsQuery = query(
-      newsRef,
-      where("recipientUserIds", "array-contains", userId),
+    const baseConstraints = [
       where("isActive", "==", true),
       orderBy("createdAt", "desc"),
+    ];
+
+    const snapPromises = [
+      getDocs(
+        query(
+          newsRef,
+          where("recipientUserIds", "array-contains", userId),
+          ...baseConstraints,
+        ),
+      ),
+      getDocs(
+        query(newsRef, where("createdBy", "==", userId), ...baseConstraints),
+      ),
+    ];
+
+    if (options.includeGroupAdminNews) {
+      snapPromises.push(
+        getDocs(
+          query(
+            newsRef,
+            where("groupAdminIds", "array-contains", userId),
+            ...baseConstraints,
+          ),
+        ),
+      );
+    }
+    if (options.includeCoachNews) {
+      snapPromises.push(
+        getDocs(
+          query(
+            newsRef,
+            where("coachIds", "array-contains", userId),
+            ...baseConstraints,
+          ),
+        ),
+      );
+    }
+
+    const snaps = await Promise.all(snapPromises);
+    const merged = new Map<string, News>();
+    for (const snap of snaps) {
+      snap.forEach((doc) =>
+        merged.set(doc.id, { id: doc.id, ...doc.data() } as News),
+      );
+    }
+    return Array.from(merged.values()).sort(
+      (a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0),
     );
-
-    const snapshot = await getDocs(newsQuery);
-
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as News[];
   } catch (error: any) {
     console.error("❌ Failed to fetch news:", error);
     throw error;

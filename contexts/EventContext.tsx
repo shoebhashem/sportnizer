@@ -220,14 +220,19 @@ export function EventProvider({ children }: EventProviderProps) {
               userProfile,
               clubId,
             ).some((g) => g.roles.includes("admin"));
+            const isCoachInClub = getActiveGroups(userProfile, clubId).some(
+              (g) => g.roles.includes("coach"),
+            );
             const includeGroupAdminEvents =
               (isAdmin && visEvents.clubAdmin) ||
               (isGroupAdminInClub && visEvents.groupAdmin);
+            const includeCoachEvents = isCoachInClub && visEvents.coach;
             return fetchEvents({
               clubId,
               userId,
               includePastEvents: true,
               includeGroupAdminEvents,
+              includeCoachEvents,
             });
           }),
         );
@@ -264,7 +269,7 @@ export function EventProvider({ children }: EventProviderProps) {
         setIsLoading(false);
       }
     },
-    [saveToCache, loadFromCache],
+    [saveToCache, loadFromCache, userProfile, getClubPermissions],
   );
 
   // ============================================================================
@@ -310,12 +315,22 @@ export function EventProvider({ children }: EventProviderProps) {
         const isGroupAdmin = getActiveGroups(userProfile, clubId).some((g) =>
           g.roles.includes("admin"),
         );
+        const isCoach = getActiveGroups(userProfile, clubId).some((g) =>
+          g.roles.includes("coach"),
+        );
         const includeGroupAdminEvents =
           (isAdmin && visEvents.clubAdmin) ||
           (isGroupAdmin && visEvents.groupAdmin);
+        const includeCoachEvents = isCoach && visEvents.coach;
 
         return attachEventListener(
-          { clubId, userId, includePastEvents: true, includeGroupAdminEvents },
+          {
+            clubId,
+            userId,
+            includePastEvents: true,
+            includeGroupAdminEvents,
+            includeCoachEvents,
+          },
           (eventList) => {
             const mapForClub = clubEventMaps.get(clubId)!;
             mapForClub.clear();
@@ -333,7 +348,7 @@ export function EventProvider({ children }: EventProviderProps) {
       setHasActiveListener(true);
       setIsPrivileged(true);
     },
-    [saveToCache, fetchEventsFromFirestore],
+    [saveToCache, fetchEventsFromFirestore, userProfile, getClubPermissions],
   );
 
   // ============================================================================

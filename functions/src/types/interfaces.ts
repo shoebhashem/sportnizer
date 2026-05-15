@@ -620,6 +620,10 @@ export interface EventDocument {
   // even if they are not in invitedUserIds. Empty for club-level events.
   groupAdminIds?: string[];
 
+  // Coach UIDs — populated at creation time so coaches can see the event
+  // even if they are not in invitedUserIds. Empty for club-level events.
+  coachIds?: string[];
+
   // Optional role filter (if not specified, all members are invited)
   roleFilter?:
     | (
@@ -1069,6 +1073,14 @@ export interface NewsDocument {
   // List of user IDs who should see this news
   // For youth members: Contains guardian userIds
   recipientUserIds: string[];
+
+  // Group admin UIDs — populated at creation time so admins can see news
+  // even if they are not in recipientUserIds. Empty for club-level news.
+  groupAdminIds?: string[];
+
+  // Coach UIDs — populated at creation time so coaches can see news
+  // even if they are not in recipientUserIds. Empty for club-level news.
+  coachIds?: string[];
 
   // Optional role filter
   roleFilter?:

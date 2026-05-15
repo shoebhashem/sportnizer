@@ -288,10 +288,12 @@ service cloud.firestore {
 
       // Club-level Events subcollection
       match /events/{eventId} {
-        // Read: Invited members, group admins listed on event, or club admins
+        // Read: Invited members, event creator, group admins listed on event, coaches listed on event, or club admins
         allow read: if isSignedIn() && (
           request.auth.uid in resource.data.invitedUserIds ||
+          resource.data.createdBy == request.auth.uid ||
           (resource.data.keys().hasAll(['groupAdminIds']) && request.auth.uid in resource.data.groupAdminIds) ||
+          (resource.data.keys().hasAll(['coachIds']) && request.auth.uid in resource.data.coachIds) ||
           isClubAdmin(clubId)
         );
         
@@ -309,9 +311,12 @@ service cloud.firestore {
 
       // Club-level News subcollection
       match /news/{newsId} {
-        // Read: Only recipients OR club admins can read news
+        // Read: Recipients, news creator, group admins, coaches listed on news, or club admins
         allow read: if isSignedIn() && (
           request.auth.uid in resource.data.recipientUserIds ||
+          resource.data.createdBy == request.auth.uid ||
+          (resource.data.keys().hasAll(['groupAdminIds']) && request.auth.uid in resource.data.groupAdminIds) ||
+          (resource.data.keys().hasAll(['coachIds']) && request.auth.uid in resource.data.coachIds) ||
           isClubAdmin(clubId)
         );
         
