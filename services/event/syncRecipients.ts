@@ -20,10 +20,12 @@ export interface SyncMemberDiff {
 export interface SyncRecipientsRequest {
   clubId: string;
   eventId: string;
-  mode: "preview" | "confirm";
+  mode: "preview" | "confirm" | "manual";
   /** For recurring events – which occurrences to sync */
   scope?: "single" | "future";
   recurringEventId?: string;
+  /** Required when mode is "manual" */
+  newInvitedUserIds?: string[];
 }
 
 export interface SyncRecipientsResponse {
@@ -120,6 +122,50 @@ export const syncRecipientsService = {
         removed: [],
         unchanged: 0,
         message: error.message || "Failed to sync recipients",
+      };
+    }
+  },
+
+  /**
+   * Manually update the event's recipient list to exactly the provided IDs.
+   * Supports add and remove. Sends notifications to newly added users.
+   */
+  async manualUpdate(
+    clubId: string,
+    eventId: string,
+    newInvitedUserIds: string[],
+    options?: { scope?: "single" | "future"; recurringEventId?: string },
+  ): Promise<SyncRecipientsResponse> {
+    try {
+      console.log("✏️ Manually updating recipients for event:", eventId);
+
+      const syncFn = httpsCallable(functions, "syncEventRecipients");
+      const result = await syncFn({
+        clubId,
+        eventId,
+        mode: "manual",
+        newInvitedUserIds,
+        ...(options?.scope && { scope: options.scope }),
+        ...(options?.recurringEventId && {
+          recurringEventId: options.recurringEventId,
+        }),
+      });
+
+      const response = result.data as SyncRecipientsResponse;
+      if (response.success) {
+        console.log(`✅ Manual update complete: ${response.message}`);
+      } else {
+        console.error("❌ Manual update failed:", response.message);
+      }
+      return response;
+    } catch (error: any) {
+      console.error("❌ Error updating recipients manually:", error);
+      return {
+        success: false,
+        added: [],
+        removed: [],
+        unchanged: 0,
+        message: error.message || "Failed to update recipients",
       };
     }
   },

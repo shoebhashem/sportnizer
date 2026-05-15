@@ -16,7 +16,7 @@
 
 | Metric           | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| **Total tests**  | ~748                                                          |
+| **Total tests**  | ~752                                                          |
 | **Test suites**  | 34                                                            |
 | **Test type**    | Integration tests + pure logic unit tests                     |
 | **Runner**       | Jest + ts-jest                                                |
@@ -47,7 +47,7 @@
 | Event Cancel & Recur  | `functions/test/event-cancellation-recurring.test.ts` | 46    | cancelEvent, createRecurringEvent, editRecurringEvent (scope, perms)                                                                                                                                                                                                                                                                                                                                                                                                |
 | Account Security      | `functions/test/account-security.test.ts`             | 30    | Token revocation, email change request/verify, email sync, password reset request/verify                                                                                                                                                                                                                                                                                                                                                                            |
 | Youth Profile Admin   | `functions/test/update-youth-profile.test.ts`         | 11    | Admin update youth name/DOB, sync, guardian phone update, permissions                                                                                                                                                                                                                                                                                                                                                                                               |
-| Sync Event Recipients | `functions/test/sync-event-recipients.test.ts`        | 18    | Preview/confirm sync, permissions, recurring scope, youth/guardian, creator exclusion                                                                                                                                                                                                                                                                                                                                                                               |
+| Sync Event Recipients | `functions/test/sync-event-recipients.test.ts`        | 24    | Preview/confirm sync, manual mode (full replace), permissions, recurring scope, youth/guardian, creator exclusion                                                                                                                                                                                                                                                                                                                                                   |
 | Self-Leave Flows      | `functions/test/self-leave-flows.test.ts`             | 10    | Player/coach/admin self-leave, roleToRemove validation, fee cleanup on removal                                                                                                                                                                                                                                                                                                                                                                                      |
 | Remove Club Admin     | `functions/test/remove-club-admin.test.ts`            | 5     | Remove another club-admin, sole-admin guard, non-admin rejected, unauthenticated                                                                                                                                                                                                                                                                                                                                                                                    |
 | Delete User Account   | `functions/test/delete-user-account.test.ts`          | 8     | Happy path deletion, blocked by groups/admin/dependents, inactive access allowed, notifications cleanup                                                                                                                                                                                                                                                                                                                                                             |
@@ -391,7 +391,7 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ---
 
-### 5c. Sync Event Recipients (`sync-event-recipients.test.ts`) — 18 tests
+### 5c. Sync Event Recipients (`sync-event-recipients.test.ts`) — 24 tests
 
 #### preview mode (3 tests)
 
@@ -442,6 +442,15 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 | 18  | should NOT show the non-member creator as 'removed' in sync preview | Club-admin creator (not group member) excluded from `removed[]`            |
 | 19  | non-member creator should be in invitedUserIds but NOT in responses | Creator in `invitedUserIds` for visibility, absent from `responses[]`      |
 | 20  | group-member creator SHOULD still appear in responses normally      | Contrast: member-creator exists in both `invitedUserIds` and `responses[]` |
+
+#### manual mode (4 tests)
+
+| #   | Test                                                                       | What it verifies                                                                                    |
+| --- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 21  | should add new members and remove dropped members (full replace)           | Members not in `newInvitedUserIds` are removed; new ones added; `result.removed` reported correctly |
+| 22  | should preserve existing RSVP responses for members who remain in the list | Kept members retain their prior `response` value (e.g. `"accepted"`) after a manual update          |
+| 23  | should require newInvitedUserIds when mode is manual                       | Omitting `newInvitedUserIds` → `invalid-argument`                                                   |
+| 24  | should apply manual update to all future occurrences when scope=future     | New member added to all non-modified future occurrences; `updatedOccurrences >= 2`                  |
 
 ---
 

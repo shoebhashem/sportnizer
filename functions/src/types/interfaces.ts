@@ -1282,12 +1282,14 @@ export interface LegalConfigResponse {
 export interface SyncEventRecipientsRequest {
   clubId: string;
   eventId: string;
-  /** "preview" returns the diff without making changes; "confirm" applies the sync */
-  mode: "preview" | "confirm";
+  /** "preview" returns the diff without making changes; "confirm" applies the auto-sync; "manual" sets an explicit recipient list */
+  mode: "preview" | "confirm" | "manual";
   /** For recurring events: "single" = this occurrence only, "future" = this + all future */
   scope?: "single" | "future";
   /** Required when scope is "future" */
   recurringEventId?: string;
+  /** Required when mode is "manual" – the explicit list of member IDs chosen by admin */
+  newInvitedUserIds?: string[];
 }
 
 export interface SyncMemberDiff {

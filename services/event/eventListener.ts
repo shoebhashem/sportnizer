@@ -333,9 +333,7 @@ export async function fetchEvents(options: ListenerOptions): Promise<Event[]> {
     }
 
     if (includeAllClubAdminEvents) {
-      snapPromises.push(
-        getDocs(query(eventsRef, ...baseConstraints)),
-      );
+      snapPromises.push(getDocs(query(eventsRef, ...baseConstraints)));
     }
 
     const snaps = await Promise.all(snapPromises);

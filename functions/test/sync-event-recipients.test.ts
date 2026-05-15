@@ -455,6 +455,207 @@ describe("syncEventRecipients", () => {
     });
   });
 
+  // ─── Manual Mode ──────────────────────────────────────────
+
+  describe("manual mode", () => {
+    it("should add new members and remove dropped members (full replace)", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      // Add two players so the event is created with all three (admin + 2 players)
+      const player1 = await createFullTestUser({
+        email: "manual-player1@test.com",
+        displayName: "Manual Player One",
+      });
+      const player2 = await createFullTestUser({
+        email: "manual-player2@test.com",
+        displayName: "Manual Player Two",
+      });
+      await addMemberToGroup(clubId, groupId, {
+        userId: player1.uid,
+        name: "Manual Player One",
+        email: "manual-player1@test.com",
+        roles: ["player"],
+      });
+      await addMemberToGroup(clubId, groupId, {
+        userId: player2.uid,
+        name: "Manual Player Two",
+        email: "manual-player2@test.com",
+        roles: ["player"],
+      });
+
+      const { eventId } = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+
+      // Verify both players are currently in the event
+      const before = await getDocument(`clubs/${clubId}/events/${eventId}`);
+      const beforeIds = (before!.responses || []).map((r: any) => r.userId);
+      expect(beforeIds).toContain(player1.uid);
+      expect(beforeIds).toContain(player2.uid);
+
+      // Manual update: keep admin + player1, drop player2
+      const result = await callFunction("syncEventRecipients", admin.idToken, {
+        clubId,
+        eventId,
+        mode: "manual",
+        newInvitedUserIds: [admin.uid, player1.uid],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.added).toHaveLength(0); // no new additions
+      expect(result.removed.length).toBeGreaterThanOrEqual(1);
+      const removedIds = result.removed.map((r: any) => r.userId);
+      expect(removedIds).toContain(player2.uid);
+
+      const after = await getDocument(`clubs/${clubId}/events/${eventId}`);
+      const afterIds = after!.responses.map((r: any) => r.userId);
+      expect(afterIds).toContain(admin.uid);
+      expect(afterIds).toContain(player1.uid);
+      expect(afterIds).not.toContain(player2.uid);
+    });
+
+    it("should preserve existing RSVP responses for members who remain in the list", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      const player = await createFullTestUser({
+        email: "rsvp-keep@test.com",
+        displayName: "RSVP Keep",
+      });
+      await addMemberToGroup(clubId, groupId, {
+        userId: player.uid,
+        name: "RSVP Keep",
+        email: "rsvp-keep@test.com",
+        roles: ["player"],
+      });
+
+      const { eventId } = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+
+      // Directly seed an "accepted" response for the player in Firestore
+      const db = getFirestore();
+      const eventRef = db.doc(`clubs/${clubId}/events/${eventId}`);
+      const eventSnap = await eventRef.get();
+      const currentResponses: any[] = eventSnap.data()?.responses || [];
+      const updatedResponses = currentResponses.map((r: any) =>
+        r.userId === player.uid ? { ...r, response: "accepted" } : r,
+      );
+      await eventRef.update({ responses: updatedResponses });
+
+      // Manual update keeping the player in the list
+      const result = await callFunction("syncEventRecipients", admin.idToken, {
+        clubId,
+        eventId,
+        mode: "manual",
+        newInvitedUserIds: [admin.uid, player.uid],
+      });
+
+      expect(result.success).toBe(true);
+
+      // Player's "accepted" response must be preserved
+      const after = await getDocument(`clubs/${clubId}/events/${eventId}`);
+      const playerResponse = after!.responses.find(
+        (r: any) => r.userId === player.uid,
+      );
+      expect(playerResponse).toBeDefined();
+      expect(playerResponse!.response).toBe("accepted");
+    });
+
+    it("should require newInvitedUserIds when mode is manual", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+      const { eventId } = await createTestEvent(
+        admin.idToken,
+        admin.uid,
+        clubId,
+        groupId,
+      );
+
+      await expectFunctionError(
+        "syncEventRecipients",
+        admin.idToken,
+        { clubId, eventId, mode: "manual" }, // newInvitedUserIds missing
+        "invalid-argument",
+      );
+    });
+
+    it("should apply manual update to all future occurrences when scope=future", async () => {
+      const { admin, clubId, groupId } = await setupClubGroupAndAdmin();
+
+      const newMember = await createFullTestUser({
+        email: "manual-future@test.com",
+        displayName: "Manual Future",
+      });
+      await addMemberToGroup(clubId, groupId, {
+        userId: newMember.uid,
+        name: "Manual Future",
+        email: "manual-future@test.com",
+        roles: ["player"],
+      });
+
+      const recurResult = await callFunction(
+        "createRecurringEvent",
+        admin.idToken,
+        {
+          clubId,
+          clubName: "Sync Club",
+          eventType: "training",
+          title: "Manual Recurring",
+          startDate: futureDate(7),
+          startTime: futureISO(7, 18),
+          endDate: futureDate(7),
+          endTime: futureISO(7, 20),
+          targetScope: {
+            level: "group",
+            groupId,
+            groupName: "Sync Group",
+            clubId,
+            clubName: "Sync Club",
+          },
+          createdBy: admin.uid,
+          createdByName: "Sync Admin",
+          frequency: "weekly",
+          endType: "occurrences",
+          occurrenceCount: 3,
+        },
+      );
+
+      expect(recurResult.success).toBe(true);
+      const eventIds: string[] =
+        recurResult.eventIds || recurResult.occurrenceEventIds || [];
+      expect(eventIds.length).toBeGreaterThanOrEqual(2);
+
+      const syncResult = await callFunction(
+        "syncEventRecipients",
+        admin.idToken,
+        {
+          clubId,
+          eventId: eventIds[0],
+          mode: "manual",
+          scope: "future",
+          recurringEventId: recurResult.recurringEventId,
+          newInvitedUserIds: [admin.uid, newMember.uid],
+        },
+      );
+
+      expect(syncResult.success).toBe(true);
+      expect(syncResult.updatedOccurrences).toBeGreaterThanOrEqual(2);
+
+      // Verify newMember appears in the first two occurrences
+      for (const eid of eventIds.slice(0, 2)) {
+        const event = await getDocument(`clubs/${clubId}/events/${eid}`);
+        if (!event) continue;
+        const ids = event.responses.map((r: any) => r.userId);
+        expect(ids).toContain(newMember.uid);
+      }
+    });
+  });
+
   // ─── Permission Checks ────────────────────────────────────
 
   describe("permissions", () => {

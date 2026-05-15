@@ -315,9 +315,7 @@ export async function fetchNews(
     }
 
     if (options.includeAllClubAdminNews) {
-      snapPromises.push(
-        getDocs(query(newsRef, ...baseConstraints)),
-      );
+      snapPromises.push(getDocs(query(newsRef, ...baseConstraints)));
     }
 
     const snaps = await Promise.all(snapPromises);

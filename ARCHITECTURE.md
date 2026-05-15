@@ -11865,7 +11865,10 @@ When new members join a group **after** events have already been created, those 
 
 ### Design Decision
 
-**Approach: Explicit Sync** — Rather than auto-syncing on every edit or silently on join, we chose an explicit "Sync Members" action. This gives the organiser a preview of what will change and full control over when new members are added. Historical response data for removed members is never deleted.
+The feature exposes three operation modes:
+
+- **Preview/Confirm** — the admin sees a diff (added/removed) then explicitly confirms. No UI change to responses until confirm is called. Historical response data for removed members is never deleted in this path.
+- **Manual** — the admin opens a member picker pre-populated with the current invitee list, adjusts the selection, and confirms. The CF performs a **full replace**: members not in the new list are removed from `responses[]`; kept members retain their existing RSVP status; new members are added as `pending`. This is the mode used by the "Manage Recipients" icon in the event details screen.
 
 ### Cloud Function — `syncEventRecipients`
 
@@ -11882,16 +11885,19 @@ When new members join a group **after** events have already been created, those 
 interface SyncEventRecipientsRequest {
   clubId: string;
   eventId: string;
-  mode: "preview" | "confirm";
+  mode: "preview" | "confirm" | "manual";
   scope?: "single" | "future"; // recurring events only
   recurringEventId?: string; // required when scope = "future"
+  /** Required when mode is "manual" — the explicit list of member IDs chosen by the admin */
+  newInvitedUserIds?: string[];
 }
 ```
 
-#### Two-Phase Flow
+#### Operation Modes
 
 1. **Preview** (`mode: "preview"`) — reads current group membership, computes a diff against the event's `responses[]`, and returns `{added[], removed[], unchanged}` without writing anything.
-2. **Confirm** (`mode: "confirm"`) — re-reads the diff, creates `EventResponse` entries for added members (pending response), updates `invitedUserIds[]` and `responseSummary`, and sends event notifications to newly invited users.
+2. **Confirm** (`mode: "confirm"`) — re-reads the diff, creates `EventResponse` entries for added members (pending response), updates `invitedUserIds[]` and `responseSummary`, and sends event notifications to newly invited users. Members removed from the group are reported but **never deleted** from the event.
+3. **Manual** (`mode: "manual"`) — accepts an explicit `newInvitedUserIds[]` list chosen by the admin. Performs a **full replace**: responses for members not in the list are removed; responses for kept members are preserved (including existing RSVP status); new members are added with `pending` status. Guardian handling and notification sending are identical to confirm mode.
 
 #### Permission Check
 
@@ -11914,7 +11920,8 @@ Youth members with `needsGuardian: true` are added as `EventResponse` entries wi
 
 #### Removed Members
 
-Members who are in the event but no longer active in the group are reported in the `removed[]` array but **never deleted** from the event document — this preserves historical RSVP and attendance data.
+- **Preview / Confirm modes**: Members no longer active in the group are reported in `removed[]` but **never deleted** from the event document — historical RSVP and attendance data is preserved.
+- **Manual mode**: Members not included in `newInvitedUserIds` **are** removed from `responses[]` and `invitedUserIds[]`. This is intentional — the admin explicitly provided the new complete recipient list.
 
 #### Creator Handling
 
@@ -11927,26 +11934,31 @@ Event visibility is driven by up to four Firestore queries: `invitedUserIds[]` (
 
 ### Frontend
 
-| Layer                | File                                                 |
-| -------------------- | ---------------------------------------------------- |
-| Service wrapper      | `services/event/syncRecipients.ts`                   |
-| UI (button + modals) | `app/event-details.tsx`                              |
-| i18n keys            | `i18n/locales/*/screens.json` → `eventDetails.sync*` |
+| Layer           | File                                                 |
+| --------------- | ---------------------------------------------------- |
+| Service wrapper | `services/event/syncRecipients.ts`                   |
+| UI screen       | `app/event-details.tsx`                              |
+| Member picker   | `app/select-event-members.tsx`                       |
+| Store           | `utils/memberSelectionStore.ts`                      |
+| i18n keys       | `i18n/locales/*/screens.json` → `eventDetails.sync*` |
 
-#### UI Flow
+#### UI Flow — "Manage Recipients" icon
 
-1. **"Sync Members" button** — visible to permitted users when event is not cancelled/completed.
-2. **Scope picker** (recurring events only) — "This occurrence only" / "All future occurrences".
-3. **Preview modal** — shows new members (green), removed members (red, informational), unchanged count.
-4. **Confirm** — calls `syncEventRecipients` in confirm mode, reloads event, shows success toast.
+The event details screen surfaces recipient management as a lightweight `person-add-outline` icon (Ionicons, size 20) next to the "Invitees (N)" section title. Visible when the user can edit the event and the event is not cancelled or completed. While an update is in progress the icon is replaced by an `ActivityIndicator`.
+
+1. **Icon tap** — navigates to `select-event-members` with the current invitee list pre-selected. Pre-selection is derived from `event.responses[].userId` (not `invitedUserIds`, which stores guardian IDs for youth members that would cause mismatches with the picker's `item.userId`).
+2. **Member picker** — user adds/removes members and presses "Done". The final selection is written to `memberSelectionStore` via `setSelectedMemberIds()` then `router.back()` is called.
+3. **`useFocusEffect` on return** — reads and clears the selection atomically via `consumeSelectedMemberIds()`.
+4. **Scope picker** (recurring events only) — modal asks "This occurrence only" / "All future occurrences".
+5. **Manual update** — calls `syncRecipientsService.manualUpdate()` (`mode: "manual"`) which does a full replace; reloads event details on success.
 
 ### Integration Tests
 
 | File                                           | Tests |
 | ---------------------------------------------- | ----- |
-| `functions/test/sync-event-recipients.test.ts` | 18    |
+| `functions/test/sync-event-recipients.test.ts` | 24    |
 
-Covers: preview diff detection, confirm writes, no-op when in sync, permission checks (player, club-admin, coach), validation (missing fields, invalid mode/scope), recurring future scope, recurring single scope, youth/guardian handling, historical data preservation, creator exclusion (non-member creator not in removed diff, not in responses).
+Covers: preview diff detection, confirm writes, no-op when in sync, permission checks (player, club-admin, coach), validation (missing fields, invalid mode/scope), recurring future scope, recurring single scope, youth/guardian handling, historical data preservation, creator exclusion (non-member creator not in removed diff, not in responses), manual mode full replace (add + remove in one operation), RSVP preservation for retained members, manual-mode validation (missing `newInvitedUserIds`), manual mode recurring future scope.
 
 ---
 

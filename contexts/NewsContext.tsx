@@ -269,7 +269,13 @@ export function NewsProvider({ children }: NewsProviderProps) {
       const includeCoachNews = isCoach && visNews.coach;
 
       const unsubscribe = attachNewsListener(
-        { clubId, userId, includeAllClubAdminNews, includeGroupAdminNews, includeCoachNews },
+        {
+          clubId,
+          userId,
+          includeAllClubAdminNews,
+          includeGroupAdminNews,
+          includeCoachNews,
+        },
         (newsList) => {
           console.log(`📡 Received ${newsList.length} news items via listener`);
           setNews(newsList);

@@ -3,42 +3,51 @@
 
 import ConfirmationModal from "@/components/ConfirmationModal";
 import LinkedText from "@/components/LinkedText";
+import MemberContactModal from "@/components/MemberContactModal";
 import { ScreenTooltipManager } from "@/components/onboarding";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserContext";
 import { useTrackFeatureOnAction } from "@/hooks/useOnboardingFeatureTracker";
 import {
-  recordEventAttendance,
-  type AttendanceRecord,
+    recordEventAttendance,
+    type AttendanceRecord,
 } from "@/services/event/attendanceService";
 import { eventCancellationService } from "@/services/event/cancelEvent";
 import {
-  getEventDetails,
-  updateEventResponse,
+    getEventDetails,
+    updateEventResponse,
 } from "@/services/event/eventService";
-import {
-  syncRecipientsService,
-  type SyncMemberDiff,
-} from "@/services/event/syncRecipients";
+import { syncRecipientsService } from "@/services/event/syncRecipients";
 import type { EventData } from "@/services/types/event";
+import { consumeSelectedMemberIds } from "@/utils/memberSelectionStore";
 import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import {
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
+    useRouter,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -111,15 +120,20 @@ export default function EventDetailsScreen() {
     "single",
   );
 
+  // Contact modal state
+  const [contactMemberInfo, setContactMemberInfo] = useState<{
+    userId: string;
+    name: string;
+    photoUrl?: string;
+    isYouth: boolean;
+  } | null>(null);
+
   // Sync recipients state
-  const [showSyncScopeModal, setShowSyncScopeModal] = useState(false);
-  const [showSyncPreviewModal, setShowSyncPreviewModal] = useState(false);
-  const [syncScope, setSyncScope] = useState<"single" | "future">("single");
-  const [syncPreviewLoading, setSyncPreviewLoading] = useState(false);
-  const [syncConfirming, setSyncConfirming] = useState(false);
-  const [syncAdded, setSyncAdded] = useState<SyncMemberDiff[]>([]);
-  const [syncRemoved, setSyncRemoved] = useState<SyncMemberDiff[]>([]);
-  const [syncUnchanged, setSyncUnchanged] = useState(0);
+  const [showManageScopeModal, setShowManageScopeModal] = useState(false);
+  const [pendingRecipientIds, setPendingRecipientIds] = useState<
+    string[] | null
+  >(null);
+  const [isUpdatingRecipients, setIsUpdatingRecipients] = useState(false);
 
   // Response comment state
   const [responseComment, setResponseComment] = useState("");
@@ -445,6 +459,15 @@ export default function EventDetailsScreen() {
     return isClubAdmin(userProfile, event.clubId);
   };
 
+  // Whether the current viewer is an admin/editor on this event
+  const isAdminOnEvent = canEditEvent();
+
+  // Whether the current viewer is the guardian of a specific member
+  const isGuardianOf = (targetUserId: string): boolean =>
+    ((userProfile?.dependents as { uid: string }[] | undefined) ?? []).some(
+      (d) => d.uid === targetUserId,
+    );
+
   const isEventFull = () => {
     if (!event || !event.capacity?.max) return false;
     const acceptedCount = event.responseSummary?.accepted || 0;
@@ -588,78 +611,71 @@ export default function EventDetailsScreen() {
     }
   };
 
-  // Handle Sync Members flow
-  const handleSyncPress = () => {
+  // Handle Manage Recipients flow
+  const handleManageRecipients = () => {
     if (!event) return;
-    if (event.isRecurring && event.recurringEventId) {
-      setShowSyncScopeModal(true);
-    } else {
-      setSyncScope("single");
-      loadSyncPreview("single");
-    }
+    router.push({
+      pathname: "/select-event-members",
+      params: {
+        clubId: event.clubId,
+        groupId: event.groupId || undefined,
+        clubName: event.clubName,
+        groupName: event.groupName || undefined,
+        level: event.groupId ? "group" : "club",
+        sourceScreen: "event-details",
+        preSelectedIds: (event.responses || []).map((r) => r.userId).join(","),
+      },
+    } as any);
   };
 
-  const loadSyncPreview = async (scope: "single" | "future") => {
-    if (!event) return;
-    setSyncPreviewLoading(true);
-    setShowSyncPreviewModal(true);
-    setSyncAdded([]);
-    setSyncRemoved([]);
-    setSyncUnchanged(0);
+  const handleRecipientUpdate = useCallback(
+    async (newIds: string[], scope: "single" | "future") => {
+      if (!event) return;
+      setIsUpdatingRecipients(true);
+      const result = await syncRecipientsService.manualUpdate(
+        event.clubId,
+        event.id,
+        newIds,
+        { scope, recurringEventId: event.recurringEventId },
+      );
+      setIsUpdatingRecipients(false);
+      if (result.success) {
+        await loadEventDetails();
+        setConfirmModal({
+          visible: true,
+          title: t("common:success"),
+          message:
+            result.message ||
+            t("screens:eventDetails.recipientsUpdatedMessage"),
+          onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+        });
+      } else {
+        setConfirmModal({
+          visible: true,
+          title: t("common:error"),
+          message: result.message || t("screens:eventDetails.syncFailed"),
+          onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+        });
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [event],
+  );
 
-    const result = await syncRecipientsService.preview(event.clubId, event.id, {
-      scope,
-      recurringEventId: event.recurringEventId,
-    });
-
-    if (result.success) {
-      setSyncAdded(result.added || []);
-      setSyncRemoved(result.removed || []);
-      setSyncUnchanged(result.unchanged || 0);
-    } else {
-      setShowSyncPreviewModal(false);
-      setConfirmModal({
-        visible: true,
-        title: t("common:error"),
-        message: result.message || t("screens:eventDetails.syncFailed"),
-        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
-      });
-    }
-    setSyncPreviewLoading(false);
-  };
-
-  const handleSyncConfirm = async () => {
-    if (!event) return;
-    setSyncConfirming(true);
-
-    const result = await syncRecipientsService.confirm(event.clubId, event.id, {
-      scope: syncScope,
-      recurringEventId: event.recurringEventId,
-    });
-
-    setSyncConfirming(false);
-    setShowSyncPreviewModal(false);
-
-    if (result.success) {
-      await loadEventDetails();
-      setConfirmModal({
-        visible: true,
-        title: t("screens:eventDetails.syncSuccess"),
-        message: t("screens:eventDetails.syncSuccessMessage", {
-          added: result.added?.length || 0,
-          events: result.updatedOccurrences || 1,
-        }),
-        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
-      });
-    } else {
-      setConfirmModal({
-        visible: true,
-        title: t("common:error"),
-        message: result.message || t("screens:eventDetails.syncFailed"),
-        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
-      });
-    }
-  };
+  // Pick up selected member IDs when returning from select-event-members
+  useFocusEffect(
+    useCallback(() => {
+      const ids = consumeSelectedMemberIds();
+      if (ids !== null) {
+        if (event?.isRecurring && event?.recurringEventId) {
+          setPendingRecipientIds(ids);
+          setShowManageScopeModal(true);
+        } else {
+          handleRecipientUpdate(ids, "single");
+        }
+      }
+    }, [event, handleRecipientUpdate]),
+  );
 
   const handleStartRecording = () => {
     if (!event) return;
@@ -1339,30 +1355,6 @@ export default function EventDetailsScreen() {
             </View>
           )}
 
-        {/* Sync Members Button (for creator, club admin, group admin/coach) */}
-        {canEditEvent() &&
-          event.status !== "cancelled" &&
-          event.status !== "completed" && (
-            <View style={styles.section}>
-              <TouchableOpacity
-                style={styles.syncMembersButton}
-                onPress={handleSyncPress}
-              >
-                <Ionicons
-                  name="people-outline"
-                  size={20}
-                  color={theme.colors.white}
-                />
-                <Text style={styles.syncMembersButtonText}>
-                  {t("screens:eventDetails.syncMembers")}
-                </Text>
-              </TouchableOpacity>
-              <Text style={styles.syncMembersHint}>
-                {t("screens:eventDetails.syncMembersDescription")}
-              </Text>
-            </View>
-          )}
-
         {/* Recording Mode Actions */}
         {isRecordingAttendance && (
           <View style={styles.recordingActionsContainer}>
@@ -1477,9 +1469,38 @@ export default function EventDetailsScreen() {
             <Text style={styles.sectionTitle}>
               Invitees ({event.responses?.length || 0})
             </Text>
-            {isRecordingAttendance && (
-              <Text style={styles.recordingModeText}>✓ Check who attended</Text>
-            )}
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            >
+              {isRecordingAttendance && (
+                <Text style={styles.recordingModeText}>
+                  ✓ Check who attended
+                </Text>
+              )}
+              {canEditEvent() &&
+                event.status !== "cancelled" &&
+                event.status !== "completed" &&
+                !isRecordingAttendance && (
+                  <TouchableOpacity
+                    onPress={handleManageRecipients}
+                    style={{ padding: 4 }}
+                    disabled={isUpdatingRecipients}
+                  >
+                    {isUpdatingRecipients ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.secondary}
+                      />
+                    ) : (
+                      <Ionicons
+                        name="person-add-outline"
+                        size={20}
+                        color={theme.colors.secondary}
+                      />
+                    )}
+                  </TouchableOpacity>
+                )}
+            </View>
           </View>
 
           {event.responses && event.responses.length > 0 ? (
@@ -1601,6 +1622,28 @@ export default function EventDetailsScreen() {
                         </View>
                       </View>
                       <View style={styles.inviteeRight}>
+                        {/* Contact icon — hidden on own row */}
+                        {item.userId !== user?.uid && (
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              setContactMemberInfo({
+                                userId: item.userId,
+                                name: item.userName || "Unknown",
+                                photoUrl: item.photoUrl,
+                                isYouth: (item as any).isYouthMember === true,
+                              });
+                            }}
+                            style={{ padding: 4, marginRight: 4 }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons
+                              name="call-outline"
+                              size={18}
+                              color={theme.colors.textSecondary}
+                            />
+                          </TouchableOpacity>
+                        )}
                         {!isRecordingAttendance &&
                           event.status !== "completed" && (
                             <View
@@ -1686,6 +1729,25 @@ export default function EventDetailsScreen() {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Member Contact Modal */}
+      {contactMemberInfo && event && (
+        <MemberContactModal
+          visible={contactMemberInfo !== null}
+          onClose={() => setContactMemberInfo(null)}
+          userId={contactMemberInfo.userId}
+          clubId={event.clubId}
+          groupId={event.groupId ?? undefined}
+          initialName={contactMemberInfo.name}
+          initialPhotoURL={contactMemberInfo.photoUrl}
+          isYouth={contactMemberInfo.isYouth}
+          isAdminViewing={isAdminOnEvent}
+          isGuardianViewing={isGuardianOf(contactMemberInfo.userId)}
+          isPeerViewing={
+            !isAdminOnEvent && !isGuardianOf(contactMemberInfo.userId)
+          }
+        />
+      )}
 
       {/* Invitee Response Modal */}
       <Modal
@@ -2304,12 +2366,12 @@ export default function EventDetailsScreen() {
         </View>
       </Modal>
 
-      {/* Sync Scope Modal (for recurring events) */}
+      {/* Manage Recipients Scope Modal (for recurring events) */}
       <Modal
-        visible={showSyncScopeModal}
+        visible={showManageScopeModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowSyncScopeModal(false)}
+        onRequestClose={() => setShowManageScopeModal(false)}
       >
         <View
           style={{
@@ -2353,9 +2415,9 @@ export default function EventDetailsScreen() {
 
             <TouchableOpacity
               onPress={() => {
-                setSyncScope("single");
-                setShowSyncScopeModal(false);
-                loadSyncPreview("single");
+                setShowManageScopeModal(false);
+                handleRecipientUpdate(pendingRecipientIds!, "single");
+                setPendingRecipientIds(null);
               }}
               style={{
                 padding: 16,
@@ -2388,9 +2450,9 @@ export default function EventDetailsScreen() {
 
             <TouchableOpacity
               onPress={() => {
-                setSyncScope("future");
-                setShowSyncScopeModal(false);
-                loadSyncPreview("future");
+                setShowManageScopeModal(false);
+                handleRecipientUpdate(pendingRecipientIds!, "future");
+                setPendingRecipientIds(null);
               }}
               style={{
                 padding: 16,
@@ -2422,7 +2484,10 @@ export default function EventDetailsScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setShowSyncScopeModal(false)}
+              onPress={() => {
+                setShowManageScopeModal(false);
+                setPendingRecipientIds(null);
+              }}
               style={{
                 padding: 12,
                 alignItems: "center",
@@ -2432,235 +2497,6 @@ export default function EventDetailsScreen() {
                 {t("common:cancel")}
               </Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Sync Preview Modal */}
-      <Modal
-        visible={showSyncPreviewModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (!syncConfirming) setShowSyncPreviewModal(false);
-        }}
-      >
-        <View style={styles.cancelModalOverlay}>
-          <View style={[styles.cancelModalContainer, { maxHeight: "80%" }]}>
-            <View style={styles.cancelModalHeader}>
-              <Ionicons
-                name="people"
-                size={32}
-                color={theme.colors.secondary}
-              />
-              <Text style={styles.cancelModalTitle}>
-                {t("screens:eventDetails.syncPreviewTitle")}
-              </Text>
-            </View>
-
-            {syncPreviewLoading ? (
-              <View style={{ alignItems: "center", paddingVertical: 24 }}>
-                <ActivityIndicator
-                  color={theme.colors.secondary}
-                  size="large"
-                />
-                <Text
-                  style={{
-                    marginTop: 12,
-                    color: theme.colors.textSecondary,
-                    fontSize: 14,
-                  }}
-                >
-                  {t("screens:eventDetails.syncPreviewLoading")}
-                </Text>
-              </View>
-            ) : syncAdded.length === 0 && syncRemoved.length === 0 ? (
-              <View style={{ alignItems: "center", paddingVertical: 24 }}>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={48}
-                  color={theme.colors.success}
-                />
-                <Text
-                  style={{
-                    marginTop: 12,
-                    color: theme.colors.text,
-                    fontSize: 16,
-                    textAlign: "center",
-                  }}
-                >
-                  {t("screens:eventDetails.syncAlreadyInSync")}
-                </Text>
-                <Text
-                  style={{
-                    marginTop: 4,
-                    color: theme.colors.textSecondary,
-                    fontSize: 14,
-                  }}
-                >
-                  {t("screens:eventDetails.syncUnchanged", {
-                    count: syncUnchanged,
-                  })}
-                </Text>
-              </View>
-            ) : (
-              <ScrollView style={{ maxHeight: 350 }}>
-                {/* Added members */}
-                {syncAdded.length > 0 && (
-                  <View style={{ marginBottom: 16 }}>
-                    <Text
-                      style={{
-                        fontSize: 15,
-                        fontWeight: "600",
-                        color: theme.colors.success,
-                        marginBottom: 8,
-                      }}
-                    >
-                      + {t("screens:eventDetails.syncNewMembers")} (
-                      {syncAdded.length})
-                    </Text>
-                    {syncAdded.map((m) => (
-                      <View
-                        key={m.userId}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          paddingVertical: 6,
-                          paddingHorizontal: 8,
-                          backgroundColor: "rgba(0,200,83,0.08)",
-                          borderRadius: 8,
-                          marginBottom: 4,
-                        }}
-                      >
-                        <Ionicons
-                          name="add-circle"
-                          size={18}
-                          color={theme.colors.success}
-                        />
-                        <Text
-                          style={{
-                            marginLeft: 8,
-                            fontSize: 14,
-                            color: theme.colors.text,
-                          }}
-                        >
-                          {m.userName}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Removed members */}
-                {syncRemoved.length > 0 && (
-                  <View style={{ marginBottom: 16 }}>
-                    <Text
-                      style={{
-                        fontSize: 15,
-                        fontWeight: "600",
-                        color: "#EF5350",
-                        marginBottom: 8,
-                      }}
-                    >
-                      - {t("screens:eventDetails.syncRemovedMembers")} (
-                      {syncRemoved.length})
-                    </Text>
-                    {syncRemoved.map((m) => (
-                      <View
-                        key={m.userId}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          paddingVertical: 6,
-                          paddingHorizontal: 8,
-                          backgroundColor: "rgba(239,83,80,0.08)",
-                          borderRadius: 8,
-                          marginBottom: 4,
-                        }}
-                      >
-                        <Ionicons
-                          name="remove-circle"
-                          size={18}
-                          color="#EF5350"
-                        />
-                        <Text
-                          style={{
-                            marginLeft: 8,
-                            fontSize: 14,
-                            color: theme.colors.text,
-                          }}
-                        >
-                          {m.userName}
-                        </Text>
-                      </View>
-                    ))}
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        color: theme.colors.textSecondary,
-                        fontStyle: "italic",
-                        marginTop: 4,
-                      }}
-                    >
-                      {t("screens:eventDetails.syncRemovedNote")}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Unchanged count */}
-                {syncUnchanged > 0 && (
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      color: theme.colors.textSecondary,
-                      marginBottom: 8,
-                    }}
-                  >
-                    {t("screens:eventDetails.syncUnchanged", {
-                      count: syncUnchanged,
-                    })}
-                  </Text>
-                )}
-              </ScrollView>
-            )}
-
-            {/* Actions */}
-            <View
-              style={{
-                flexDirection: "row",
-                gap: 12,
-                marginTop: 16,
-              }}
-            >
-              <TouchableOpacity
-                style={styles.cancelModalKeepButton}
-                onPress={() => setShowSyncPreviewModal(false)}
-                disabled={syncConfirming}
-              >
-                <Text style={styles.cancelModalKeepButtonText}>
-                  {t("common:cancel")}
-                </Text>
-              </TouchableOpacity>
-
-              {syncAdded.length > 0 && (
-                <TouchableOpacity
-                  style={[
-                    styles.syncConfirmButton,
-                    syncConfirming && { opacity: 0.5 },
-                  ]}
-                  onPress={handleSyncConfirm}
-                  disabled={syncConfirming || syncPreviewLoading}
-                >
-                  {syncConfirming ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.syncConfirmButtonText}>
-                      {t("screens:eventDetails.syncConfirm")}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
           </View>
         </View>
       </Modal>

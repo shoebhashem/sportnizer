@@ -3,10 +3,10 @@ import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { createNotificationDirect } from "../notifications/createNotification";
 import {
-  EventResponse,
-  SyncEventRecipientsRequest,
-  SyncEventRecipientsResponse,
-  SyncMemberDiff,
+    EventResponse,
+    SyncEventRecipientsRequest,
+    SyncEventRecipientsResponse,
+    SyncMemberDiff,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
@@ -41,10 +41,14 @@ export const syncEventRecipients = onCall(
 
       validateRequiredFields(data, ["clubId", "eventId", "mode"]);
 
-      if (data.mode !== "preview" && data.mode !== "confirm") {
+      if (
+        data.mode !== "preview" &&
+        data.mode !== "confirm" &&
+        data.mode !== "manual"
+      ) {
         throw new HttpsError(
           "invalid-argument",
-          "mode must be 'preview' or 'confirm'",
+          "mode must be 'preview', 'confirm', or 'manual'",
         );
       }
 
@@ -124,7 +128,7 @@ export const syncEventRecipients = onCall(
       }
 
       // ======================================================================
-      // STEP 4: Resolve current membership (same logic as createEventV2)
+      // STEP 4: Resolve targetScope (needed by all modes)
       // ======================================================================
       const targetScope = eventData.targetScope;
       if (!targetScope) {
@@ -134,6 +138,295 @@ export const syncEventRecipients = onCall(
         );
       }
 
+      // ======================================================================
+      // STEP 4-M: Manual mode – admin specifies the exact recipient list
+      // ======================================================================
+      if (data.mode === "manual") {
+        if (!data.newInvitedUserIds || !Array.isArray(data.newInvitedUserIds)) {
+          throw new HttpsError(
+            "invalid-argument",
+            "newInvitedUserIds is required for manual mode",
+          );
+        }
+
+        const desiredIds = new Set<string>(data.newInvitedUserIds);
+        const existingResponses: any[] = eventData.responses || [];
+
+        // Kept responses: members still in the desired list
+        const keptResponses = existingResponses.filter((r: any) =>
+          desiredIds.has(r.userId),
+        );
+        const keptUserIds = new Set(keptResponses.map((r: any) => r.userId));
+
+        // Members to add: desired IDs not already in responses
+        const toAddIds = data.newInvitedUserIds.filter(
+          (id: string) => !keptUserIds.has(id),
+        );
+
+        // Members removed (for reporting only)
+        const removedMembers: SyncMemberDiff[] = existingResponses
+          .filter((r: any) => !desiredIds.has(r.userId))
+          .map((r: any) => ({
+            userId: r.userId,
+            userName: r.userName || "Unknown",
+            photoUrl: r.photoUrl || null,
+          }));
+
+        // Fetch member lookup doc for new additions
+        const lookupRef = targetScope.groupId
+          ? db
+              .collection("clubs")
+              .doc(clubId)
+              .collection("groups")
+              .doc(targetScope.groupId)
+              .collection("allMembers")
+              .doc("members")
+          : db
+              .collection("clubs")
+              .doc(clubId)
+              .collection("allMembers")
+              .doc("members");
+
+        const lookupDoc = await lookupRef.get();
+        const lookupList: any[] = lookupDoc.exists
+          ? lookupDoc.data()?.members || []
+          : [];
+        const memberDataMap = new Map<string, any>(
+          lookupList.map((m: any) => [m.userId, m]),
+        );
+
+        // Fall back to user docs for members not found in members doc
+        const missingIds = toAddIds.filter(
+          (id: string) => !memberDataMap.has(id),
+        );
+        if (missingIds.length > 0) {
+          const userSnaps = await Promise.all(
+            missingIds.map((id: string) =>
+              db.collection("users").doc(id).get(),
+            ),
+          );
+          userSnaps.forEach((snap, idx) => {
+            if (snap.exists) {
+              const d = snap.data()!;
+              memberDataMap.set(missingIds[idx], {
+                userId: missingIds[idx],
+                name: d.displayName || d.name || "Unknown",
+                photoURL: d.photoURL || null,
+                needsGuardian: false,
+              });
+            }
+          });
+        }
+
+        // Build new response entries and invitedUserIds for added members
+        const addedResponses: EventResponse[] = [];
+        const addedInvitedIds: string[] = [];
+        const addedMembers: SyncMemberDiff[] = [];
+
+        for (const uid of toAddIds) {
+          const memberData = memberDataMap.get(uid);
+          if (!memberData) {
+            console.warn(`⚠️ Member ${uid} not found in lookup, skipping`);
+            continue;
+          }
+
+          addedMembers.push({
+            userId: uid,
+            userName: memberData.name || "Unknown",
+            photoUrl: memberData.photoURL || null,
+          });
+
+          if (
+            memberData.needsGuardian &&
+            memberData.guardiansContacts?.length > 0
+          ) {
+            // Youth member – invite guardians
+            for (const guardian of memberData.guardiansContacts) {
+              if (
+                guardian.guardianUid &&
+                !addedInvitedIds.includes(guardian.guardianUid)
+              ) {
+                addedInvitedIds.push(guardian.guardianUid);
+              }
+            }
+            addedResponses.push({
+              userId: uid,
+              userName: memberData.name || "Unknown",
+              photoUrl: memberData.photoURL || null,
+              response: "pending",
+              isYouthMember: true,
+              guardianIds: memberData.guardiansContacts
+                .map((g: any) => g.guardianUid)
+                .filter((id: string) => id),
+              guardianNames: memberData.guardiansContacts
+                .map((g: any) => g.guardianName || g.guardianEmail)
+                .filter((n: string) => n),
+            });
+          } else {
+            // Regular adult member
+            addedInvitedIds.push(uid);
+            addedResponses.push({
+              userId: uid,
+              userName: memberData.name || "Unknown",
+              photoUrl: memberData.photoURL || null,
+              response: "pending",
+            });
+          }
+        }
+
+        // Rebuild invitedUserIds from kept responses
+        const keptInvitedIds: string[] = [];
+        for (const r of keptResponses) {
+          if (r.isYouthMember && r.guardianIds?.length > 0) {
+            for (const gid of r.guardianIds) {
+              if (!keptInvitedIds.includes(gid)) keptInvitedIds.push(gid);
+            }
+          } else {
+            if (!keptInvitedIds.includes(r.userId))
+              keptInvitedIds.push(r.userId);
+          }
+        }
+
+        const finalResponses: EventResponse[] = [
+          ...keptResponses,
+          ...addedResponses,
+        ];
+        const finalInvitedIds: string[] = [
+          ...new Set([...keptInvitedIds, ...addedInvitedIds]),
+        ];
+
+        // Recalculate summary helper
+        const calcSummary = (responses: EventResponse[]) => {
+          let accepted = 0,
+            declined = 0,
+            pending = 0;
+          for (const r of responses) {
+            const resp =
+              typeof r.response === "string"
+                ? r.response.toLowerCase()
+                : "pending";
+            if (resp === "accepted") accepted++;
+            else if (resp === "declined") declined++;
+            else pending++;
+          }
+          return {
+            totalInvited: responses.length,
+            accepted,
+            declined,
+            pending,
+          };
+        };
+
+        // Determine which events to update
+        const manualEventIds: string[] = [data.eventId];
+        if (
+          data.scope === "future" &&
+          eventData.isRecurring &&
+          data.recurringEventId
+        ) {
+          const masterRef = db
+            .collection("clubs")
+            .doc(clubId)
+            .collection("recurringEvents")
+            .doc(data.recurringEventId);
+          const masterDoc = await masterRef.get();
+          if (masterDoc.exists) {
+            const masterData = masterDoc.data()!;
+            const occurrenceEventIds: string[] =
+              masterData.occurrenceEventIds || [];
+            const currentOccurrenceIndex = eventData.occurrenceIndex ?? 0;
+            const futureIds = occurrenceEventIds.slice(currentOccurrenceIndex);
+            for (const futureId of futureIds) {
+              if (futureId === data.eventId) continue;
+              const futureRef = db
+                .collection("clubs")
+                .doc(clubId)
+                .collection("events")
+                .doc(futureId);
+              const futureDoc = await futureRef.get();
+              if (!futureDoc.exists) continue;
+              const futureData = futureDoc.data()!;
+              if (
+                futureData.status === "cancelled" ||
+                futureData.status === "completed" ||
+                futureData.isModified === true
+              )
+                continue;
+              manualEventIds.push(futureId);
+            }
+          }
+        }
+
+        // Apply batch updates (full replacement)
+        const manualBatchSize = 450;
+        for (let i = 0; i < manualEventIds.length; i += manualBatchSize) {
+          const batchIds = manualEventIds.slice(i, i + manualBatchSize);
+          const batch = db.batch();
+          for (const eid of batchIds) {
+            const ref = db
+              .collection("clubs")
+              .doc(clubId)
+              .collection("events")
+              .doc(eid);
+            batch.update(ref, {
+              responses: finalResponses,
+              invitedUserIds: finalInvitedIds,
+              responseSummary: calcSummary(finalResponses),
+              updatedAt: FieldValue.serverTimestamp(),
+              version: FieldValue.increment(1),
+            });
+          }
+          await batch.commit();
+        }
+
+        // Send notifications to newly added users
+        const manualEventTitle = eventData.title || "Event";
+        const manualClubName = targetScope.clubName || "Club";
+        await Promise.all(
+          addedInvitedIds.map(async (invitedUserId: string) => {
+            try {
+              await createNotificationDirect(invitedUserId, {
+                type: "event",
+                title: `New Event: ${manualEventTitle}`,
+                message: `You've been invited to ${manualEventTitle}`,
+                sourceId: data.eventId,
+                sourceCollection: "events",
+                clubId,
+                clubName: manualClubName,
+                ...(targetScope.groupId && { groupId: targetScope.groupId }),
+                ...(targetScope.groupName && {
+                  groupName: targetScope.groupName,
+                }),
+                priority: "normal",
+                actionUrl: `/event-details?eventId=${data.eventId}&clubId=${clubId}`,
+              });
+            } catch (notifError: any) {
+              console.error(
+                `⚠️ Failed to send notification to ${invitedUserId}:`,
+                notifError.message,
+              );
+            }
+          }),
+        );
+
+        console.log(
+          `✅ Manual update complete: +${addedMembers.length} added, -${removedMembers.length} removed across ${manualEventIds.length} event(s)`,
+        );
+
+        return {
+          success: true,
+          added: addedMembers,
+          removed: removedMembers,
+          unchanged: keptResponses.length,
+          updatedOccurrences:
+            data.scope === "future" ? manualEventIds.length : undefined,
+          message: `Updated recipients: +${addedMembers.length} added, -${removedMembers.length} removed`,
+        };
+      }
+
+      // ======================================================================
+      // STEP 4: Resolve current membership for preview/confirm modes
+      // ======================================================================
       let membersDocRef: admin.firestore.DocumentReference;
       let shouldFilterByIsActive = true;
 
