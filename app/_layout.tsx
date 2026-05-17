@@ -484,6 +484,30 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="child-profile"
+        options={{
+          headerShown: true,
+          title: t("screens.childProfile"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.white,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="lok-personnummer"
+        options={{
+          headerShown: true,
+          title: t("screens.lokPersonnummer"),
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.white,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
         name="view-statistics"
         options={{
           headerShown: true,
@@ -597,6 +621,18 @@ function RootLayoutNav() {
         options={{
           headerShown: true,
           title: "LOK-inställningar",
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.secondary,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="lok-edit-attendance"
+        options={{
+          headerShown: true,
+          title: "Redigera närvaro",
           headerStyle: {
             backgroundColor: theme.colors.primary,
           },

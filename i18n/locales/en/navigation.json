@@ -54,6 +54,8 @@
     "invitationReject": "Decline Invitation",
     "about": "About",
     "selectEventMembers": "Select Members",
-    "rolePermissions": "Role Permissions"
+    "rolePermissions": "Role Permissions",
+    "childProfile": "Child Profile",
+    "lokPersonnummer": "LOK Personal ID"
   }
 }

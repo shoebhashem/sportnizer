@@ -223,6 +223,9 @@
     "deleteAccountHasDependents": "Eres tutor de jugadores juveniles activos. Contacta a un administrador del club para que te eliminen como tutor antes de borrar tu cuenta.",
     "deleteAccountFailed": "Error al eliminar la cuenta. Por favor intente de nuevo.",
     "createClub": "Crear un club",
+    "personnummer": "Número de identidad personal (LOK-stöd)",
+    "personnummerMissing": "Número de identidad no añadido – requerido para LOK-stöd",
+    "myChildren": "Mis hijos",
     "createClubDesc": "Inicia tu propia organización deportiva"
   },
   "createClubForm": {
@@ -1190,6 +1193,9 @@
   },
   "lokPersonnummer": {
     "title": "Personnummer para LOK-stöd",
+    "titleChild": "Personnummer para {{name}}",
+    "subtitleSelf": "Agrega tu número de identidad para ser incluido en los informes LOK-stöd.",
+    "subtitleChild": "Agrega el número de identidad de {{name}} para incluirlo en los informes LOK-stöd.",
     "subtitle": "Tu club {{clubName}} utiliza LOK-stöd para informes de asistencia a la Confederación Deportiva Sueca (RF).",
     "whyNeededTitle": "¿Por qué se necesita?",
     "whyNeededText": "Los clubes deportivos suecos reciben LOK-stöd (apoyo a actividades locales) del Riksidrottsförbundet (RF). Para reportar asistencia, se requiere el personnummer de los participantes.",
@@ -1201,6 +1207,7 @@
     "personnummerLabel": "Personnummer",
     "personnummerHelper": "Ingresa tu personnummer de 12 dígitos (AAAAMMDDXXXX)",
     "personnummerStored": "Tu personnummer está almacenado de forma segura.",
+    "personnummerStoredDate": "Fecha de nacimiento {{date}} — número registrado ✓",
     "replacePersonnummer": "Actualizar personnummer",
     "replacingInfo": "Ingresa tu nuevo personnummer abajo. Esto reemplazará el existente.",
     "consentText": "Consiento que mi personnummer sea almacenado y utilizado para informes de asistencia LOK-stöd al Riksidrottsförbundet (RF).",

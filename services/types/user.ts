@@ -104,7 +104,7 @@ export interface ProfilePictureUploadResult {
 // Personnummer stored encrypted on user document
 export interface PersonalNumber {
   encrypted: string; // AES-256 encrypted personnummer (YYYYMMDDXXXX)
-  lastFour: string; // Last 4 digits for masked UI display (e.g. "3847")
+  birthDate: string; // First 8 digits for display — less sensitive than last 4 (e.g. "19850112")
   providedAt: Date; // When first provided
   updatedAt?: Date; // When last modified (undefined if never edited)
   consentAt: Date; // When explicit LOK consent was given

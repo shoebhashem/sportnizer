@@ -13,7 +13,7 @@
 import { theme } from "@/constants/theme";
 import {
     formatPersonnummerInput,
-    getMaskedPersonnummer,
+
     validatePersonnummerFormat,
 } from "@/services/lok/personnummerService";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,8 +30,8 @@ interface PersonnummerInputProps {
   consentGiven: boolean;
   /** Called when consent checkbox is toggled */
   onConsentChange: (given: boolean) => void;
-  /** If personnummer is already stored, show masked version */
-  existingLastFour?: string | null;
+  /** If personnummer is already stored, show formatted birth date */
+  existingBirthDate?: string | null;
   /** Whether the input is in "replace" mode (updating existing) */
   isReplacing?: boolean;
   /** Called when user wants to replace existing personnummer */
@@ -49,7 +49,7 @@ export default function PersonnummerInput({
   onChangeText,
   consentGiven,
   onConsentChange,
-  existingLastFour,
+  existingBirthDate,
   isReplacing = false,
   onStartReplace,
   onCancelReplace,
@@ -83,8 +83,11 @@ export default function PersonnummerInput({
     [onChangeText],
   );
 
-  // If personnummer already exists and not replacing, show masked version
-  if (existingLastFour && !isReplacing) {
+  // If personnummer already exists and not replacing, show birth date confirmation
+  if (existingBirthDate && !isReplacing) {
+    const formatted = existingBirthDate.length === 8
+      ? `${existingBirthDate.substring(0, 4)}-${existingBirthDate.substring(4, 6)}-${existingBirthDate.substring(6, 8)}`
+      : existingBirthDate;
     return (
       <View style={styles.container}>
         <Text style={styles.label}>
@@ -99,7 +102,7 @@ export default function PersonnummerInput({
             style={styles.lockIcon}
           />
           <Text style={styles.maskedText}>
-            {getMaskedPersonnummer(existingLastFour)}
+            {t("screens:lokPersonnummer.personnummerStoredDate", { date: formatted })}
           </Text>
         </View>
 

@@ -54,6 +54,8 @@
     "manageFees": "Hantera avgifter",
     "accounting": "Bokföring",
     "accountingSettings": "Kontoinställningar",
-    "chartOfAccounts": "Kontoplan"
+    "chartOfAccounts": "Kontoplan",
+    "childProfile": "Barnprofil",
+    "lokPersonnummer": "LOK-personnummer"
   }
 }

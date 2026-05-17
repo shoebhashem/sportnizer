@@ -54,6 +54,8 @@
     "manageFees": "Gestionar cuotas",
     "accounting": "Contabilidad",
     "accountingSettings": "Configuración contable",
-    "chartOfAccounts": "Plan de cuentas"
+    "chartOfAccounts": "Plan de cuentas",
+    "childProfile": "Perfil del niño",
+    "lokPersonnummer": "Número de identidad LOK"
   }
 }

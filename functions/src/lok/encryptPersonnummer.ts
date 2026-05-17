@@ -239,7 +239,7 @@ export const storePersonnummer = onCall(
     }
 
     const normalized = validation.normalized;
-    const lastFour = normalized.slice(-4);
+    const birthDate = normalized.substring(0, 8);
 
     // Encrypt
     const encrypted = await encrypt(normalized);
@@ -254,7 +254,7 @@ export const storePersonnummer = onCall(
 
     const personalNumberData: Record<string, any> = {
       "personalNumber.encrypted": encrypted,
-      "personalNumber.lastFour": lastFour,
+      "personalNumber.birthDate": birthDate,
       "personalNumber.consentAt": now,
       "personalNumber.consentVersion": consentVersion,
     };
@@ -270,12 +270,17 @@ export const storePersonnummer = onCall(
     await db.collection("users").doc(userId).update(personalNumberData);
 
     console.log(
-      `✅ Personnummer stored for user ${userId} (last4: ${lastFour})`,
+      `✅ Personnummer stored for user ${userId} (birthDate: ${birthDate})`,
+    );
+
+    // Fire-and-forget: mark events that may now become LOK-eligible for recheck
+    markEventsForRecheck(userId, db).catch((err) =>
+      console.error(`Failed to mark events for recheck for user ${userId}:`, err),
     );
 
     return {
       success: true,
-      lastFour,
+      birthDate,
     };
   },
 );
@@ -323,14 +328,14 @@ export const getPersonnummerStatus = onCall(
     if (!personalNumber?.encrypted) {
       return {
         hasPersonnummer: false,
-        lastFour: null,
+        birthDate: null,
         consentVersion: null,
       };
     }
 
     return {
       hasPersonnummer: true,
-      lastFour: personalNumber.lastFour,
+      birthDate: personalNumber.birthDate,
       consentVersion: personalNumber.consentVersion,
       providedAt: personalNumber.providedAt,
       updatedAt: personalNumber.updatedAt || null,
@@ -372,3 +377,246 @@ export const decryptPersonnummerBatch = async (
 
   return result;
 };
+
+/**
+ * Internal helper: Mark recently completed events as needing LOK eligibility
+ * recheck for a given user. Called after personnummer is stored or updated.
+ * Fire-and-forget — errors are logged but do not fail the CF response.
+ */
+const markEventsForRecheck = async (
+  userId: string,
+  db: admin.firestore.Firestore,
+): Promise<void> => {
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+
+  const userDoc = await db.collection("users").doc(userId).get();
+  const clubAccessArr: any[] = userDoc.data()?.clubAccess || [];
+
+  for (const ca of clubAccessArr) {
+    if (!ca.clubId) continue;
+    try {
+      const eventsSnap = await db
+        .collection("clubs")
+        .doc(ca.clubId)
+        .collection("events")
+        .where("status", "==", "completed")
+        .where(
+          "startDate",
+          ">=",
+          admin.firestore.Timestamp.fromDate(twelveMonthsAgo),
+        )
+        .where("lok.eligible", "==", false)
+        .get();
+
+      const batch = db.batch();
+      let batchCount = 0;
+
+      for (const eventDoc of eventsSnap.docs) {
+        const responses: any[] = eventDoc.data().responses || [];
+        const attended = responses.some(
+          (r: any) => r.userId === userId && r.actualAttendance === true,
+        );
+        if (attended) {
+          batch.update(eventDoc.ref, { "lok.needsRecheck": true });
+          batchCount++;
+        }
+      }
+
+      if (batchCount > 0) {
+        await batch.commit();
+        console.log(
+          `🔄 Marked ${batchCount} events for LOK recheck in club ${ca.clubId}`,
+        );
+      }
+    } catch (err) {
+      console.error(
+        `Failed to mark events for recheck in club ${ca.clubId}:`,
+        err,
+      );
+    }
+  }
+};
+
+/**
+ * Store personnummer for a dependent (child) — for use by legal guardians.
+ * Validates that the caller is a registered guardian for the target user.
+ */
+export const storePersonnummerForDependent = onCall(
+  { region: "europe-north1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be authenticated.");
+    }
+
+    const { targetUserId, personnummer, consentVersion } = request.data;
+
+    if (!targetUserId || typeof targetUserId !== "string") {
+      throw new HttpsError("invalid-argument", "targetUserId is required.");
+    }
+    if (!personnummer || typeof personnummer !== "string") {
+      throw new HttpsError("invalid-argument", "Personnummer is required.");
+    }
+    if (!consentVersion || typeof consentVersion !== "string") {
+      throw new HttpsError("invalid-argument", "Consent version is required.");
+    }
+
+    const db = admin.firestore();
+    const guardianUserId = request.auth.uid;
+
+    // Verify guardian relationship
+    const targetDoc = await db.collection("users").doc(targetUserId).get();
+    if (!targetDoc.exists) {
+      throw new HttpsError("not-found", "Target user not found.");
+    }
+    const guardians: any[] = targetDoc.data()?.guardians || [];
+    const isGuardian = guardians.some((g: any) => g.guardianUid === guardianUserId);
+    if (!isGuardian) {
+      throw new HttpsError(
+        "permission-denied",
+        "You are not a registered guardian for this user.",
+      );
+    }
+
+    // Validate and normalize
+    const validation = validateAndNormalizePersonnummer(personnummer);
+    if (!validation.valid || !validation.normalized) {
+      throw new HttpsError(
+        "invalid-argument",
+        validation.error || "Invalid personnummer.",
+      );
+    }
+
+    const normalized = validation.normalized;
+    const birthDate = normalized.substring(0, 8);
+    const encrypted = await encrypt(normalized);
+    const now = FieldValue.serverTimestamp();
+
+    const existingPersonalNumber = targetDoc.data()?.personalNumber;
+    const personalNumberData: Record<string, any> = {
+      "personalNumber.encrypted": encrypted,
+      "personalNumber.birthDate": birthDate,
+      "personalNumber.consentAt": now,
+      "personalNumber.consentVersion": consentVersion,
+    };
+
+    if (existingPersonalNumber?.encrypted) {
+      personalNumberData["personalNumber.updatedAt"] = now;
+    } else {
+      personalNumberData["personalNumber.providedAt"] = now;
+    }
+
+    await db.collection("users").doc(targetUserId).update(personalNumberData);
+
+    console.log(
+      `✅ Personnummer stored for dependent ${targetUserId} by guardian ${guardianUserId} (birthDate: ${birthDate})`,
+    );
+
+    markEventsForRecheck(targetUserId, db).catch((err) =>
+      console.error(
+        `Failed to mark events for recheck for dependent ${targetUserId}:`,
+        err,
+      ),
+    );
+
+    return { success: true, birthDate };
+  },
+);
+
+/**
+ * Remove personnummer for a dependent (child) — GDPR erasure by legal guardian.
+ */
+export const removePersonnummerForDependent = onCall(
+  { region: "europe-north1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be authenticated.");
+    }
+
+    const { targetUserId } = request.data;
+
+    if (!targetUserId || typeof targetUserId !== "string") {
+      throw new HttpsError("invalid-argument", "targetUserId is required.");
+    }
+
+    const db = admin.firestore();
+    const guardianUserId = request.auth.uid;
+
+    // Verify guardian relationship
+    const targetDoc = await db.collection("users").doc(targetUserId).get();
+    if (!targetDoc.exists) {
+      throw new HttpsError("not-found", "Target user not found.");
+    }
+    const guardians: any[] = targetDoc.data()?.guardians || [];
+    const isGuardian = guardians.some((g: any) => g.guardianUid === guardianUserId);
+    if (!isGuardian) {
+      throw new HttpsError(
+        "permission-denied",
+        "You are not a registered guardian for this user.",
+      );
+    }
+
+    await db.collection("users").doc(targetUserId).update({
+      personalNumber: FieldValue.delete(),
+    });
+
+    console.log(
+      `🗑️ Personnummer removed for dependent ${targetUserId} by guardian ${guardianUserId}`,
+    );
+
+    return { success: true };
+  },
+);
+
+/**
+ * Get personnummer status for a dependent (child) — for guardian view.
+ * Returns birthDate instead of full personnummer to minimize data exposure.
+ */
+export const getPersonnummerStatusForDependent = onCall(
+  { region: "europe-north1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be authenticated.");
+    }
+
+    const { targetUserId } = request.data;
+
+    if (!targetUserId || typeof targetUserId !== "string") {
+      throw new HttpsError("invalid-argument", "targetUserId is required.");
+    }
+
+    const db = admin.firestore();
+    const guardianUserId = request.auth.uid;
+
+    // Verify guardian relationship
+    const targetDoc = await db.collection("users").doc(targetUserId).get();
+    if (!targetDoc.exists) {
+      throw new HttpsError("not-found", "Target user not found.");
+    }
+    const guardians: any[] = targetDoc.data()?.guardians || [];
+    const isGuardian = guardians.some((g: any) => g.guardianUid === guardianUserId);
+    if (!isGuardian) {
+      throw new HttpsError(
+        "permission-denied",
+        "You are not a registered guardian for this user.",
+      );
+    }
+
+    const personalNumber = targetDoc.data()?.personalNumber;
+    if (!personalNumber?.encrypted) {
+      return {
+        hasPersonnummer: false,
+        birthDate: null,
+        consentVersion: null,
+      };
+    }
+
+    return {
+      hasPersonnummer: true,
+      birthDate: personalNumber.birthDate,
+      consentVersion: personalNumber.consentVersion,
+      providedAt: personalNumber.providedAt,
+      updatedAt: personalNumber.updatedAt || null,
+    };
+  },
+);

@@ -205,6 +205,9 @@
     "deleteAccountHasDependents": "Du er foresatt for aktive ungdomsspillere. Kontakt en klubbadministrator for å bli fjernet som foresatt før du kan slette kontoen din.",
     "deleteAccountFailed": "Kunne ikke slette konto. Vennligst prøv igjen.",
     "createClub": "Opprett en klubb",
+    "personnummer": "Fødselsnummer (LOK-stöd)",
+    "personnummerMissing": "Fødselsnummer mangler – påkrevd for LOK-stöd",
+    "myChildren": "Mine barn",
     "createClubDesc": "Start din egen sportsorganisasjon"
   },
   "createClubForm": {
@@ -1172,6 +1175,9 @@
   },
   "lokPersonnummer": {
     "title": "Personnummer for LOK-stöd",
+    "titleChild": "Personnummer for {{name}}",
+    "subtitleSelf": "Legg til ditt personnummer for å bli inkludert i LOK-stöd rapporter.",
+    "subtitleChild": "Legg til personnummer for {{name}} for å inkludere dem i LOK-stöd rapporter.",
     "subtitle": "Klubben din {{clubName}} bruker LOK-stöd for oppmøterapportering til Riksidrottsförbundet (RF).",
     "whyNeededTitle": "Hvorfor er dette nødvendig?",
     "whyNeededText": "Svenske idrettsklubber mottar LOK-stöd (støtte til lokale aktiviteter) fra Riksidrottsförbundet (RF). For å rapportere oppmøte kreves deltakernes personnummer.",
@@ -1183,6 +1189,7 @@
     "personnummerLabel": "Personnummer",
     "personnummerHelper": "Skriv inn ditt 12-sifrede personnummer (AAAAÅMMDDXXXX)",
     "personnummerStored": "Personnummeret ditt er lagret sikkert.",
+    "personnummerStoredDate": "Fødselsdato {{date}} — personnummer levert ✓",
     "replacePersonnummer": "Oppdater personnummer",
     "replacingInfo": "Skriv inn ditt nye personnummer nedenfor. Dette vil erstatte det eksisterende.",
     "consentText": "Jeg samtykker til at personnummeret mitt lagres og brukes til LOK-stöd oppmøterapportering til Riksidrottsförbundet (RF).",

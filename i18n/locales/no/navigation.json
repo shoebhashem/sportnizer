@@ -54,6 +54,8 @@
     "manageFees": "Administrer avgifter",
     "accountingSettings": "Kontoinnstillinger",
     "accounting": "Regnskap",
-    "chartOfAccounts": "Kontoplan"
+    "chartOfAccounts": "Kontoplan",
+    "childProfile": "Barnprofil",
+    "lokPersonnummer": "LOK-personnummer"
   }
 }

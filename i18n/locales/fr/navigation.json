@@ -54,6 +54,8 @@
     "manageFees": "Gérer les cotisations",
     "accounting": "Comptabilité",
     "accountingSettings": "Paramètres comptables",
-    "chartOfAccounts": "Plan comptable"
+    "chartOfAccounts": "Plan comptable",
+    "childProfile": "Profil enfant",
+    "lokPersonnummer": "LOK Personnummer"
   }
 }

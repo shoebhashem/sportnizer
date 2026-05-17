@@ -16,13 +16,15 @@ import { functions } from "../core/firebase";
 export interface LokReportSummary {
   id: string;
   period: string;
-  status: "draft" | "submitted" | "accepted" | "rejected";
+  status: "draft" | "stale" | "submitted" | "accepted" | "rejected";
   totalActivities: number;
   totalParticipants: number;
   totalLeaders: number;
   submittedAt?: any;
   rfReceiptId?: string;
   createdAt: any;
+  staledAt?: any;
+  staledByEvent?: string;
 }
 
 export interface GenerateReportResult {
@@ -86,10 +88,11 @@ export interface KommunExportResult {
 export const generateLokReport = async (
   clubId: string,
   period: string,
+  force?: boolean,
 ): Promise<GenerateReportResult> => {
   try {
     const fn = httpsCallable(functions, "generateLokReport");
-    const result = await fn({ clubId, period });
+    const result = await fn({ clubId, period, ...(force ? { force: true } : {}) });
     return result.data as GenerateReportResult;
   } catch (error: any) {
     console.error("Error generating LOK report:", error);
@@ -290,6 +293,85 @@ export const downloadKommunExport = (
   URL.revokeObjectURL(url);
 };
 
+// ─── LOK Eligible Events ───────────────────────────────────────
+
+/** Attendance record for an eligible event (no personnummer). */
+export interface LokEventAttendee {
+  userId: string;
+  userName: string;
+  photoUrl: string | null;
+  actualAttendance: boolean;
+  lokRole: "participant" | "leader";
+}
+
+/** Eligible event as returned by listEligibleEvents. */
+export interface LokEligibleEvent {
+  id: string;
+  title: string;
+  startDate: string | null;
+  endDate: string | null;
+  groupId: string | null;
+  groupName: string | null;
+  eventType: string;
+  completedAt: string | null;
+  lok: {
+    eligible: boolean;
+    countedParticipants: number | null;
+    durationMinutes: number | null;
+    reportId: string | null;
+    reportingPeriod: string | null;
+    conflictStatus: "clean" | "conflict" | null;
+    confirmedForPeriod: string | null;
+  };
+  responses: LokEventAttendee[];
+  attendedCount: number;
+}
+
+/**
+ * List LOK-eligible completed events for a period/group.
+ */
+export const listEligibleEvents = async (
+  clubId: string,
+  period?: string,
+  groupId?: string,
+): Promise<{ success: boolean; events: LokEligibleEvent[]; error?: string }> => {
+  try {
+    const fn = httpsCallable(functions, "listEligibleEvents");
+    const result = await fn({ clubId, period, groupId });
+    return result.data as any;
+  } catch (error: any) {
+    console.error("Error listing eligible events:", error);
+    return {
+      success: false,
+      events: [],
+      error: error.message || "Failed to list eligible events.",
+    };
+  }
+};
+
+/**
+ * Re-edit attendance on a completed event (club admin only).
+ * Marks any linked LOK report as stale.
+ */
+export const reEditAttendance = async (
+  eventId: string,
+  clubId: string,
+  attendanceRecords: { userId: string; attended: boolean }[],
+  recordedBy: string,
+): Promise<{ success: boolean; attendedCount?: number; error?: string }> => {
+  try {
+    const fn = httpsCallable(functions, "reEditAttendance");
+    const result = await fn({ eventId, clubId, attendanceRecords, recordedBy });
+    return result.data as any;
+  } catch (error: any) {
+    console.error("Error re-editing attendance:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to re-edit attendance.",
+    };
+  }
+};
+
 // ─── Service Export ────────────────────────────────────────────
 
 export const rfService = {
@@ -303,6 +385,8 @@ export const rfService = {
   updateClubRfSettings,
   generateKommunExport,
   downloadKommunExport,
+  listEligibleEvents,
+  reEditAttendance,
 };
 
 export default rfService;

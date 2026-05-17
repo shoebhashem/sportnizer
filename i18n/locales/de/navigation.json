@@ -54,6 +54,8 @@
     "manageFees": "Beiträge verwalten",
     "accounting": "Buchhaltung",
     "accountingSettings": "Konteneinstellungen",
-    "chartOfAccounts": "Kontenrahmen"
+    "chartOfAccounts": "Kontenrahmen",
+    "childProfile": "Kinderprofil",
+    "lokPersonnummer": "LOK-Personnummer"
   }
 }

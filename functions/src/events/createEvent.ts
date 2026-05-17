@@ -65,11 +65,13 @@ export const createEvent = onCall(
         createdBy: request.auth.uid,
         lastModifiedAt: FieldValue.serverTimestamp(),
         version: 1,
-        // Mark all events as LOK-eligible by default.
-        // Eligibility is verified against RF rules at report generation time.
-        lok: {
-          eligible: true,
-        },
+        // LOK-stöd eligibility — only relevant for Swedish clubs.
+        // Eligibility is computed at event completion; set as pending until then.
+        // For non-SE clubs (explicit country set to something else), omit lok field.
+        ...(clubDoc.data()?.country !== undefined &&
+        clubDoc.data()?.country !== "SE"
+          ? {}
+          : { lok: { eligible: false, pendingValidation: true } }),
       });
 
       // 4. Return consistent response

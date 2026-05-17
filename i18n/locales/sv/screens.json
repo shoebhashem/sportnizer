@@ -219,6 +219,9 @@
     "deleteAccountHasDependents": "Du är vårdnadshavare för aktiva ungdomsspelare. Kontakta en klubbadministratör för att ta bort dig som vårdnadshavare innan du kan radera ditt konto.",
     "deleteAccountFailed": "Kunde inte radera konto. Försök igen.",
     "createClub": "Skapa en klubb",
+    "personnummer": "Personnummer (LOK-stöd)",
+    "personnummerMissing": "Personnummer saknas – lägg till för LOK-stöd",
+    "myChildren": "Mina barn",
     "createClubDesc": "Starta din egen sportorganisation"
   },
   "createClubForm": {
@@ -1127,7 +1130,10 @@
   },
   "lokPersonnummer": {
     "title": "Personnummer för LOK-stöd",
+    "titleChild": "Personnummer för {{name}}",
     "subtitle": "Din förening {{clubName}} använder LOK-stöd för närvarorapportering till Riksidrottsförbundet (RF).",
+    "subtitleSelf": "Lägg till ditt personnummer för att inkluderas i LOK-stöd rapporter.",
+    "subtitleChild": "Lägg till personnummer för {{name}} för att inkludera hen i LOK-stöd rapporter.",
     "whyNeededTitle": "Varför behövs detta?",
     "whyNeededText": "Svenska idrottsföreningar får LOK-stöd (lokalt aktivitetsstöd) från Riksidrottsförbundet (RF). För att rapportera närvaro krävs deltagarnas personnummer.",
     "bullet1": "Används enbart för LOK-stöd närvarorapportering till RF",
@@ -1138,6 +1144,7 @@
     "personnummerLabel": "Personnummer",
     "personnummerHelper": "Ange ditt 12-siffriga personnummer (ÅÅÅÅMMDDXXXX)",
     "personnummerStored": "Ditt personnummer är säkert lagrat.",
+    "personnummerStoredDate": "Födelsedatum {{date}} — personnummer inlämnat ✓",
     "replacePersonnummer": "Uppdatera personnummer",
     "replacingInfo": "Ange ditt nya personnummer nedan. Det ersätter det befintliga.",
     "consentText": "Jag samtycker till att mitt personnummer lagras och används för LOK-stöd närvarorapportering till Riksidrottsförbundet (RF).",

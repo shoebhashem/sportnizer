@@ -139,7 +139,12 @@ export const generateLokReport = onCall(
       throw new HttpsError("unauthenticated", "Must be authenticated.");
     }
 
-    const { clubId, period } = request.data;
+    const { clubId, period, force } = request.data as {
+      clubId: string;
+      period: string;
+      /** When true: replaces any existing draft/stale report. Used by the confirmation flow. */
+      force?: boolean;
+    };
 
     if (!clubId || !period) {
       throw new HttpsError(
@@ -175,19 +180,50 @@ export const generateLokReport = onCall(
       );
     }
 
-    // Check for existing draft report (prevent duplicates)
+    // Check for existing reports — allow force-replace of draft/stale; block submitted/accepted
     const existingReports = await db
       .collection("lokReports")
       .where("clubId", "==", clubId)
       .where("period", "==", period)
-      .where("status", "in", ["draft", "submitted"])
+      .where("status", "in", ["draft", "stale", "submitted", "accepted"])
       .get();
 
     if (!existingReports.empty) {
-      throw new HttpsError(
-        "already-exists",
-        `A ${existingReports.docs[0].data().status} report already exists for period ${period}.`,
-      );
+      for (const existingDoc of existingReports.docs) {
+        const existingStatus = existingDoc.data().status;
+        if (["submitted", "accepted"].includes(existingStatus)) {
+          throw new HttpsError(
+            "already-exists",
+            `A ${existingStatus} report exists for period ${period} and cannot be overwritten.`,
+          );
+        }
+        // Draft or stale: delete if force=true, otherwise block
+        if (force && ["draft", "stale"].includes(existingStatus)) {
+          const oldActivities = existingDoc.data().activities || [];
+          const delBatch = db.batch();
+          for (const act of oldActivities) {
+            const eRef = db
+              .collection("clubs")
+              .doc(clubId)
+              .collection("events")
+              .doc(act.eventId);
+            delBatch.update(eRef, {
+              "lok.reportId": FieldValue.delete(),
+              "lok.reportingPeriod": FieldValue.delete(),
+              "lok.conflictStatus": FieldValue.delete(),
+              "lok.confirmedForPeriod": FieldValue.delete(),
+            });
+          }
+          delBatch.delete(existingDoc.ref);
+          await delBatch.commit();
+          console.log(`🗑️ Deleted ${existingStatus} report ${existingDoc.id} before confirmation`);
+        } else if (!force) {
+          throw new HttpsError(
+            "already-exists",
+            `A ${existingStatus} report already exists for period ${period}.`,
+          );
+        }
+      }
     }
 
     // Fetch completed events in the period with LOK eligibility
@@ -361,7 +397,7 @@ export const generateLokReport = onCall(
 
     const reportRef = await db.collection("lokReports").add(reportData);
 
-    // Update events with report reference
+    // Update events with report reference + conflict status + confirmation if force
     const batch = db.batch();
     for (const act of eligibleActivities) {
       const eventRef = db
@@ -369,12 +405,38 @@ export const generateLokReport = onCall(
         .doc(clubId)
         .collection("events")
         .doc(act.eventId);
-      batch.update(eventRef, {
+      const hasConflict = allConflicts.some(
+        (c) => !c.resolved && c.activityIds.includes(act.eventId),
+      );
+      const eventUpdate: Record<string, any> = {
         "lok.reportId": reportRef.id,
         "lok.reportingPeriod": period,
-      });
+        "lok.conflictStatus": hasConflict ? "conflict" : "clean",
+      };
+      if (force) {
+        eventUpdate["lok.confirmedForPeriod"] = period;
+      }
+      batch.update(eventRef, eventUpdate);
     }
     await batch.commit();
+
+    // If this was a period confirmation (force=true), record it on the club document
+    if (force) {
+      const periodKey = period.replace("-", "_"); // "2026-H1" → "2026_H1" (valid map key)
+      await db
+        .collection("clubs")
+        .doc(clubId)
+        .update({
+          [`rf.periodConfirmations.${periodKey}`]: {
+            confirmedAt: FieldValue.serverTimestamp(),
+            confirmedBy: userId,
+            reportId: reportRef.id,
+            totalActivities: reportActivities.length,
+            hasConflicts: allConflicts.length > 0,
+          },
+        });
+      console.log(`✅ Confirmed LOK period ${period} for club ${clubId}`);
+    }
 
     console.log(
       `📊 Generated LOK report ${reportRef.id} for club ${clubId}, period ${period}: ${reportActivities.length} activities, ${uniqueParticipants.size} participants`,
@@ -487,10 +549,15 @@ export const listLokReports = onCall(
       .collection("lokReports")
       .where("clubId", "==", clubId)
       .orderBy("createdAt", "desc")
-      .limit(20);
+      .limit(50);
 
     if (status) {
-      query = query.where("status", "==", status);
+      query = db
+        .collection("lokReports")
+        .where("clubId", "==", clubId)
+        .where("status", "==", status)
+        .orderBy("createdAt", "desc")
+        .limit(50);
     }
 
     const snapshot = await query.get();
@@ -507,6 +574,8 @@ export const listLokReports = onCall(
         submittedAt: data.submittedAt,
         rfReceiptId: data.rfReceiptId,
         createdAt: data.createdAt,
+        staledAt: data.staledAt,
+        staledByEvent: data.staledByEvent,
       };
     });
 
@@ -538,10 +607,10 @@ export const deleteLokReport = onCall(
 
     const reportData = reportDoc.data()!;
 
-    if (reportData.status !== "draft") {
+    if (!["draft", "stale"].includes(reportData.status)) {
       throw new HttpsError(
         "failed-precondition",
-        "Only draft reports can be deleted.",
+        "Only draft or stale reports can be deleted.",
       );
     }
 
@@ -626,10 +695,10 @@ export const resolveReportConflict = onCall(
 
     const reportData = reportDoc.data()!;
 
-    if (reportData.status !== "draft") {
+    if (!["draft", "stale"].includes(reportData.status)) {
       throw new HttpsError(
         "failed-precondition",
-        "Conflicts can only be resolved on draft reports.",
+        "Conflicts can only be resolved on draft or stale reports.",
       );
     }
 

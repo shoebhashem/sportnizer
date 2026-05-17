@@ -12214,7 +12214,7 @@ User enters YYYYMMDDXXXX
 │  1. Format validation (12 digits, valid date)         │
 │  2. Luhn checksum verification                        │
 │  3. Sends full number to Cloud Function via HTTPS     │
-│  4. Receives only { lastFour: "1234" } back           │
+│  4. Receives only { birthDate: "YYYYMMDD" } back      │
 │  5. NEVER stores full number locally                  │
 └───────────────────────────────────────────────────────┘
         │
@@ -12228,12 +12228,14 @@ User enters YYYYMMDDXXXX
 │  3. Stores in Firestore:                              │
 │     users/{uid}/personalNumber: {                     │
 │       encrypted: "iv:authTag:ciphertext" (hex)        │
-│       lastFour: "1234"                                │
+│       birthDate: "YYYYMMDD"   ← first 8 digits only   │
 │       consentAt: Timestamp                            │
 │       consentVersion: "LOK_CONSENT_2026.1"            │
 │       providedAt: Timestamp                           │
 │     }                                                 │
-│  4. Returns { success: true, lastFour: "1234" }       │
+│  4. Returns { success: true, birthDate: "YYYYMMDD" }  │
+│  5. Fire-and-forget: marks past eligible events       │
+│     lok.needsRecheck: true (see Eligibility Lifecycle)│
 └───────────────────────────────────────────────────────┘
         │
         ▼ (only during report generation)
@@ -12245,14 +12247,19 @@ User enters YYYYMMDDXXXX
 └───────────────────────────────────────────────────────┘
 ```
 
+**Why `birthDate` (not `lastFour`):**
+
+The first 8 digits (`YYYYMMDD`) are actually *less* sensitive than the last 4 digits. The trailing digits encode birth order, gender, and a Luhn checksum — together they can narrow a person to one or very few individuals. The birth date is comparably identifiable with a person's ordinary date of birth, which is already collected by the app. Exposing the birth date for display instead of the last 4 characters therefore minimises privacy risk while still allowing users to verify they entered the correct personnummer.
+
 **Key security properties:**
 
 - **Encryption at rest**: AES-256-GCM with unique IV per personnummer (no two encrypted values are identical even for the same input)
 - **Authentication tag**: GCM mode detects any tampering with the ciphertext
 - **Key management**: Encryption key stored in Google Cloud Secret Manager (`PERSONNUMMER_ENCRYPTION_KEY`), never in code
-- **Minimal exposure**: Client only ever sees the last 4 digits
+- **Minimal exposure**: Client only ever sees the birth date (`YYYYMMDD`) — not the sensitive trailing digits
 - **Purpose limitation**: Decryption only occurs in `lokReportService.ts` for RF submission — nowhere else
 - **No bulk export**: There is no function that returns decrypted personnummer to any client
+- **Guardian-only access**: Club admins **cannot** enter or view personnummer. Only the member themselves (adults) or their registered legal guardian (for children) may manage it.
 
 #### Personnummer Lifecycle
 
@@ -12271,10 +12278,26 @@ States:
                               └──────────┘
 ```
 
-- **Store** (first time): Requires personnummer + consent checkbox + consent version. Writes encrypted value, lastFour, consentAt, providedAt.
-- **Replace** (update): User enters new personnummer. Old encrypted value is overwritten (not versioned). Sets `updatedAt`. Same consent required.
+- **Store** (first time): Requires personnummer + consent checkbox + consent version. Writes encrypted value, `birthDate`, consentAt, providedAt. Fire-and-forget: `markEventsForRecheck` marks past completed events with `lok.needsRecheck: true`.
+- **Replace** (update): User enters new personnummer. Old encrypted value is overwritten (not versioned). Sets `updatedAt`. Same consent required. Re-triggers `markEventsForRecheck`.
 - **Remove** (GDPR right to erasure): Deletes the entire `personalNumber` field from the user document permanently. The user is no longer included in LOK reporting until they provide it again.
-- **Status check**: Returns `{ hasPersonnummer, lastFour, consentVersion }` — never the full number.
+- **Status check**: Returns `{ hasPersonnummer, birthDate, consentVersion }` — never the full number.
+
+#### Guardian Personnummer Management
+
+Legal guardians may manage personnummer for their dependents (children) via dedicated Cloud Functions. A guardian is identified by the `guardians: [{ uid, name }]` array on the child's `users/{uid}` document.
+
+| Cloud Function | Description |
+|---|---|
+| `storePersonnummerForDependent` | Guardian stores/replaces personnummer for a dependent |
+| `removePersonnummerForDependent` | Guardian removes personnummer for a dependent |
+| `getPersonnummerStatusForDependent` | Guardian checks if a dependent has a personnummer stored |
+
+**Access control**: All three functions verify that `auth.uid` appears in the target document's `guardians[]` array before proceeding. Any non-guardian caller receives `permission-denied`.
+
+**UI entry points**:
+- Parent profile → "Mina barn" section → tap child → `app/child-profile.tsx`
+- Child profile screen shows personnummer status and opens `PersonnummerModal` with `mode="child"`
 
 #### GDPR Compliance
 
@@ -12282,8 +12305,8 @@ States:
 | -------------------------- | ------------------------------------------------------------------ |
 | **Lawful basis**           | Explicit opt-in consent (checkbox on collection screen)            |
 | **Purpose limitation**     | Personnummer used exclusively for LOK-stöd RF reporting            |
-| **Data minimization**      | Only personnummer stored; last4 for display; full number encrypted |
-| **Right to access**        | User sees last4 + consent date in the UI                           |
+| **Data minimization**      | Only personnummer stored; `birthDate` for display; full number encrypted |
+| **Right to access**        | User sees birth date (`YYYY-MM-DD`) + consent date in the UI       |
 | **Right to erasure**       | "Remove my personnummer" button → permanent deletion               |
 | **Right to rectification** | "Update personnummer" → replace with new value                     |
 | **Consent withdrawal**     | Removing personnummer implicitly withdraws consent                 |
@@ -12357,17 +12380,93 @@ The LOK validation engine (`lokValidation.ts`) enforces RF's rules for qualifyin
 
 **Report statuses**: `draft` → `submitted` → `accepted` | `rejected` | `pending_review`
 
+A report can also have status `stale` — this happens when a club admin re-edits attendance on an event that is already part of a `draft` report. The report must be re-generated (with `force: true`) to reflect the change.
+
 **What happens during generation** (`generateLokReport`):
 
-1. Fetches all completed events (`lok.eligible: true`) in the period for the club
-2. Filters LOK-eligible events (correct type, duration, participant count)
-3. Decrypts personnummer for all participants server-side
-4. Calculates age at activity date for each participant
-5. Validates each activity against LOK rules (including leader deltagarstöd)
-6. **Runs conflict detection** — detects TYPE A (time overlap) and TYPE B (same-day/same-sport)
-7. Creates `lokReports/{reportId}` document with full activity+participant data
-8. Stores `conflicts[]` and `hasUnresolvedConflicts` in the report
-9. Updates each event's `lok.reportingPeriod` and `lok.reportId`
+1. If `force: true`: deletes any existing `draft` or `stale` report for the period; clears `lok.reportId`, `lok.reportingPeriod`, `lok.conflictStatus`, `lok.confirmedForPeriod` from all associated events via batch. Blocks if an existing `submitted` or `accepted` report exists.
+2. Fetches all completed events (`lok.eligible: true`) in the period for the club
+3. Filters LOK-eligible events (correct type, duration, participant count)
+4. Decrypts personnummer for all participants server-side
+5. Calculates age at activity date for each participant
+6. Validates each activity against LOK rules (including leader deltagarstöd)
+7. **Runs conflict detection** — detects TYPE A (time overlap) and TYPE B (same-day/same-sport)
+8. Creates `lokReports/{reportId}` document with full activity+participant data
+9. Stores `conflicts[]` and `hasUnresolvedConflicts` in the report
+10. Writes `lok.conflictStatus: "clean" | "conflict"` back to each event doc
+11. If `force: true`: writes `lok.confirmedForPeriod: period` to each event; writes `rf.periodConfirmations[periodKey]` to the club doc
+12. Updates each event's `lok.reportingPeriod` and `lok.reportId`
+
+#### Re-editing Attendance on Completed Events (`reEditAttendance`)
+
+Club admins can correct attendee data after an event is marked completed — for example, to fix an incorrectly recorded absence before LOK submission.
+
+**Callable function**: `reEditAttendance`
+
+**Parameters**: `eventId`, `clubId`, `attendanceRecords[]` (`{ userId, attended }`), `recordedBy`
+
+**Behaviour**:
+- Club admin only (permission-denied otherwise)
+- Event must have `status === "completed"` (failed-precondition otherwise)
+- Transaction: updates `responses[].actualAttendance` for each record, recalculates `responseSummary.attended`
+- Clears `lok.conflictStatus` and `lok.confirmedForPeriod` from the event (the event must be re-assessed)
+- If the event's `lok.reportId` references a `draft` LOK report, that report is marked `status: "stale"` with `staledAt` and `staledByEvent` fields — the club admin must re-confirm the period to generate a fresh report
+
+#### Listing Eligible Events (`listEligibleEvents`)
+
+Returns all LOK-eligible completed events for a club, scoped to a reporting period and optionally filtered by group. Used by the Aktiviteter tab in `lok-reports.tsx` to show the full list before/after confirmation.
+
+**Callable function**: `listEligibleEvents`
+
+**Parameters**: `clubId`, `period?` (`"YYYY-H1" | "YYYY-H2"`), `groupId?`
+
+**Returns**: `events[]` with `id, title, startDate, endDate, groupId, groupName, eventType, completedAt, lok{...}, responses[{userId, userName, photoUrl, actualAttendance, lokRole}], attendedCount`. Personnummer is never included in responses.
+
+#### Event LOK Fields
+
+Each event document in `clubs/{clubId}/events` carries a `lok` sub-object:
+
+| Field | Type | Description |
+|---|---|---|
+| `lok.eligible` | `boolean` | Whether the event qualifies for LOK-stöd (computed at completion for SE clubs) |
+| `lok.pendingValidation` | `boolean` | `true` at event creation; `false` once attendance is recorded and eligibility is computed |
+| `lok.eligibilityCheckedAt` | `Timestamp` | When LOK eligibility was last computed |
+| `lok.durationMinutes` | `number` | Activity duration used for eligibility check |
+| `lok.eligibleParticipantCount` | `number` | Count of participants who passed age/role rules |
+| `lok.participantsMissingPersonnummerCount` | `number` | Attendees who could not be validated (no personnummer) |
+| `lok.warnings` | `string[]` | Non-blocking warning codes (e.g. `"MISSING_PERSONNUMMER"`) |
+| `lok.errors` | `string[]` | Blocking error codes (e.g. `"DURATION_TOO_SHORT"`) |
+| `lok.needsRecheck` | `boolean` | Set to `true` when a participant adds/updates their personnummer after event completion; cleared at next eligibility evaluation |
+| `lok.conflictStatus` | `"clean" \| "conflict" \| null` | Written back by `generateLokReport`; cleared by `reEditAttendance` |
+| `lok.confirmedForPeriod` | `string \| null` | Period key (`"YYYY-H1"`) written when `force: true`; cleared by `reEditAttendance` |
+| `lok.reportId` | `string \| null` | ID of the `lokReports` document that includes this event |
+| `lok.reportingPeriod` | `string \| null` | Period of the linked report |
+| `lok.countedParticipants` | `number` | Participant count used in the report |
+
+#### LOK Eligibility Lifecycle
+
+Events go through a two-phase eligibility process:
+
+**Phase 1 — At event creation** (`createEvent`):
+- SE clubs (or clubs with no `country` set): event gets `lok: { eligible: false, pendingValidation: true }`
+- Non-SE clubs: no `lok` field at all
+
+**Phase 2 — At attendance recording** (`recordAttendance`):
+1. For SE clubs only: decrypts personnummer for all attendees
+2. Builds `LokActivityInput` and runs `validateLokActivity()`
+3. Writes back:
+   - `lok.eligible` (boolean result)
+   - `lok.pendingValidation: false`
+   - `lok.eligibilityCheckedAt` (timestamp)
+   - `lok.durationMinutes`, `lok.eligibleParticipantCount`, `lok.participantsMissingPersonnummerCount`
+   - `lok.warnings` and `lok.errors` (code arrays)
+   - `lok.needsRecheck: false`
+
+**Lazy recheck** (when personnummer is added/updated):
+- `markEventsForRecheck(userId, db)` runs fire-and-forget after `storePersonnummer` / `storePersonnummerForDependent`
+- Finds the user's clubs → queries completed events in the last 12 months where `lok.eligible === false`
+- Sets `lok.needsRecheck: true` on events where the user attended
+- Full re-validation happens lazily at the next `generateLokReport` call (not immediately)
 
 #### SE Auto-Enablement on Club Creation
 
@@ -12482,8 +12581,10 @@ The data collection logic is shared — only the rendering layer changes.
 | `generateLokReport`     | Club admins only                   | `clubData.admins?.includes(userId)`            |
 | `getLokReport`          | Club admins only                   | Same check                                     |
 | `listLokReports`        | Club admins only                   | Same check                                     |
-| `deleteLokReport`       | Club admins only (draft only)      | Same check + `report.status === "draft"`       |
-| `resolveReportConflict` | Club admins only (draft only)      | Same check + `report.status === "draft"`       |
+| `reEditAttendance`      | Club admins only                   | `isClubAdmin()` helper                         |
+| `listEligibleEvents`    | Club admins only                   | `isClubAdmin()` helper                         |
+| `deleteLokReport`       | Club admins only (draft/stale)     | Same check + `status === "draft" \| "stale"`   |
+| `resolveReportConflict` | Club admins only (draft/stale)     | Same check + `status === "draft" \| "stale"`   |
 | `submitLokReportToRf`   | Club admins only (draft only)      | Same check + `report.status === "draft"`       |
 | `checkRfApiStatus`      | Any authenticated user             | Credentials test only                          |
 | `updateClubRfSettings`  | Club admins only                   | Same admin check                               |
@@ -12510,7 +12611,9 @@ The 7-year retention for LOK reports aligns with Swedish bookkeeping requirement
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
 | `functions/src/lok/encryptPersonnummer.ts` | `storePersonnummer`, `removePersonnummer`, `getPersonnummerStatus`                                | Personnummer CRUD + AES-256-GCM encryption |
 | `functions/src/lok/lokValidation.ts`       | _(internal only)_                                                                                 | LOK eligibility rules engine               |
-| `functions/src/lok/lokReportService.ts`    | `generateLokReport`, `getLokReport`, `listLokReports`, `deleteLokReport`, `resolveReportConflict` | Report lifecycle + conflict resolution     |
+| `functions/src/lok/lokReportService.ts`    | `generateLokReport`, `getLokReport`, `listLokReports`, `deleteLokReport`, `resolveReportConflict` | Report lifecycle + conflict resolution; `generateLokReport` accepts `force?: boolean` to replace draft/stale reports and confirm the period |
+| `functions/src/lok/listEligibleEvents.ts`  | `listEligibleEvents`                                                                              | Returns LOK-eligible completed events for a period; optional group filter; no personnummer |
+| `functions/src/events/reEditAttendance.ts` | `reEditAttendance`                                                                                | Allows club admins to correct attendance on completed events; marks linked draft reports stale |
 | `functions/src/lok/rfApiService.ts`        | `submitLokReportToRf`, `checkRfApiStatus`, `updateClubRfSettings`                                 | RF API 2.0 communication                   |
 | `functions/src/lok/kommunExport.ts`        | `generateKommunExport`                                                                            | Municipality attendance export             |
 
@@ -12520,7 +12623,7 @@ The 7-year retention for LOK reports aligns with Swedish bookkeeping requirement
 | -------------------------------------- | ------------------------------------------------------------------------ |
 | `services/lok/personnummerService.ts`  | Client-side validation, formatting, masked display, Cloud Function calls |
 | `services/lok/lokValidationService.ts` | Client-side LOK rule constants, eligibility pre-checks, period helpers   |
-| `services/lok/rfService.ts`            | Report generation/submission, RF status, kommun export + download        |
+| `services/lok/rfService.ts`            | Report generation/submission, RF status, kommun export + download; `listEligibleEvents` and `reEditAttendance` wrappers; `LokEligibleEvent` and `LokEventAttendee` interfaces; `LokReportSummary.status` includes `"stale"` |
 | `services/lok/index.ts`                | Barrel export for all LOK services                                       |
 
 ### Frontend Components & Screens
@@ -12530,7 +12633,7 @@ The 7-year retention for LOK reports aligns with Swedish bookkeeping requirement
 | `components/LinkedText.tsx`        | Reusable text component that auto-detects URLs and renders them as clickable links via `expo-linking`. Scheme-validated (http/https/mailto only). Drop-in replacement for `<Text>` — used in news descriptions, news comments, event descriptions, and RSVP comments |
 | `components/PersonnummerInput.tsx` | Specialized input: auto-format with hyphen, real-time Luhn validation, masked display for stored values, inline consent checkbox, replace mode                                                                                                                       |
 | `app/lok-personnummer.tsx`         | Collection screen: explanation of purpose, security info, PersonnummerInput, privacy link, submit/update/remove actions                                                                                                                                              |
-| `app/lok-reports.tsx`              | LOK report management: period selector, generate report, review/resolve TYPE A+B conflicts (table on web / accordion on mobile), submit to RF, download kommun export. SE clubs + club admins only.                                                                  |
+| `app/lok-reports.tsx`              | Two-tab LOK management screen (Aktiviteter / Rapporter). **Aktiviteter tab**: period chips + group filter + search; event cards with conflict/clean/unassessed badges; inline "Redigera" button opens `EditAttendanceModal`; "Bekräfta period" calls `generateLokReport` with `force: true` and shows stale warning banner when applicable. **Rapporter tab**: expandable report cards with status badges; conflict resolution (table on web / accordion on mobile); submit/delete for draft+stale; stale hint text. **Header**: download icon (opens `ExportModal`) + settings icon. SE clubs + club admins only. |
 
 ### i18n
 

@@ -249,6 +249,9 @@
     "signOutFailed": "Failed to sign out. Please try again.",
     "signOutError": "An error occurred while signing out.",
     "createClub": "Create a Club",
+    "personnummer": "Personal ID Number (LOK-stöd)",
+    "personnummerMissing": "Personal ID number not added – required for LOK-stöd",
+    "myChildren": "My Children",
     "createClubDesc": "Start your own sports organization"
   },
   "createClubForm": {
@@ -1216,7 +1219,10 @@
   },
   "lokPersonnummer": {
     "title": "Personnummer for LOK-stöd",
+    "titleChild": "Personnummer for {{name}}",
     "subtitle": "Your club {{clubName}} uses LOK-stöd for attendance reporting to the Swedish Sports Confederation (RF).",
+    "subtitleSelf": "Add your personal ID number to be included in LOK-stöd reports.",
+    "subtitleChild": "Add {{name}}'s personal ID number to include them in LOK-stöd reports.",
     "whyNeededTitle": "Why is this needed?",
     "whyNeededText": "Swedish sports clubs receive LOK-stöd (local activity support) from Riksidrottsförbundet (RF). To report attendance, participants' personnummer is required.",
     "bullet1": "Used only for LOK-stöd attendance reporting to RF",
@@ -1227,6 +1233,7 @@
     "personnummerLabel": "Personnummer",
     "personnummerHelper": "Enter your 12-digit personnummer (YYYYMMDDXXXX)",
     "personnummerStored": "Your personnummer is securely stored.",
+    "personnummerStoredDate": "Date of birth {{date}} — ID number on file ✓",
     "replacePersonnummer": "Update personnummer",
     "replacingInfo": "Enter your new personnummer below. This will replace the existing one.",
     "consentText": "I consent to my personnummer being stored and used for LOK-stöd attendance reporting to Riksidrottsförbundet (RF).",

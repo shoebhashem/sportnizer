@@ -5,7 +5,7 @@
  * via Cloud Functions. The actual encryption happens server-side.
  *
  * IMPORTANT: The full personnummer is NEVER stored on the client.
- * Only the last 4 digits are returned for masked display.
+ * Only the birth date portion (YYYYMMDD) is returned for display.
  */
 
 import { httpsCallable } from "firebase/functions";
@@ -15,7 +15,7 @@ import { functions } from "../core/firebase";
 
 export interface PersonnummerStatus {
   hasPersonnummer: boolean;
-  lastFour: string | null;
+  birthDate: string | null; // "YYYYMMDD" — first 8 digits, less sensitive than last 4
   consentVersion: string | null;
   providedAt?: any;
   updatedAt?: any;
@@ -23,7 +23,7 @@ export interface PersonnummerStatus {
 
 export interface StorePersonnummerResult {
   success: boolean;
-  lastFour?: string;
+  birthDate?: string;
   error?: string;
 }
 
@@ -96,11 +96,24 @@ export const formatPersonnummerInput = (input: string): string => {
 };
 
 /**
- * Get masked display string from last4.
- * e.g. "********-3847"
+ * Format a "YYYYMMDD" birthDate string as "YYYY-MM-DD" for display.
  */
-export const getMaskedPersonnummer = (lastFour: string): string => {
-  return `********-${lastFour}`;
+const formatBirthDateForDisplay = (birthDate: string): string => {
+  if (birthDate.length !== 8) return birthDate;
+  return `${birthDate.substring(0, 4)}-${birthDate.substring(4, 6)}-${birthDate.substring(6, 8)}`;
+};
+
+/**
+ * Get a human-readable confirmation string for a stored personnummer.
+ * Includes the member's name and birth date for clarity.
+ * e.g. "Personnummer för Alex Morgan (1985-01-12) är inlämnat ✓"
+ */
+export const getPersonnummerDisplayText = (
+  name: string,
+  birthDate: string,
+): string => {
+  const formatted = formatBirthDateForDisplay(birthDate);
+  return `Personnummer för ${name} (${formatted}) är inlämnat ✓`;
 };
 
 // ─── Cloud Function Calls ──────────────────────────────────────
@@ -151,7 +164,7 @@ export const removePersonnummer =
   };
 
 /**
- * Get current personnummer status (has it? last4? consent version?).
+ * Get current personnummer status (has it? birthDate? consent version?).
  */
 export const getPersonnummerStatus = async (): Promise<PersonnummerStatus> => {
   try {
@@ -162,7 +175,68 @@ export const getPersonnummerStatus = async (): Promise<PersonnummerStatus> => {
     console.error("Error getting personnummer status:", error);
     return {
       hasPersonnummer: false,
-      lastFour: null,
+      birthDate: null,
+      consentVersion: null,
+    };
+  }
+};
+
+/**
+ * Store personnummer for a dependent (child) via Cloud Function.
+ * Caller must be a registered guardian for the target user.
+ */
+export const storePersonnummerForDependent = async (
+  targetUserId: string,
+  personnummer: string,
+  consentVersion: string,
+): Promise<StorePersonnummerResult> => {
+  try {
+    const fn = httpsCallable(functions, "storePersonnummerForDependent");
+    const result = await fn({ targetUserId, personnummer, consentVersion });
+    return result.data as StorePersonnummerResult;
+  } catch (error: any) {
+    console.error("Error storing personnummer for dependent:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to store personnummer.",
+    };
+  }
+};
+
+/**
+ * Remove personnummer for a dependent (child) via Cloud Function.
+ */
+export const removePersonnummerForDependent = async (
+  targetUserId: string,
+): Promise<RemovePersonnummerResult> => {
+  try {
+    const fn = httpsCallable(functions, "removePersonnummerForDependent");
+    const result = await fn({ targetUserId });
+    return result.data as RemovePersonnummerResult;
+  } catch (error: any) {
+    console.error("Error removing personnummer for dependent:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to remove personnummer.",
+    };
+  }
+};
+
+/**
+ * Get personnummer status for a dependent (child) via Cloud Function.
+ */
+export const getPersonnummerStatusForDependent = async (
+  targetUserId: string,
+): Promise<PersonnummerStatus> => {
+  try {
+    const fn = httpsCallable(functions, "getPersonnummerStatusForDependent");
+    const result = await fn({ targetUserId });
+    return result.data as PersonnummerStatus;
+  } catch (error: any) {
+    console.error("Error getting personnummer status for dependent:", error);
+    return {
+      hasPersonnummer: false,
+      birthDate: null,
       consentVersion: null,
     };
   }
@@ -173,10 +247,13 @@ export const getPersonnummerStatus = async (): Promise<PersonnummerStatus> => {
 export const personnummerService = {
   validatePersonnummerFormat,
   formatPersonnummerInput,
-  getMaskedPersonnummer,
+  getPersonnummerDisplayText,
   storePersonnummer,
   removePersonnummer,
   getPersonnummerStatus,
+  storePersonnummerForDependent,
+  removePersonnummerForDependent,
+  getPersonnummerStatusForDependent,
 };
 
 export default personnummerService;

@@ -7,6 +7,12 @@ import {
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
+import { decryptPersonnummerBatch } from "../lok/encryptPersonnummer";
+import {
+  LokActivityInput,
+  LokParticipantInput,
+  validateLokActivity,
+} from "../lok/lokValidation";
 
 /**
  * Records actual attendance for an event (admin/coach only)
@@ -235,7 +241,86 @@ export const recordAttendance = onCall(
       }
 
       // ============================================================================
-      // STEP 5: Return Success Response
+      // STEP 5: LOK Eligibility Check (Swedish clubs only)
+      // ============================================================================
+      try {
+        const clubDocForLok = await db.collection("clubs").doc(data.clubId).get();
+        const clubCountry = clubDocForLok.data()?.country;
+
+        // Only run LOK check for SE clubs (or clubs without explicit country)
+        if (clubCountry === "SE" || clubCountry === undefined) {
+          console.log(`🔍 Running LOK eligibility check for event ${data.eventId}`);
+
+          const responses: any[] = eventDataAfter?.responses || [];
+          const attendees = responses.filter((r) => r.actualAttendance === true);
+          const attendeeIds = attendees.map((r: any) => r.userId);
+
+          const personnummerMap = await decryptPersonnummerBatch(attendeeIds);
+          const participantsMissingPersonnummerCount = attendeeIds.filter(
+            (uid: string) => !personnummerMap.has(uid),
+          ).length;
+
+          const participants: LokParticipantInput[] = [];
+          for (const r of attendees) {
+            if (personnummerMap.has(r.userId)) {
+              participants.push({
+                userId: r.userId,
+                personnummer: personnummerMap.get(r.userId)!,
+                role: r.lokRole || "participant",
+                attended: true,
+              });
+            }
+          }
+
+          const startDate =
+            eventDataAfter?.startDate?.toDate?.() ||
+            eventDataAfter?.startDate ||
+            new Date();
+          const endDate =
+            eventDataAfter?.endDate?.toDate?.() ||
+            eventDataAfter?.endDate ||
+            new Date(startDate.getTime() + 60 * 60000);
+
+          const activityInput: LokActivityInput = {
+            eventId: data.eventId,
+            date: startDate,
+            startTime: startDate,
+            endTime: endDate,
+            activityType: eventDataAfter?.eventType || "training",
+            sport: eventDataAfter?.groupName || "Unknown",
+            groupId: eventDataAfter?.groupId || "",
+            groupName: eventDataAfter?.groupName || "",
+            participants,
+          };
+
+          const validation = validateLokActivity(activityInput);
+
+          await eventRef.update({
+            "lok.eligible": validation.eligible,
+            "lok.pendingValidation": false,
+            "lok.eligibilityCheckedAt": FieldValue.serverTimestamp(),
+            "lok.durationMinutes": validation.summary.durationMinutes,
+            "lok.eligibleParticipantCount": validation.summary.eligibleParticipants,
+            "lok.participantsMissingPersonnummerCount": participantsMissingPersonnummerCount,
+            "lok.warnings": validation.warnings.map((w) => w.code),
+            "lok.errors": validation.errors.map((e) => e.code),
+            "lok.needsRecheck": false,
+          });
+
+          console.log(
+            `✅ LOK eligibility: eligible=${validation.eligible}, missingPersonnummer=${participantsMissingPersonnummerCount}`,
+          );
+        }
+      } catch (lokError: any) {
+        console.error(
+          `⚠️ LOK eligibility check failed, but attendance was recorded:`,
+          lokError,
+        );
+        // Do not fail the whole operation if LOK check fails
+      }
+
+      // ============================================================================
+      // STEP 6: Return Success Response
       // ============================================================================
       return {
         success: true,

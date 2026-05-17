@@ -59,6 +59,7 @@ export { cleanupOldStatistics } from "./events/cleanupOldStatistics";
 export { createEventV2 } from "./events/createEventV2";
 export { getStatistics } from "./events/getStatistics";
 export { recordAttendance } from "./events/recordAttendance";
+export { reEditAttendance } from "./events/reEditAttendance";
 export { syncEventRecipients } from "./events/syncEventRecipients";
 export { updateEventResponse } from "./events/updateEventResponse";
 export { updateStatistics } from "./events/updateStatistics";
@@ -178,10 +179,14 @@ export { getLegalConfig, recordLegalAcceptance } from "./legal/legalFunctions";
 // LOK-stöd / RF Integration Functions
 export {
     getPersonnummerStatus,
+    getPersonnummerStatusForDependent,
     removePersonnummer,
-    storePersonnummer
+    removePersonnummerForDependent,
+    storePersonnummer,
+    storePersonnummerForDependent,
 } from "./lok/encryptPersonnummer";
 export { generateKommunExport } from "./lok/kommunExport";
+export { listEligibleEvents } from "./lok/listEligibleEvents";
 export {
     deleteLokReport,
     generateLokReport,

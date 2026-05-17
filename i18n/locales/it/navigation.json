@@ -54,6 +54,8 @@
     "manageFees": "Gestisci quote",
     "accounting": "Contabilità",
     "accountingSettings": "Impostazioni contabili",
-    "chartOfAccounts": "Piano dei conti"
+    "chartOfAccounts": "Piano dei conti",
+    "childProfile": "Profilo bambino",
+    "lokPersonnummer": "Codice personale LOK"
   }
 }

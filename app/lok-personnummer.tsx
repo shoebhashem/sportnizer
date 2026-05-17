@@ -36,16 +36,17 @@ import {
     KeyboardAvoidingView,
     Linking,
     Platform,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function LokPersonnummerScreen() {
   const { t } = useTranslation(["screens", "common"]);
   const { firebaseUser, userProfile } = useUser();
+  const insets = useSafeAreaInsets();
   const { clubId, clubName } = useLocalSearchParams<{
     clubId: string;
     clubName: string;
@@ -118,7 +119,7 @@ export default function LokPersonnummerScreen() {
         // Update local state
         setExistingStatus({
           hasPersonnummer: true,
-          lastFour: result.lastFour || null,
+          birthDate: result.birthDate || null,
           consentVersion: CURRENT_LOK_CONSENT_VERSION,
         });
         setPersonnummerValue("");
@@ -149,7 +150,7 @@ export default function LokPersonnummerScreen() {
       if (result.success) {
         setExistingStatus({
           hasPersonnummer: false,
-          lastFour: null,
+          birthDate: null,
           consentVersion: null,
         });
         setShowRemoveModal(false);
@@ -181,9 +182,9 @@ export default function LokPersonnummerScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.secondary} />
+      </View>
     );
   }
 
@@ -194,7 +195,7 @@ export default function LokPersonnummerScreen() {
     !isSubmitting;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -209,7 +210,7 @@ export default function LokPersonnummerScreen() {
               <Ionicons
                 name="shield-checkmark"
                 size={40}
-                color={theme.colors.primary}
+                color={theme.colors.secondary}
               />
             </View>
             <Text style={styles.title}>
@@ -284,7 +285,7 @@ export default function LokPersonnummerScreen() {
               onChangeText={setPersonnummerValue}
               consentGiven={consentGiven}
               onConsentChange={setConsentGiven}
-              existingLastFour={existingStatus?.lastFour}
+              existingBirthDate={existingStatus?.birthDate}
               isReplacing={isReplacing}
               onStartReplace={() => setIsReplacing(true)}
               onCancelReplace={() => {
@@ -360,20 +361,20 @@ export default function LokPersonnummerScreen() {
         onConfirm={hideAlert}
         onCancel={hideAlert}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.primary,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.primary,
   },
   scrollContent: {
     padding: 20,
@@ -388,7 +389,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: `${theme.colors.primary}15`,
+    backgroundColor: `${theme.colors.secondary}20`,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
@@ -475,7 +476,7 @@ const styles = StyleSheet.create({
   // Privacy link
   privacyLink: {
     fontSize: 13,
-    color: theme.colors.primary,
+    color: theme.colors.secondary,
     textDecorationLine: "underline",
     textAlign: "center",
     marginBottom: 20,

@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ConfirmationModal from "../components/ConfirmationModal";
 import DropdownInput from "../components/DropdownInput";
 import LegalSettingsSection from "../components/LegalSettingsSection";
+import PersonnummerModal from "../components/PersonnummerModal";
 import PhoneInput from "../components/PhoneInput";
 import ProfilePictureUpload from "../components/ProfilePictureUpload";
 import { getDefaultProfilePicture } from "../constants/profilePictures";
@@ -42,6 +43,12 @@ import {
   signOutUser,
   updateUserProfile,
 } from "../services/auth/authService";
+import {
+  getPersonnummerDisplayText,
+  getPersonnummerStatusForDependent,
+  PersonnummerStatus,
+  getPersonnummerStatus,
+} from "../services/lok/personnummerService";
 import { memberService } from "../services/member";
 
 export default function ProfileScreen() {
@@ -89,6 +96,18 @@ export default function ProfileScreen() {
     onConfirm?: () => void;
   }>({ visible: false, title: "", message: "" });
 
+  // Personnummer (LOK-stöd) state
+  const [showPersonnummerModal, setShowPersonnummerModal] = useState(false);
+  const [selfPersonnummerStatus, setSelfPersonnummerStatus] =
+    useState<PersonnummerStatus | null>(null);
+  const [dependentStatuses, setDependentStatuses] = useState<
+    Record<string, PersonnummerStatus>
+  >({});
+  const [
+    personnummerModalTarget,
+    setPersonnummerModalTarget,
+  ] = useState<{ userId?: string; childName?: string } | null>(null);
+
   const showAlert = (title: string, message: string, onConfirm?: () => void) =>
     setAlertModal({ visible: true, title, message, onConfirm });
   const hideAlert = () => {
@@ -116,6 +135,21 @@ export default function ProfileScreen() {
     );
     initFormFromProfile();
   }, [userProfile, user, initFormFromProfile]);
+
+  // Load self personnummer status and dependent statuses on mount
+  React.useEffect(() => {
+    if (!user) return;
+    getPersonnummerStatus().then(setSelfPersonnummerStatus).catch(() => {});
+
+    const dependents = userProfile?.dependents || [];
+    dependents.forEach((dep: any) => {
+      getPersonnummerStatusForDependent(dep.uid)
+        .then((status) =>
+          setDependentStatuses((prev) => ({ ...prev, [dep.uid]: status })),
+        )
+        .catch(() => {});
+    });
+  }, [user, userProfile?.dependents]);
 
   // Clubs & groups from profile
   const userClubs = userProfile?.clubAccess || [];
@@ -644,6 +678,50 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* ---- Personnummer (LOK-stöd) Section ---- */}
+          {!isEditing && (
+            <View style={styles.membershipSection}>
+              <Text style={styles.sectionTitle}>
+                {t("screens:profile.personnummer")}
+              </Text>
+              <TouchableOpacity
+                style={styles.securityButton}
+                onPress={() => {
+                  setPersonnummerModalTarget(null);
+                  setShowPersonnummerModal(true);
+                }}
+              >
+                <View style={styles.securityButtonIcon}>
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={16}
+                    color={theme.colors.secondary}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  {selfPersonnummerStatus?.hasPersonnummer &&
+                  selfPersonnummerStatus.birthDate ? (
+                    <Text style={styles.fieldValue}>
+                      {getPersonnummerDisplayText(
+                        getDisplayName(),
+                        selfPersonnummerStatus.birthDate,
+                      )}
+                    </Text>
+                  ) : (
+                    <Text style={[styles.fieldValue, styles.fieldEmpty]}>
+                      {t("screens:profile.personnummerMissing")}
+                    </Text>
+                  )}
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={theme.colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* ---- Clubs Section ---- */}
           {userClubs.length > 0 && (
             <View style={styles.membershipSection}>
@@ -698,6 +776,61 @@ export default function ProfileScreen() {
                   </View>
                 </View>
               ))}
+            </View>
+          )}
+
+          {/* ---- Mina barn (My Children) Section ---- */}
+          {!isEditing && (userProfile?.dependents?.length ?? 0) > 0 && (
+            <View style={styles.membershipSection}>
+              <Text style={styles.sectionTitle}>
+                {t("screens:profile.myChildren")}
+              </Text>
+              {(userProfile?.dependents || []).map((dep: any, index: number) => {
+                const depStatus = dependentStatuses[dep.uid];
+                const hasPersonnummer = depStatus?.hasPersonnummer ?? false;
+                return (
+                  <TouchableOpacity
+                    key={`dep-${index}`}
+                    style={styles.securityButton}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/child-profile" as const,
+                        params: {
+                          userId: dep.uid,
+                          childName: dep.childName,
+                        },
+                      })
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.securityButtonIcon,
+                        styles.childAvatarContainer,
+                      ]}
+                    >
+                      <Text style={styles.childAvatarInitials}>
+                        {dep.childName?.charAt(0)?.toUpperCase() || "?"}
+                      </Text>
+                      <View
+                        style={[
+                          styles.childStatusDot,
+                          hasPersonnummer
+                            ? styles.childStatusDotGreen
+                            : styles.childStatusDotOrange,
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.securityButtonText}>
+                      {dep.childName}
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
 
@@ -859,6 +992,20 @@ export default function ProfileScreen() {
         onSuccess={handleImageUploadSuccess}
         currentImageUrl={currentPhotoURL}
         userId={user.uid}
+      />
+
+      {/* Personnummer Modal (self) */}
+      <PersonnummerModal
+        visible={showPersonnummerModal && !personnummerModalTarget}
+        onClose={() => {
+          setShowPersonnummerModal(false);
+          // Refresh status after close
+          getPersonnummerStatus()
+            .then(setSelfPersonnummerStatus)
+            .catch(() => {});
+        }}
+        mode="self"
+        userName={getDisplayName()}
       />
 
       {/* Sign Out Confirmation Modal */}
@@ -1281,6 +1428,37 @@ const styles = StyleSheet.create({
   },
   deleteAccountText: {
     color: theme.colors.error,
+  },
+  // ---- Mina barn (child avatars) ----
+  childAvatarContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${theme.colors.secondary}20`,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  childAvatarInitials: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.colors.secondary,
+  },
+  childStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    borderWidth: 1.5,
+    borderColor: theme.colors.background,
+  },
+  childStatusDotGreen: {
+    backgroundColor: theme.colors.success,
+  },
+  childStatusDotOrange: {
+    backgroundColor: "#FF9500",
   },
   // ---- Custom Form Modals ----
   modalOverlay: {
