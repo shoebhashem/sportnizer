@@ -673,7 +673,11 @@ describe("reEditAttendance", () => {
     const db = getFirestore();
 
     // Seed a completed event with responses
-    const eventRef = db.collection("clubs").doc(clubId).collection("events").doc("ev_redit_1");
+    const eventRef = db
+      .collection("clubs")
+      .doc(clubId)
+      .collection("events")
+      .doc("ev_redit_1");
     await eventRef.set({
       title: "Träning",
       startDate: new Date("2026-03-01T10:00:00"),
@@ -682,9 +686,24 @@ describe("reEditAttendance", () => {
       completedAt: new Date(),
       lok: { eligible: true },
       responses: [
-        { userId: "u1", userName: "Alice", actualAttendance: true,  lokRole: "participant" },
-        { userId: "u2", userName: "Bob",   actualAttendance: false, lokRole: "participant" },
-        { userId: "u3", userName: "Clara", actualAttendance: true,  lokRole: "leader" },
+        {
+          userId: "u1",
+          userName: "Alice",
+          actualAttendance: true,
+          lokRole: "participant",
+        },
+        {
+          userId: "u2",
+          userName: "Bob",
+          actualAttendance: false,
+          lokRole: "participant",
+        },
+        {
+          userId: "u3",
+          userName: "Clara",
+          actualAttendance: true,
+          lokRole: "leader",
+        },
       ],
       responseSummary: { total: 3, going: 3, attended: 2 },
     });
@@ -726,20 +745,44 @@ describe("reEditAttendance", () => {
     });
 
     // Seed an event that references this report
-    await db.collection("clubs").doc(clubId).collection("events").doc("ev_stale_1").set({
-      title: "Träning",
-      startDate: new Date("2026-02-01T10:00:00"),
-      endDate:   new Date("2026-02-01T11:30:00"),
-      status: "completed",
-      completedAt: new Date(),
-      lok: { eligible: true, reportId: reportRef.id, reportingPeriod: "2026-H1" },
-      responses: [
-        { userId: "u1", userName: "Alice", actualAttendance: true,  lokRole: "participant" },
-        { userId: "u2", userName: "Bob",   actualAttendance: true,  lokRole: "participant" },
-        { userId: "u3", userName: "Clara", actualAttendance: true,  lokRole: "leader" },
-      ],
-      responseSummary: { total: 3, going: 3, attended: 3 },
-    });
+    await db
+      .collection("clubs")
+      .doc(clubId)
+      .collection("events")
+      .doc("ev_stale_1")
+      .set({
+        title: "Träning",
+        startDate: new Date("2026-02-01T10:00:00"),
+        endDate: new Date("2026-02-01T11:30:00"),
+        status: "completed",
+        completedAt: new Date(),
+        lok: {
+          eligible: true,
+          reportId: reportRef.id,
+          reportingPeriod: "2026-H1",
+        },
+        responses: [
+          {
+            userId: "u1",
+            userName: "Alice",
+            actualAttendance: true,
+            lokRole: "participant",
+          },
+          {
+            userId: "u2",
+            userName: "Bob",
+            actualAttendance: true,
+            lokRole: "participant",
+          },
+          {
+            userId: "u3",
+            userName: "Clara",
+            actualAttendance: true,
+            lokRole: "leader",
+          },
+        ],
+        responseSummary: { total: 3, going: 3, attended: 3 },
+      });
 
     await callFunction("reEditAttendance", admin.idToken, {
       eventId: "ev_stale_1",
@@ -752,7 +795,10 @@ describe("reEditAttendance", () => {
       recordedBy: admin.uid,
     });
 
-    const updatedReport = await db.collection("lokReports").doc(reportRef.id).get();
+    const updatedReport = await db
+      .collection("lokReports")
+      .doc(reportRef.id)
+      .get();
     expect(updatedReport.data()!.status).toBe("stale");
     expect(updatedReport.data()!.staledByEvent).toBe("ev_stale_1");
   });
@@ -765,7 +811,12 @@ describe("reEditAttendance", () => {
     await expectFunctionError(
       "reEditAttendance",
       nonAdmin.idToken,
-      { eventId: "ev_x", clubId, attendanceRecords: [{ userId: "u1", attended: false }], recordedBy: nonAdmin.uid },
+      {
+        eventId: "ev_x",
+        clubId,
+        attendanceRecords: [{ userId: "u1", attended: false }],
+        recordedBy: nonAdmin.uid,
+      },
       "permission-denied",
     );
   });
@@ -775,17 +826,27 @@ describe("reEditAttendance", () => {
     const clubId = await createSwedishClub(admin.idToken, admin.uid);
     const db = getFirestore();
 
-    await db.collection("clubs").doc(clubId).collection("events").doc("ev_open").set({
-      title: "Öppen träning",
-      status: "open",
-      lok: { eligible: true },
-      responses: [],
-    });
+    await db
+      .collection("clubs")
+      .doc(clubId)
+      .collection("events")
+      .doc("ev_open")
+      .set({
+        title: "Öppen träning",
+        status: "open",
+        lok: { eligible: true },
+        responses: [],
+      });
 
     await expectFunctionError(
       "reEditAttendance",
       admin.idToken,
-      { eventId: "ev_open", clubId, attendanceRecords: [{ userId: "u1", attended: false }], recordedBy: admin.uid },
+      {
+        eventId: "ev_open",
+        clubId,
+        attendanceRecords: [{ userId: "u1", attended: false }],
+        recordedBy: admin.uid,
+      },
       "failed-precondition",
     );
   });
@@ -794,7 +855,12 @@ describe("reEditAttendance", () => {
     await expectFunctionError(
       "reEditAttendance",
       "",
-      { eventId: "ev_x", clubId: "c1", attendanceRecords: [], recordedBy: "u1" },
+      {
+        eventId: "ev_x",
+        clubId: "c1",
+        attendanceRecords: [],
+        recordedBy: "u1",
+      },
       "unauthenticated",
     );
   });
@@ -847,23 +913,52 @@ describe("listEligibleEvents", () => {
     const db = getFirestore();
 
     // Seed events in two groups
-    for (const [id, gId] of [["ev_ga1", "group_a"], ["ev_ga2", "group_a"], ["ev_gb1", "group_b"]]) {
-      await db.collection("clubs").doc(clubId).collection("events").doc(id).set({
-        title: id,
-        groupId: gId,
-        groupName: gId,
-        startDate: new Date("2026-03-01T10:00:00"),
-        endDate: new Date("2026-03-01T11:30:00"),
-        status: "completed",
-        completedAt: new Date(),
-        lok: { eligible: true },
-        responses: [
-          { userId: "l1", userName: "Leader", actualAttendance: true, lokRole: "leader" },
-          { userId: "m1", userName: "Member1", actualAttendance: true, lokRole: "participant" },
-          { userId: "m2", userName: "Member2", actualAttendance: true, lokRole: "participant" },
-          { userId: "m3", userName: "Member3", actualAttendance: true, lokRole: "participant" },
-        ],
-      });
+    for (const [id, gId] of [
+      ["ev_ga1", "group_a"],
+      ["ev_ga2", "group_a"],
+      ["ev_gb1", "group_b"],
+    ]) {
+      await db
+        .collection("clubs")
+        .doc(clubId)
+        .collection("events")
+        .doc(id)
+        .set({
+          title: id,
+          groupId: gId,
+          groupName: gId,
+          startDate: new Date("2026-03-01T10:00:00"),
+          endDate: new Date("2026-03-01T11:30:00"),
+          status: "completed",
+          completedAt: new Date(),
+          lok: { eligible: true },
+          responses: [
+            {
+              userId: "l1",
+              userName: "Leader",
+              actualAttendance: true,
+              lokRole: "leader",
+            },
+            {
+              userId: "m1",
+              userName: "Member1",
+              actualAttendance: true,
+              lokRole: "participant",
+            },
+            {
+              userId: "m2",
+              userName: "Member2",
+              actualAttendance: true,
+              lokRole: "participant",
+            },
+            {
+              userId: "m3",
+              userName: "Member3",
+              actualAttendance: true,
+              lokRole: "participant",
+            },
+          ],
+        });
     }
 
     const result = await callFunction("listEligibleEvents", admin.idToken, {
@@ -953,7 +1048,10 @@ describe("generateLokReport (force mode)", () => {
     });
     expect(result.success).toBe(true);
 
-    const staleReport = await db.collection("lokReports").doc(staleRef.id).get();
+    const staleReport = await db
+      .collection("lokReports")
+      .doc(staleRef.id)
+      .get();
     expect(staleReport.exists).toBe(false);
   });
 
@@ -1024,14 +1122,22 @@ describe("getPersonnummerStatus – birthDate field", () => {
       personnummer: "199001010009",
       consentVersion: "v1",
     });
-    const result = await callFunction("getPersonnummerStatus", user.idToken, {});
+    const result = await callFunction(
+      "getPersonnummerStatus",
+      user.idToken,
+      {},
+    );
     expect(result.hasPersonnummer).toBe(true);
     expect(result.birthDate).toBe("19900101");
   });
 
   it("returns birthDate=null when no personnummer stored", async () => {
     const user = await createFullTestUser();
-    const result = await callFunction("getPersonnummerStatus", user.idToken, {});
+    const result = await callFunction(
+      "getPersonnummerStatus",
+      user.idToken,
+      {},
+    );
     expect(result.hasPersonnummer).toBe(false);
     expect(result.birthDate).toBeNull();
   });
@@ -1090,7 +1196,11 @@ describe("storePersonnummerForDependent", () => {
     await expectFunctionError(
       "storePersonnummerForDependent",
       "",
-      { targetUserId: "someuid", personnummer: "201001012345", consentVersion: "v1" },
+      {
+        targetUserId: "someuid",
+        personnummer: "201001012345",
+        consentVersion: "v1",
+      },
       "unauthenticated",
     );
   });
@@ -1184,4 +1294,3 @@ describe("getPersonnummerStatusForDependent", () => {
     );
   });
 });
-

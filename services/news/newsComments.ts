@@ -27,6 +27,12 @@ export interface NewsCommentClient {
   createdBy: string;
   createdByName: string;
   createdAt: Timestamp;
+  /** Map of userId → emoji for embedded comment reactions */
+  reactions?: Record<string, string>;
+  /** Denormalized counts — keyed by emoji (e.g. { "👍": 2 }) */
+  reactionCounts?: Record<string, number>;
+  /** Map of userId → displayName for the reactor name lookup */
+  reactorNames?: Record<string, string>;
 }
 
 // ===============================================================================
@@ -110,6 +116,38 @@ export async function deleteNewsComment(
     return {
       success: false,
       error: error.message || "Failed to delete comment",
+    };
+  }
+}
+
+/**
+ * Toggle an emoji reaction on a comment via Cloud Function
+ */
+export async function toggleCommentReaction(
+  newsId: string,
+  clubId: string,
+  commentId: string,
+  emoji: string,
+): Promise<{
+  success: boolean;
+  action?: string;
+  emoji?: string;
+  error?: string;
+}> {
+  try {
+    const fn = httpsCallable(functions, "toggleCommentReaction");
+    const result = await fn({ newsId, clubId, commentId, emoji });
+    return result.data as {
+      success: boolean;
+      action?: string;
+      emoji?: string;
+      error?: string;
+    };
+  } catch (error: any) {
+    console.error("Error toggling comment reaction:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to update reaction",
     };
   }
 }

@@ -1039,7 +1039,13 @@
     "failedToDeleteComment": "Kunde inte ta bort kommentar",
     "readBy": "Läst av",
     "unknownMember": "Okänd medlem",
-    "noReaders": "Ingen har läst detta ännu"
+    "noReaders": "Ingen har läst detta ännu",
+    "reactions": "Reaktioner",
+    "reactToNews": "Reagera på denna nyhet",
+    "reactToComment": "Reagera på kommentar",
+    "removeReaction": "Ta bort reaktion",
+    "tapToRemove": "Tryck för att ta bort din reaktion",
+    "noReactions": "Inga reaktioner ännu"
   },
   "viewStatistics": {
     "groupStatistics": "{{groupName}} Statistik",

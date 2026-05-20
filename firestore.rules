@@ -345,6 +345,20 @@ service cloud.firestore {
           // Create/Update/Delete: Only via Cloud Functions (Admin SDK bypasses rules)
           allow create, update, delete: if false;
         }
+
+        // News Reactions subcollection (one document per user)
+        match /reactions/{userId} {
+          // Read: Own reaction doc, recipients, news creator, or club admins
+          allow read: if isSignedIn() && (
+            request.auth.uid == userId ||
+            request.auth.uid in get(/databases/$(database)/documents/clubs/$(clubId)/news/$(newsId)).data.recipientUserIds ||
+            get(/databases/$(database)/documents/clubs/$(clubId)/news/$(newsId)).data.createdBy == request.auth.uid ||
+            isClubAdmin(clubId)
+          );
+
+          // Write: Only via Cloud Functions (Admin SDK bypasses rules)
+          allow create, update, delete: if false;
+        }
       }
       
       // Note: Cloud Functions using Admin SDK bypass these rules entirely

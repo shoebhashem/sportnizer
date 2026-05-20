@@ -12249,7 +12249,7 @@ User enters YYYYMMDDXXXX
 
 **Why `birthDate` (not `lastFour`):**
 
-The first 8 digits (`YYYYMMDD`) are actually *less* sensitive than the last 4 digits. The trailing digits encode birth order, gender, and a Luhn checksum — together they can narrow a person to one or very few individuals. The birth date is comparably identifiable with a person's ordinary date of birth, which is already collected by the app. Exposing the birth date for display instead of the last 4 characters therefore minimises privacy risk while still allowing users to verify they entered the correct personnummer.
+The first 8 digits (`YYYYMMDD`) are actually _less_ sensitive than the last 4 digits. The trailing digits encode birth order, gender, and a Luhn checksum — together they can narrow a person to one or very few individuals. The birth date is comparably identifiable with a person's ordinary date of birth, which is already collected by the app. Exposing the birth date for display instead of the last 4 characters therefore minimises privacy risk while still allowing users to verify they entered the correct personnummer.
 
 **Key security properties:**
 
@@ -12287,31 +12287,32 @@ States:
 
 Legal guardians may manage personnummer for their dependents (children) via dedicated Cloud Functions. A guardian is identified by the `guardians: [{ uid, name }]` array on the child's `users/{uid}` document.
 
-| Cloud Function | Description |
-|---|---|
-| `storePersonnummerForDependent` | Guardian stores/replaces personnummer for a dependent |
-| `removePersonnummerForDependent` | Guardian removes personnummer for a dependent |
+| Cloud Function                      | Description                                              |
+| ----------------------------------- | -------------------------------------------------------- |
+| `storePersonnummerForDependent`     | Guardian stores/replaces personnummer for a dependent    |
+| `removePersonnummerForDependent`    | Guardian removes personnummer for a dependent            |
 | `getPersonnummerStatusForDependent` | Guardian checks if a dependent has a personnummer stored |
 
 **Access control**: All three functions verify that `auth.uid` appears in the target document's `guardians[]` array before proceeding. Any non-guardian caller receives `permission-denied`.
 
 **UI entry points**:
+
 - Parent profile → "Mina barn" section → tap child → `app/child-profile.tsx`
 - Child profile screen shows personnummer status and opens `PersonnummerModal` with `mode="child"`
 
 #### GDPR Compliance
 
-| GDPR Requirement           | Implementation                                                     |
-| -------------------------- | ------------------------------------------------------------------ |
-| **Lawful basis**           | Explicit opt-in consent (checkbox on collection screen)            |
-| **Purpose limitation**     | Personnummer used exclusively for LOK-stöd RF reporting            |
+| GDPR Requirement           | Implementation                                                           |
+| -------------------------- | ------------------------------------------------------------------------ |
+| **Lawful basis**           | Explicit opt-in consent (checkbox on collection screen)                  |
+| **Purpose limitation**     | Personnummer used exclusively for LOK-stöd RF reporting                  |
 | **Data minimization**      | Only personnummer stored; `birthDate` for display; full number encrypted |
-| **Right to access**        | User sees birth date (`YYYY-MM-DD`) + consent date in the UI       |
-| **Right to erasure**       | "Remove my personnummer" button → permanent deletion               |
-| **Right to rectification** | "Update personnummer" → replace with new value                     |
-| **Consent withdrawal**     | Removing personnummer implicitly withdraws consent                 |
-| **Privacy policy**         | Separate LOK-stöd privacy policy version (`PRIVACY_2026.2`)        |
-| **Consent versioning**     | `LOK_CONSENT_2026.1` tracked per user to detect outdated consent   |
+| **Right to access**        | User sees birth date (`YYYY-MM-DD`) + consent date in the UI             |
+| **Right to erasure**       | "Remove my personnummer" button → permanent deletion                     |
+| **Right to rectification** | "Update personnummer" → replace with new value                           |
+| **Consent withdrawal**     | Removing personnummer implicitly withdraws consent                       |
+| **Privacy policy**         | Separate LOK-stöd privacy policy version (`PRIVACY_2026.2`)              |
+| **Consent versioning**     | `LOK_CONSENT_2026.1` tracked per user to detect outdated consent         |
 
 #### Validation Rules
 
@@ -12406,6 +12407,7 @@ Club admins can correct attendee data after an event is marked completed — for
 **Parameters**: `eventId`, `clubId`, `attendanceRecords[]` (`{ userId, attended }`), `recordedBy`
 
 **Behaviour**:
+
 - Club admin only (permission-denied otherwise)
 - Event must have `status === "completed"` (failed-precondition otherwise)
 - Transaction: updates `responses[].actualAttendance` for each record, recalculates `responseSummary.attended`
@@ -12426,32 +12428,34 @@ Returns all LOK-eligible completed events for a club, scoped to a reporting peri
 
 Each event document in `clubs/{clubId}/events` carries a `lok` sub-object:
 
-| Field | Type | Description |
-|---|---|---|
-| `lok.eligible` | `boolean` | Whether the event qualifies for LOK-stöd (computed at completion for SE clubs) |
-| `lok.pendingValidation` | `boolean` | `true` at event creation; `false` once attendance is recorded and eligibility is computed |
-| `lok.eligibilityCheckedAt` | `Timestamp` | When LOK eligibility was last computed |
-| `lok.durationMinutes` | `number` | Activity duration used for eligibility check |
-| `lok.eligibleParticipantCount` | `number` | Count of participants who passed age/role rules |
-| `lok.participantsMissingPersonnummerCount` | `number` | Attendees who could not be validated (no personnummer) |
-| `lok.warnings` | `string[]` | Non-blocking warning codes (e.g. `"MISSING_PERSONNUMMER"`) |
-| `lok.errors` | `string[]` | Blocking error codes (e.g. `"DURATION_TOO_SHORT"`) |
-| `lok.needsRecheck` | `boolean` | Set to `true` when a participant adds/updates their personnummer after event completion; cleared at next eligibility evaluation |
-| `lok.conflictStatus` | `"clean" \| "conflict" \| null` | Written back by `generateLokReport`; cleared by `reEditAttendance` |
-| `lok.confirmedForPeriod` | `string \| null` | Period key (`"YYYY-H1"`) written when `force: true`; cleared by `reEditAttendance` |
-| `lok.reportId` | `string \| null` | ID of the `lokReports` document that includes this event |
-| `lok.reportingPeriod` | `string \| null` | Period of the linked report |
-| `lok.countedParticipants` | `number` | Participant count used in the report |
+| Field                                      | Type                            | Description                                                                                                                     |
+| ------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `lok.eligible`                             | `boolean`                       | Whether the event qualifies for LOK-stöd (computed at completion for SE clubs)                                                  |
+| `lok.pendingValidation`                    | `boolean`                       | `true` at event creation; `false` once attendance is recorded and eligibility is computed                                       |
+| `lok.eligibilityCheckedAt`                 | `Timestamp`                     | When LOK eligibility was last computed                                                                                          |
+| `lok.durationMinutes`                      | `number`                        | Activity duration used for eligibility check                                                                                    |
+| `lok.eligibleParticipantCount`             | `number`                        | Count of participants who passed age/role rules                                                                                 |
+| `lok.participantsMissingPersonnummerCount` | `number`                        | Attendees who could not be validated (no personnummer)                                                                          |
+| `lok.warnings`                             | `string[]`                      | Non-blocking warning codes (e.g. `"MISSING_PERSONNUMMER"`)                                                                      |
+| `lok.errors`                               | `string[]`                      | Blocking error codes (e.g. `"DURATION_TOO_SHORT"`)                                                                              |
+| `lok.needsRecheck`                         | `boolean`                       | Set to `true` when a participant adds/updates their personnummer after event completion; cleared at next eligibility evaluation |
+| `lok.conflictStatus`                       | `"clean" \| "conflict" \| null` | Written back by `generateLokReport`; cleared by `reEditAttendance`                                                              |
+| `lok.confirmedForPeriod`                   | `string \| null`                | Period key (`"YYYY-H1"`) written when `force: true`; cleared by `reEditAttendance`                                              |
+| `lok.reportId`                             | `string \| null`                | ID of the `lokReports` document that includes this event                                                                        |
+| `lok.reportingPeriod`                      | `string \| null`                | Period of the linked report                                                                                                     |
+| `lok.countedParticipants`                  | `number`                        | Participant count used in the report                                                                                            |
 
 #### LOK Eligibility Lifecycle
 
 Events go through a two-phase eligibility process:
 
 **Phase 1 — At event creation** (`createEvent`):
+
 - SE clubs (or clubs with no `country` set): event gets `lok: { eligible: false, pendingValidation: true }`
 - Non-SE clubs: no `lok` field at all
 
 **Phase 2 — At attendance recording** (`recordAttendance`):
+
 1. For SE clubs only: decrypts personnummer for all attendees
 2. Builds `LokActivityInput` and runs `validateLokActivity()`
 3. Writes back:
@@ -12463,6 +12467,7 @@ Events go through a two-phase eligibility process:
    - `lok.needsRecheck: false`
 
 **Lazy recheck** (when personnummer is added/updated):
+
 - `markEventsForRecheck(userId, db)` runs fire-and-forget after `storePersonnummer` / `storePersonnummerForDependent`
 - Finds the user's clubs → queries completed events in the last 12 months where `lok.eligible === false`
 - Sets `lok.needsRecheck: true` on events where the user attended
@@ -12607,32 +12612,32 @@ The 7-year retention for LOK reports aligns with Swedish bookkeeping requirement
 
 ### Cloud Functions — File Reference
 
-| File                                       | Exported Functions                                                                                | Purpose                                    |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `functions/src/lok/encryptPersonnummer.ts` | `storePersonnummer`, `removePersonnummer`, `getPersonnummerStatus`                                | Personnummer CRUD + AES-256-GCM encryption |
-| `functions/src/lok/lokValidation.ts`       | _(internal only)_                                                                                 | LOK eligibility rules engine               |
+| File                                       | Exported Functions                                                                                | Purpose                                                                                                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `functions/src/lok/encryptPersonnummer.ts` | `storePersonnummer`, `removePersonnummer`, `getPersonnummerStatus`                                | Personnummer CRUD + AES-256-GCM encryption                                                                                                  |
+| `functions/src/lok/lokValidation.ts`       | _(internal only)_                                                                                 | LOK eligibility rules engine                                                                                                                |
 | `functions/src/lok/lokReportService.ts`    | `generateLokReport`, `getLokReport`, `listLokReports`, `deleteLokReport`, `resolveReportConflict` | Report lifecycle + conflict resolution; `generateLokReport` accepts `force?: boolean` to replace draft/stale reports and confirm the period |
-| `functions/src/lok/listEligibleEvents.ts`  | `listEligibleEvents`                                                                              | Returns LOK-eligible completed events for a period; optional group filter; no personnummer |
-| `functions/src/events/reEditAttendance.ts` | `reEditAttendance`                                                                                | Allows club admins to correct attendance on completed events; marks linked draft reports stale |
-| `functions/src/lok/rfApiService.ts`        | `submitLokReportToRf`, `checkRfApiStatus`, `updateClubRfSettings`                                 | RF API 2.0 communication                   |
-| `functions/src/lok/kommunExport.ts`        | `generateKommunExport`                                                                            | Municipality attendance export             |
+| `functions/src/lok/listEligibleEvents.ts`  | `listEligibleEvents`                                                                              | Returns LOK-eligible completed events for a period; optional group filter; no personnummer                                                  |
+| `functions/src/events/reEditAttendance.ts` | `reEditAttendance`                                                                                | Allows club admins to correct attendance on completed events; marks linked draft reports stale                                              |
+| `functions/src/lok/rfApiService.ts`        | `submitLokReportToRf`, `checkRfApiStatus`, `updateClubRfSettings`                                 | RF API 2.0 communication                                                                                                                    |
+| `functions/src/lok/kommunExport.ts`        | `generateKommunExport`                                                                            | Municipality attendance export                                                                                                              |
 
 ### Frontend Services — File Reference
 
-| File                                   | Purpose                                                                  |
-| -------------------------------------- | ------------------------------------------------------------------------ |
-| `services/lok/personnummerService.ts`  | Client-side validation, formatting, masked display, Cloud Function calls |
-| `services/lok/lokValidationService.ts` | Client-side LOK rule constants, eligibility pre-checks, period helpers   |
+| File                                   | Purpose                                                                                                                                                                                                                     |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `services/lok/personnummerService.ts`  | Client-side validation, formatting, masked display, Cloud Function calls                                                                                                                                                    |
+| `services/lok/lokValidationService.ts` | Client-side LOK rule constants, eligibility pre-checks, period helpers                                                                                                                                                      |
 | `services/lok/rfService.ts`            | Report generation/submission, RF status, kommun export + download; `listEligibleEvents` and `reEditAttendance` wrappers; `LokEligibleEvent` and `LokEventAttendee` interfaces; `LokReportSummary.status` includes `"stale"` |
-| `services/lok/index.ts`                | Barrel export for all LOK services                                       |
+| `services/lok/index.ts`                | Barrel export for all LOK services                                                                                                                                                                                          |
 
 ### Frontend Components & Screens
 
-| File                               | Purpose                                                                                                                                                                                                                                                              |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `components/LinkedText.tsx`        | Reusable text component that auto-detects URLs and renders them as clickable links via `expo-linking`. Scheme-validated (http/https/mailto only). Drop-in replacement for `<Text>` — used in news descriptions, news comments, event descriptions, and RSVP comments |
-| `components/PersonnummerInput.tsx` | Specialized input: auto-format with hyphen, real-time Luhn validation, masked display for stored values, inline consent checkbox, replace mode                                                                                                                       |
-| `app/lok-personnummer.tsx`         | Collection screen: explanation of purpose, security info, PersonnummerInput, privacy link, submit/update/remove actions                                                                                                                                              |
+| File                               | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `components/LinkedText.tsx`        | Reusable text component that auto-detects URLs and renders them as clickable links via `expo-linking`. Scheme-validated (http/https/mailto only). Drop-in replacement for `<Text>` — used in news descriptions, news comments, event descriptions, and RSVP comments                                                                                                                                                                                                                                                                                                                                               |
+| `components/PersonnummerInput.tsx` | Specialized input: auto-format with hyphen, real-time Luhn validation, masked display for stored values, inline consent checkbox, replace mode                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `app/lok-personnummer.tsx`         | Collection screen: explanation of purpose, security info, PersonnummerInput, privacy link, submit/update/remove actions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `app/lok-reports.tsx`              | Two-tab LOK management screen (Aktiviteter / Rapporter). **Aktiviteter tab**: period chips + group filter + search; event cards with conflict/clean/unassessed badges; inline "Redigera" button opens `EditAttendanceModal`; "Bekräfta period" calls `generateLokReport` with `force: true` and shows stale warning banner when applicable. **Rapporter tab**: expandable report cards with status badges; conflict resolution (table on web / accordion on mobile); submit/delete for draft+stale; stale hint text. **Header**: download icon (opens `ExportModal`) + settings icon. SE clubs + club admins only. |
 
 ### i18n

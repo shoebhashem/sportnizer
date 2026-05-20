@@ -1113,6 +1113,9 @@ export interface NewsDocument {
   // Comment tracking
   commentCount?: number;
 
+  // Reaction counts — keyed by emoji (e.g. { "👍": 3, "❤️": 1 })
+  reactionCounts?: Record<string, number>;
+
   // Metadata
   createdBy: string;
   createdByName: string;
@@ -1217,6 +1220,10 @@ export interface NewsComment {
   createdBy: string;
   createdByName: string;
   createdAt: any; // Timestamp
+  /** Map of userId → emoji for reactions embedded on the comment */
+  reactions?: Record<string, string>;
+  /** Denormalized counts — keyed by emoji (e.g. { "👍": 2 }) */
+  reactionCounts?: Record<string, number>;
 }
 
 export interface AddNewsCommentRequest {
@@ -1240,6 +1247,36 @@ export interface DeleteNewsCommentRequest {
 
 export interface DeleteNewsCommentResponse {
   success: boolean;
+  message?: string;
+  error?: string;
+}
+
+// News Reaction interfaces
+export interface ToggleNewsReactionRequest {
+  newsId: string;
+  clubId: string;
+  emoji: string;
+}
+
+export interface ToggleNewsReactionResponse {
+  success: boolean;
+  action?: "added" | "removed" | "changed";
+  emoji?: string;
+  message?: string;
+  error?: string;
+}
+
+export interface ToggleCommentReactionRequest {
+  newsId: string;
+  clubId: string;
+  commentId: string;
+  emoji: string;
+}
+
+export interface ToggleCommentReactionResponse {
+  success: boolean;
+  action?: "added" | "removed" | "changed";
+  emoji?: string;
   message?: string;
   error?: string;
 }

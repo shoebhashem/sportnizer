@@ -58,6 +58,8 @@ export interface News {
   }[];
   readCount?: number;
   commentCount?: number;
+  /** Denormalized reaction counts — keyed by emoji (e.g. { "👍": 3, "❤️": 1 }) */
+  reactionCounts?: Record<string, number>;
   createdBy: string;
   createdByName: string;
   createdAt: Timestamp;
@@ -409,6 +411,33 @@ export async function deleteNews(
     console.error("❌ Failed to delete news:", error);
     throw error;
   }
+}
+
+/**
+ * Attach a real-time listener to a single news item.
+ * Fires immediately with the current value and on every update.
+ */
+export function attachNewsItemListener(
+  clubId: string,
+  newsId: string,
+  onUpdate: (news: News | null) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const newsRef = doc(db, "clubs", clubId, "news", newsId);
+  return onSnapshot(
+    newsRef,
+    (snap) => {
+      if (snap.exists()) {
+        onUpdate({ id: snap.id, ...snap.data() } as News);
+      } else {
+        onUpdate(null);
+      }
+    },
+    (error) => {
+      console.error("❌ News item listener error:", error);
+      onError?.(error);
+    },
+  );
 }
 
 /**

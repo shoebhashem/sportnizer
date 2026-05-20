@@ -1075,7 +1075,13 @@
     "failedToDeleteComment": "Échec de la suppression du commentaire",
     "readBy": "Lu par",
     "unknownMember": "Membre inconnu",
-    "noReaders": "Personne n'a encore lu ceci"
+    "noReaders": "Personne n'a encore lu ceci",
+    "reactions": "Réactions",
+    "reactToNews": "Réagir à cette actualité",
+    "reactToComment": "Réagir au commentaire",
+    "removeReaction": "Supprimer la réaction",
+    "tapToRemove": "Appuyer pour supprimer votre réaction",
+    "noReactions": "Aucune réaction pour l'instant"
   },
   "viewStatistics": {
     "groupStatistics": "Statistiques de {{groupName}}",

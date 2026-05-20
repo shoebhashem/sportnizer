@@ -333,6 +333,66 @@ export default function MemberContactModal({
     </View>
   );
 
+  const renderPhoneRow = (phoneNumber: string | null, canCall: boolean) => (
+    <View style={styles.fieldRow}>
+      <View style={styles.fieldIconContainer}>
+        <FontAwesome name="phone" size={16} color={theme.colors.secondary} />
+      </View>
+      <View style={styles.fieldContent}>
+        <Text style={styles.fieldLabel}>
+          {t("components:memberContactModal.phone")}
+        </Text>
+        <Text style={[styles.fieldValue, !phoneNumber && styles.fieldEmpty]}>
+          {phoneNumber || t("components:memberContactModal.notAvailable")}
+        </Text>
+      </View>
+      {phoneNumber && canCall && Platform.OS !== "web" && (
+        <TouchableOpacity
+          style={styles.inlineActionIcon}
+          onPress={() => Linking.openURL(`tel:${phoneNumber}`)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Call"
+        >
+          <Ionicons
+            name="call-outline"
+            size={20}
+            color={theme.colors.secondary}
+          />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderEmailRow = (email: string | null) => (
+    <View style={styles.fieldRow}>
+      <View style={styles.fieldIconContainer}>
+        <FontAwesome name="envelope" size={14} color={theme.colors.secondary} />
+      </View>
+      <View style={styles.fieldContent}>
+        <Text style={styles.fieldLabel}>
+          {t("components:memberContactModal.email")}
+        </Text>
+        <Text style={[styles.fieldValue, !email && styles.fieldEmpty]}>
+          {email || t("components:memberContactModal.notAvailable")}
+        </Text>
+      </View>
+      {email && (
+        <TouchableOpacity
+          style={styles.inlineActionIcon}
+          onPress={() => Linking.openURL(`mailto:${email}`)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Send email"
+        >
+          <Ionicons
+            name="mail-outline"
+            size={20}
+            color={theme.colors.secondary}
+          />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   const renderGuardianCard = (guardian: GuardianContactDetails) => {
     const isOwnEntry = isGuardianViewing && guardian.guardianUid === user?.uid;
     const isAdminEditingThis = editingAdminGuardianUid === guardian.guardianUid;
@@ -458,21 +518,9 @@ export default function MemberContactModal({
           </View>
         </View>
 
-        {renderFieldRow(
-          <FontAwesome
-            name="envelope"
-            size={14}
-            color={theme.colors.secondary}
-          />,
-          "Email",
-          guardian.email,
-        )}
+        {renderEmailRow(guardian.email)}
 
-        {renderFieldRow(
-          <FontAwesome name="phone" size={16} color={theme.colors.secondary} />,
-          "Phone",
-          guardian.phoneNumber,
-        )}
+        {renderPhoneRow(guardian.phoneNumber, true)}
 
         {/* WhatsApp deep link — shown to all viewers when the guardian has a phone number */}
         {guardian.phoneNumber && (
@@ -729,27 +777,11 @@ export default function MemberContactModal({
                   {/* Email - hidden for peer viewers, shown for admin/guardian/self */}
                   {!member.isYouth &&
                     !isPeerViewing &&
-                    renderFieldRow(
-                      <FontAwesome
-                        name="envelope"
-                        size={14}
-                        color={theme.colors.secondary}
-                      />,
-                      t("components:memberContactModal.email"),
-                      member.email,
-                    )}
+                    renderEmailRow(member.email)}
 
                   {/* Phone - shown for everyone (non-youth) */}
                   {!member.isYouth &&
-                    renderFieldRow(
-                      <FontAwesome
-                        name="phone"
-                        size={16}
-                        color={theme.colors.secondary}
-                      />,
-                      t("components:memberContactModal.phone"),
-                      member.phoneNumber,
-                    )}
+                    renderPhoneRow(member.phoneNumber, userId !== user?.uid)}
 
                   {/* WhatsApp button - shown when phone is available and not viewing own card */}
                   {!member.isYouth &&
@@ -988,6 +1020,10 @@ const styles = StyleSheet.create({
   fieldEmpty: {
     color: theme.colors.textSecondary,
     fontStyle: "italic",
+  },
+  inlineActionIcon: {
+    padding: 4,
+    marginLeft: 8,
   },
   // Guardians Section
   guardiansSection: {

@@ -180,6 +180,16 @@ export default function NewsCard({
               <Text style={styles.footerText}>{news.commentCount}</Text>
             </View>
           )}
+          {/* Reaction summary */}
+          {news.reactionCounts &&
+            Object.entries(news.reactionCounts)
+              .filter(([, count]) => count > 0)
+              .map(([emoji, count]) => (
+                <View key={emoji} style={styles.reactionPill}>
+                  <Text style={styles.reactionPillEmoji}>{emoji}</Text>
+                  <Text style={styles.footerText}>{count}</Text>
+                </View>
+              ))}
           <Ionicons
             name="time-outline"
             size={14}
@@ -295,6 +305,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginRight: 10,
+  },
+  reactionPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  reactionPillEmoji: {
+    fontSize: 13,
   },
   footerText: {
     fontSize: 13,

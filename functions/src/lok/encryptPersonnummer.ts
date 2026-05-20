@@ -275,7 +275,10 @@ export const storePersonnummer = onCall(
 
     // Fire-and-forget: mark events that may now become LOK-eligible for recheck
     markEventsForRecheck(userId, db).catch((err) =>
-      console.error(`Failed to mark events for recheck for user ${userId}:`, err),
+      console.error(
+        `Failed to mark events for recheck for user ${userId}:`,
+        err,
+      ),
     );
 
     return {
@@ -470,7 +473,9 @@ export const storePersonnummerForDependent = onCall(
       throw new HttpsError("not-found", "Target user not found.");
     }
     const guardians: any[] = targetDoc.data()?.guardians || [];
-    const isGuardian = guardians.some((g: any) => g.guardianUid === guardianUserId);
+    const isGuardian = guardians.some(
+      (g: any) => g.guardianUid === guardianUserId,
+    );
     if (!isGuardian) {
       throw new HttpsError(
         "permission-denied",
@@ -548,7 +553,9 @@ export const removePersonnummerForDependent = onCall(
       throw new HttpsError("not-found", "Target user not found.");
     }
     const guardians: any[] = targetDoc.data()?.guardians || [];
-    const isGuardian = guardians.some((g: any) => g.guardianUid === guardianUserId);
+    const isGuardian = guardians.some(
+      (g: any) => g.guardianUid === guardianUserId,
+    );
     if (!isGuardian) {
       throw new HttpsError(
         "permission-denied",
@@ -594,7 +601,9 @@ export const getPersonnummerStatusForDependent = onCall(
       throw new HttpsError("not-found", "Target user not found.");
     }
     const guardians: any[] = targetDoc.data()?.guardians || [];
-    const isGuardian = guardians.some((g: any) => g.guardianUid === guardianUserId);
+    const isGuardian = guardians.some(
+      (g: any) => g.guardianUid === guardianUserId,
+    );
     if (!isGuardian) {
       throw new HttpsError(
         "permission-denied",

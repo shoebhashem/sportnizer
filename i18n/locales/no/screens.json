@@ -1075,7 +1075,13 @@
     "failedToDeleteComment": "Kunne ikke slette kommentar",
     "readBy": "Lest av",
     "unknownMember": "Ukjent medlem",
-    "noReaders": "Ingen har lest dette ennå"
+    "noReaders": "Ingen har lest dette ennå",
+    "reactions": "Reaksjoner",
+    "reactToNews": "Reager på denne nyheten",
+    "reactToComment": "Reager på kommentar",
+    "removeReaction": "Fjern reaksjon",
+    "tapToRemove": "Trykk for å fjerne din reaksjon",
+    "noReactions": "Ingen reaksjoner ennå"
   },
   "viewStatistics": {
     "groupStatistics": "{{groupName}}-statistikk",

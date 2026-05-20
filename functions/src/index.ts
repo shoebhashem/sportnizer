@@ -172,6 +172,8 @@ export { getAccountingData } from "./accounting/getAccountingData";
 export { addNewsComment } from "./news/addNewsComment";
 export { createNews } from "./news/createNews";
 export { deleteNewsComment } from "./news/deleteNewsComment";
+export { toggleCommentReaction } from "./news/toggleCommentReaction";
+export { toggleNewsReaction } from "./news/toggleNewsReaction";
 
 // Legal Functions
 export { getLegalConfig, recordLegalAcceptance } from "./legal/legalFunctions";
@@ -183,7 +185,7 @@ export {
     removePersonnummer,
     removePersonnummerForDependent,
     storePersonnummer,
-    storePersonnummerForDependent,
+    storePersonnummerForDependent
 } from "./lok/encryptPersonnummer";
 export { generateKommunExport } from "./lok/kommunExport";
 export { listEligibleEvents } from "./lok/listEligibleEvents";

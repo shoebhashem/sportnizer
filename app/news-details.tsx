@@ -17,13 +17,20 @@ import { useUserProfile } from "@/contexts/UserContext";
 import {
     addNewsComment,
     attachNewsCommentsListener,
+    attachNewsItemListener,
+    attachUserNewsReactionListener,
     deleteNews,
     deleteNewsComment,
-    fetchNewsItem,
+    fetchNewsReactions,
     hasUserReadNews,
     markNewsAsRead,
     News,
+    REACTION_EMOJIS,
+    ReactionEmoji,
+    toggleCommentReaction,
+    toggleNewsReaction,
     type NewsCommentClient,
+    type NewsReactionEntry,
 } from "@/services/news";
 import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
 import { Ionicons } from "@expo/vector-icons";
@@ -38,6 +45,7 @@ import {
     KeyboardAvoidingView,
     Modal,
     Platform,
+    Pressable,
     ScrollView,
     Share,
     StyleSheet,
@@ -77,15 +85,55 @@ export default function NewsDetailsScreen() {
     string | null
   >(null);
   const [showReadByModal, setShowReadByModal] = useState(false);
+  // News-level reaction state
+  const [myNewsReaction, setMyNewsReaction] = useState<ReactionEmoji | null>(
+    null,
+  );
+  const [togglingNewsReaction, setTogglingNewsReaction] = useState(false);
+  // Comment-level reaction state — tracks in-flight calls per commentId
+  const [togglingCommentReaction, setTogglingCommentReaction] = useState<
+    Record<string, boolean>
+  >({});
+  // Picker visibility state (null / false = closed)
+  const [showNewsReactionPicker, setShowNewsReactionPicker] = useState(false);
+  const [showCommentReactionPicker, setShowCommentReactionPicker] = useState<
+    string | null
+  >(null);
+  // Reaction detail modal (WhatsApp-style: who reacted + emoji summary)
+  const [reactionDetailTarget, setReactionDetailTarget] = useState<{
+    type: "news" | "comment";
+    commentId?: string;
+  } | null>(null);
+  const [reactionDetailFilter, setReactionDetailFilter] = useState<
+    ReactionEmoji | "all"
+  >("all");
+  const [reactionDetailEntries, setReactionDetailEntries] = useState<
+    NewsReactionEntry[]
+  >([]);
+  const [loadingReactionDetail, setLoadingReactionDetail] = useState(false);
   // Guard against double-write: userProfile loads asynchronously, causing this
   // effect to fire twice (once with userProfile=null, once after it resolves).
   // Without the guard, two different readBy objects get written (one with
   // userName, one without), showing "Unknown user" in the Reads modal.
   const hasMarkedAsRead = React.useRef(false);
 
+  // Real-time listener for the news item (so reactionCounts update immediately)
   useEffect(() => {
-    loadNewsDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!newsId || !clubId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const unsubscribe = attachNewsItemListener(
+      clubId,
+      newsId,
+      (newsData) => {
+        setNews(newsData);
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return unsubscribe;
   }, [newsId, clubId]);
 
   // Mark as read when viewing
@@ -114,6 +162,19 @@ export default function NewsDetailsScreen() {
     );
     return unsubscribe;
   }, [clubId, newsId]);
+
+  // Listen to current user's own news reaction
+  useEffect(() => {
+    if (!clubId || !newsId || !user) return;
+    const unsubscribe = attachUserNewsReactionListener(
+      clubId,
+      newsId,
+      user.uid,
+      (emoji) => setMyNewsReaction(emoji),
+      (error) => console.error("News reaction listener error:", error),
+    );
+    return unsubscribe;
+  }, [clubId, newsId, user]);
 
   // Check if user can edit this news
   const canEdit = () => {
@@ -196,23 +257,6 @@ export default function NewsDetailsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [news, userProfile, navigation]);
 
-  const loadNewsDetails = async () => {
-    if (!newsId || !clubId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const newsData = await fetchNewsItem(clubId, newsId);
-      setNews(newsData);
-    } catch (error) {
-      console.error("Error loading news:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleShare = async () => {
     if (!news) return;
 
@@ -285,6 +329,88 @@ export default function NewsDetailsScreen() {
       });
     }
     setShowDeleteCommentConfirm(null);
+  };
+
+  const handleToggleNewsReaction = async (emoji: ReactionEmoji) => {
+    if (togglingNewsReaction) return;
+    setTogglingNewsReaction(true);
+    try {
+      await toggleNewsReaction(newsId, clubId, emoji);
+    } catch (error) {
+      console.error("Error toggling news reaction:", error);
+    } finally {
+      setTogglingNewsReaction(false);
+    }
+  };
+
+  const handleToggleCommentReaction = async (
+    commentId: string,
+    emoji: ReactionEmoji,
+  ) => {
+    if (togglingCommentReaction[commentId]) return;
+    setTogglingCommentReaction((prev) => ({ ...prev, [commentId]: true }));
+    try {
+      await toggleCommentReaction(newsId, clubId, commentId, emoji);
+    } catch (error) {
+      console.error("Error toggling comment reaction:", error);
+    } finally {
+      setTogglingCommentReaction((prev) => ({ ...prev, [commentId]: false }));
+    }
+  };
+
+  // Load reaction entries when detail modal opens
+  useEffect(() => {
+    if (!reactionDetailTarget) {
+      setReactionDetailEntries([]);
+      return;
+    }
+    if (reactionDetailTarget.type === "news") {
+      setLoadingReactionDetail(true);
+      fetchNewsReactions(clubId, newsId)
+        .then(setReactionDetailEntries)
+        .catch((err) => console.error("Error fetching reactions:", err))
+        .finally(() => setLoadingReactionDetail(false));
+    } else if (reactionDetailTarget.commentId) {
+      const comment = comments.find(
+        (c) => c.commentId === reactionDetailTarget.commentId,
+      );
+      setReactionDetailEntries(
+        comment?.reactions
+          ? Object.entries(comment.reactions).map(([uid, emoji]) => ({
+              userId: uid,
+              displayName: comment.reactorNames?.[uid] || "Member",
+              emoji: emoji as ReactionEmoji,
+            }))
+          : [],
+      );
+    }
+  }, [reactionDetailTarget, clubId, newsId, comments]);
+
+  const openReactionDetail = (type: "news" | "comment", commentId?: string) => {
+    setReactionDetailTarget({ type, commentId });
+    setReactionDetailFilter("all");
+  };
+
+  const handleRemoveMyReaction = async () => {
+    if (!reactionDetailTarget || !user) return;
+    if (reactionDetailTarget.type === "news" && myNewsReaction) {
+      await handleToggleNewsReaction(myNewsReaction);
+    } else if (
+      reactionDetailTarget.type === "comment" &&
+      reactionDetailTarget.commentId
+    ) {
+      const comment = comments.find(
+        (c) => c.commentId === reactionDetailTarget.commentId,
+      );
+      const myEmoji = comment?.reactions?.[user.uid];
+      if (myEmoji) {
+        await handleToggleCommentReaction(
+          reactionDetailTarget.commentId,
+          myEmoji as ReactionEmoji,
+        );
+      }
+    }
+    setReactionDetailTarget(null);
   };
 
   const canDeleteComment = (comment: NewsCommentClient) => {
@@ -501,12 +627,58 @@ export default function NewsDetailsScreen() {
             </View>
           )}
 
-          {/* Description */}
-          <View style={styles.descriptionContainer}>
+          {/* Description — long-press (native) or tap smiley (web) to react */}
+          <Pressable
+            style={styles.descriptionContainer}
+            onLongPress={() => {
+              if (Platform.OS !== "web") setShowNewsReactionPicker(true);
+            }}
+            delayLongPress={400}
+          >
             <LinkedText style={styles.description}>
               {news.description}
             </LinkedText>
-          </View>
+            {Platform.OS === "web" && (
+              <TouchableOpacity
+                style={styles.reactionHintButton}
+                onPress={() => setShowNewsReactionPicker(true)}
+              >
+                <Text style={styles.reactionHintEmoji}>😊</Text>
+              </TouchableOpacity>
+            )}
+          </Pressable>
+
+          {/* Reaction summary pills (visible only when reactions exist) */}
+          {news.reactionCounts &&
+            Object.entries(news.reactionCounts).some(([, c]) => c > 0) && (
+              <View style={styles.reactionSummaryRow}>
+                {Object.entries(news.reactionCounts)
+                  .filter(([, count]) => count > 0)
+                  .map(([emoji, count]) => {
+                    const isSelected = myNewsReaction === emoji;
+                    return (
+                      <TouchableOpacity
+                        key={emoji}
+                        style={[
+                          styles.reactionSummaryPill,
+                          isSelected && styles.reactionSummaryPillSelected,
+                        ]}
+                        onPress={() => openReactionDetail("news", undefined)}
+                      >
+                        <Text style={styles.reactionSummaryEmoji}>{emoji}</Text>
+                        <Text
+                          style={[
+                            styles.reactionSummaryCount,
+                            isSelected && styles.reactionSummaryCountSelected,
+                          ]}
+                        >
+                          {count}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+              </View>
+            )}
 
           {/* Stats */}
           <View style={styles.statsRow}>
@@ -564,34 +736,97 @@ export default function NewsDetailsScreen() {
               </Text>
             ) : (
               comments.map((comment) => (
-                <View key={comment.commentId} style={styles.commentItem}>
-                  <View style={styles.commentHeader}>
-                    <Text style={styles.commentAuthor}>
-                      {comment.createdByName}
-                    </Text>
-                    <View style={styles.commentHeaderRight}>
-                      <Text style={styles.commentTime}>
-                        {formatDate(comment.createdAt)}
+                <View key={comment.commentId} style={styles.commentWrapper}>
+                  <Pressable
+                    style={styles.commentItem}
+                    onLongPress={() => {
+                      if (Platform.OS !== "web")
+                        setShowCommentReactionPicker(comment.commentId);
+                    }}
+                    delayLongPress={400}
+                  >
+                    <View style={styles.commentHeader}>
+                      <Text style={styles.commentAuthor}>
+                        {comment.createdByName}
                       </Text>
-                      {canDeleteComment(comment) && (
-                        <TouchableOpacity
-                          onPress={() =>
-                            setShowDeleteCommentConfirm(comment.commentId)
-                          }
-                          style={styles.deleteCommentButton}
-                        >
-                          <Ionicons
-                            name="trash-outline"
-                            size={16}
-                            color="#F44336"
-                          />
-                        </TouchableOpacity>
-                      )}
+                      <View style={styles.commentHeaderRight}>
+                        <Text style={styles.commentTime}>
+                          {formatDate(comment.createdAt)}
+                        </Text>
+                        {canDeleteComment(comment) && (
+                          <TouchableOpacity
+                            onPress={() =>
+                              setShowDeleteCommentConfirm(comment.commentId)
+                            }
+                            style={styles.deleteCommentButton}
+                          >
+                            <Ionicons
+                              name="trash-outline"
+                              size={16}
+                              color="#F44336"
+                            />
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                  <LinkedText style={styles.commentText}>
-                    {comment.text}
-                  </LinkedText>
+                    <LinkedText style={styles.commentText}>
+                      {comment.text}
+                    </LinkedText>
+                    {/* Web: faded smiley to open emoji picker */}
+                    {Platform.OS === "web" && (
+                      <TouchableOpacity
+                        style={styles.reactionHintButton}
+                        onPress={() =>
+                          setShowCommentReactionPicker(comment.commentId)
+                        }
+                      >
+                        <Text style={styles.reactionHintEmoji}>😊</Text>
+                      </TouchableOpacity>
+                    )}
+                  </Pressable>
+                  {/* Comment reaction summary pills — below the bubble */}
+                  {comment.reactionCounts &&
+                    Object.entries(comment.reactionCounts).some(
+                      ([, c]) => c > 0,
+                    ) && (
+                      <View style={styles.commentReactionPillsRow}>
+                        {Object.entries(comment.reactionCounts)
+                          .filter(([, count]) => count > 0)
+                          .map(([emoji, count]) => {
+                            const isSelected =
+                              user && comment.reactions?.[user.uid] === emoji;
+                            return (
+                              <TouchableOpacity
+                                key={emoji}
+                                style={[
+                                  styles.reactionSummaryPill,
+                                  isSelected &&
+                                    styles.reactionSummaryPillSelected,
+                                ]}
+                                onPress={() =>
+                                  openReactionDetail(
+                                    "comment",
+                                    comment.commentId,
+                                  )
+                                }
+                              >
+                                <Text style={styles.reactionSummaryEmoji}>
+                                  {emoji}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.reactionSummaryCount,
+                                    isSelected &&
+                                      styles.reactionSummaryCountSelected,
+                                  ]}
+                                >
+                                  {count}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                      </View>
+                    )}
                 </View>
               ))
             )}
@@ -715,6 +950,202 @@ export default function NewsDetailsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Emoji Reaction Picker — WhatsApp-style floating emoji bar */}
+      <Modal
+        visible={showNewsReactionPicker || showCommentReactionPicker !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowNewsReactionPicker(false);
+          setShowCommentReactionPicker(null);
+        }}
+      >
+        <TouchableOpacity
+          style={styles.reactionPickerOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setShowNewsReactionPicker(false);
+            setShowCommentReactionPicker(null);
+          }}
+        >
+          <View style={styles.reactionPickerContainer}>
+            {REACTION_EMOJIS.map((emoji) => {
+              const isSelected = showNewsReactionPicker
+                ? myNewsReaction === emoji
+                : showCommentReactionPicker
+                  ? comments.find(
+                      (c) => c.commentId === showCommentReactionPicker,
+                    )?.reactions?.[user?.uid ?? ""] === emoji
+                  : false;
+              return (
+                <TouchableOpacity
+                  key={emoji}
+                  style={[
+                    styles.reactionPickerEmojiBtn,
+                    isSelected && styles.reactionPickerEmojiBtnSelected,
+                  ]}
+                  onPress={() => {
+                    if (showNewsReactionPicker) {
+                      handleToggleNewsReaction(emoji);
+                      setShowNewsReactionPicker(false);
+                    } else if (showCommentReactionPicker) {
+                      handleToggleCommentReaction(
+                        showCommentReactionPicker,
+                        emoji,
+                      );
+                      setShowCommentReactionPicker(null);
+                    }
+                  }}
+                >
+                  <Text style={styles.reactionPickerEmojiText}>{emoji}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Reaction Detail Modal — WhatsApp who-reacted panel */}
+      <Modal
+        visible={reactionDetailTarget !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setReactionDetailTarget(null);
+          setReactionDetailFilter("all");
+        }}
+      >
+        <View style={styles.reactionDetailOverlay}>
+          <View style={styles.reactionDetailContainer}>
+            {/* Header */}
+            <View style={styles.reactionDetailHeader}>
+              <Text style={styles.reactionDetailTitle}>
+                {t("screens:newsDetails.reactions")}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setReactionDetailTarget(null);
+                  setReactionDetailFilter("all");
+                }}
+              >
+                <Ionicons name="close" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Emoji filter tabs */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.reactionTabBar}
+              contentContainerStyle={styles.reactionTabBarContent}
+            >
+              {REACTION_EMOJIS.map((emoji) => {
+                const count = reactionDetailEntries.filter(
+                  (e) => e.emoji === emoji,
+                ).length;
+                if (count === 0) return null;
+                const isActive = reactionDetailFilter === emoji;
+                return (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={[
+                      styles.reactionTab,
+                      isActive && styles.reactionTabActive,
+                    ]}
+                    onPress={() =>
+                      setReactionDetailFilter(isActive ? "all" : emoji)
+                    }
+                  >
+                    <Text style={styles.reactionTabEmoji}>{emoji}</Text>
+                    <Text
+                      style={[
+                        styles.reactionTabText,
+                        isActive && styles.reactionTabTextActive,
+                      ]}
+                    >
+                      {count}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Reactor list */}
+            {loadingReactionDetail ? (
+              <ActivityIndicator
+                style={{ marginTop: 24 }}
+                color={theme.colors.secondary}
+              />
+            ) : (
+              <FlatList
+                data={
+                  reactionDetailFilter === "all"
+                    ? reactionDetailEntries
+                    : reactionDetailEntries.filter(
+                        (e) => e.emoji === reactionDetailFilter,
+                      )
+                }
+                keyExtractor={(item) => item.userId}
+                style={styles.reactorList}
+                renderItem={({ item }) => {
+                  const isMe = item.userId === user?.uid;
+                  return (
+                    <TouchableOpacity
+                      style={styles.reactorRow}
+                      disabled={!isMe}
+                      onPress={() => {
+                        if (!isMe) return;
+                        handleRemoveMyReaction();
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.reactorAvatar,
+                          isMe && styles.reactorAvatarMe,
+                        ]}
+                      >
+                        <Text style={styles.reactorAvatarText}>
+                          {(isMe
+                            ? userProfile?.displayName || "Y"
+                            : item.displayName
+                          )
+                            .charAt(0)
+                            .toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.reactorInfo}>
+                        <Text
+                          style={[
+                            styles.reactorName,
+                            isMe && styles.reactorNameMe,
+                          ]}
+                        >
+                          {isMe
+                            ? userProfile?.displayName ||
+                              t("screens:newsDetails.unknownMember")
+                            : item.displayName}
+                        </Text>
+                        {isMe && (
+                          <Text style={styles.reactorTapHint}>
+                            {t("screens:newsDetails.tapToRemove")}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={styles.reactorEmoji}>{item.emoji}</Text>
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <Text style={styles.noReactorsText}>
+                    {t("screens:newsDetails.noReactions")}
+                  </Text>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -832,7 +1263,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.inputBackground,
     borderRadius: 12,
     padding: 20,
-    marginBottom: 24,
+    marginBottom: 8,
   },
   description: {
     fontSize: 16,
@@ -877,11 +1308,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 16,
   },
+  commentWrapper: {
+    marginBottom: 10,
+  },
   commentItem: {
     backgroundColor: theme.colors.inputBackground,
     borderRadius: 10,
     padding: 14,
-    marginBottom: 10,
+  },
+  commentReactionPillsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 4,
+    paddingHorizontal: 4,
+    marginBottom: 4,
   },
   commentHeader: {
     flexDirection: "row",
@@ -911,6 +1352,81 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: theme.colors.text,
     lineHeight: 22,
+  },
+  // Reaction picker (WhatsApp-style floating emoji bar)
+  reactionPickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  reactionPickerContainer: {
+    flexDirection: "row",
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  reactionPickerEmojiBtn: {
+    padding: 8,
+    borderRadius: 24,
+  },
+  reactionPickerEmojiBtnSelected: {
+    backgroundColor: `${theme.colors.secondary}33`,
+  },
+  reactionPickerEmojiText: {
+    fontSize: 30,
+  },
+  // Reaction summary pills (shown below content when reactions exist)
+  reactionSummaryRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 6,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  reactionSummaryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.inputBackground,
+  },
+  reactionSummaryPillSelected: {
+    borderColor: theme.colors.secondary,
+    backgroundColor: `${theme.colors.secondary}22`,
+  },
+  reactionSummaryEmoji: {
+    fontSize: 14,
+  },
+  reactionSummaryCount: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: "600",
+  },
+  reactionSummaryCountSelected: {
+    color: theme.colors.secondary,
+  },
+  // Web: faded smiley hint button
+  reactionHintButton: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    padding: 2,
+    opacity: 0.35,
+  },
+  reactionHintEmoji: {
+    fontSize: 16,
   },
   commentInputContainer: {
     flexDirection: "row",
@@ -942,6 +1458,120 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  // Reaction detail modal (WhatsApp who-reacted panel)
+  reactionDetailOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  reactionDetailContainer: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "75%",
+    paddingBottom: 20,
+  },
+  reactionDetailHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+  },
+  reactionDetailTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: theme.colors.text,
+  },
+  reactionTabBar: {
+    flexGrow: 0,
+  },
+  reactionTabBarContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  reactionTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.inputBackground,
+  },
+  reactionTabActive: {
+    borderColor: theme.colors.secondary,
+    backgroundColor: `${theme.colors.secondary}22`,
+  },
+  reactionTabEmoji: {
+    fontSize: 16,
+  },
+  reactionTabText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontWeight: "600",
+  },
+  reactionTabTextActive: {
+    color: theme.colors.secondary,
+  },
+  reactorList: {
+    flexShrink: 1,
+  },
+  reactorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.inputBorder,
+  },
+  reactorAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${theme.colors.secondary}33`,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  reactorAvatarMe: {
+    backgroundColor: theme.colors.secondary,
+  },
+  reactorAvatarText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: theme.colors.text,
+  },
+  reactorInfo: {
+    flex: 1,
+  },
+  reactorName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.colors.text,
+  },
+  reactorNameMe: {
+    color: theme.colors.secondary,
+  },
+  reactorTapHint: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  reactorEmoji: {
+    fontSize: 22,
+    marginLeft: 8,
+  },
+  noReactorsText: {
+    textAlign: "center",
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    padding: 24,
   },
   readByModalOverlay: {
     flex: 1,

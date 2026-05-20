@@ -1119,7 +1119,13 @@
     "failedToDeleteComment": "Failed to delete comment",
     "readBy": "Read by",
     "unknownMember": "Unknown member",
-    "noReaders": "No one has read this yet"
+    "noReaders": "No one has read this yet",
+    "reactions": "Reactions",
+    "reactToNews": "React to this news",
+    "reactToComment": "React to comment",
+    "removeReaction": "Remove reaction",
+    "tapToRemove": "Tap to remove your reaction",
+    "noReactions": "No reactions yet"
   },
   "viewStatistics": {
     "groupStatistics": "{{groupName}} Statistics",

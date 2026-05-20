@@ -1093,7 +1093,13 @@
     "failedToDeleteComment": "Kommentar konnte nicht gelöscht werden",
     "readBy": "Gelesen von",
     "unknownMember": "Unbekanntes Mitglied",
-    "noReaders": "Noch niemand hat dies gelesen"
+    "noReaders": "Noch niemand hat dies gelesen",
+    "reactions": "Reaktionen",
+    "reactToNews": "Auf diese Neuigkeit reagieren",
+    "reactToComment": "Auf Kommentar reagieren",
+    "removeReaction": "Reaktion entfernen",
+    "tapToRemove": "Tippen, um deine Reaktion zu entfernen",
+    "noReactions": "Noch keine Reaktionen"
   },
   "viewStatistics": {
     "groupStatistics": "Statistiken {{groupName}}",

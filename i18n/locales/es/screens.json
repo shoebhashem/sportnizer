@@ -1093,7 +1093,13 @@
     "failedToDeleteComment": "Error al eliminar comentario",
     "readBy": "Leído por",
     "unknownMember": "Miembro desconocido",
-    "noReaders": "Nadie ha leído esto todavía"
+    "noReaders": "Nadie ha leído esto todavía",
+    "reactions": "Reacciones",
+    "reactToNews": "Reaccionar a esta noticia",
+    "reactToComment": "Reaccionar al comentario",
+    "removeReaction": "Eliminar reacción",
+    "tapToRemove": "Toca para eliminar tu reacción",
+    "noReactions": "Sin reacciones todavía"
   },
   "viewStatistics": {
     "groupStatistics": "Estadísticas de {{groupName}}",

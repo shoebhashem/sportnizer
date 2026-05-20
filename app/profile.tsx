@@ -7,18 +7,18 @@ import { useNavigation, useRouter } from "expo-router";
 import React, { useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -32,22 +32,22 @@ import { getDefaultProfilePicture } from "../constants/profilePictures";
 import { theme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  SUPPORTED_LANGUAGES,
-  SupportedLanguage,
-  useLanguage,
+    SUPPORTED_LANGUAGES,
+    SupportedLanguage,
+    useLanguage,
 } from "../contexts/LanguageContext";
 import { useUser } from "../contexts/UserContext";
 import {
-  changePassword,
-  requestEmailChange,
-  signOutUser,
-  updateUserProfile,
+    changePassword,
+    requestEmailChange,
+    signOutUser,
+    updateUserProfile,
 } from "../services/auth/authService";
 import {
-  getPersonnummerDisplayText,
-  getPersonnummerStatusForDependent,
-  PersonnummerStatus,
-  getPersonnummerStatus,
+    getPersonnummerDisplayText,
+    getPersonnummerStatus,
+    getPersonnummerStatusForDependent,
+    PersonnummerStatus,
 } from "../services/lok/personnummerService";
 import { memberService } from "../services/member";
 
@@ -103,10 +103,10 @@ export default function ProfileScreen() {
   const [dependentStatuses, setDependentStatuses] = useState<
     Record<string, PersonnummerStatus>
   >({});
-  const [
-    personnummerModalTarget,
-    setPersonnummerModalTarget,
-  ] = useState<{ userId?: string; childName?: string } | null>(null);
+  const [personnummerModalTarget, setPersonnummerModalTarget] = useState<{
+    userId?: string;
+    childName?: string;
+  } | null>(null);
 
   const showAlert = (title: string, message: string, onConfirm?: () => void) =>
     setAlertModal({ visible: true, title, message, onConfirm });
@@ -139,7 +139,9 @@ export default function ProfileScreen() {
   // Load self personnummer status and dependent statuses on mount
   React.useEffect(() => {
     if (!user) return;
-    getPersonnummerStatus().then(setSelfPersonnummerStatus).catch(() => {});
+    getPersonnummerStatus()
+      .then(setSelfPersonnummerStatus)
+      .catch(() => {});
 
     const dependents = userProfile?.dependents || [];
     dependents.forEach((dep: any) => {
@@ -785,52 +787,54 @@ export default function ProfileScreen() {
               <Text style={styles.sectionTitle}>
                 {t("screens:profile.myChildren")}
               </Text>
-              {(userProfile?.dependents || []).map((dep: any, index: number) => {
-                const depStatus = dependentStatuses[dep.uid];
-                const hasPersonnummer = depStatus?.hasPersonnummer ?? false;
-                return (
-                  <TouchableOpacity
-                    key={`dep-${index}`}
-                    style={styles.securityButton}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/child-profile" as const,
-                        params: {
-                          userId: dep.uid,
-                          childName: dep.childName,
-                        },
-                      })
-                    }
-                  >
-                    <View
-                      style={[
-                        styles.securityButtonIcon,
-                        styles.childAvatarContainer,
-                      ]}
+              {(userProfile?.dependents || []).map(
+                (dep: any, index: number) => {
+                  const depStatus = dependentStatuses[dep.uid];
+                  const hasPersonnummer = depStatus?.hasPersonnummer ?? false;
+                  return (
+                    <TouchableOpacity
+                      key={`dep-${index}`}
+                      style={styles.securityButton}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/child-profile" as const,
+                          params: {
+                            userId: dep.uid,
+                            childName: dep.childName,
+                          },
+                        })
+                      }
                     >
-                      <Text style={styles.childAvatarInitials}>
-                        {dep.childName?.charAt(0)?.toUpperCase() || "?"}
-                      </Text>
                       <View
                         style={[
-                          styles.childStatusDot,
-                          hasPersonnummer
-                            ? styles.childStatusDotGreen
-                            : styles.childStatusDotOrange,
+                          styles.securityButtonIcon,
+                          styles.childAvatarContainer,
                         ]}
+                      >
+                        <Text style={styles.childAvatarInitials}>
+                          {dep.childName?.charAt(0)?.toUpperCase() || "?"}
+                        </Text>
+                        <View
+                          style={[
+                            styles.childStatusDot,
+                            hasPersonnummer
+                              ? styles.childStatusDotGreen
+                              : styles.childStatusDotOrange,
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.securityButtonText}>
+                        {dep.childName}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={theme.colors.textSecondary}
                       />
-                    </View>
-                    <Text style={styles.securityButtonText}>
-                      {dep.childName}
-                    </Text>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={theme.colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                );
-              })}
+                    </TouchableOpacity>
+                  );
+                },
+              )}
             </View>
           )}
 

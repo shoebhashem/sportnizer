@@ -14,10 +14,12 @@ export {
     addNewsComment,
     attachNewsCommentsListener,
     deleteNewsComment,
+    toggleCommentReaction,
     type NewsCommentClient
 } from "./newsComments";
 
 export {
+    attachNewsItemListener,
     attachNewsListener,
     deleteNews,
     fetchNews,
@@ -28,4 +30,9 @@ export {
     type News,
     type NewsListenerOptions
 } from "./newsListener";
+
+export {
+    attachUserNewsReactionListener,
+    fetchNewsReactions, REACTION_EMOJIS, toggleNewsReaction, type NewsReactionEntry, type NewsReactionResult, type ReactionEmoji
+} from "./newsReactions";
 
