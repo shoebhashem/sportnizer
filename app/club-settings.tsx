@@ -1,7 +1,9 @@
 import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import CountdownTimer from "@/components/CountdownTimer";
+import DropdownInput from "@/components/DropdownInput";
 import Input from "@/components/Input";
+import { getSportByKey, SPORTS_SORTED } from "@/constants/swedishSports";
 import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useUser } from "@/contexts/UserContext";
@@ -30,7 +32,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ClubSettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation(["screens", "common"]);
+  const { t } = useTranslation(["screens", "common", "sports"]);
   useTrackFeatureOnMount("club-settings-viewed");
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
@@ -50,7 +52,7 @@ export default function ClubSettingsScreen() {
   const [isReactivating, setIsReactivating] = useState(false);
   const [showAddGroupModal, setShowAddGroupModal] = useState(false);
   const [groupName, setGroupName] = useState("");
-  const [sportType, setSportType] = useState("");
+  const [selectedSport, setSelectedSport] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
 
   // Remove Club Admin state
@@ -149,14 +151,14 @@ export default function ClubSettingsScreen() {
 
   const handleAddGroup = () => {
     setGroupName("");
-    setSportType("");
+    setSelectedSport("");
     setShowAddGroupModal(true);
   };
 
   const handleConfirmAddGroup = async () => {
     console.log("handleConfirmAddGroup called");
     console.log("groupName:", groupName);
-    console.log("sportType:", sportType);
+    console.log("selectedSport:", selectedSport);
 
     if (!groupName.trim()) {
       console.log("Group name is empty, returning early");
@@ -184,7 +186,12 @@ export default function ClubSettingsScreen() {
         groupData: {
           name: groupName.trim(),
           description: "",
-          sport: sportType.trim() || undefined,
+          sport: selectedSport
+            ? (getSportByKey(selectedSport)?.nameEn ?? selectedSport)
+            : undefined,
+          rfSport: selectedSport
+            ? { sportKey: selectedSport, rfSportId: null }
+            : undefined,
         },
         userId: firebaseUser.uid,
         userDisplayName:
@@ -202,7 +209,7 @@ export default function ClubSettingsScreen() {
         console.log("Group created successfully, closing modal");
         setShowAddGroupModal(false);
         setGroupName("");
-        setSportType("");
+        setSelectedSport("");
         setSuccessMessage(
           t("screens:clubSettings.groupCreated", { name: groupName.trim() }),
         );
@@ -977,14 +984,17 @@ export default function ClubSettingsScreen() {
                 autoCapitalize="words"
               />
 
-              <Input
+              <DropdownInput
                 label={t("screens:clubSettings.addGroupModal.sportType")}
-                value={sportType}
-                onChangeText={setSportType}
+                value={selectedSport}
+                onValueChange={setSelectedSport}
+                options={SPORTS_SORTED.map((s) => ({
+                  id: s.key,
+                  name: t(`sports:${s.key}`),
+                }))}
                 placeholder={t(
                   "screens:clubSettings.addGroupModal.sportTypePlaceholder",
                 )}
-                autoCapitalize="words"
               />
 
               <View style={styles.modalButtons}>

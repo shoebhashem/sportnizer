@@ -922,7 +922,13 @@
     "membersCount": "Medlemmar ({{count}})",
     "noMembersMatchFilter": "Inga medlemmar matchar det valda filtret.",
     "childYouthLabel": "(Barn/Ungdom)",
-    "failedToLoadMembershipFees": "Kunde inte ladda medlemsavgifter"
+    "failedToLoadMembershipFees": "Kunde inte ladda medlemsavgifter",
+    "membersUpdatedSuccess": "Medlemmar uppdaterade — {{added}} tillagda, {{removed}} borttagna.",
+    "paidMembersKept": "{{count}} medlem(mar) som redan betalat kunde inte tas bort."
+  },
+  "selectEventMembers": {
+    "paidMemberWarningTitle": "Kan inte ta bort medlem",
+    "paidMemberWarningMessage": "{{name}} har redan betalat denna avgift och kan inte tas bort från listan."
   },
   "stripeOnboarding": {
     "paymentSetup": "Betalningsinstallation",

@@ -11,48 +11,56 @@ import enCommon from "./locales/en/common.json";
 import enComponents from "./locales/en/components.json";
 import enNavigation from "./locales/en/navigation.json";
 import enScreens from "./locales/en/screens.json";
+import enSports from "./locales/en/sports.json";
 
 // Swedish translations
 import svCommon from "./locales/sv/common.json";
 import svComponents from "./locales/sv/components.json";
 import svNavigation from "./locales/sv/navigation.json";
 import svScreens from "./locales/sv/screens.json";
+import svSports from "./locales/sv/sports.json";
 
 // German translations
 import deCommon from "./locales/de/common.json";
 import deComponents from "./locales/de/components.json";
 import deNavigation from "./locales/de/navigation.json";
 import deScreens from "./locales/de/screens.json";
+import deSports from "./locales/de/sports.json";
 
 // Spanish translations
 import esCommon from "./locales/es/common.json";
 import esComponents from "./locales/es/components.json";
 import esNavigation from "./locales/es/navigation.json";
 import esScreens from "./locales/es/screens.json";
+import esSports from "./locales/es/sports.json";
 
 // Italian translations
 import itCommon from "./locales/it/common.json";
 import itComponents from "./locales/it/components.json";
 import itNavigation from "./locales/it/navigation.json";
 import itScreens from "./locales/it/screens.json";
+import itSports from "./locales/it/sports.json";
 
 // French translations
 import frCommon from "./locales/fr/common.json";
 import frComponents from "./locales/fr/components.json";
 import frNavigation from "./locales/fr/navigation.json";
 import frScreens from "./locales/fr/screens.json";
+import frSports from "./locales/fr/sports.json";
 
 // Norwegian translations
 import noCommon from "./locales/no/common.json";
 import noComponents from "./locales/no/components.json";
 import noNavigation from "./locales/no/navigation.json";
 import noScreens from "./locales/no/screens.json";
+import noSports from "./locales/no/sports.json";
 
 // Danish translations
 import daCommon from "./locales/da/common.json";
 import daComponents from "./locales/da/components.json";
 import daNavigation from "./locales/da/navigation.json";
 import daScreens from "./locales/da/screens.json";
+import daSports from "./locales/da/sports.json";
 
 export const SUPPORTED_LANGUAGES = [
   { code: "en", label: "English", nativeLabel: "English", flag: "🇬🇧" },
@@ -117,54 +125,62 @@ i18n.use(initReactI18next).init({
       screens: enScreens,
       navigation: enNavigation,
       components: enComponents,
+      sports: enSports,
     },
     sv: {
       common: svCommon,
       screens: svScreens,
       navigation: svNavigation,
       components: svComponents,
+      sports: svSports,
     },
     de: {
       common: deCommon,
       screens: deScreens,
       navigation: deNavigation,
       components: deComponents,
+      sports: deSports,
     },
     es: {
       common: esCommon,
       screens: esScreens,
       navigation: esNavigation,
       components: esComponents,
+      sports: esSports,
     },
     it: {
       common: itCommon,
       screens: itScreens,
       navigation: itNavigation,
       components: itComponents,
+      sports: itSports,
     },
     fr: {
       common: frCommon,
       screens: frScreens,
       navigation: frNavigation,
       components: frComponents,
+      sports: frSports,
     },
     no: {
       common: noCommon,
       screens: noScreens,
       navigation: noNavigation,
       components: noComponents,
+      sports: noSports,
     },
     da: {
       common: daCommon,
       screens: daScreens,
       navigation: daNavigation,
       components: daComponents,
+      sports: daSports,
     },
   },
   lng: "en", // Will be updated async by LanguageProvider
   fallbackLng: "en",
   defaultNS: "common",
-  ns: ["common", "screens", "navigation", "components"],
+  ns: ["common", "screens", "navigation", "components", "sports"],
 
   interpolation: {
     escapeValue: false, // React already escapes

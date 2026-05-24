@@ -214,7 +214,7 @@ export const getAgeAtDate = (normalized: string, atDate: Date): number => {
  * Requires the user to provide explicit consent.
  */
 export const storePersonnummer = onCall(
-  { region: "europe-north1" },
+  { region: "europe-north1", secrets: ["PERSONNUMMER_ENCRYPTION_KEY"] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be authenticated.");

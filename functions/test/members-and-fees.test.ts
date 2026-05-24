@@ -625,3 +625,224 @@ describe("Membership Fees", () => {
     expect(result.fees[0].title).toBe("Listable Fee");
   });
 });
+
+// ─── updateFeeMembers ─────────────────────────────────────────
+
+describe("updateFeeMembers", () => {
+  beforeEach(async () => {
+    await clearAll();
+  });
+
+  /** Helper: create a club, group, two players, and an active fee. */
+  async function setupFeeWithMembers() {
+    const admin = await createFullTestUser({ displayName: "Admin" });
+
+    const { clubId } = await callFunction("createClub", admin.idToken, {
+      clubData: { name: `FeeUpdate Club ${Date.now()}` },
+    });
+
+    await seedUserDocument(admin.uid, {
+      clubAccess: [
+        {
+          clubId,
+          clubName: "FeeUpdate Club",
+          role: "club-admin",
+          joinedAt: new Date(),
+          isActive: true,
+          groupAccess: [],
+        },
+      ],
+    });
+
+    const { groupId } = await callFunction("createGroup", admin.idToken, {
+      clubId,
+      groupData: { name: "Update Team" },
+    });
+
+    const player1 = await createFullTestUser({ displayName: "Player One" });
+    const player2 = await createFullTestUser({ displayName: "Player Two" });
+
+    const db = getFirestore();
+    // Seed both players in group allMembers
+    await db.doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`).set({
+      members: [
+        {
+          userId: player1.uid,
+          name: "Player One",
+          roles: ["player"],
+          isActive: true,
+          needsGuardian: false,
+        },
+        {
+          userId: player2.uid,
+          name: "Player Two",
+          roles: ["player"],
+          isActive: true,
+          needsGuardian: false,
+        },
+      ],
+      memberCount: 2,
+    });
+
+    // Seed Stripe info needed by createMembershipFee
+    await db.doc(`clubs/${clubId}`).update({
+      stripeAccountId: "acct_test123",
+      stripeAccountStatus: "active",
+      stripe: { chargesEnabled: true, accountId: "acct_test123" },
+    });
+    await db
+      .doc(`clubs/${clubId}/groups/${groupId}`)
+      .update({ name: "Update Team", clubId });
+
+    // Create fee targeting ONLY player1 via specificMemberIds
+    await callFunction("createMembershipFee", admin.idToken, {
+      clubId,
+      groupId,
+      title: "Update Fee",
+      currency: "sek",
+      targetRoles: [],
+      specificMemberIds: [player1.uid],
+      components: [{ category: "membership_fee", amount: 10000 }],
+    });
+
+    // Retrieve the created fee's ID
+    const feesResult = await callFunction("getMembershipFees", admin.idToken, {
+      clubId,
+    });
+    const fee = feesResult.fees.find((f: any) => f.title === "Update Fee");
+
+    return { admin, clubId, groupId, player1, player2, feeId: fee.feeId };
+  }
+
+  it("should add a new member to the fee", async () => {
+    const { admin, clubId, player1, player2, feeId } =
+      await setupFeeWithMembers();
+
+    const result = await callFunction("updateFeeMembers", admin.idToken, {
+      clubId,
+      feeId,
+      memberIds: [player1.uid, player2.uid],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.addedCount).toBe(1); // player2 added
+    expect(result.removedCount).toBe(0);
+  });
+
+  it("should remove a pending member from the fee", async () => {
+    const { admin, clubId, player1, player2, feeId } =
+      await setupFeeWithMembers();
+
+    // First add player2
+    await callFunction("updateFeeMembers", admin.idToken, {
+      clubId,
+      feeId,
+      memberIds: [player1.uid, player2.uid],
+    });
+
+    // Then remove player2 (still pending — no payment made)
+    const result = await callFunction("updateFeeMembers", admin.idToken, {
+      clubId,
+      feeId,
+      memberIds: [player1.uid],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.removedCount).toBe(1);
+    expect(result.removedPaidCount).toBe(0);
+  });
+
+  it("should NOT remove a paid member", async () => {
+    const { admin, clubId, player1, feeId } = await setupFeeWithMembers();
+
+    // Manually mark player1 as paid in the allMembers entry
+    // (updateFeeMembers reads paymentStatus from the allMembers array)
+    const db = getFirestore();
+    const feeSnap = await db.doc(`membershipFees/${feeId}`).get();
+    const { groupId } = feeSnap.data() as { groupId: string };
+
+    await db.doc(`membershipFees/${feeId}`).update({
+      includedMembers: [player1.uid],
+    });
+
+    // Update allMembers so the member's paymentStatus shows as paid
+    const membersRef = db.doc(
+      `clubs/${clubId}/groups/${groupId}/allMembers/members`,
+    );
+    const membersDoc = await membersRef.get();
+    const currentMembers: any[] = membersDoc.data()?.members || [];
+    const updatedMembers = currentMembers.map((m: any) =>
+      m.userId === player1.uid
+        ? {
+            ...m,
+            paymentStatus: {
+              activeFeeId: feeId,
+              status: "paid",
+              amount: 10000,
+              currency: "sek",
+              paidAt: new Date(),
+              paidBy: player1.uid,
+            },
+          }
+        : m,
+    );
+    await membersRef.update({ members: updatedMembers });
+
+    // Attempt to remove player1 (paid)
+    const result = await callFunction("updateFeeMembers", admin.idToken, {
+      clubId,
+      feeId,
+      memberIds: [], // try to remove everyone
+    });
+
+    expect(result.success).toBe(true);
+    // player1 should NOT be removed because they paid
+    expect(result.removedPaidCount).toBe(1);
+    expect(result.removedCount).toBe(0);
+
+    // Verify player1 still in includedMembers
+    const feeDoc = await getDocument(`membershipFees/${feeId}`);
+    expect(feeDoc!.includedMembers).toContain(player1.uid);
+  });
+
+  it("should reject non-admin callers", async () => {
+    const { player1, clubId, feeId } = await setupFeeWithMembers();
+
+    await expectFunctionError(
+      "updateFeeMembers",
+      player1.idToken,
+      { clubId, feeId, memberIds: [] },
+      "permission-denied",
+    );
+  });
+
+  it("should reject updates to a closed fee", async () => {
+    const { admin, clubId, feeId } = await setupFeeWithMembers();
+
+    // Close the fee directly in Firestore
+    const db = getFirestore();
+    await db.doc(`membershipFees/${feeId}`).update({ status: "closed" });
+
+    await expectFunctionError(
+      "updateFeeMembers",
+      admin.idToken,
+      { clubId, feeId, memberIds: [] },
+      "failed-precondition",
+    );
+  });
+
+  it("should silently ignore invalid member IDs", async () => {
+    const { admin, clubId, player1, feeId } = await setupFeeWithMembers();
+
+    const result = await callFunction("updateFeeMembers", admin.idToken, {
+      clubId,
+      feeId,
+      memberIds: [player1.uid, "bogus-id-123"],
+    });
+
+    expect(result.success).toBe(true);
+    // bogus-id-123 is not a group member so silently ignored
+    const feeDoc = await getDocument(`membershipFees/${feeId}`);
+    expect(feeDoc!.includedMembers).not.toContain("bogus-id-123");
+  });
+});

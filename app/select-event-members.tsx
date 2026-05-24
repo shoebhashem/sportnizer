@@ -14,10 +14,17 @@
  */
 
 import Button from "@/components/Button";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import PaymentStatusBadge from "@/components/PaymentStatusBadge";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useGroupData } from "@/contexts/GroupDataContext";
+import {
+    FeePaymentEntry,
+    FeePaymentStatus,
+    consumeFeePaymentStatuses,
+} from "@/utils/feePaymentStore";
 import { setSelectedMemberIds } from "@/utils/memberSelectionStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
@@ -71,6 +78,25 @@ export default function SelectEventMembersScreen() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Fee mode: payment status data populated by track-payments before navigation
+  const [paymentStatusMap, setPaymentStatusMap] = useState<
+    Map<string, FeePaymentStatus>
+  >(new Map());
+  const [paidMemberWarning, setPaidMemberWarning] = useState<{
+    visible: boolean;
+    memberName: string;
+  }>({ visible: false, memberName: "" });
+
+  // Consume fee payment data on mount (null in non-fee mode)
+  useEffect(() => {
+    const entries: FeePaymentEntry[] | null = consumeFeePaymentStatuses();
+    if (entries) {
+      const map = new Map<string, FeePaymentStatus>();
+      entries.forEach((e) => map.set(e.userId, e.status));
+      setPaymentStatusMap(map);
+    }
+  }, []);
 
   // Set the header title dynamically based on the scope
   const scopeName =
@@ -172,17 +198,33 @@ export default function SelectEventMembersScreen() {
     return result;
   }, [contextMembers, roleFilter, searchQuery]);
 
-  const toggleMember = useCallback((userId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(userId)) {
-        next.delete(userId);
-      } else {
-        next.add(userId);
+  const toggleMember = useCallback(
+    (userId: string, memberName?: string) => {
+      // In fee mode: block deselection of a paid member
+      if (paymentStatusMap.get(userId) === "paid") {
+        const isCurrentlySelected = selectedIds.has(userId);
+        if (isCurrentlySelected) {
+          // Show warning and keep member selected
+          setPaidMemberWarning({
+            visible: true,
+            memberName: memberName || "",
+          });
+          return;
+        }
       }
-      return next;
-    });
-  }, []);
+
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(userId)) {
+          next.delete(userId);
+        } else {
+          next.add(userId);
+        }
+        return next;
+      });
+    },
+    [paymentStatusMap, selectedIds],
+  );
 
   const handleSelectAll = useCallback(() => {
     if (selectedIds.size === filteredMembers.length) {
@@ -206,11 +248,12 @@ export default function SelectEventMembersScreen() {
 
   const renderMemberItem = ({ item }: { item: MemberItem }) => {
     const isSelected = selectedIds.has(item.userId);
+    const feeStatus = paymentStatusMap.get(item.userId);
 
     return (
       <TouchableOpacity
         style={[styles.memberItem, isSelected && styles.memberItemSelected]}
-        onPress={() => toggleMember(item.userId)}
+        onPress={() => toggleMember(item.userId, item.name)}
       >
         <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
           {isSelected && (
@@ -230,6 +273,7 @@ export default function SelectEventMembersScreen() {
             {item.needsGuardian && " (Child/Youth)"}
           </Text>
         </View>
+        {feeStatus && <PaymentStatusBadge status={feeStatus as any} />}
       </TouchableOpacity>
     );
   };
@@ -252,118 +296,140 @@ export default function SelectEventMembersScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons
-          name="search"
-          size={20}
-          color={theme.colors.textSecondary}
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t("screens:createEvent.searchMembersPlaceholder")}
-          placeholderTextColor={theme.colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery("")}>
-            <Ionicons
-              name="close-circle"
-              size={20}
-              color={theme.colors.textSecondary}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Select All / Count Info */}
-      <View style={styles.selectionBar}>
-        <TouchableOpacity onPress={handleSelectAll} style={styles.selectAllBtn}>
+    <>
+      <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
           <Ionicons
-            name={
-              selectedIds.size === filteredMembers.length &&
-              filteredMembers.length > 0
-                ? "checkbox"
-                : "square-outline"
-            }
-            size={22}
-            color={theme.colors.secondary}
-            style={{ marginRight: 8 }}
+            name="search"
+            size={20}
+            color={theme.colors.textSecondary}
+            style={styles.searchIcon}
           />
-          <Text style={styles.selectAllText}>
-            {t("screens:createEvent.selectAll")}
-          </Text>
-        </TouchableOpacity>
-        <Text style={styles.countText}>
-          {selectedIds.size > 0
-            ? t("screens:createEvent.membersSelected", {
-                count: selectedIds.size,
-              })
-            : t("screens:createEvent.totalMembers", {
-                count: filteredMembers.length,
-              })}
-        </Text>
-      </View>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t("screens:createEvent.searchMembersPlaceholder")}
+            placeholderTextColor={theme.colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
 
-      {/* Member List */}
-      <View style={styles.content}>
-        {filteredMembers.length > 0 ? (
-          <FlatList
-            data={filteredMembers}
-            renderItem={renderMemberItem}
-            keyExtractor={(item) => item.userId}
-            style={styles.membersList}
-            contentContainerStyle={[
-              styles.membersListContent,
-              styles.membersListContentWithActions,
-            ]}
-          />
-        ) : (
-          <View style={styles.emptyState}>
+        {/* Select All / Count Info */}
+        <View style={styles.selectionBar}>
+          <TouchableOpacity
+            onPress={handleSelectAll}
+            style={styles.selectAllBtn}
+          >
             <Ionicons
-              name="people-outline"
-              size={64}
-              color={theme.colors.textSecondary}
+              name={
+                selectedIds.size === filteredMembers.length &&
+                filteredMembers.length > 0
+                  ? "checkbox"
+                  : "square-outline"
+              }
+              size={22}
+              color={theme.colors.secondary}
+              style={{ marginRight: 8 }}
             />
-            <Text style={styles.emptyStateText}>
-              {searchQuery
-                ? t("screens:createEvent.noMembersMatchSearch")
-                : t("screens:createEvent.noMembersAvailable")}
+            <Text style={styles.selectAllText}>
+              {t("screens:createEvent.selectAll")}
             </Text>
-          </View>
-        )}
-      </View>
+          </TouchableOpacity>
+          <Text style={styles.countText}>
+            {selectedIds.size > 0
+              ? t("screens:createEvent.membersSelected", {
+                  count: selectedIds.size,
+                })
+              : t("screens:createEvent.totalMembers", {
+                  count: filteredMembers.length,
+                })}
+          </Text>
+        </View>
 
-      {/* Bottom Action Bar */}
-      <View
-        style={[
-          styles.actionContainer,
-          { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
-        ]}
-      >
-        {selectedIds.size > 0 && (
+        {/* Member List */}
+        <View style={styles.content}>
+          {filteredMembers.length > 0 ? (
+            <FlatList
+              data={filteredMembers}
+              renderItem={renderMemberItem}
+              keyExtractor={(item) => item.userId}
+              style={styles.membersList}
+              contentContainerStyle={[
+                styles.membersListContent,
+                styles.membersListContentWithActions,
+              ]}
+            />
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons
+                name="people-outline"
+                size={64}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.emptyStateText}>
+                {searchQuery
+                  ? t("screens:createEvent.noMembersMatchSearch")
+                  : t("screens:createEvent.noMembersAvailable")}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Bottom Action Bar */}
+        <View
+          style={[
+            styles.actionContainer,
+            { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
+          ]}
+        >
+          {selectedIds.size > 0 && (
+            <View style={styles.actionButton}>
+              <Button
+                label={t("screens:createEvent.clearSelection")}
+                onPress={handleClear}
+                theme="secondary"
+              />
+            </View>
+          )}
           <View style={styles.actionButton}>
             <Button
-              label={t("screens:createEvent.clearSelection")}
-              onPress={handleClear}
-              theme="secondary"
+              label={t("screens:createEvent.confirmSelection", {
+                count: selectedIds.size,
+              })}
+              onPress={handleConfirm}
+              theme="primary"
             />
           </View>
-        )}
-        <View style={styles.actionButton}>
-          <Button
-            label={t("screens:createEvent.confirmSelection", {
-              count: selectedIds.size,
-            })}
-            onPress={handleConfirm}
-            theme="primary"
-          />
         </View>
       </View>
-    </View>
+
+      {/* Warning: cannot deselect a paid member */}
+      <ConfirmationModal
+        visible={paidMemberWarning.visible}
+        title={t("screens:selectEventMembers.paidMemberWarningTitle")}
+        message={t("screens:selectEventMembers.paidMemberWarningMessage", {
+          name: paidMemberWarning.memberName,
+        })}
+        confirmText={t("common:ok")}
+        onConfirm={() =>
+          setPaidMemberWarning({ visible: false, memberName: "" })
+        }
+        onCancel={() =>
+          setPaidMemberWarning({ visible: false, memberName: "" })
+        }
+        confirmButtonTheme="primary"
+      />
+    </>
   );
 }
 

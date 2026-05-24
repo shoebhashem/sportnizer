@@ -970,7 +970,13 @@
     "membersCount": "Membri ({{count}})",
     "noMembersMatchFilter": "Nessun membro corrisponde al filtro selezionato.",
     "childYouthLabel": "(Minore/Giovanile)",
-    "failedToLoadMembershipFees": "Impossibile caricare le quote associative"
+    "failedToLoadMembershipFees": "Impossibile caricare le quote associative",
+    "membersUpdatedSuccess": "Membri aggiornati — {{added}} aggiunti, {{removed}} rimossi.",
+    "paidMembersKept": "{{count}} membro/i che ha/hanno già pagato non ha/hanno potuto essere rimosso/i."
+  },
+  "selectEventMembers": {
+    "paidMemberWarningTitle": "Impossibile rimuovere il membro",
+    "paidMemberWarningMessage": "{{name}} ha già pagato questa quota e non può essere rimosso/a dalla lista."
   },
   "stripeOnboarding": {
     "paymentSetup": "Configurazione pagamenti",

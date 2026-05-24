@@ -7246,10 +7246,14 @@ Club admins can view payment status for membership fees at the group level.
 - Filter members by payment status (All, Paid, Pending, Overdue)
 - View individual member payment status with PaymentStatusBadge component
 - Supports guardian payments (shows "Paid by [Guardian Name]")
+- Accepts optional `feeId` route param (from `manage-fees.tsx`) to pre-select a specific fee
+- `person-add-outline` icon button (active fees only) opens `select-event-members` in fee mode: pre-selects current members, shows payment status badges, blocks deselection of paid members via ConfirmationModal warning
+- On return from `select-event-members`, reads selected IDs via `memberSelectionStore` and calls `paymentService.updateFeeMembers`
 
 **Data Sources:**
 
 - `paymentService.getMembershipFees(clubId, groupId)` - Get fees for the group
+- `paymentService.updateFeeMembers(feeId, memberIds)` - Update which members receive the fee
 - `useGroupData().getGroupMembers(clubId, groupId)` - Real-time group members with `paymentStatus` field (via `onSnapshot` listener)
 
 ---
@@ -12533,18 +12537,88 @@ firebase functions:secrets:set PERSONNUMMER_ENCRYPTION_KEY  # 32-byte hex key fo
 
 #### What Needs to Be Done Before Production
 
-| #   | Task                                        | Status         | Notes                                                |
-| --- | ------------------------------------------- | -------------- | ---------------------------------------------------- |
-| 1   | Sign API agreement with RF                  | ❌ Not started | Contact RF for third-party integration partnership   |
-| 2   | Register on Gravitee developer portal       | ❌ Not started | Create application, request LOK-stöd API scope       |
-| 3   | Obtain API credentials (key + OAuth client) | ❌ Not started | Provided after approval                              |
-| 4   | Verify exact API endpoint paths             | ❌ Not started | Our code uses `/lok/reports` — needs verification    |
-| 5   | Verify payload field names                  | ❌ Not started | We use snake_case — RF may use different conventions |
-| 6   | Test against RF sandbox/test environment    | ❌ Not started | RF may provide a test environment                    |
-| 7   | RF approval of integration                  | ❌ Not started | RF may require a review of the integration           |
-| 8   | Generate encryption key for personnummer    | ❌ Not started | `openssl rand -hex 32` → set as Firebase secret      |
+| #   | Task                                        | Status               | Notes                                                                            |
+| --- | ------------------------------------------- | -------------------- | -------------------------------------------------------------------------------- |
+| 1   | Sign API agreement with RF                  | ✅ Done              | RF portal account created, Clubnizer app registered                              |
+| 2   | Register on Gravitee developer portal       | ✅ Done              | Application registered, LOK-stöd API scope requested                             |
+| 3   | Obtain API credentials (key + OAuth client) | 🔄 Awaiting approval | Email sent to systemintegration@rf.se — RF test-environment subscription pending |
+| 4   | Verify exact API endpoint paths             | ❌ Not started       | Our code uses `/lok/reports` — needs verification                                |
+| 5   | Verify payload field names                  | ❌ Not started       | We use snake_case — RF may use different conventions                             |
+| 6   | Test against RF sandbox/test environment    | ❌ Not started       | RF may provide a test environment                                                |
+| 7   | RF approval of integration                  | 🔄 Awaiting approval | Pending RF review after subscription granted                                     |
+| 8   | Generate encryption key for personnummer    | ✅ Done              | `PERSONNUMMER_ENCRYPTION_KEY` set in Secret Manager                              |
 
 **The code is architecturally complete** — all function signatures, payload mapping, error handling, and status tracking are implemented. The mapping from our data model to the RF API payload happens in one place (`submitLokReportToRf`), making it straightforward to adjust field names once the exact API contract is confirmed.
+
+### Phase 1 — Data Foundation
+
+Phase 1 establishes the data structures, security gates, and UI feature-flags needed before RF direct-submission becomes active. No RF API calls are made in Phase 1; all local LOK-stöd features (attendance recording, report generation, export) continue to work unchanged.
+
+#### `platformAdmin` Flag
+
+A boolean field on the `users/{uid}` document that marks **Clubnizer platform operators** (i.e. Clubnizer staff / developers). This is NOT a club role — it grants the ability to enable/disable RF direct-API integration for any club.
+
+```
+users/{uid}
+  platformAdmin: true   ← Set manually in Firebase Console for Clubnizer operators only
+```
+
+To set it: Firebase Console → Firestore → `users/{your-uid}` → add field `platformAdmin` (boolean, `true`).
+
+**Security**: `updateClubRfSettings` Cloud Function checks `platformAdmin === true` on the caller's user doc before allowing `rf.integrationEnabled` to be toggled. Regular club admins cannot enable direct-submission.
+
+#### `rfPersonId` (Lazy Resolution)
+
+`rfPersonId?: string` is stored on the user document after a successful RF people-lookup. It is resolved lazily — only when LOK reports are actually submitted to RF. It is never resolved in Phase 1.
+
+#### `RfIntegration` Shape (Updated)
+
+```typescript
+rf?: {
+  integrationEnabled: boolean;    // Whether direct-RF submission is active
+  integrationStatus: string;      // e.g. "active" | "pending" | "disabled"
+  setupStatus: "not-configured" | "configured" | "pending-idrottonline-approval" | "active";
+  enabledAt?: Timestamp;          // When integration was last enabled
+  enabledBy?: string;             // UID of the platformAdmin who enabled it
+  enabledByRole?: "platform-admin"; // Always "platform-admin" when set
+  organizationNumber: string;     // Swedish org number (556xxx-xxxx)
+  rfOrganizationId: string;       // RF's internal org ID
+  districtId: string;             // RF district
+  kommunKod: string;              // Municipality code
+  defaultSport: string;           // Default sport for LOK reports
+}
+```
+
+`setupStatus` lifecycle:
+
+```
+not-configured  →  configured  →  pending-idrottonline-approval  →  active
+     ↑                                                                  │
+     └──────────────── (disabled by platformAdmin) ────────────────────┘
+```
+
+#### `rfSport` at Group Level
+
+Sports are stored on each **group** (not the club), because multi-sport clubs have groups across different sports. Each group stores:
+
+```typescript
+rfSport?: {
+  sportKey: string;    // Stable i18n key, e.g. "football", "ice_hockey" — stored in Firestore
+  rfSportId: string | null;  // Resolved from RF API once credentials are active; null in Phase 1
+}
+sport: string;         // English display name, e.g. "Football (Soccer)" — backward-compat free text
+```
+
+The `sportKey` drives the sports dropdown i18n — e.g. `t('sports:football')` renders "Fotboll" in Swedish, "Football" in English. Sport keys are defined in `constants/swedishSports.ts` (`SPORTS_SORTED` export) and translated in `i18n/locales/{lang}/sports.json` across all 8 supported languages.
+
+#### Two-Tier LOK-stöd Model
+
+| Tier                   | Capability                                               | Requires                                              |
+| ---------------------- | -------------------------------------------------------- | ----------------------------------------------------- |
+| **Tier 1** (Local)     | Attendance recording, report generation, CSV/JSON export | Any SE club — always available                        |
+| **Tier 2** (Direct-RF) | Submitting reports directly to RF API                    | `rf.integrationEnabled: true`, set by `platformAdmin` |
+
+Tier 1 features work today without any RF credentials. Tier 2 is gated until RF subscription is approved and a platformAdmin enables it for the club.
 
 ### Kommun (Municipality) Export
 
@@ -17228,12 +17302,13 @@ interface Payment {
 
 #### Payment Functions
 
-| Function                 | Purpose                                    | Security                                    |
-| ------------------------ | ------------------------------------------ | ------------------------------------------- |
-| `createMembershipFee`    | Club creates fee request                   | ✅ club-admin only (NOT group admin/coach!) |
-| `createCheckoutSession`  | Create Stripe Checkout for payment         | ✅ Must be in includedMembers or guardian   |
-| `stripeWebhookHandler`   | Handle Stripe events (HTTP)                | ✅ Verify Stripe signature                  |
-| `getUserPendingPayments` | Get pending payments for user + dependents | ✅ Own data only                            |
+| Function                 | Purpose                                                   | Security                                    |
+| ------------------------ | --------------------------------------------------------- | ------------------------------------------- |
+| `createMembershipFee`    | Club creates fee request                                  | ✅ club-admin only (NOT group admin/coach!) |
+| `updateFeeMembers`       | Add/remove members from an active fee; skips paid members | ✅ club-admin only; fee must be active      |
+| `createCheckoutSession`  | Create Stripe Checkout for payment                        | ✅ Must be in includedMembers or guardian   |
+| `stripeWebhookHandler`   | Handle Stripe events (HTTP)                               | ✅ Verify Stripe signature                  |
+| `getUserPendingPayments` | Get pending payments for user + dependents                | ✅ Own data only                            |
 
 #### File Structure
 
@@ -17252,6 +17327,7 @@ functions/src/
     ├── createMembershipFee.ts
     ├── getMembershipFees.ts
     ├── getUserPendingPayments.ts
+    ├── updateFeeMembers.ts
     └── closeMembershipFee.ts
 ```
 
@@ -18653,12 +18729,12 @@ Export is handled by `exportAccountingData` (Cloud Function in `functions/src/ac
 
 ### Frontend Screens
 
-| Screen            | Path                        | Description                                                                                                 |
-| ----------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Accounting        | `app/accounting.tsx`        | P&L summary, verification list, multi-format export picker (CSV / SIE / SAF-T)                              |
-| Chart of Accounts | `app/chart-of-accounts.tsx` | View and edit the club's chart of accounts; create/delete custom fee categories; free-form VAT rate editing |
-| Create Fee        | `app/create-fee.tsx`        | Multi-component fee builder with `DropdownInput` category picker per line + earmark toggle                  |
-| Manage Fees       | `app/manage-fees.tsx`       | List fees, edit title/desc/dueDate, close fee; shows category grouping                                      |
+| Screen            | Path                        | Description                                                                                                                                                              |
+| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Accounting        | `app/accounting.tsx`        | P&L summary, verification list, multi-format export picker (CSV / SIE / SAF-T)                                                                                           |
+| Chart of Accounts | `app/chart-of-accounts.tsx` | View and edit the club's chart of accounts; create/delete custom fee categories; free-form VAT rate editing                                                              |
+| Create Fee        | `app/create-fee.tsx`        | Multi-component fee builder with `DropdownInput` category picker per line + earmark toggle                                                                               |
+| Manage Fees       | `app/manage-fees.tsx`       | List fees, edit title/desc/dueDate, close fee; shows category grouping; ALL fee cards (active + closed) are tappable and navigate to `track-payments` with `feeId` param |
 
 Both Accounting screens are accessible from **Club Settings → Accounting** / **Club Settings → Chart of Accounts**.
 

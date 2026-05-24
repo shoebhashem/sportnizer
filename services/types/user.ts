@@ -43,6 +43,16 @@ export interface UserProfile {
   coachOfGroups?: string[]; // groupIds where roles includes "coach"
   memberOfGroups?: string[]; // ALL groupIds the user has any role in
   guardianOfGroups?: string[]; // groupIds where roles includes "guardian"
+
+  // ---------------------------------------------------------------------------
+  // RF (Riksidrottsförbundet) — resolved lazily at LOK submission time, not onboarding.
+  // ---------------------------------------------------------------------------
+  rfPersonId?: string; // RF universal person UUID (one per person across all Swedish sports)
+
+  // ---------------------------------------------------------------------------
+  // Platform admin — set manually in Firestore; gates RF integration toggle.
+  // ---------------------------------------------------------------------------
+  platformAdmin?: boolean; // Only Clubnizer staff. Allows enabling RF integration for clubs.
 }
 
 // Dependent (youth member) info stored in guardian's document
@@ -117,9 +127,18 @@ export interface RfIntegration {
   rfOrganizationId?: string; // RF förenings-ID (from IdrottOnline)
   districtId?: string; // Specialdistriktsförbund (SDF)
   municipality?: string; // Kommun — needed for LOK & kommun reporting
-  integrationEnabled: boolean; // Whether RF sync is active for this club
+  integrationEnabled: boolean; // Whether RF direct API submission is active for this club
   lastSyncAt?: Date; // Last successful API sync
   integrationStatus?: "pending" | "active" | "error";
+  // Phase 1: feature flag audit trail — who enabled it and when
+  setupStatus?:
+    | "not-configured"
+    | "configured"
+    | "pending-idrottonline-approval"
+    | "active";
+  enabledByRole?: "platform-admin" | "club-admin"; // who toggled integrationEnabled
+  enabledAt?: Date; // when integrationEnabled was last set to true
+  enabledBy?: string; // uid of the user who last toggled integrationEnabled
 }
 
 // LOK reporting metadata on event document

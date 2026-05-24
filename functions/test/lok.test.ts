@@ -9,12 +9,12 @@
  */
 
 import {
-    callFunction,
-    clearAll,
-    createFullTestUser,
-    expectFunctionError,
-    getDocument,
-    getFirestore,
+  callFunction,
+  clearAll,
+  createFullTestUser,
+  expectFunctionError,
+  getDocument,
+  getFirestore,
 } from "./helpers";
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -209,7 +209,7 @@ describe("updateClubRfSettings", () => {
     await clearAll();
   });
 
-  it("allows club admin to update RF settings", async () => {
+  it("allows club admin to update RF settings (non-integration fields)", async () => {
     const admin = await createFullTestUser();
     const clubId = await createSwedishClub(admin.idToken, admin.uid);
 
@@ -221,7 +221,7 @@ describe("updateClubRfSettings", () => {
         districtId: "district-01",
         kommunKod: "0180",
         defaultSport: "fotboll",
-        integrationEnabled: true,
+        // integrationEnabled intentionally omitted — only platformAdmin can set this
       },
     });
 
@@ -254,6 +254,95 @@ describe("updateClubRfSettings", () => {
       { clubId: "any", rfSettings: {} },
       "unauthenticated",
     );
+  });
+});
+
+// ─── updateClubRfSettings — platformAdmin gate ────────────────
+
+describe("updateClubRfSettings — platformAdmin gate", () => {
+  beforeEach(async () => {
+    await clearAll();
+  });
+
+  it("rejects club admin without platformAdmin when toggling integrationEnabled", async () => {
+    const admin = await createFullTestUser();
+    const clubId = await createSwedishClub(admin.idToken, admin.uid);
+
+    await expectFunctionError(
+      "updateClubRfSettings",
+      admin.idToken,
+      {
+        clubId,
+        rfSettings: { integrationEnabled: true },
+      },
+      "permission-denied",
+    );
+  });
+
+  it("rejects user with platformAdmin: false when toggling integrationEnabled", async () => {
+    const db = getFirestore();
+    const admin = await createFullTestUser();
+    const clubId = await createSwedishClub(admin.idToken, admin.uid);
+    await db
+      .collection("users")
+      .doc(admin.uid)
+      .update({ platformAdmin: false });
+
+    await expectFunctionError(
+      "updateClubRfSettings",
+      admin.idToken,
+      {
+        clubId,
+        rfSettings: { integrationEnabled: true },
+      },
+      "permission-denied",
+    );
+  });
+
+  it("allows platformAdmin to enable RF integration", async () => {
+    const db = getFirestore();
+    const admin = await createFullTestUser();
+    const clubId = await createSwedishClub(admin.idToken, admin.uid);
+    await db.collection("users").doc(admin.uid).update({ platformAdmin: true });
+
+    const result = await callFunction("updateClubRfSettings", admin.idToken, {
+      clubId,
+      rfSettings: { integrationEnabled: true },
+    });
+
+    expect(result.success).toBe(true);
+
+    const club = await getDocument(`clubs/${clubId}`);
+    expect(club?.rf?.integrationEnabled).toBe(true);
+    expect(club?.rf?.setupStatus).toBe("configured");
+    expect(club?.rf?.enabledByRole).toBe("platform-admin");
+    expect(club?.rf?.enabledBy).toBe(admin.uid);
+    expect(club?.rf?.enabledAt).toBeDefined();
+  });
+
+  it("allows platformAdmin to disable RF integration", async () => {
+    const db = getFirestore();
+    const admin = await createFullTestUser();
+    const clubId = await createSwedishClub(admin.idToken, admin.uid);
+    await db.collection("users").doc(admin.uid).update({ platformAdmin: true });
+
+    // First enable it
+    await callFunction("updateClubRfSettings", admin.idToken, {
+      clubId,
+      rfSettings: { integrationEnabled: true },
+    });
+
+    // Then disable it
+    const result = await callFunction("updateClubRfSettings", admin.idToken, {
+      clubId,
+      rfSettings: { integrationEnabled: false },
+    });
+
+    expect(result.success).toBe(true);
+
+    const club = await getDocument(`clubs/${clubId}`);
+    expect(club?.rf?.integrationEnabled).toBe(false);
+    expect(club?.rf?.setupStatus).toBe("not-configured");
   });
 });
 

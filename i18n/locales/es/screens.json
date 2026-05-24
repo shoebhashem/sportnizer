@@ -970,7 +970,13 @@
     "membersCount": "Miembros ({{count}})",
     "noMembersMatchFilter": "Ningún miembro coincide con el filtro seleccionado.",
     "childYouthLabel": "(Niño/Juvenil)",
-    "failedToLoadMembershipFees": "Error al cargar cuotas de membresía"
+    "failedToLoadMembershipFees": "Error al cargar cuotas de membresía",
+    "membersUpdatedSuccess": "Miembros actualizados — {{added}} añadidos, {{removed}} eliminados.",
+    "paidMembersKept": "{{count}} miembro(s) que ya pagaron no pudieron ser eliminados."
+  },
+  "selectEventMembers": {
+    "paidMemberWarningTitle": "No se puede eliminar al miembro",
+    "paidMemberWarningMessage": "{{name}} ya ha pagado esta cuota y no puede ser eliminado/a de la lista."
   },
   "stripeOnboarding": {
     "paymentSetup": "Configuración de pagos",

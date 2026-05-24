@@ -952,7 +952,13 @@
     "membersCount": "Medlemmer ({{count}})",
     "noMembersMatchFilter": "Ingen medlemmer samsvarer med valgt filter.",
     "childYouthLabel": "(Barn/Ungdom)",
-    "failedToLoadMembershipFees": "Kunne ikke laste medlemsavgifter"
+    "failedToLoadMembershipFees": "Kunne ikke laste medlemsavgifter",
+    "membersUpdatedSuccess": "Medlemmer oppdatert — {{added}} lagt til, {{removed}} fjernet.",
+    "paidMembersKept": "{{count}} medlem(mer) som allerede har betalt kunne ikke fjernes."
+  },
+  "selectEventMembers": {
+    "paidMemberWarningTitle": "Kan ikke fjerne medlem",
+    "paidMemberWarningMessage": "{{name}} har allerede betalt denne avgiften og kan ikke fjernes fra listen."
   },
   "stripeOnboarding": {
     "paymentSetup": "Betalingsoppsett",

@@ -35,6 +35,7 @@ const getUserPendingPaymentsFn = httpsCallable(
 );
 const deleteMembershipFeeFn = httpsCallable(functions, "deleteMembershipFee");
 const updateMembershipFeeFn = httpsCallable(functions, "updateMembershipFee");
+const updateFeeMembersFn = httpsCallable(functions, "updateFeeMembers");
 const getAccountingDataFn = httpsCallable(functions, "getAccountingData");
 const exportAccountingDataFn = httpsCallable(functions, "exportAccountingData");
 const getChartOfAccountsFn = httpsCallable(functions, "getChartOfAccounts");
@@ -97,13 +98,13 @@ export interface MembershipFee {
   components?: FeeComponent[];
   earmarkedGroupId?: string;
 }
-[]
+[];
 export interface CreateFeeParams {
   clubId: string;
   groupId: string;
   title: string;
   description?: string;
-  components: Array<{ category: string; amount: number; note?: string }>;
+  components: { category: string; amount: number; note?: string }[];
   currency: string;
   dueDate?: Date;
   targetRoles: string[];
@@ -536,6 +537,29 @@ export const paymentService = {
     }
   },
 
+  async updateFeeMembers(
+    feeId: string,
+    memberIds: string[],
+  ): Promise<{
+    success: boolean;
+    addedCount?: number;
+    removedCount?: number;
+    removedPaidCount?: number;
+    error?: string;
+  }> {
+    try {
+      const result = await updateFeeMembersFn({ feeId, memberIds });
+      return result.data as {
+        success: boolean;
+        addedCount: number;
+        removedCount: number;
+        removedPaidCount: number;
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
   // ---------------------------
   // Accounting
   // ---------------------------
@@ -592,13 +616,13 @@ export const paymentService = {
       return result.data as any;
     } catch (error: any) {
       return { success: false, error: error.message };
-    }[]
+    }    [];
   },
 
   async getChartOfAccounts(clubId: string): Promise<{
     success: boolean;
     settings?: Record<string, any>;
-    accounts?: any[];
+    accounts?: an[]
     categories?: Array<{ id: string; name: string; [key: string]: any }>;
     error?: string;
   }> {

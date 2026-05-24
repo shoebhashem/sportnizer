@@ -996,7 +996,13 @@
     "membersCount": "Members ({{count}})",
     "noMembersMatchFilter": "No members match the selected filter.",
     "childYouthLabel": "(Child/Youth)",
-    "failedToLoadMembershipFees": "Failed to load membership fees"
+    "failedToLoadMembershipFees": "Failed to load membership fees",
+    "membersUpdatedSuccess": "Members updated — {{added}} added, {{removed}} removed.",
+    "paidMembersKept": "{{count}} member(s) who already paid could not be removed."
+  },
+  "selectEventMembers": {
+    "paidMemberWarningTitle": "Cannot Remove Member",
+    "paidMemberWarningMessage": "{{name}} has already paid this fee and cannot be removed from the list."
   },
   "stripeOnboarding": {
     "paymentSetup": "Payment Setup",

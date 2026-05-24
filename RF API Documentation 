@@ -1,0 +1,5192 @@
+1. Teknisk introduktion
+För att få åtkomst till Riksdrottsförbundets Integrationsplattform och RF API krävs autentisering. Det system som anropar RF API identifierar sig själv med ett Client Id samt ett Organization Id för den organisation som systemet representerar. Processen för att ansluta system och alla detaljer beskrivs nedan.
+
+Terminologi
+Term	Beskrivning
+Klient	Klient avser här det system som registreras i portalen, ansluts till RF API och som vid anrop identifierar sig med ett Client Id. En klient kan användas av flera organisationer.
+Leverantör	Leverantör av klient-systemet. Leverantören är den som skriver avtal vid anslutning till RF:s Integrationsplattform och RF:s API:er och därmed godkänner villkoren att använda RF API.
+Organisation	Den organisation som nyttjar klient-systemet, för att komma åt data via RF API. Vanligtvis är det en idrottsförening eller ett specialidrottsförbund. Dessa kallas idrottsorganisationer i Licensavtal Integrationstjänster.
+Applikation	Detsamma som Klient. I portalen registreras en Applikation för att få ut ett Client Id. Begreppet "Applikation" är inbyggt i portalen och kan inte ändras, men avser samma sak som begreppet "Klient" i övrig dokumentation. När leverantören registrerar en Applikation i portalen, så är det alltså samma sak som Klient.
+RF API använder ett flöde i OAuth2 som autentiserar klienten med något som kallas User authentication med JWT Assertion. JWT Assertion innebär att klienten kan autentisera sig som en användare. D.v.s. "User" i det här fallet är den organisation som klienten representerar när den autentiserar sig.
+
+Registrering
+För att autentisera sig och identifiera sig som en organisation krävs ett par steg. Dessa är beskrivna under mappen Registrering.
+
+P.g.a. en begränsning i portalen så behöver anslutande system hantera två klient-identiteter under registreringen. Mer om det i avsnittet om Registrering.
+
+API-definitioner
+Under mappen API-definitioner finns OpenAPI-specar för respektive domän som RF API tillhandahåller. Dessa specar beskriver i detalj vad domänerna innehåller, hur de används, vilka användningsfall som stöds o.s.v.
+
+Kodexempel
+Under mappen Autentisering->Exempelkod ligger kodexempel på hur en JWT Assertion skapas.
+
+Regler uppdatera Person
+Då RF anser sig vara master för persondata uppdateras inte kontaktuppgifter i fält där vi redan har data. Om vi redan har ett mobilnr på en person så kommer vi inte uppdatera det genom integrationen RF API. Vi tar endast emot datan om vi inte har någon alls i det fältet. I API:et får ni respons 204 oavsett om vi tog emot och uppdaterade datan eller bara ignorerade den. Det är för komplex validering för att skicka olika respons beroende på vad som hände.
+
+Felmeddelanden
+Nedan finns ett dokument i två olika format som sammanfattar de felmeddelanden som förekommer i samtliga API:er inom RFAPI. Dessa är samma fel som API:erna returnerar vid eventuella problem och kan användas vid felsökning.
+
+Felmeddelanden RFAPI.xlsx --> (/Users/shoebhashem/Projects/sportnizer/sportnizer/IP Felmeddelanden.xlsx)
+Felmeddelanden RFAPI.pdf --> (/Users/shoebhashem/Projects/sportnizer/sportnizer/Felmeddelanden IP.pdf)
+Hantering av test-personer i INT
+I INT (Test) används endast test-personer.
+
+Regler som används
+Personnummer kommer från vårt system. Mejla systemintegration@rf.se för att få en lista med sådana personnummer och testpersoner.
+Förnamn/efternamn måste börja med "Test_"
+Alternativt förnamn/efternamn måste börja med "Test_"
+Alla adresser (gatunamn) måste börja med "Test_" Det är endast krav på att ange 1 adress.
+Alla telefonnummer måste bestå av +46, följt av minimum sex siffror och maximum 12 siffror
+Alla mejladresser måste bestå av domänen @unknown.com
+
+2. Registrering
+
+Översikt
+För åtkomst till RF API krävs av leverantören att registrera sig. Registreringen sker i flera steg där varje steg är en förutsättning för nästa steg.
+
+Videoguider för integrationsplattform:
+
+Registrering RF API/RF Synk API
+Anropa RF API
+Skapa konto
+Skapa applikation
+Prenumerera på RF API
+Registrera klient för att kunna hantera behörigheter
+Meddela systemintegration@rf.se att din klient är skapad. Detta behövs för att RF ska kunna ge klienten behörigheter till organisationer.
+När alla 5 steg är uppfyllda kan klienten autentisera sig med JWT Assertion och därmed få tillgång till det data som den identifierade organisationen har rätt att hantera.
+
+Respektive steg finns beskrivet i detalj på respektive sida i menyn till vänster.
+
+Om leverantören behöver registrera flera klienter/applikationer, så ska samma konto användas.
+
+1. Skapa konto
+Skapa konto genom att följa stegen nedan.
+
+Klicka på "Sign in" längst upp till höger i portalen
+Klicka på "Sign up" som ligger som länk under inloggningsformuläret
+Fyll i dina uppgifter med en giltig e-postadress och klicka på knappen "SIGN UP"
+Ett e-postmeddelande kommer skickas till den e-postadress du angav
+Klicka på länken i e-postmeddelandet för att bekräfta registreringen
+Du kommer till en sida där du skapar ditt lösenord för kontot
+Efter att lösenord har skapats har du skapat ditt konto och kan logga in genom att klicka på "Sign in" längst upp till höger.
+
+Fortsätt registreringen av din applikation genom att följa stegen på 2. Skapa applikation.
+
+Notera att vid anslutning till produktionsmiljö, krävs att du har ett påskrivet Licensavtal integrationstjänster samt att det är den tekniska kontaktpersonen som skapar kontot i Riksidrottsförbundets Integrationsplattform (portalen).
+
+2. Skapa applikation
+Den applikation som ska registreras är det system som ska anropa RF API för att komma åt data. Vid registrering får klienten ut ett Client Id som identifierar klienten vid anrop. Begreppet "Applikation" är inbyggt i portalen och kan inte ändras, men avser samma sak som begreppet "Klient" i övrig dokumentation.
+
+Som den tekniska introduktionen beskriver så används något som kallas "User authentication med JWT Assertion" för åtkomst till RF API. Innan du kan få tillgång till en klient med denna möjlighet krävs det att du har en klient som kan aktivera den möjligheten.
+
+Vilket system hos anslutande part ska registreras i portalen?
+Vid registrering i portalen kan det uppstå frågor kring vilket system hos den anslutande parten som ska registreras, beroende på hur arkitekturen hos leverantören ser ut, exempelvis om det finns flera applikationer som anslutes via samma Gateway mot RF API. Följande info kan vara nyttig i det valet:
+
+En leverantör kan ha flera applikationer registrerade på samma konto.
+Behörighetsstyrning i nästa led görs genom att organisationen som är ansvarig för informationen, vanligtvis en idrottsförening eller ett specialidrottsförbund, behöver godkänna att leverantören ansluter till RF API på dess uppdrag innan leverantören kan hantera organisationens data i produktionsmiljö. Detta gör idrottsföreningen och specialidrottsförbundet i IdrottOnline (RF:s verksamhetssystem för idrottsrörelsen).
+När organisationen har godkänt sin leverantör, så får klienten tillgång till den data som organisationen har rätt att hantera via RF API.
+Steg för registrering av applikation
+Logga in genom att klicka på "Sign in"
+Klicka på "Applications" i toppmenyn
+Klicka på "Create an application"
+Ange ett lämpligt namn som tydligt talar om vilket system som representeras samt en beskrivning som gör att RF kan identifiera vem som representerar denna applikation
+Klicka på "Next"
+På denna sida finns endast ett val som är förmarkerat kallat "Backend to backend"
+Klicka på "Next"
+I detta steg kan du välja att söka på "RF API" och sedan klicka på "Subscribe"
+Om man vill kan man även hoppa över detta steg och ansöka om prenumeration senare
+Klicka på "Next" och verifiera uppgifterna
+Klicka på "Create the app"
+Verifierbara autentiseringsuppgifter
+Efter alla steg ovan kommer en automatisk registrering av applikationen att ske. Det innebär att applikationen kommer att få verifierbara autentiseringsuppgifter i form av Client Id och Client Secret. Dessa uppgifter används i nästa steg för registrering av klient för JWT Assertion.
+
+Varför behövs två olika klienter?
+Det finns för närvarande en begränsning i API portalen som RF använder vilket göra att Client Id för den klienten som först registreras i portalen enligt ovan, inte kan användas för att komma åt data via API:erna. Men hjälp av den första klienten med tillhörande Client Id så görs automatiskt en registrering av en andra klient. Anslutande part får ut nya Client Id / Client Secrets som ska användas för anrop till RF API.
+
+Godkännande av prenumeration
+Om man valde att söka på "RF API" i steg 8 kommer även ett e-postmeddelande att skickas till RF som i sin tur godkänner prenumerationen. När RF godkänner prenumerationen kommer ett e-postmeddelande skickas till ägaren av applikationen som bekräftar godkännandet.
+
+Nästa steg
+Beroende på vad du valde i steg 8 kan du behöva ansöka om prenumeration. Läs mer om det på sidan 3. Prenumerera på RF API. Valde du att prenumerera i steg 8 och har fått din prenumeration godkänd av RF så kan du gå vidare till sidan 4. Registrera klient för att kunna hantera behörigheter.
+
+Prenumerera på RF API
+För att få åtkomst till data i RF API krävs att leverantörens applikation i portalen har en godkänd prenumeration på RF API.
+
+Ett sätt att få en godkänd prenumeration är att prenumerera i samband med att man skapar en applikation som beskrivs på sidan 2. Skapa applikation. Hoppade du över detta steg när du skapade applikationen så följer du stegen på denna sida.
+
+Steg för prenumeration av RF API
+Logga in i portalen
+Klicka på "Catalog" i toppmenyn
+Klicka på "All APIs"
+Klicka på "RF API"
+Klicka på "Subscribe" uppe till höger under toppmenyn
+Under rubriken "Plans and Features" klickar du på "OAuth2" om den inte är förvald
+Detta steg är viktigt. Om du väljer planen "KeyLess" kommer du inte kunna få en prenumeration och får därmed ingen åtkomst till RF API
+Klicka på "Next"
+Välj din applikation i rullistan
+Klicka på "Next"
+Klicka på "Validate the request"
+Efter att alla steg är slutförda kommer ett e-postmeddelande skickas till RF som i sin tur verifierar din applikation och godkänner prenumerationen.
+
+Nästa steg
+När prenumerationen är godkänd fortsätter du till sista steget av registreringsprocessen. Läs mer under sidan 4. Registrera klient för att kunna hantera behörigheter.
+
+Registrera klient med JWT Assertion
+Detta är det sista registreringssteget som avslutas med att du får åtkomst till data i RF API.
+
+Som tidigare beskrivet finns en begränsning i portalen som RF använder, vilket gör att anslutande part behöver registrera klienten igen, för att kunna få ut data via RF API.
+
+Den nya klienten får via denna registrering i portalen möjlighet att använda "User authentication med JWT Assertion". JWT Assertion är en kapacitet som måste vara registrerad på klienten som ska anropa RF API.
+
+Den första klienten som skapas i samband med 2. Skapa applikation används för att skapa denna nya klient som har denna JWT Assertion kapacitet.
+
+Autentisera din klient genom att följa instruktionen på sidan Autentisering med Client Credentials. För detta använder du dina verifierbara autentiseringsuppgifter som skapades i samband 2. Skapa applikation.
+
+När du fått en "access_token" gör du ett POST-anrop /integration-client med denna "access_token" som en Bearer token. Läs mer under Registrering & Informationsutbyte vad som krävs i det anropet.
+
+Notera att vid anslutning till produktionsmiljö är det detta "integratorName" som kommer att visas för den idrottsförening och/eller specialidrottsförbund i vyn för IdrottOnline i samband med att de ska godkänna ditt företag som leverantör.
+
+När detta anrop lyckas får du nya klient-uppgifter i svaret på anropet. För åtkomst till RF API använder du de nya uppgifterna.
+
+Exempel /integration-client
+curl --location 'https://apim-int.rf.se/api/v2/integration-client' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9l...' \
+--data '{
+    "integratorName": "My company name"
+}'
+Nästa steg
+Nästa steg är att skicka ett e-postmeddelande till RF i steg 5, Skicka meddelande till RF
+
+Notera att både Client Id och Client Secret är personliga och inte får spridas. Vid misstanke om att lösenord har spridits till andra, är du skyldig att ändra lösenord och vidta eventuella ytterligare säkerhetsåtgärder. Se Licensavtal Integrationstjänster för närmare information.
+
+Skicka meddelande till RF
+När klienten i steg 4 har skapats är det viktigt att meddela RF detta.
+
+Ett e-postmeddelande ska skickas till systemintegration@rf.se. Meddelandet behöver innehålla följande information:
+
+Vad klienten döptes till i steg 4. Det som benämns "integratorName"
+Om klienten ska hantera SF (Specialidrottsförbund) eller IF (Idrottsförening) eller både och.
+Detta behövs för att RF ska kunna ge behörigheter till klienten som skapades i steg 4. Om inte klienten får behörigheter till organisationer kommer man inte vidare till nästa steg.
+
+Nästa steg
+När RF har konfigurerat behörigheter till klienten är det dags för nästa steg.
+
+Med den nya klienten från steg 4 har du också fått de nya autentiseringsuppgifterna, då är det dags att börja skicka/hämta data. Autentisering med de nya uppgifterna finns beskrivet under Autentisering med JWT Assertion. För autentisering behöver du "clientId", "clientSecret" samt "privateKey" från svaret i anropet till /integration-client i steg 4.
+
+3.API-definitioner
+
+Riksidrottsförbundet - Registrering & informationsutbyte API
+ 2.0.8 
+OAS 3.0
+Contact the developer
+Servers
+
+https://apim.rf.se/api/v2
+Registrering & informationsutbyte
+
+
+GET
+/integration-client
+Hämtar registrerad klient
+
+
+Parameters
+No parameters
+
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+  "clientId": "string",
+  "clientSecret": "string",
+  "privateKey": "string",
+  "publicKey": "string",
+  "keyValidityStartDate": "2026-05-20T14:41:16.976Z",
+  "keyValidityExpiryDate": "2026-05-20T14:41:16.976Z"
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+POST
+/integration-client
+Skapar en klient
+
+
+Parameters
+No parameters
+
+Request body
+
+application/json
+Skapande av klient med grant_type JWT Assertion
+
+Example Value
+Schema
+{
+  "integratorName": "string"
+}
+Responses
+Code	Description	Links
+201	
+The request was successfully processed. The response contains the created Client.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+  "clientId": "string",
+  "clientSecret": "string",
+  "privateKey": "string",
+  "publicKey": "string",
+  "keyValidityStartDate": "2026-05-20T14:41:16.977Z",
+  "keyValidityExpiryDate": "2026-05-20T14:41:16.977Z"
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/integration-mappings
+Hämtar alla mappade organisationer för autentiserad organisation
+
+
+Parameters
+Name	Description
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response.
+
+Default value : 9999
+
+9999
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "uuid": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "type": "CLUB",
+      "name": "Idrottens IF",
+      "organizationNumber": "802421-7948",
+      "rfNumber": "45264"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+Schemas
+NumberOfElements[...]
+Size[...]
+Page[...]
+TotalPages[...]
+TotalElements[...]
+Id[...]
+Type[...]
+IntegrationClient{
+description:	
+This entity is about the client credentials, which contains the identification and secret of the integration client and a keypair which will be used to sign and verify a JwtAssertion. The validity of the client credentials, are represented by a start- and expiry date. With the start - expiry date the validity length is known to the consumer. There is two option here either store or cache the credential in the consumer system and just get the integration client credentials when the stored or cached client credentials expires. The other option is to always get client credentials.
+
+id*	Id[...]
+clientId	[...]
+clientSecret	[...]
+privateKey	[...]
+publicKey	[...]
+keyValidityStartDate	[...]
+keyValidityExpiryDate	[...]
+}
+IntegrationClientPost{
+integratorName*	[...]
+}
+IntegrationMappingListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+Organization{
+id*	[...]
+uuid	Id[...]
+type	Type[...]
+name	[...]
+organizationNumber	[...]
+rfNumber	[...]
+}
+
+Riksidrottsförbundet - Organization Service API
+ 2.0.9 
+OAS 3.0
+https://int-riksi.mgmt.apim.riksi.gravitee.cloud:443/portal/environments/8a2af990-8482-4971-aaf9-908482497128/apis/db84aac1-4256-32f4-abfc-ba16b08e384f/pages/0a3a4f4d-f941-3096-a4c9-135448346226/content
+Contact the developer
+Servers
+
+https://apim.rf.se/api/v2
+Organisation
+Hanterar organisationer
+
+
+
+GET
+/organizations
+Sök organisationer
+
+
+Sök organisationer som stämmer överens med angivna parametrar.
+
+Parameters
+Name	Description
+type *
+string
+(query)
+Retrieve organizations with a specific type.
+
+Available values : SPORT_FEDERATION, SISU_FEDERATION, CLUB, SISU, SISU_CLUB, SUB_SPORT, DISTRICT_FEDERATION, SPORT_DISTRICT_FEDERATION, SPORT_REGIONAL_FEDERATION, SWEDISH_SPORTS_CONFEDERATION
+
+Example : CLUB
+
+
+CLUB
+organizationId
+string
+(query)
+Retrieve organizations where this organization is the parent organization.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+sportId
+string
+(query)
+Retrieve organizations with a specific sport connection.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+municipalityId
+string
+(query)
+Retrieve organizations in a specific municipality.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+businessAreaMunicipalityId
+string
+(query)
+For SPORT_FEDERATION_DISTRICT/DISTRICT_FEDERATION/SPORT_REGIONAL_FEDERATION, they are all connected to multiple municipalities where they are supporting clubs in those municipalities. Example: DISTRICT_FEDERATION "Stockholms Idrottsförbund" has it's office in municipality Stockholm but the business area municipalities they have are all municipalities in the Stockholm area.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+name
+string
+(query)
+Retrieve organizations with names that include this specific string.
+
+Idrottens Idrottsförening
+organizationNumber
+string
+(query)
+Retrieve an organization with a specific organization number.
+
+802003-0287
+rfNumber
+string
+(query)
+Retrieve an organization with a specific RF-number. RF-number is a number that each organization have that is connected to Riksidrottsförbundet.
+
+SF34
+includePassive
+boolean
+(query)
+Authorization rules:
+
+Retrieve passive organizations in the response where you are authorized to do so according to agreements.
+Retrieve passive child organizations in the response according to purposes.
+Retrieve passive non child organizations (only used in club membership application). In this case this parameter can only be used in combination with the rfNumber or organizationNumber as query parameters.
+Default value : false
+
+
+false
+updatedSince
+string($date-time)
+(query)
+Retrieve organizations that have been updated on or after a specific date. The updated data could be contact information, account information, organizational connections and other organizational data.
+
+2023-10-03T14:00:00Z
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 99.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "type": "SPORT_FEDERATION",
+      "status": "ACTIVE",
+      "statusUpdatedAt": "2026-05-20T14:43:52.241Z",
+      "name": "Idrottens Idrottsförening",
+      "describingName": "Idrottens IF"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/organizations/{id}
+Hämtar information om en organisation
+
+
+Hämtar information som finns angiven för en specifik organisation.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+2112a05b-39fa-4a56-b315-34997683ae64
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+  "type": "SPORT_FEDERATION",
+  "name": "Idrottens Idrottsförening",
+  "describingName": "Idrottens IF",
+  "rfNumber": "SF34",
+  "organizationNumber": "802003-0287",
+  "status": "ACTIVE",
+  "statusUpdatedAt": "2026-05-20T14:43:52.242Z",
+  "organizationUpdatedAt": "2026-05-20T14:43:52.242Z",
+  "establishedDate": "2026-05-20T14:43:52.242Z",
+  "openingHours": {
+    "openingDays": "Måndag-Fredag",
+    "officeHours": "08:00-17:00",
+    "SummerTime": "10:00-17:00"
+  },
+  "municipality": {
+    "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+    "name": "Haninge kommun"
+  },
+  "addresses": [
+    {
+      "streetAddress": "Gatan 5",
+      "postalCode": "136 75",
+      "postalPlace": "Vendelsö",
+      "addressExtra": "c/o Andersson",
+      "country": "Sverige",
+      "type": "POSTAL"
+    }
+  ],
+  "contactDetails": [
+    {
+      "value": "info@domain.se",
+      "type": "EMAIL"
+    }
+  ],
+  "belongsToOrganizations": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "type": "SPORT_FEDERATION",
+      "status": "ACTIVE",
+      "statusUpdatedAt": "2026-05-20T14:43:52.242Z",
+      "name": "Idrottens Idrottsförening",
+      "describingName": "Idrottens IF",
+      "belongsToSportId": "2112A05A-39AA-4A56-A315-34997683AA64",
+      "belongsToSubSportId": "2112A05A-39AA-4A56-A315-34997683AA64"
+    }
+  ],
+  "memberInOrganizations": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "type": "SPORT_FEDERATION",
+      "status": "ACTIVE",
+      "statusUpdatedAt": "2026-05-20T14:43:52.242Z",
+      "name": "Idrottens Idrottsförening",
+      "describingName": "Idrottens IF"
+    }
+  ],
+  "sports": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "skidor",
+      "contactDetails": [
+        {
+          "value": "info@domain.se",
+          "type": "EMAIL"
+        }
+      ],
+      "addresses": [
+        {
+          "streetAddress": "Gatan 5",
+          "postalCode": "136 75",
+          "postalPlace": "Vendelsö",
+          "addressExtra": "c/o Andersson",
+          "country": "Sverige",
+          "type": "POSTAL"
+        }
+      ],
+      "accounts": [
+        {
+          "type": "BANKGIRO",
+          "code": "1234-1234"
+        }
+      ],
+      "openingHours": {
+        "openingDays": "Måndag-Fredag",
+        "officeHours": "08:00-17:00",
+        "SummerTime": "10:00-17:00"
+      },
+      "subSports": [
+        {
+          "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+          "name": "alpint",
+          "contactDetails": [
+            {
+              "value": "info@domain.se",
+              "type": "EMAIL"
+            }
+          ],
+          "addresses": [
+            {
+              "streetAddress": "Gatan 5",
+              "postalCode": "136 75",
+              "postalPlace": "Vendelsö",
+              "addressExtra": "c/o Andersson",
+              "country": "Sverige",
+              "type": "POSTAL"
+            }
+          ],
+          "accounts": [
+            {
+              "type": "BANKGIRO",
+              "code": "1234-1234"
+            }
+          ],
+          "openingHours": {
+            "openingDays": "Måndag-Fredag",
+            "officeHours": "08:00-17:00",
+            "SummerTime": "10:00-17:00"
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "type": "BANKGIRO",
+      "code": "1234-1234"
+    }
+  ]
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/organizations/{id}/role-types
+Sök rolltyper
+
+
+Sök aktiva rolltyper som stämmer överens med angivna parametrar.
+
+Parameters
+Name	Description
+name
+string
+(query)
+Ungdomstränare
+category
+string
+(query)
+Filter role types within a specific role type category.
+
+Available values : ACTIVE, ACTIVITY_LEADER, OFFICIALS, ORGANISATIONAL_LEADER, UNDEFINED
+
+
+ACTIVITY_LEADER
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 99.
+
+Default value : 99
+
+99
+id *
+string
+(path)
+Retrieve role types owned by this organization
+
+2112a05b-39fa-4a56-b315-34997683ae64
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "roleTypeId": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "Ungdomstränare",
+      "description": "Aktiva tränare för ungdomsgrupperna",
+      "category": "ACTIVITY_LEADER"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-TYPE	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+Tjänster
+Paketerade tjänster som initierar flöden i IdrottOnline
+
+
+
+POST
+/club-membership-applications
+Föreningsansökan
+
+
+En förening ansöker om medlemskap i ett specialidrottsförbund inom Riksidrottsförbundet (RF) och/eller i en medlemsorganisation inom SISU Idrottsutbildarna (SISU). Ansökan kommer in till IdrottOnline där specialidrottsförbundet/medlemsorganisationen och slutligen Riksidrottsförbundet/SISU Idrottsutbildarna hanterar ansökan.
+
+Exempel
+I rullistan "Examples" nedan visas vad som minimalt krävs för att skicka en ansökan för "Ny förening" samt "Befintlig förening".
+
+Under rubriken Användningsfall i kolumnen till vänster finns föreningsansökans flöde beskrivet som hjälp till implementation samt vilka API:er som rekommenderas och hjälpande texter.
+
+Samtliga fält
+Se schemat för "ClubMembershipApplication" för samtliga fält som kan sättas i en ansökan samt vilka olika val man kan göra på t.ex. utländsk medborgare, kontonummer eller ansökan om organisationsnummer.
+
+Parameters
+No parameters
+
+Request body
+
+application/json
+Examples: 
+Ny förening
+Example Value
+Schema
+{
+  "attestation": true,
+  "clubName": "Idrottens IF",
+  "sportFederationId": "220a0db9-b6bf-4bc5-8aee-b8c3d579314f",
+  "municipalityId": "220a0db9-b6bf-4bc5-8aee-b8c3d579314f",
+  "address": {
+    "streetAddress": "Gatan 5",
+    "postalCode": "13675",
+    "postalPlace": "Vendelsö"
+  },
+  "attorney": {
+    "socialSecurityNumber": "YYYYMMDDXXXX",
+    "firstName": "string",
+    "lastName": "string",
+    "email": "info@domain.se"
+  },
+  "contactDetails": [
+    {
+      "type": "EMAIL",
+      "value": "info@domain.se"
+    },
+    {
+      "type": "PHONE1",
+      "value": "+467477474"
+    }
+  ],
+  "registration": {
+    "type": "DELEGATE_TO_SUBMIT"
+  },
+  "sportResponsible": {
+    "firstName": "string",
+    "lastName": "string",
+    "gender": "FEMALE",
+    "socialSecurityNumber": "YYYYMMDDXXXX",
+    "address": {
+      "streetAddress": "Gatan 5",
+      "postalCode": "13675",
+      "postalPlace": "Vendelsö"
+    },
+    "contactDetails": [
+      {
+        "type": "EMAIL",
+        "value": "info@domain.se"
+      }
+    ]
+  },
+  "attachments": [
+    {
+      "name": "filename.pdf",
+      "fileType": "BYLAWS",
+      "body": "aGVq",
+      "mimeType": "APPLICATION_PDF"
+    },
+    {
+      "name": "filename.pdf",
+      "fileType": "PROTOCOL",
+      "body": "aGVq",
+      "mimeType": "APPLICATION_PDF"
+    }
+  ]
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+POST
+/club-name-change-applications
+Ansökan om namnändring
+
+
+Denna ansökan används av föreningar som vill byta/justera sitt föreningsnamn. Ansökan kommer in till IdrottOnline där Riksidrottsförbundet hanterar ansökan.
+
+Parameters
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "attestation": true,
+  "clubId": "2112a05b-39fa-4a56-b315-34997683ae64",
+  "newName": "string",
+  "attachments": [
+    {
+      "name": "filename.docx",
+      "body": "string",
+      "mimeType": "APPLICATION_PDF",
+      "fileType": "PROTOCOL"
+    }
+  ],
+  "attorney": {
+    "firstName": "string",
+    "lastName": "string",
+    "socialSecurityNumber": "YYYYMMDDXXXX",
+    "email": "user@example.com"
+  },
+  "notifyTaxAgency": false
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+POST
+/membership-applications
+Medlemsansökan i en förening
+
+
+En person kan ansöka om medlemskap i en förening. Ansökan kommer in till IdrottOnline där föreningen hanterar ansökan.
+
+Parameters
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "clubId": "2112a05b-39fa-4a56-b315-34997683ae64",
+  "sportIds": [
+    "2112a05b-39fa-4a56-b315-34997683ae64"
+  ],
+  "person": {
+    "firstName": "string",
+    "lastName": "string",
+    "socialSecurityNumber": "YYYYMMDDXXXX",
+    "birthDate": "2026-05-20",
+    "gender": "MALE",
+    "nationalityId": "2112a05b-39fa-4a56-b315-34997683ae64",
+    "useContactAddressFromSpar": true,
+    "address": {
+      "streetAddress": "Gatan 5",
+      "postalCode": "136 75",
+      "postalPlace": "Vendelsö",
+      "addressExtra": "c/o Andersson",
+      "country": "Sverige",
+      "type": "NORMAL"
+    },
+    "contactDetails": [
+      {
+        "value": "info@domain.se",
+        "type": "EMAIL"
+      }
+    ]
+  },
+  "guardians": [
+    {
+      "firstName": "string",
+      "lastName": "string",
+      "socialSecurityNumber": "YYYYMMDDXXXX",
+      "birthDate": "2026-05-20",
+      "gender": "MALE",
+      "nationalityId": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "useContactAddressFromSpar": true,
+      "address": {
+        "streetAddress": "Gatan 5",
+        "postalCode": "136 75",
+        "postalPlace": "Vendelsö",
+        "addressExtra": "c/o Andersson",
+        "country": "Sverige",
+        "type": "NORMAL"
+      },
+      "contactDetails": [
+        {
+          "value": "info@domain.se",
+          "type": "EMAIL"
+        }
+      ]
+    }
+  ]
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+Schemas
+NumberOfElements[...]
+Size[...]
+Page[...]
+TotalPages[...]
+TotalElements[...]
+Id[...]
+OrganizationName[...]
+OrganizationDescribingName[...]
+OrganizationStatus[...]
+StatusUpdatedAt[...]
+Type[...]
+RoleTypeName[...]
+RoleTypeDescription[...]
+RoleTypeCategory[...]
+BirthDate[...]
+OrganizationListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+OrganizationList{
+id	Id[...]
+type	Type[...]
+status	OrganizationStatus[...]
+statusUpdatedAt	StatusUpdatedAt[...]
+name	OrganizationName[...]
+describingName	OrganizationDescribingName[...]
+}
+OrganizationBelongingList{
+id	Id[...]
+type	Type[...]
+status	OrganizationStatus[...]
+statusUpdatedAt	StatusUpdatedAt[...]
+name	OrganizationName[...]
+describingName	OrganizationDescribingName[...]
+belongsToSportId	[...]
+belongsToSubSportId	[...]
+}
+Organization{
+id	Id[...]
+type	Type[...]
+name	OrganizationName[...]
+describingName	OrganizationDescribingName[...]
+rfNumber	[...]
+organizationNumber	[...]
+status	OrganizationStatus[...]
+statusUpdatedAt	StatusUpdatedAt[...]
+organizationUpdatedAt	[...]
+establishedDate	[...]
+openingHours	OpeningHour{...}
+municipality	Municipality{...}
+addresses	[...]
+contactDetails	[...]
+belongsToOrganizations	[...]
+memberInOrganizations	[...]
+sports	[...]
+accounts	[...]
+}
+MembershipApplication{
+clubId*	Id[...]
+sportIds	[...]
+person*	Person{...}
+guardians	[...]
+}
+Person{
+firstName*	[...]
+lastName*	[...]
+socialSecurityNumber	[...]
+birthDate*	BirthDate[...]
+gender*	[...]
+nationalityId*	Id[...]
+useContactAddressFromSpar	[...]
+address	{...}
+contactDetails	[...]
+}
+ClubMembershipApplication{
+attestation*	[...]
+otherInformation	[...]
+clubId	Id[...]
+sportFederationId*	Id[...]
+clubName	OrganizationName[...]
+address	{...}
+contactDetails	[...]
+municipalityId	Id[...]
+attorney*	Attorney{...}
+account	Account{...}
+attachments*	[...]
+registration	Registration{...}
+sportResponsible*	SportResponsible{...}
+}
+ClubNameChangeApplication{
+attestation*	[...]
+clubId*	Id[...]
+newName*	[...]
+attachments*	[...]
+attorney*	Attorney{...}
+notifyTaxAgency	[...]
+}
+Municipality{
+id*	Id[...]
+name	[...]
+}
+Address{
+streetAddress*	[...]
+postalCode*	[...]
+postalPlace*	[...]
+addressExtra	[...]
+country	[...]
+}
+ContactDetail{
+value	[...]
+}
+Account{
+type*	[...]
+code*	[...]
+}
+Attachment{
+name*	[...]
+body*	[...]
+mimeType*	[...]
+fileType*	[...]
+}
+Attorney{
+description:	
+This is the representative person of the club, who is sending in the application
+
+firstName*	[...]
+lastName*	[...]
+socialSecurityNumber*	[...]
+email*	[...]
+}
+SportResponsible{
+firstName*	[...]
+lastName*	[...]
+socialSecurityNumber*	[...]
+isForeignCitizen	[...]
+gender*	[...]
+address*	{...}
+contactDetails	[...]
+}
+Registration{
+type*	[...]
+organizationNumber	[...]
+}
+SportList{
+id*	Id[...]
+name	[...]
+contactDetails	[...]
+addresses	[...]
+accounts	[...]
+openingHours	OpeningHour{...}
+subSports	[...]
+}
+SubSport{
+id*	Id[...]
+name	[...]
+contactDetails	[...]
+addresses	[...]
+accounts	[...]
+openingHours	OpeningHour{...}
+}
+OpeningHour{
+description:	
+Opening hours are set for the organization and all sport levels. Use opening hours for the organization if no opening hours are set for the sport / sub sport
+
+openingDays	[...]
+officeHours	[...]
+SummerTime	[...]
+}
+RoleTypeListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+RoleType{
+roleTypeId	Id[...]
+name	RoleTypeName[...]
+description	RoleTypeDescription[...]
+category	RoleTypeCategory[...]
+}
+
+Riksidrottsförbundet - Education Service API
+ 2.0.4 
+OAS 3.0
+the developer - Website
+Send email to the developer
+Servers
+
+https://apim.rf.se/api/v2
+Utbildning
+Hanterar utbildningar
+
+
+
+GET
+/educations
+Hämtar alla utbildningar
+
+
+Hämtar alla utbildningar som stämmer överens med angivna parametrar.
+
+Parameters
+Name	Description
+name
+string
+(query)
+Retrieve educations with names containing this string.
+
+name
+municipalityId
+string
+(query)
+Retrieve educations in a specific municipality.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+startDate
+string($date)
+(query)
+Retrieve educations from a specific start date.
+If combined with the endDate parameter, all educations that are ongoing between these dates will be returned, no matter when they start or ends.
+
+2023-08-21
+endDate
+string($date)
+(query)
+Retrieve educations that ends on or at a specific date.
+If combined with the startDate parameter, all educations that are ongoing between these dates will be returned, no matter when they start or ends.
+
+2023-08-23
+sportId
+string
+(query)
+Retrieve educations with a specific sport connection.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+organizationId
+string
+(query)
+Retrieve educations that are organised by a specific organization.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+educationSubjectId
+string
+(query)
+Retrieve educations with a specific category/subject.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+educationTypeId
+string
+(query)
+Retrieve educations with a specific education type.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+educationStudyPlanId
+string
+(query)
+Retrieve educations with a specific study plan.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+educationFormat
+string
+(query)
+Retrieve educations with a specific format.
+DIGITAL means that checkbox "Digital utbildning" is checked on education. If not checked, ON_SITE will be used, meaning a physical education.
+
+Available values : ON_SITE, DIGITAL
+
+
+--
+educationTargetGroupId
+string
+(query)
+Retrieve educations with a specific target group.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 999.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "Grundtränarutbildning",
+      "introduction": "Denna utbildning är för dig som vill bli tränare i din idrott",
+      "contactPersonName": "Anna Andersson",
+      "educationFormat": "ON_SITE",
+      "startDate": "2026-05-20",
+      "endDate": "2026-05-20",
+      "lastRegistrationDate": "2026-05-20",
+      "webRegistrationURI": "string",
+      "logoURI": "string",
+      "occasions": [
+        {
+          "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+          "startDatetime": "2026-05-20T14:45:52.486Z",
+          "endDatetime": "2026-05-20T14:45:52.486Z",
+          "address": {
+            "type": "NORMAL",
+            "streetAddress": "Gatan 5",
+            "postalCode": "136 75",
+            "postalPlace": "Vendelsö",
+            "addressExtra": "c/o Andersson"
+          }
+        }
+      ]
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/educations/{id}
+Hämtar mer utförlig information om en utbildning
+
+
+Hämtar mer utförlig information som finns angiven för en specifik utbildning.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+2112a05b-39fa-4a56-b315-34997683ae64
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+  "accommodation": "Boende finns att hyra, kontakta ansvarig",
+  "contactPersonName": "Anna Andersson",
+  "contactPersonContactDetails": "Skicka e-post till anna.andersson@domain.se eller ring 070-123456",
+  "cost": 1000,
+  "costSpecification": "Utbildningsmaterial ingår i deltagaravgiften",
+  "name": "Grundtränarutbildning",
+  "introduction": "Denna utbildning är för dig som vill bli tränare i din idrott",
+  "description": "Mer beskrivning om denna utbildning",
+  "educationFormat": "ON_SITE",
+  "meal": "Middag ingår",
+  "startDate": "2026-05-20",
+  "endDate": "2026-05-20",
+  "lastRegistrationDate": "2026-05-20",
+  "webRegistrationNote": "string",
+  "webRegistrationURI": "string",
+  "logoURI": "string",
+  "occasions": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "startDatetime": "2026-05-20T14:45:52.488Z",
+      "endDatetime": "2026-05-20T14:45:52.488Z",
+      "address": {
+        "type": "NORMAL",
+        "streetAddress": "Gatan 5",
+        "postalCode": "136 75",
+        "postalPlace": "Vendelsö",
+        "addressExtra": "c/o Andersson"
+      }
+    }
+  ]
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/education-types
+Hämtar alla verksamhetsformer
+
+
+Hämtar alla verksamhetsformer och kan specificeras med vilken organisation som avses, då organisationer kan skapa sina egna verksamhetsformer.
+
+Parameters
+Name	Description
+organizationId
+string
+(query)
+Retrieve resources that is owned by a specific organization.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 999.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "Kurs"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/education-subjects
+Hämtar alla kategorier/ämnen
+
+
+Hämtar alla kategorier/ämnen och kan specificeras med vilken organisation som avses, då organisationer kan skapa sina egna kategorier/ämnen.
+
+Parameters
+Name	Description
+organizationId
+string
+(query)
+Retrieve resources that is owned by a specific organization.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 999.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "Föreningsutveckling"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/education-study-plans
+Hämtar alla studieplaner
+
+
+Hämtar alla studieplaner och kan specificeras med vilken organisation som avses, då organisationer kan skapa sina egna studieplaner.
+
+Parameters
+Name	Description
+organizationId
+string
+(query)
+Retrieve resources that is owned by a specific organization.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 999.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "Fysisk aktivitet på recept"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/education-target-groups
+Hämtar alla målgrupper
+
+
+Hämtar alla målgrupper och kan specificeras med vilken organisation som avses, då organisationer kan skapa sina egna målgrupper.
+
+Parameters
+Name	Description
+organizationId
+string
+(query)
+Retrieve resources that is owned by a specific organization.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 999.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "Ledare"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+Schemas
+NumberOfElements[...]
+Size[...]
+Page[...]
+TotalPages[...]
+TotalElements[...]
+Id[...]
+EducationFormat[...]
+EducationListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+EducationList{
+id*	Id[...]
+name	[...]
+introduction	[...]
+contactPersonName	[...]
+educationFormat	EducationFormat[...]
+startDate	[...]
+endDate	[...]
+lastRegistrationDate	[...]
+webRegistrationURI	[...]
+logoURI	[...]
+occasions	[...]
+}
+Education{
+id*	Id[...]
+accommodation	[...]
+contactPersonName	[...]
+contactPersonContactDetails	[...]
+cost	[...]
+costSpecification	[...]
+name	[...]
+introduction	[...]
+description	[...]
+educationFormat	EducationFormat[...]
+meal	[...]
+startDate	[...]
+endDate	[...]
+lastRegistrationDate	[...]
+webRegistrationNote	[...]
+webRegistrationURI	[...]
+logoURI	[...]
+occasions	[...]
+}
+StudyOccasion{
+id*	Id[...]
+startDatetime	[...]
+endDatetime	[...]
+address	Address{...}
+}
+Address{
+description:	
+ds
+
+type	[...]
+streetAddress*	[...]
+postalCode*	[...]
+postalPlace*	[...]
+addressExtra	[...]
+}
+EducationTypeListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+EducationTypeList{
+id*	Id[...]
+name	[...]
+}
+EducationSubjectListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+EducationSubjectList{
+id*	Id[...]
+name	[...]
+}
+StudyPlanListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+StudyPlanList{
+id*	Id[...]
+name	[...]
+}
+EducationTargetGroupListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+EducationTargetGroupList{
+id*	Id[...]
+name	[...]
+}
+
+Riksidrottsförbundet - Education Report Service API
+ 3.1.13 
+OAS 3.0
+https://int-riksi.mgmt.apim.riksi.gravitee.cloud:443/portal/environments/8a2af990-8482-4971-aaf9-908482497128/apis/db84aac1-4256-32f4-abfc-ba16b08e384f/pages/1505e372-d8a1-363f-a166-61d1e66aca57/content
+Contact the developer
+Servers
+
+https://apim.rf.se/api/v3
+Utbildning
+Hanterar utbildningar
+
+
+
+GET
+/educations
+Sök utbildning
+
+
+Sök utbildningar som stämmer överens med angivna parametrar.
+
+Parameters
+Name	Description
+name
+string
+(query)
+Filter education(s) with a name that includes this specific string.
+
+Idrottsskador - grund
+responsibleOrganizationId
+string
+(query)
+Filter education(s) where the responsible organisation matches this specific string.
+
+3112A05B-39fA-4A56-B315-34997683AE64
+organizingOrganizationId
+string
+(query)
+Filter education(s) where the organizing organisation matches this specific string.
+
+4112A05B-39fA-4A56-B315-34997683AE64
+socialSecurityNumber
+string
+(query)
+Retrieve all completed educations for a person with this specific social security / coordination number.
+
+YYYYMMDDXXXX
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 99.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112A05B-39fA-4A56-B315-34997683AE64",
+      "name": "Idrottsskador - grund",
+      "responsibleOrganizationId": "6112A05B-39fA-4A56-B315-34997683AE64",
+      "organizingOrganizationId": "7112A05B-39fA-4A56-B315-34997683AE64",
+      "studyPlan": "Att vara tränare",
+      "operatingYear": 0,
+      "status": "PUBLISHED",
+      "participants": [
+        {
+          "socialSecurityNumber": "YYYYMMDDXXXX",
+          "completionDate": "2026-05-20",
+          "status": "APPROVED"
+        }
+      ]
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+POST
+/educations
+Skapa utbildning
+
+
+Skapar utbildning
+
+Parameters
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "responsibleOrganizationId": "6112A05B-39fA-4A56-B315-34997683AE64",
+  "organizingOrganization": {
+    "id": "8112A05B-39fA-4A56-B315-34997683AE64",
+    "sportId": "2112A05B-39fA-4A56-B315-34997683AE64"
+  },
+  "name": "Idrottsskador - grund",
+  "studyPlan": "Att vara tränare"
+}
+Responses
+Code	Description	Links
+201	
+The request was successfully processed. The response contains the ID of the newly created education resource
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "educationId": "3112A05B-39fA-4A56-B315-34997683AE64"
+}
+Headers:
+Name	Description	Type
+Location	
+URI of the newly created resource
+
+string
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+POST
+/educations/{educationId}/participants
+Lägg till deltagare
+
+
+Lägg till deltagare
+
+Parameters
+Name	Description
+educationId *
+string
+(path)
+2112A05B-39fA-4A56-B315-34997683AE64
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "participants": [
+    {
+      "socialSecurityNumber": "YYYYMMDDXXXX",
+      "firstName": "Anna",
+      "lastName": "Andersson",
+      "gender": "FEMALE",
+      "completionDate": "2026-05-20",
+      "organization": {
+        "id": "8112A05B-39fA-4A56-B315-34997683AE64",
+        "sportId": "2112A05B-39fA-4A56-B315-34997683AE64"
+      },
+      "status": "APPROVED"
+    }
+  ]
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/education-categories
+Sök kategorier
+
+
+Sök kategorier som stämmer överens med angivna parametrar. En kategori är det huvudsakliga ämnet i arrangemanget.
+
+Parameters
+Name	Description
+name
+string
+(query)
+Filter categorie(s) with a name that includes this specific string.
+
+Idrottsskador och rehab
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 99.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112A05B-39fA-4A56-B315-34997683AE64",
+      "name": "Idrottsskador och rehab"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/education-tags
+Sök taggar
+
+
+Sök taggar som stämmer överens med angivna parametrar.
+
+Parameters
+Name	Description
+name
+string
+(query)
+Filter tag(s) with a name that includes this specific string.
+
+Rörelsesatsning
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 99.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112A05B-39fA-4A56-B315-34997683AE64",
+      "name": "Rörelsesatsning"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+Tjänster
+
+
+POST
+/report-education
+Rapportera genomförd utbildning
+
+
+Rapportera genomförd utbildning
+
+Parameters
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "educationId": "9112A05B-39fA-4A56-B315-34997683AE64",
+  "workingProcedure": "LECTURE",
+  "studyPlan": "Att vara tränare",
+  "targetGroup": "ACTIVITY_LEADER",
+  "categoryId": "B112A05B-39fA-4A56-B315-34997683AE64",
+  "tagIds": [
+    "A112A05B-39fA-4A56-B315-34997683AE64"
+  ],
+  "operatingYear": 0,
+  "occasions": [
+    {
+      "name": "Träff 1",
+      "startDate": "2026-05-20T14:48:16.883Z",
+      "endDate": "2026-05-20T14:48:16.883Z",
+      "educator": {
+        "socialSecurityNumber": "YYYYMMDDXXXX",
+        "firstName": "Anna",
+        "lastName": "Andersson",
+        "gender": "FEMALE",
+        "email": "info@domain.se"
+      },
+      "location": "Klubblokalen",
+      "duration": 120,
+      "educationalEnvironment": "ONLY_PHYSICAL",
+      "studyFormat": "INDIVIDUAL",
+      "participants": [
+        {
+          "socialSecurityNumber": "YYYYMMDDXXXX"
+        }
+      ]
+    }
+  ],
+  "participants": [
+    {
+      "socialSecurityNumber": "YYYYMMDDXXXX",
+      "firstName": "Anna",
+      "lastName": "Andersson",
+      "gender": "FEMALE",
+      "completionDate": "2026-05-20",
+      "organization": {
+        "id": "8112A05B-39fA-4A56-B315-34997683AE64",
+        "sportId": "2112A05B-39fA-4A56-B315-34997683AE64"
+      },
+      "status": "APPROVED"
+    }
+  ]
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+Schemas
+Id[...]
+CategoryName[...]
+TagName[...]
+EducationName[...]
+ResponsibleOrganizationId[...]
+OrganizingOrganizationId[...]
+EducationId[...]
+EducationStatus[...]
+WorkingProcedure[...]
+StudyPlan[...]
+TargetGroup[...]
+CategoryId[...]
+TagId[...]
+OperatingYear[...]
+SocialSecurityNumber[...]
+FirstName[...]
+LastName[...]
+OrganizationId[...]
+CompletionDate[...]
+CompletionDateParticipantCreate[...]
+Email[...]
+OccasionName[...]
+StartDate[...]
+EndDate[...]
+Location[...]
+Duration[...]
+EducationalEnvironment[...]
+StudyFormat[...]
+Gender[...]
+ParticipantStatus[...]
+ParticipantListStatus[...]
+ParticipantCreateStatus[...]
+NumberOfElements[...]
+Size[...]
+Page[...]
+TotalPages[...]
+TotalElements[...]
+OrganizationSportId{
+id*	OrganizationId[...]
+sportId	Id[...]
+}
+EducationListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+EducationList{
+id	Id[...]
+name	EducationName[...]
+responsibleOrganizationId	ResponsibleOrganizationId[...]
+organizingOrganizationId	OrganizingOrganizationId[...]
+studyPlan	StudyPlan[...]
+operatingYear	OperatingYear[...]
+status	EducationStatus[...]
+participants	[...]
+}
+EducationCreate{
+responsibleOrganizationId*	ResponsibleOrganizationId[...]
+organizingOrganization*	OrganizationSportId{...}
+name*	EducationName[...]
+studyPlan	StudyPlan[...]
+}
+EducationIdResponse{
+educationId	[...]
+}
+EducationReport{
+educationId*	EducationId[...]
+workingProcedure*	WorkingProcedure[...]
+studyPlan*	StudyPlan[...]
+targetGroup*	TargetGroup[...]
+categoryId*	CategoryId[...]
+tagIds	[...]
+operatingYear*	OperatingYear[...]
+occasions*	[...]
+participants*	[...]
+}
+Occasion{
+name*	OccasionName[...]
+startDate*	StartDate[...]
+endDate*	EndDate[...]
+educator*	Educator{...}
+location	Location[...]
+duration*	Duration[...]
+educationalEnvironment*	EducationalEnvironment[...]
+studyFormat*	StudyFormat[...]
+participants*	[...]
+}
+EducationParticipant{
+socialSecurityNumber*	SocialSecurityNumber[...]
+firstName*	FirstName[...]
+lastName*	LastName[...]
+gender*	Gender[...]
+completionDate*	CompletionDate[...]
+organization*	OrganizationSportId{...}
+status*	ParticipantStatus[...]
+}
+EducationListParticipant{
+socialSecurityNumber	SocialSecurityNumber[...]
+completionDate	CompletionDate[...]
+status	ParticipantListStatus[...]
+}
+OccasionParticipant{
+socialSecurityNumber	SocialSecurityNumber[...]
+}
+Educator{
+socialSecurityNumber*	SocialSecurityNumber[...]
+firstName*	FirstName[...]
+lastName*	LastName[...]
+gender*	Gender[...]
+email*	Email[...]
+}
+Person{
+socialSecurityNumber*	SocialSecurityNumber[...]
+firstName*	FirstName[...]
+lastName*	LastName[...]
+gender*	Gender[...]
+}
+ParticipantCreateList{
+participants*	[...]
+}
+ParticipantCreate{
+socialSecurityNumber*	SocialSecurityNumber[...]
+firstName*	FirstName[...]
+lastName*	LastName[...]
+gender*	Gender[...]
+completionDate	CompletionDateParticipantCreate[...]
+organization*	OrganizationSportId{...}
+status*	ParticipantCreateStatus[...]
+}
+CategoryListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+Category{
+id	Id[...]
+name	CategoryName[...]
+}
+TagListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+Tag{
+id	Id[...]
+name	TagName[...]
+}
+
+Riksidrottsförbundet - Person Service API
+ 1.1.19 
+OAS 3.0
+https://int-riksi.mgmt.apim.riksi.gravitee.cloud:443/portal/environments/8a2af990-8482-4971-aaf9-908482497128/apis/db84aac1-4256-32f4-abfc-ba16b08e384f/pages/e64ded85-9c23-31fa-b573-9da530c8c58c/content
+Contact the developer
+Servers
+
+https://apim.rf.se/api/v1
+Person
+Hanterar personer
+
+
+
+GET
+/persons
+Sök personer
+
+
+Sök personer som stämmer överens med angivna parametrar.
+
+Parameters
+Name	Description
+socialSecurityNumber
+string
+(query)
+Filter person with a specific social security number.
+
+199001011234
+birthDate
+string($date)
+(query)
+Filter person(s) with a specific birth date.
+
+1990-01-01
+fullName
+string
+(query)
+Filter person(s) with a full name that matches this specific string.
+
+Anna Andersson
+iid
+string
+(query)
+Filter person with a specific "idrottsId". "IdrottsId" is an unique identifier for a person created in RF database.
+
+IID00000235
+sportId
+string
+(query)
+Filter person(s) with a role that has a specific sport connection.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+organizationId
+string
+(query)
+Filter person(s) with at least one role in this specific organization.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+organizationType *
+string
+(query)
+Filter person(s) with at least one role in organizations of a specific organization type.
+
+Available values : SPORT_FEDERATION, SISU_FEDERATION, CLUB, SISU, SISU_CLUB, SUB_SPORT, DISTRICT_FEDERATION, SPORT_DISTRICT_FEDERATION, SPORT_REGIONAL_FEDERATION, SWEDISH_SPORTS_CONFEDERATION
+
+
+CLUB
+roleTypeId
+string
+(query)
+Filter person(s) with a specific role type.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+roleTypeCategory
+string
+(query)
+Filter person(s) with a role of a specific role type category.
+
+Available values : ACTIVE, ACTIVITY_LEADER, OFFICIALS, ORGANISATIONAL_LEADER, UNDEFINED, SYSTEM_ROLES_IDROTTONLINE
+
+
+ACTIVITY_LEADER
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 99.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "personId": "217055B1-0BB3-4556-9375-E4DA0A3EF282",
+      "iid": "IID00000235",
+      "firstName": "Karl",
+      "lastName": "Andersson",
+      "alternativeFirstName": "Kalle",
+      "socialSecurityNumber": "199001011234",
+      "birthDate": "1990-01-01",
+      "gender": "FEMALE",
+      "nationality": {
+        "nationalityId": "717055B1-0BB3-4556-9375-E4DA0A3EF287",
+        "name": "Sverige"
+      }
+    }
+  ],
+  "numberOfElements": 5,
+  "size": 5,
+  "page": 2,
+  "totalPages": 10,
+  "totalElements": 49
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+POST
+/persons
+Skapa person
+
+
+Skapar en person i en organisation.
+
+Parameters
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "firstName": "Karl",
+  "lastName": "Andersson",
+  "alternativeFirstName": "Kalle",
+  "socialSecurityNumber": "199001011234",
+  "birthDate": "1990-01-01",
+  "gender": "FEMALE",
+  "nationalityId": "717055B1-0BB3-4556-9375-E4DA0A3EF287",
+  "useContactAddressFromSpar": false,
+  "addresses": [
+    {
+      "type": "CONTACT",
+      "streetAddress": "Gatan 5",
+      "postalCode": "13675",
+      "postalPlace": "Vendelsö",
+      "addressExtra": "c/o Andersson",
+      "country": "Sverige"
+    }
+  ],
+  "contactDetails": [
+    {
+      "type": "CONTACT_EMAIL",
+      "value": "info@domain.se"
+    }
+  ],
+  "organization": {
+    "organizationId": "317055B1-0BB3-4556-9375-E4DA0A3EF283",
+    "membershipDetail": {
+      "membershipNumber": "string",
+      "memberSince": "1990-01-01",
+      "memberUntil": "1990-02-01"
+    }
+  }
+}
+Responses
+Code	Description	Links
+201	
+The request was successfully processed. The response contains the URI to the newly created person.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "uri": "https://apim-int.rf.se/api/v1/persons/3112A05B-39fA-4A56-B315-34997683AE64"
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+GET
+/persons/{id}
+Hämtar information om en person
+
+
+Hämtar information som finns angiven för en specifik person.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+The id of the person that should be modified.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "personId": "217055B1-0BB3-4556-9375-E4DA0A3EF282",
+  "iid": "IID00000235",
+  "firstName": "Karl",
+  "lastName": "Andersson",
+  "alternativeFirstName": "Kalle",
+  "socialSecurityNumber": "199001011234",
+  "birthDate": "1990-01-01",
+  "gender": "FEMALE",
+  "nationality": {
+    "nationalityId": "717055B1-0BB3-4556-9375-E4DA0A3EF287",
+    "name": "Sverige"
+  },
+  "status": {
+    "isDeceased": false,
+    "deceasedDate": "1990-01-01"
+  },
+  "addresses": [
+    {
+      "type": "CONTACT",
+      "streetAddress": "Gatan 5",
+      "postalCode": "13675",
+      "postalPlace": "Vendelsö",
+      "addressExtra": "c/o Andersson",
+      "country": "Sverige"
+    }
+  ],
+  "contactDetails": [
+    {
+      "type": "CONTACT_EMAIL",
+      "value": "info@domain.se"
+    }
+  ],
+  "organizations": [
+    {
+      "organizationId": "317055B1-0BB3-4556-9375-E4DA0A3EF283",
+      "organizationType": "CLUB",
+      "name": "Idrottens Idrottsförening",
+      "membershipDetail": {
+        "membershipNumber": "string",
+        "memberSince": "1990-01-01",
+        "memberUntil": "1990-02-01"
+      },
+      "roles": [
+        {
+          "roleId": "617055B1-0BB3-4556-9375-E4DA0A3EF286",
+          "roleTypeId": "517055B1-0BB3-4556-9375-E4DA0A3EF285",
+          "name": "Ungdomstränare",
+          "description": "Aktiva tränare för ungdomsgrupperna",
+          "category": "ACTIVITY_LEADER",
+          "fromDate": "2024-01-01",
+          "toDate": "2025-01-01",
+          "sportId": "417055B1-0BB3-4556-9375-E4DA0A3EF284",
+          "attributes": [
+            {
+              "name": "Säsong",
+              "value": "23/24",
+              "isPassive": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+PUT
+/persons/{id}
+Uppdatera person
+
+
+Uppdaterar en specifik person.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+The id of the person that should be modified.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "alternativeFirstName": "Kalle",
+  "socialSecurityNumber": "199001011234",
+  "nationalityId": "717055B1-0BB3-4556-9375-E4DA0A3EF287",
+  "useContactAddressFromSpar": false,
+  "addresses": [
+    {
+      "type": "CONTACT",
+      "streetAddress": "Gatan 5",
+      "postalCode": "13675",
+      "postalPlace": "Vendelsö",
+      "addressExtra": "c/o Andersson",
+      "country": "Sverige"
+    }
+  ],
+  "contactDetails": [
+    {
+      "type": "CONTACT_EMAIL",
+      "value": "info@domain.se"
+    }
+  ],
+  "organization": {
+    "organizationId": "317055B1-0BB3-4556-9375-E4DA0A3EF283",
+    "membershipDetail": {
+      "membershipNumber": "string",
+      "memberSince": "1990-01-01",
+      "memberUntil": "1990-02-01"
+    }
+  }
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+No links
+
+DELETE
+/persons/{id}
+Ta bort en person
+
+
+Tar bort en specifik person från en specifik organisation.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+The id of the person that should be modified.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "organizationId": "317055B1-0BB3-4556-9375-E4DA0A3EF283"
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+No links
+
+POST
+/persons/{personId}/roles
+Lägger till roller på en person
+
+
+Lägger till roller på en specifik person i en specifik organisation.
+
+Parameters
+Name	Description
+personId *
+string
+(path)
+The id of the person that the resources should be modified on.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "organizationId": "317055B1-0BB3-4556-9375-E4DA0A3EF283",
+  "roles": [
+    {
+      "roleTypeCategory": "ACTIVITY_LEADER",
+      "roleTypeId": "517055B1-0BB3-4556-9375-E4DA0A3EF285",
+      "fromDate": "2024-05-10",
+      "sportId": "417055B1-0BB3-4556-9375-E4DA0A3EF284"
+    }
+  ]
+}
+Responses
+Code	Description	Links
+201	
+The request was successfully processed. The response contains the ID's of the newly created roles.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "roleIds": [
+    "617055B1-0BB3-4556-9375-E4DA0A3EF286"
+  ]
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+DELETE
+/persons/{personId}/roles
+Tar bort roller på en person
+
+
+Tar bort roller på en specifik person i en specifik organisation.
+
+Parameters
+Name	Description
+personId *
+string
+(path)
+The id of the person that the resources should be modified on.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "organizationId": "317055B1-0BB3-4556-9375-E4DA0A3EF283",
+  "roles": [
+    "617055B1-0BB3-4556-9375-E4DA0A3EF286"
+  ]
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+No links
+
+GET
+/persons/{personId}/guardians
+Hämtar vårdnadshavare för en person
+
+
+Hämtar vårdnadshavare för en specifik person.
+
+Parameters
+Name	Description
+personId *
+string
+(path)
+The id of the person that the resources should be modified on.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 99.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "personId": "217055B1-0BB3-4556-9375-E4DA0A3EF282",
+      "iid": "IID00000235",
+      "firstName": "Karl",
+      "lastName": "Andersson",
+      "alternativeFirstName": "Kalle",
+      "socialSecurityNumber": "199001011234",
+      "birthDate": "1990-01-01",
+      "gender": "FEMALE",
+      "nationality": {
+        "nationalityId": "717055B1-0BB3-4556-9375-E4DA0A3EF287",
+        "name": "Sverige"
+      },
+      "addresses": [
+        {
+          "type": "CONTACT",
+          "streetAddress": "Gatan 5",
+          "postalCode": "13675",
+          "postalPlace": "Vendelsö",
+          "addressExtra": "c/o Andersson",
+          "country": "Sverige"
+        }
+      ],
+      "contactDetails": [
+        {
+          "type": "CONTACT_EMAIL",
+          "value": "info@domain.se"
+        }
+      ]
+    }
+  ],
+  "numberOfElements": 5,
+  "size": 5,
+  "page": 2,
+  "totalPages": 10,
+  "totalElements": 49
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+POST
+/persons/{personId}/guardians
+Skapar vårdnadshavare för en person
+
+
+Skapar en vårdnadshavare för en specifik person.
+
+Parameters
+Name	Description
+personId *
+string
+(path)
+The id of the person that the resources should be modified on.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "firstName": "Karl",
+  "lastName": "Andersson",
+  "alternativeFirstName": "Kalle",
+  "socialSecurityNumber": "199001011234",
+  "birthDate": "1990-01-01",
+  "gender": "FEMALE",
+  "nationalityId": "717055B1-0BB3-4556-9375-E4DA0A3EF287",
+  "useContactAddressFromSpar": false,
+  "addresses": [
+    {
+      "type": "CONTACT",
+      "streetAddress": "Gatan 5",
+      "postalCode": "13675",
+      "postalPlace": "Vendelsö",
+      "addressExtra": "c/o Andersson",
+      "country": "Sverige"
+    }
+  ],
+  "contactDetails": [
+    {
+      "type": "CONTACT_EMAIL",
+      "value": "info@domain.se"
+    }
+  ]
+}
+Responses
+Code	Description	Links
+201	
+The request was successfully processed. The response contains the ID of newly created guardian.
+
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+PUT
+/persons/{personId}/guardians/{guardianId}
+Uppdatera vårdnadshavare
+
+
+Uppdaterar information om en specifik vårdnadshavare.
+
+Parameters
+Name	Description
+personId *
+string
+(path)
+The id of the person that the resources should be modified on.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+guardianId *
+string
+(path)
+The id of the guardian that should be modified.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "alternativeFirstName": "Kalle",
+  "socialSecurityNumber": "199001011234",
+  "nationalityId": "717055B1-0BB3-4556-9375-E4DA0A3EF287",
+  "useContactAddressFromSpar": false,
+  "addresses": [
+    {
+      "type": "CONTACT",
+      "streetAddress": "Gatan 5",
+      "postalCode": "13675",
+      "postalPlace": "Vendelsö",
+      "addressExtra": "c/o Andersson",
+      "country": "Sverige"
+    }
+  ],
+  "contactDetails": [
+    {
+      "type": "CONTACT_EMAIL",
+      "value": "info@domain.se"
+    }
+  ]
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+No links
+
+DELETE
+/persons/{personId}/guardians/{guardianId}
+Tar bort vårdnadshavare från en person
+
+
+Tar bort vårdnadshavare från en specifik person.
+
+Parameters
+Name	Description
+personId *
+string
+(path)
+The id of the person that the resources should be modified on.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+guardianId *
+string
+(path)
+The id of the guardian that should be modified.
+
+1112A05B-39FA-4A56-B315-34997683AE61
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+No links
+
+Schemas
+Id[...]
+PersonId[...]
+OrganizationId[...]
+SportId[...]
+RoleTypeId[...]
+RoleId[...]
+NationalityId[...]
+OrganizationType[...]
+FirstName[...]
+LastName[...]
+AlternativeFirstName[...]
+Iid[...]
+NationalityName[...]
+SocialSecurityNumber[...]
+BirthDate[...]
+FromDate[...]
+ToDate[...]
+Gender[...]
+RoleTypeCategory[...]
+RoleCreateFromDate[...]
+RoleTypeCategoryInput[...]
+StreetAddress[...]
+PostalCode[...]
+PostalPlace[...]
+AddressExtra[...]
+AddressType[...]
+AddressInputType[...]
+Country[...]
+RoleTypeName[...]
+RoleTypeDescription[...]
+ContactAddressFromSpar[...]
+OrganizationName[...]
+IsDeceased[...]
+DeceasedDate[...]
+ContactDetailType[...]
+ContactDetailValue[...]
+RoleAttributeName[...]
+RoleAttributeValue[...]
+RoleAttributeIsPassive[...]
+MembershipNumber[...]
+MemberSince[...]
+MemberUntil[...]
+PersonUri[...]
+NumberOfElements[...]
+Size[...]
+Page[...]
+TotalPages[...]
+TotalElements[...]
+PersonCreate{
+firstName*	FirstName[...]
+lastName*	LastName[...]
+alternativeFirstName	AlternativeFirstName[...]
+socialSecurityNumber	SocialSecurityNumber[...]
+birthDate*	BirthDate[...]
+gender*	Gender[...]
+nationalityId*	NationalityId[...]
+useContactAddressFromSpar	ContactAddressFromSpar[...]
+addresses	[...]
+contactDetails	[...]
+organization*	OrganizationModify{...}
+}
+PersonUpdate{
+alternativeFirstName	AlternativeFirstName[...]
+socialSecurityNumber	SocialSecurityNumber[...]
+nationalityId	NationalityId[...]
+useContactAddressFromSpar	ContactAddressFromSpar[...]
+addresses	[...]
+contactDetails	[...]
+organization*	OrganizationModify{...}
+}
+PersonDelete{
+organizationId*	OrganizationId[...]
+}
+PersonListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+PersonList{
+personId	PersonId[...]
+iid	Iid[...]
+firstName	FirstName[...]
+lastName	LastName[...]
+alternativeFirstName	AlternativeFirstName[...]
+socialSecurityNumber	SocialSecurityNumber[...]
+birthDate	BirthDate[...]
+gender	Gender[...]
+nationality	Nationality{...}
+}
+Person{
+personId	PersonId[...]
+iid	Iid[...]
+firstName	FirstName[...]
+lastName	LastName[...]
+alternativeFirstName	AlternativeFirstName[...]
+socialSecurityNumber	SocialSecurityNumber[...]
+birthDate	BirthDate[...]
+gender	Gender[...]
+nationality	Nationality{...}
+status	PersonStatus{...}
+addresses	[...]
+contactDetails	[...]
+organizations	[...]
+}
+GuardianPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+GuardianCreate{
+firstName*	FirstName[...]
+lastName*	LastName[...]
+alternativeFirstName	AlternativeFirstName[...]
+socialSecurityNumber	SocialSecurityNumber[...]
+birthDate*	BirthDate[...]
+gender*	Gender[...]
+nationalityId*	NationalityId[...]
+useContactAddressFromSpar	ContactAddressFromSpar[...]
+addresses	[...]
+contactDetails	[...]
+}
+GuardianUpdate{
+alternativeFirstName	AlternativeFirstName[...]
+socialSecurityNumber	SocialSecurityNumber[...]
+nationalityId	NationalityId[...]
+useContactAddressFromSpar	ContactAddressFromSpar[...]
+addresses	[...]
+contactDetails	[...]
+}
+Guardian{
+personId	PersonId[...]
+iid	Iid[...]
+firstName	FirstName[...]
+lastName	LastName[...]
+alternativeFirstName	AlternativeFirstName[...]
+socialSecurityNumber	SocialSecurityNumber[...]
+birthDate	BirthDate[...]
+gender	Gender[...]
+nationality	Nationality{...}
+addresses	[...]
+contactDetails	[...]
+}
+PersonStatus{
+isDeceased	IsDeceased[...]
+deceasedDate	DeceasedDate[...]
+}
+Address{
+type	AddressType[...]
+streetAddress	StreetAddress[...]
+postalCode	PostalCode[...]
+postalPlace	PostalPlace[...]
+addressExtra	AddressExtra[...]
+country	Country[...]
+}
+AddressInput{
+description:	
+If the field country is set to Sverige, the postal code and postal place will be validated against an address register.
+
+type*	AddressInputType[...]
+streetAddress*	StreetAddress[...]
+postalCode*	PostalCode[...]
+postalPlace*	PostalPlace[...]
+addressExtra	AddressExtra[...]
+country*	Country[...]
+}
+ContactDetail{
+type*	ContactDetailType[...]
+value*	ContactDetailValue[...]
+}
+MembershipDetail{
+membershipNumber	MembershipNumber[...]
+memberSince	MemberSince[...]
+memberUntil	MemberUntil[...]
+}
+Role{
+roleId	RoleId[...]
+roleTypeId	RoleTypeId[...]
+name	RoleTypeName[...]
+description	RoleTypeDescription[...]
+category	RoleTypeCategory[...]
+fromDate	FromDate[...]
+toDate	ToDate[...]
+sportId	SportId[...]
+attributes	[...]
+}
+RoleTypeAttribute{
+name	RoleAttributeName[...]
+value	RoleAttributeValue[...]
+isPassive	RoleAttributeIsPassive[...]
+}
+RoleCreateList{
+organizationId*	OrganizationId[...]
+roles*	[...]
+}
+RoleCreate{
+roleTypeCategory*	RoleTypeCategoryInput[...]
+roleTypeId	RoleTypeId[...]
+fromDate	RoleCreateFromDate[...]
+sportId	SportId[...]
+}
+RoleDeleteList{
+organizationId*	OrganizationId[...]
+roles*	[...]
+}
+Nationality{
+nationalityId	NationalityId[...]
+name	NationalityName[...]
+}
+OrganizationModify{
+organizationId*	OrganizationId[...]
+membershipDetail	MembershipDetail{...}
+}
+Organization{
+organizationId	OrganizationId[...]
+organizationType	OrganizationType[...]
+name	OrganizationName[...]
+membershipDetail	MembershipDetail{...}
+roles	[...]
+}
+PersonUriResponse{
+uri	PersonUri[...]
+}
+RoleIdListResponse{
+roleIds	[...]
+}
+
+Riksidrottsförbundet - Utility Service API
+ 2.0.0 
+OAS 3.0
+the developer - Website
+Send email to the developer
+Servers
+
+https://apim.rf.se/api/v2
+Stöd
+Innehåller stöd-metoder som används av andra metoder inom olika domäner.
+
+
+
+GET
+/municipalities
+Hämtar alla kommuner
+
+
+Hämtar alla Sveriges kommuner alternativt kommuner inom angiven organisation (av typen: RF-SISU Distrikt, Specialidrottsdistriktsförbund eller Region).
+
+Parameters
+Name	Description
+organizationId
+string
+(query)
+If used, it must be a unique id of a district, either DISTRICT_FEDERAION, SPORT_DISTRICT_FEDERATION or SPORT_REGIONAL_FEDERATION.
+
+2112a05b-39fa-4a56-b315-34997683ae64
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+Example : page=0
+
+page=0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 999.
+
+Default value : 999
+
+Example : size=49
+
+size=49
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "string"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/postal-areas
+Hämtar alla postadresser
+
+
+Hämtar alla Sveriges postadresser (postnummer och ort) alternativt postadress för angivet postnummer.
+
+Parameters
+Name	Description
+postalCode
+string
+(query)
+postalCode
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+Example : page=0
+
+page=0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 999.
+
+Default value : 999
+
+Example : size=49
+
+size=49
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "postalCode": "string",
+      "postalPlace": "string"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/sports
+Hämtar alla idrotter
+
+
+Hämtar alla idrotter inom Svensk idrottsrörelse alternativt alla idrotter inom angiven organisation. Kan också inkludera underidrotter, även kallat gren/klass, inom en idrott.
+
+Parameters
+Name	Description
+organizationId
+string
+(query)
+If used, it must be an organization id of type SPORT_FEDERATION, SISU_FEDERATION or SUB_SPORT
+
+2112a05b-39fa-4a56-b315-34997683ae64
+includeSubSport
+boolean
+(query)
+If true, sub sports will also be listed if they exist.
+
+Default value : false
+
+
+false
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+Example : page=0
+
+page=0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 999.
+
+Default value : 999
+
+Example : size=49
+
+size=49
+isSISU
+boolean
+(query)
+Used to specify if RF or SISU
+
+Example : true
+
+
+true
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "string",
+      "isSISU": true,
+      "subSports": [
+        {
+          "id": "2112a05b-39fa-4a56-b315-34997683ae64",
+          "name": "string",
+          "isSISU": true
+        }
+      ]
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+GET
+/countries
+Sök länder
+
+
+Sök länder som stämmer överens med angivna parametrar.
+
+Parameters
+Name	Description
+name
+string
+(query)
+Sverige
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+Example : page=0
+
+page=0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 999.
+
+Default value : 999
+
+Example : size=49
+
+size=49
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "countryId": "2112a05b-39fa-4a56-b315-34997683ae64",
+      "name": "Sverige"
+    }
+  ],
+  "numberOfElements": 0,
+  "size": 0,
+  "page": 0,
+  "totalPages": 0,
+  "totalElements": 0
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+object
+No links
+
+Schemas
+NumberOfElements[...]
+Size[...]
+Page[...]
+TotalPages[...]
+TotalElements[...]
+Id[...]
+OrganizationType[...]
+CountryName[...]
+MunicipalityListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+MunicipalityList{
+id	Id[...]
+name	[...]
+}
+PostalAreaListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+PostalAreaList{
+postalCode	[...]
+postalPlace	[...]
+}
+SportListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+SportList{
+id*	Id[...]
+name	[...]
+isSISU	[...]
+subSports	[...]
+}
+SubSport{
+id*	Id[...]
+name	[...]
+isSISU	[...]
+}
+CountryListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+Country{
+countryId	Id[...]
+name	CountryName[...]
+}
+
+Riksidrottsförbundet - Activity Service API
+ 1.0.16 
+OAS 3.0
+Contact the developer
+Servers
+
+https://apim.rf.se/api/v1
+Aktivitet
+Hanterar aktiviteter
+
+
+
+POST
+/activities
+Registrera aktivitet
+
+
+Registrerar en aktivitet med deltagare för LOK stöd.
+
+Parameters
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "externalId": "example-external-id",
+  "name": "Träning",
+  "type": "TRAINING",
+  "startDateTime": "2024-07-23T12:00:00+02:00",
+  "endDateTime": "2024-07-23T13:00:00+02:00",
+  "location": "Sporthallen",
+  "groupTag": "Medlemmar 15-19",
+  "organizationId": "2452A05B-39FA-4A56-B315-34997683AE62",
+  "sportId": "3452A05B-39FA-4A56-B315-34997683AE63",
+  "attendanceRegistration": {
+    "personId": "4452A05B-39FA-4A56-B315-34997683AE64",
+    "dateTime": "2024-08-23T12:00:00+02:00",
+    "participants": [
+      {
+        "personId": "5452A05B-39FA-4A56-B315-34997683AE65",
+        "status": "ATTENDED",
+        "disability": true,
+        "leader": false
+      }
+    ]
+  }
+}
+Responses
+Code	Description	Links
+201	
+The request was successfully processed. The response contains the ID of the newly created activity resource.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "activityId": "3452A05B-39FA-4A56-B315-34997683AE64"
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+PUT
+/activities/{id}
+Uppdatera aktivitet
+
+
+Uppdaterar en specifik aktivitet.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+The id of the activity that should be modified.
+
+Example : 1452A05B-39FA-4A56-B315-34997683AE61
+
+1452A05B-39FA-4A56-B315-34997683AE61
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "name": "Träning",
+  "type": "TRAINING",
+  "startDateTime": "2024-07-23T12:00:00+02:00",
+  "endDateTime": "2024-07-23T13:00:00+02:00",
+  "location": "Sporthallen",
+  "groupTag": "Medlemmar 15-19",
+  "sportId": "3452A05B-39FA-4A56-B315-34997683AE63",
+  "attendanceRegistration": {
+    "personId": "4452A05B-39FA-4A56-B315-34997683AE64",
+    "dateTime": "2024-08-23T12:00:00+02:00",
+    "participants": [
+      {
+        "personId": "5452A05B-39FA-4A56-B315-34997683AE65",
+        "status": "ATTENDED",
+        "disability": true,
+        "leader": false
+      }
+    ]
+  }
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+No links
+
+DELETE
+/activities/{id}
+Ta bort aktivitet
+
+
+Tar bort en specifik aktivitet.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+The id of the activity that should be modified.
+
+Example : 1452A05B-39FA-4A56-B315-34997683AE61
+
+1452A05B-39FA-4A56-B315-34997683AE61
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+No links
+
+Schemas
+Id[...]
+OrganizationId[...]
+SportId[...]
+StartDateTime[...]
+EndDateTime[...]
+ActivityType[...]
+ExternalId[...]
+Name[...]
+Location[...]
+GroupTag[...]
+AttendanceRegistrationPersonId[...]
+AttendanceRegistrationDateTime[...]
+ParticipantPersonId[...]
+ParticipantStatus[...]
+Disability[...]
+Leader[...]
+ActivityCreate{
+externalId*	ExternalId[...]
+name*	Name[...]
+type*	ActivityType[...]
+startDateTime*	StartDateTime[...]
+endDateTime*	EndDateTime[...]
+location*	Location[...]
+groupTag	GroupTag[...]
+organizationId*	OrganizationId[...]
+sportId*	SportId[...]
+attendanceRegistration*	AttendanceRegistrationCreate{...}
+}
+ActivityUpdate{
+name	Name[...]
+type	ActivityType[...]
+startDateTime	StartDateTime[...]
+endDateTime	EndDateTime[...]
+location	Location[...]
+groupTag	GroupTag[...]
+sportId	SportId[...]
+attendanceRegistration	AttendanceRegistrationUpdate{...}
+}
+AttendanceRegistrationCreate{
+personId*	AttendanceRegistrationPersonId[...]
+dateTime*	AttendanceRegistrationDateTime[...]
+participants*	[...]
+}
+AttendanceRegistrationUpdate{
+personId*	AttendanceRegistrationPersonId[...]
+dateTime*	AttendanceRegistrationDateTime[...]
+participants*	[...]
+}
+ParticipantCreate{
+personId*	ParticipantPersonId[...]
+status*	ParticipantStatus[...]
+disability	Disability[...]
+leader	Leader[...]
+}
+ParticipantUpdate{
+personId*	ParticipantPersonId[...]
+status*	ParticipantStatus[...]
+disability	Disability[...]
+leader	Leader[...]
+}
+ActivityIdResponse{
+activityId	[...]
+}
+
+Riksidrottsförbundet - Activity Service API
+ 2.0.0 
+OAS 3.0
+the developer - Website
+Send email to the developer
+Servers
+
+https://apim.rf.se/api/activity/v2
+Aktivitet
+Hanterar aktiviteter
+
+
+
+GET
+/activities
+Sök aktiviteter
+
+
+Sök aktiviteter som stämmer överens med angivna parametrar.
+
+Parameters
+Name	Description
+type
+string
+(query)
+Available values : TRAINING, MATCH/COMPETITION, SPORTS_BENEFITTING_ACTIVITY
+
+Example : TRAINING
+
+
+TRAINING
+lokStatus
+string
+(query)
+Available values : LOK_NOT_REGISTERED, LOK_APPROVED, LOK_REJECTED, LOK_VALIDATION_FAILED, LOK_SUBMITTED
+
+Example : LOK_VALIDATION_FAILED
+
+
+LOK_VALIDATION_FAILED
+externalId
+string
+(query)
+Example : extId-8147df8g98
+
+extId-8147df8g98
+sportId
+string
+(query)
+Filter an activity that has a specific sport.
+
+1452A05B-39FA-4A56-B315-34997683AE61
+startDateTime
+string($date-time)
+(query)
+Filter activities starting at or after this date and time. If provided without endDateTime, returns activities from this date and time up to now.
+
+Example : 2024-07-01T00:00:00Z
+
+2024-07-01T00:00:00Z
+endDateTime
+string($date-time)
+(query)
+Filter activities ending at or before this date and time. If provided without startDateTime, returns all activities up to and including this date and time.
+
+Example : 2024-07-31T23:59:59Z
+
+2024-07-31T23:59:59Z
+page
+integer
+(query)
+Used to paginate response.
+
+Default value : 0
+
+0
+size
+integer
+(query)
+Used to alter the amount of entities in the response, max 99.
+
+Default value : 99
+
+99
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "content": [
+    {
+      "id": "1452A05B-39FA-4A56-B315-34997683AE61",
+      "externalId": "example-external-id",
+      "name": "Träning",
+      "type": "TRAINING",
+      "startDateTime": "2024-07-23T12:00:00+02:00",
+      "endDateTime": "2024-07-23T13:00:00+02:00",
+      "lastUpdatedAt": "2024-08-23T12:00:00+02:00",
+      "sportId": "3452A05B-39FA-4A56-B315-34997683AE63",
+      "lokStatus": "LOK_APPROVED"
+    }
+  ],
+  "numberOfElements": 5,
+  "size": 5,
+  "page": 2,
+  "totalPages": 10,
+  "totalElements": 49
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+POST
+/activities
+Registrera aktivitet
+
+
+Registrerar en aktivitet med deltagare för LOK stöd.
+
+Parameters
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "externalId": "example-external-id",
+  "name": "Träning",
+  "type": "TRAINING",
+  "startDateTime": "2024-07-23T12:00:00+02:00",
+  "endDateTime": "2024-07-23T13:00:00+02:00",
+  "location": "Sporthallen",
+  "groupTag": "Medlemmar 15-19",
+  "organizationId": "2452A05B-39FA-4A56-B315-34997683AE62",
+  "sportId": "3452A05B-39FA-4A56-B315-34997683AE63",
+  "attendanceRegistration": {
+    "personId": "4452A05B-39FA-4A56-B315-34997683AE64",
+    "dateTime": "2024-08-23T12:00:00+02:00",
+    "participants": [
+      {
+        "personId": "5452A05B-39FA-4A56-B315-34997683AE65",
+        "status": "ATTENDED",
+        "disability": true,
+        "leader": false
+      }
+    ]
+  }
+}
+Responses
+Code	Description	Links
+201	
+The request was successfully processed. The response contains the ID of the newly created activity resource.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "activityId": "3452A05B-39FA-4A56-B315-34997683AE64"
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+GET
+/activities/{id}
+Hämta aktivitet
+
+
+Hämtar en specifik aktivitet med fullständig information.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+The id of the activity that should be modified.
+
+Example : 1452A05B-39FA-4A56-B315-34997683AE61
+
+1452A05B-39FA-4A56-B315-34997683AE61
+Responses
+Code	Description	Links
+200	
+OK. The request was successfully processed.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "1452A05B-39FA-4A56-B315-34997683AE61",
+  "externalId": "example-external-id",
+  "name": "Träning",
+  "type": "TRAINING",
+  "startDateTime": "2024-07-23T12:00:00+02:00",
+  "endDateTime": "2024-07-23T13:00:00+02:00",
+  "lastUpdatedAt": "2024-08-23T12:00:00+02:00",
+  "location": "Sporthallen",
+  "sportId": "3452A05B-39FA-4A56-B315-34997683AE63",
+  "groupTag": "Medlemmar 15-19",
+  "lokStatus": "LOK_APPROVED",
+  "lokError": "EJ LOK-stödsberättigad ålder (7-25 år)",
+  "attendanceRegistration": {
+    "personId": "4452A05B-39FA-4A56-B315-34997683AE64",
+    "dateTime": "2024-08-23T12:00:00+02:00",
+    "participants": [
+      {
+        "personId": "5452A05B-39FA-4A56-B315-34997683AE65",
+        "status": "ATTENDED",
+        "disability": true,
+        "leader": false,
+        "lokError": "EJ LOK-stödsberättigad ålder (7-25 år)"
+      }
+    ]
+  }
+}
+Headers:
+Name	Description	Type
+Content-Type	
+application/json - The value MUST correspond to the Content-Type header in the request.
+
+string
+No links
+
+PUT
+/activities/{id}
+Uppdatera aktivitet
+
+
+Uppdaterar en specifik aktivitet.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+The id of the activity that should be modified.
+
+Example : 1452A05B-39FA-4A56-B315-34997683AE61
+
+1452A05B-39FA-4A56-B315-34997683AE61
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "name": "Träning",
+  "type": "TRAINING",
+  "startDateTime": "2024-07-23T12:00:00+02:00",
+  "endDateTime": "2024-07-23T13:00:00+02:00",
+  "location": "Sporthallen",
+  "groupTag": "Medlemmar 15-19",
+  "sportId": "3452A05B-39FA-4A56-B315-34997683AE63",
+  "attendanceRegistration": {
+    "personId": "4452A05B-39FA-4A56-B315-34997683AE64",
+    "dateTime": "2024-08-23T12:00:00+02:00",
+    "participants": [
+      {
+        "personId": "5452A05B-39FA-4A56-B315-34997683AE65",
+        "status": "ATTENDED",
+        "disability": true,
+        "leader": false
+      }
+    ]
+  }
+}
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+No links
+
+DELETE
+/activities/{id}
+Ta bort aktivitet
+
+
+Tar bort en specifik aktivitet.
+
+Parameters
+Name	Description
+id *
+string
+(path)
+The id of the activity that should be modified.
+
+Example : 1452A05B-39FA-4A56-B315-34997683AE61
+
+1452A05B-39FA-4A56-B315-34997683AE61
+Responses
+Code	Description	Links
+204	
+The request was successfully processed but contains an empty response.
+
+No links
+
+Schemas
+Id[...]
+OrganizationId[...]
+SportId[...]
+StartDateTime[...]
+EndDateTime[...]
+ActivityType[...]
+ExternalId[...]
+Name[...]
+Location[...]
+GroupTag[...]
+AttendanceRegistrationPersonId[...]
+AttendanceRegistrationDateTime[...]
+ParticipantPersonId[...]
+ParticipantStatus[...]
+Disability[...]
+Leader[...]
+LokStatus[...]
+LastUpdatedAt[...]
+NumberOfElements[...]
+Size[...]
+Page[...]
+TotalPages[...]
+TotalElements[...]
+ActivityListPage{
+content	[...]
+numberOfElements	NumberOfElements[...]
+size	Size[...]
+page	Page[...]
+totalPages	TotalPages[...]
+totalElements	TotalElements[...]
+}
+LokError[...]
+Activity{
+id	Id[...]
+externalId	ExternalId[...]
+name	Name[...]
+type	ActivityType[...]
+startDateTime	StartDateTime[...]
+endDateTime	EndDateTime[...]
+lastUpdatedAt	LastUpdatedAt[...]
+location	Location[...]
+sportId	SportId[...]
+groupTag	GroupTag[...]
+lokStatus	LokStatus[...]
+lokError	LokError[...]
+attendanceRegistration	AttendanceRegistration{...}
+}
+AttendanceRegistration{
+personId	AttendanceRegistrationPersonId[...]
+dateTime	AttendanceRegistrationDateTime[...]
+participants	[...]
+}
+Participants{
+personId	ParticipantPersonId[...]
+status	ParticipantStatus[...]
+disability	Disability[...]
+leader	Leader[...]
+lokError	LokError[...]
+}
+ActivityList{
+id	Id[...]
+externalId	ExternalId[...]
+name	Name[...]
+type	ActivityType[...]
+startDateTime	StartDateTime[...]
+endDateTime	EndDateTime[...]
+lastUpdatedAt	LastUpdatedAt[...]
+sportId	SportId[...]
+lokStatus	LokStatus[...]
+}
+ActivityCreate{
+externalId*	ExternalId[...]
+name*	Name[...]
+type*	ActivityType[...]
+startDateTime*	StartDateTime[...]
+endDateTime*	EndDateTime[...]
+location*	Location[...]
+groupTag	GroupTag[...]
+organizationId*	OrganizationId[...]
+sportId*	SportId[...]
+attendanceRegistration*	AttendanceRegistrationCreate{...}
+}
+ActivityUpdate{
+name	Name[...]
+type	ActivityType[...]
+startDateTime	StartDateTime[...]
+endDateTime	EndDateTime[...]
+location	Location[...]
+groupTag	GroupTag[...]
+sportId	SportId[...]
+attendanceRegistration	AttendanceRegistrationUpdate{...}
+}
+AttendanceRegistrationCreate{
+personId*	AttendanceRegistrationPersonId[...]
+dateTime*	AttendanceRegistrationDateTime[...]
+participants*	[...]
+}
+AttendanceRegistrationUpdate{
+personId*	AttendanceRegistrationPersonId[...]
+dateTime*	AttendanceRegistrationDateTime[...]
+participants*	[...]
+}
+ParticipantCreate{
+personId*	ParticipantPersonId[...]
+status*	ParticipantStatus[...]
+disability	Disability[...]
+leader	Leader[...]
+}
+ParticipantUpdate{
+personId*	ParticipantPersonId[...]
+status*	ParticipantStatus[...]
+disability	Disability[...]
+leader	Leader[...]
+}
+ActivityIdResponse{
+activityId	[...]
+}
+
+4. Autentisering
+
+Autentisering
+Efter anslutningsprocessen (där ni har skapat en "Application" samt er API-prenumeration blivit godkänd) har ni blivit tilldelad era verifierbara autentiseringsuppgifter genom er "Application".
+
+För att autentisera er applikation använder ni dessa uppgifter på följande sätt:
+
+Gör ett POST anrop till: https://login-int.idrottonline.se/apim/oauth-token med följande information:
+
+Header:
+
+Content-Type: application/x-www-form-urlencoded
+Body:
+
+grant_type=client_credentials&client_id=my_client_id&client_secret=my_client_secret
+Byt “my_client_id” och ”my_client_secret” till era uppgifter men behåll ”client_credentials” som det är.
+
+Ni kommer då få en access_token tillbaka:
+
+{"access_token":"accessToken","scope":"","token_type":"bearer","expires_in":299}
+Observera: I svaret ingår även en "expires_in" vilket innebär att er "access_token" går att återanvända i 5 minuter. Efter det måste ni göra om denna process för att få en ny "access_token".
+
+Använd access_token i kommande anrop till APIet i form av en Authorization header:
+
+Authorization: Bearer access_token
+Exempel
+curl 'https://login-int.idrottonline.se/apim/oauth-token' \
+-H 'Content-Type: application/x-www-form-urlencoded' \
+-d 'grant_type=client_credentials&client_id=my_client_id&client_secret=my_client_secret'
+
+Autentisering med JWT Assertion
+Att autentisera med JWT Assertion innebär att klienten skapar upp en egen token, signerar den med en privat nyckel och anropar autentiseringstjänsten hos RF.
+
+Autentiseringstjänsten validerar token med en publik nyckel och skapar en ny token med innehåll som kommer från klientens JWT Assertion token samt eget innehåll som är lämpligt för att uppfylla funktioner i RF API.
+
+Som beskrivet i Teknisk introduktion så måste klienten identifiera sig som den organisation den representerar. Detta görs m.h.a. JWT Assertion genom att lägga in ett claims kallat "organizationId".
+
+När autentiseringstjänsten tar emot token valideras att organizationId och client_id har en giltig koppling. Utan en giltig koppling kommer klienten inte få en token med tillräckliga behörigheter.
+
+Förutsättning
+För att kunna skapa en JWT Assertion krävs att klienten känner till vilken organisation den representerar samt om den organisationen har godkänt att klienten får hantera data för den organisationen.
+
+För att få ut en lista över vilka organisationer som godkänt klienten finns en endpoint kallad /integration-mappings. Denna endpoint kräver att klienten först autentiserar sig.
+
+Klienten autentiserar sig med client credentials enligt instruktion på sidan Autentisering med Client Credentials med de uppgifter som du fick i svaret i registreringen på sidan 4. Registrera klient för att kunna hantera behörigheter.
+
+Använd access_token från det svaret och använd som Authorization: RFAPI <access_token> mot /integration-mappings. Denna endpoint innehåller alla organisationer som godkänt er klient att få hantera organisationernas data.
+
+I svaret finns det idn på alla organisationer och dessa används för att autentisera klienten som en organisation senare i denna guide.
+
+Skapa JWT Assertion
+När du har ett organizationId från förutsättningen ovan är det dags att autentisera sig som en organisation. Det görs som tidigare beskrivet genom JWT Assertion.
+
+För att se vad en avkodad JWT Assertion innehåller finns det verktyg online att använda, t.ex. https://jwt.io/
+
+Exempel på en JWT Assertion:
+
+eyJhbGciOiJSUzI1NiIsImtpZCI6IkYzQ0YzN0NGRUI0MEY5Nzg2NkVCNzQ1OUFBNEEwQTdCNDI3RjU4OTIiLCJ0eXAiOiJKV1QifQ.eyJjbGllbnRfaWQiOiJyZmNsaWVudC0yYWU3ZDI1MC1kMjRlLTQzNGItYTBmNy1mYjFhMzUwZjE2NzIiLCJzdWIiOiJyZmNsaWVudC0yYWU3ZDI1MC1kMjRlLTQzNGItYTBmNy1mYjFhMzUwZjE2NzIiLCJpc3MiOiJyZmNsaWVudC0yYWU3ZDI1MC1kMjRlLTQzNGItYTBmNy1mYjFhMzUwZjE2NzIiLCJqdGkiOiIwZTI0NjA2Zi01YzgyLTQ5MDItOWEyYS03NzZiOTM2ZWViMzUiLCJhdWQiOiJodHRwczovL2xvZ2luLnRlc3QuaWRyb3R0b25saW5lLnNlL2FwaW0vb2F1dGgtdG9rZW4iLCJvcmdhbml6YXRpb25JZCI6IjEiLCJuYmYiOjE2ODc5NDcxNTMsImV4cCI6MTY4ODAwNDc1MywiaWF0IjoxNjg3OTQ3MTUzfQ.ZOUGeFOd_exf_mNVa7J_l1vXOgBC5ZSUsEmwJr-sKg1UmXljL6hQvFKeePaYv9h0AKJf_XV9gYJ6Jzrkj456dtZDxnoGpMmRNTgD9-HqsfHY1pgvCZwCUUcYiwBFBel6R_-bGz7CekdTFdVIAMS74vY7v733Rloz5be-lezwBP02ynm9KEckUgo1PVFTj371l-OCdSgseidTE3nLo7TcF3kD8m8B_exE3FALEG-pS2KqVSmWwHEv-8-WHNBE3KIaUJ4FzxBKb2mNZp71LY-OK_YZhNySEAaJHsmunYxn4hp6pq5Yr5QEKtL-fmvhBMlcDdYW-WQK3NW9scIkA876HUnUBDYLEN3LO_rzlmWLYyTgo2x2Bg7GRxcJFF2gC1KYKrumsFWu5Z4XzdP-TTqq8rE5hL4-drMoMxG3cIq1CQE9JDrCquX_sUebfrPhTorwynYsQphf_I980QDd056-syQSyDPfvec98uSQn8KF7Ly3bAL9szctmF9liyEb5sRjCH_O-h5IoMSu-5uzjORdce88eDbuc-zRDWs770-I2mxWiecyQLlmsxJrcrdFludZI-V4zCaANqUaLBxKVJZ64BJO2B8ViAWt5DoCCN0qMvPuPasLO4mxfUBTwe31X0GpMxjIHzEAQCwcrTFGV--9gz3xU93kvd05EG7GDmxsUG8
+En JWT Assertion har samma struktur som en JWT. Den består av tre delar separerade med en punkt (.). Varje del är en base64-kodad sträng.
+
+Header Payload Signature
+
+Header
+Första delen är en header. Den innehåller information om vilken krypteringsalgoritm som används samt vilken typ av token det är.
+
+eyJhbGciOiJSUzI1NiIsImtpZCI6IkYzQ0YzN0NGRUI0MEY5Nzg2NkVCNzQ1OUFBNEEwQTdCNDI3RjU4OTIiLCJ0eXAiOiJKV1QifQ
+Avkodad header ser ut såhär:
+
+{
+    "alg": "RS256",
+    "typ": "JWT"
+}
+RF använder sig av RS256. Det är viktigt att använda samma när du signerar din JWT Assertion.
+
+Payload
+Andra delen innehåller Payload. Payload innehåller alla claims. Både obligatoriska enligt kraven för en JWT Assertion samt obligatoriska enligt kraven för RF API.
+
+eyJjbGllbnRfaWQiOiJyZmNsaWVudC0yYWU3ZDI1MC1kMjRlLTQzNGItYTBmNy1mYjFhMzUwZjE2NzIiLCJzdWIiOiJyZmNsaWVudC0yYWU3ZDI1MC1kMjRlLTQzNGItYTBmNy1mYjFhMzUwZjE2NzIiLCJpc3MiOiJyZmNsaWVudC0yYWU3ZDI1MC1kMjRlLTQzNGItYTBmNy1mYjFhMzUwZjE2NzIiLCJqdGkiOiIwZTI0NjA2Zi01YzgyLTQ5MDItOWEyYS03NzZiOTM2ZWViMzUiLCJhdWQiOiJodHRwczovL2xvZ2luLnRlc3QuaWRyb3R0b25saW5lLnNlL2FwaW0vb2F1dGgtdG9rZW4iLCJvcmdhbml6YXRpb25JZCI6IjEiLCJuYmYiOjE2ODc5NDcxNTMsImV4cCI6MTY4ODAwNDc1MywiaWF0IjoxNjg3OTQ3MTUzfQ
+Avkodad payload ser ut såhär:
+
+{
+    "client_id": "rfclient-2ae7d250-d24e-4e9b-a0f7-fb1a350f1672",
+    "sub": "rfclient-2ae7d250-d24e-4e9b-a0f7-fb1a350f1672",
+    "iss": "rfclient-2ae7d250-d24e-4e9b-a0f7-fb1a350f1672",
+    "jti": "30004375-0414-401e-834c-c894eb101980",
+    "aud": "https://login-int.idrottonline.se/apim/oauth-token",
+    "organizationId": "1",
+    "nbf": 1687947394,
+    "exp": 1688004994,
+    "iat": 1687947394
+}
+"client_id", subject "sub" samt issuer "iss" måste alla innehålla din klients client id. Klientens client id är det id som returnerades i anropet till /integration-client. JWT ID "jti" måste vara unik varje gång en ny JWT Assertion skapas. Audience "aud" måste innehålla url till Token endpoint. "organizationId" innehåller id på den organisation klienten representerar vid autentiseringen, d.v.s. ett av de idn du fick från /integration-mappings. Expires "exp" är en timestap hur länge JWT Assertion ska vara giltig. Samtliga ovan parametrar är obligatoriska. Not before "nbf" och issued "iat" är timestamp. De är ej obligatoriska men om de används kommer de att valideras.
+
+Signature
+Sista delen av JWT Assertion är Signature. Signaturen säkerställer att ingen kan manipulera JWT Assertion i anropet mellan systemen.
+
+ZOUGeFOd_exf_mNVa7J_l1vXOgBC5ZSUsEmwJr-sKg1UmXljL6hQvFKeePaYv9h0AKJf_XV9gYJ6Jzrkj456dtZDxnoGpMmRNTgD9-HqsfHY1pgvCZwCUUcYiwBFBel6R_-bGz7CekdTFdVIAMS74vY7v733Rloz5be-lezwBP02ynm9KEckUgo1PVFTj371l-OCdSgseidTE3nLo7TcF3kD8m8B_exE3FALEG-pS2KqVSmWwHEv-8-WHNBE3KIaUJ4FzxBKb2mNZp71LY-OK_YZhNySEAaJHsmunYxn4hp6pq5Yr5QEKtL-fmvhBMlcDdYW-WQK3NW9scIkA876HUnUBDYLEN3LO_rzlmWLYyTgo2x2Bg7GRxcJFF2gC1KYKrumsFWu5Z4XzdP-TTqq8rE5hL4-drMoMxG3cIq1CQE9JDrCquX_sUebfrPhTorwynYsQphf_I980QDd056-syQSyDPfvec98uSQn8KF7Ly3bAL9szctmF9liyEb5sRjCH_O-h5IoMSu-5uzjORdce88eDbuc-zRDWs770-I2mxWiecyQLlmsxJrcrdFludZI-V4zCaANqUaLBxKVJZ64BJO2B8ViAWt5DoCCN0qMvPuPasLO4mxfUBTwe31X0GpMxjIHzEAQCwcrTFGV--9gz3xU93kvd05EG7GDmxsUG8
+Signaturen valideras i RFs autentiseringstjänst m.h.a. ett motsvarande publikt certifikat till den privata nyckeln som användes vid signeringen.
+
+Den privata nyckel som används för signering är den privateKey som returnerades i anropet till /integration-client.
+
+Autentisera med JWT Assertion
+När en JWT Assertion har skapats i det format som beskrivits ovan görs ett anrop till RFs autentiseringstjänst.
+
+Gör ett POST anrop till: https://login-int.idrottonline.se/apim/oauth-token med följande information:
+
+Header:
+
+Content-Type: application/x-www-form-urlencoded
+Body:
+
+grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&client_id=my_client_id&client_secret=my_client_secret&scope=api organization person&assertion=my_assertion
+Byt “my_client_id” och ”my_client_secret” till uppgifterna från klienten som du registrerat via /integration-client, byt "my_assertion" till den base64-kodade JWT Assertion. Behåll ”urn:ietf:params:oauth:grant-type:jwt-bearer” samt scope "api" som det är.
+
+För att komma åt en viss resurs krävs det att man anger korrekt scope. För att t.ex. komma åt organisationer krävs ett "organization" scope. Detta anges som en mellanslags-separerad lista. Se exempel nedan.
+
+Möjliga scopes:
+
+organization
+education
+person
+activity
+Exempel för att hämta både organisationer och utbildningar:
+
+grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&client_id=my_client_id&client_secret=my_client_secret&scope=api organization education&assertion=my_assertion
+Du kommer då få en access_token tillbaka:
+
+{"token_type":"bearer","access_token":"_0XBPWdd_e9e4af91-aa7c-4511-b4e6-5e413d3321ee","scope":"api organization education","claims":"organizationId organizationType permissions","expires_in":10000}
+Observera: I svaret ingår även en "expires_in" vilket innebär att er "access_token" går att återanvända i 10000 sekunder. Efter det måste ni göra om denna process för att få en ny "access_token".
+
+Använd access_token i kommande anrop till APIet i form av en Authorization header:
+
+Authorization: RFAPI access_token
+Observera att Auth Scheme, d.v.s. RFAPI ovan, måste vara RFAPI. Används Bearer så kommer klienten inte få access till RF API.
+
+Exempel på JWT Assertion anrop för att hämta organisationer
+curl --location 'https://login-int.idrottonline.se/apim/oauth-token' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer' \
+--data-urlencode 'assertion=eyJhbGciOiJSUzI1NiIsI...' \
+--data-urlencode 'client_id=my_client_id' \
+--data-urlencode 'client_secret=my_client_secret' \
+--data-urlencode 'scope=api organization'
+
+Exempel Java
+Dependencies:
+
+<dependency>
+    <groupId>com.auth0</groupId>
+    <artifactId>java-jwt</artifactId>
+    <version>4.4.0</version>
+</dependency>
+Create JWT Assertion
+
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Base64;
+import java.util.Date;
+import java.util.UUID;
+
+public class JWTSigning {
+
+    public String getSignedJwt(String clientId, String privateKey, String organizationId) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        final var keyFactory = KeyFactory.getInstance("RSA");
+        final var rsaPrivateKey = getRSAPrivateKey(privateKey, keyFactory);
+
+        return JWT.create()
+                .withClaim("client_id", clientId)
+                .withClaim("sub", clientId)
+                .withClaim("iss", clientId)
+                .withClaim("jti", UUID.randomUUID().toString())
+                .withClaim("aud", "https://login-int.idrottonline.se/apim/oauth-token")
+                .withClaim("organizationId", organizationId)
+                .withClaim("exp", Date.from(LocalDateTime.now().plusMinutes(5L).atZone(ZoneId.systemDefault()).toInstant()))
+                .sign(Algorithm.RSA256(rsaPrivateKey));
+    }
+
+    private RSAPrivateKey getRSAPrivateKey(String privateKey, KeyFactory keyFactory) throws InvalidKeySpecException {
+        final var privateKeyAsBytes = Base64.getDecoder().decode(privateKey);
+        final var privateKeySpec = new PKCS8EncodedKeySpec(privateKeyAsBytes);
+        return (RSAPrivateKey) keyFactory.generatePrivate(privateKeySpec);
+    }
+}
+Nästa steg
+Sida Autentisering med JWT Assertion
+
+Exempel Kotlin
+Dependencies:
+
+<dependency>
+    <groupId>com.auth0</groupId>
+    <artifactId>java-jwt</artifactId>
+    <version>4.4.0</version>
+</dependency>
+Create JWT Assertion
+
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import java.security.KeyFactory
+import java.security.interfaces.RSAPrivateKey
+import java.security.spec.PKCS8EncodedKeySpec
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.util.Base64
+import java.util.Date
+import java.util.UUID
+
+class JWTSigning {
+
+    fun getSignedJwt(clientId: String, privateKey: String, organizationId: String): String {
+        val keyFactory = KeyFactory.getInstance("RSA")
+        val rsaPrivateKey = getRSAPrivateKey(privateKey, keyFactory)
+        return JWT.create()
+                .withClaim("client_id", clientId)
+                .withClaim("sub", clientId)
+                .withClaim("iss", clientId)
+                .withClaim("jti", UUID.randomUUID().toString())
+                .withClaim("aud", "https://login.test.idrottonline.se/apim/oauth-token")
+                .withClaim("organizationId", organizationId)
+                .withClaim("exp", Date.from(LocalDateTime.now().plusMinutes(5L).atZone(ZoneId.systemDefault()).toInstant()))
+                .sign(Algorithm.RSA256(rsaPrivateKey))
+    }
+
+    private fun getRSAPrivateKey(privateKey: String, keyFactory: KeyFactory): RSAPrivateKey {
+        val privateKeyAsBytes = Base64.getDecoder().decode(privateKey)
+        val privateKeySpec = PKCS8EncodedKeySpec(privateKeyAsBytes)
+        return keyFactory.generatePrivate(privateKeySpec) as RSAPrivateKey
+    }
+}
+Nästa steg
+Sida Autentisering med JWT Assertion
+
+Exempel C#
+Create JWT Assertion
+
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+
+public string CreateJwtClientAssertion(string tokenEndpoint, string clientId, int organizationId, string privateKey)
+        {
+            byte[] data = Convert.FromBase64String(privateKey);
+
+            var cert = CertificateUtils.CreateCertificate(KeyUtils.GetPrivateKey(data), "Some_subject", 30);
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Expires = DateTime.UtcNow.AddMinutes(960),
+                SigningCredentials = new SigningCredentials(new X509SecurityKey(cert), SecurityAlgorithms.RsaSha256Signature),
+                Subject = new ClaimsIdentity(new List<Claim>
+                {
+                    new Claim("client_id", clientId),
+                    new Claim("sub", clientId),
+                    new Claim("iss", clientId),
+                    new Claim("jti", Guid.NewGuid().ToString()),
+                    new Claim("aud", tokenEndpoint),
+                    new Claim("organizationId", organizationId.ToString())
+                })
+            };
+            return tokenHandler.WriteToken(tokenHandler.CreateJwtSecurityToken(tokenDescriptor));
+        }
+        
+    public class KeyUtils
+    {
+        public static RSA GetPrivateKey(byte[] privateKey)
+        {
+            var rsa = RSA.Create();
+            rsa.ImportPkcs8PrivateKey(privateKey, out _);
+            return rsa;
+        }
+    }
+
+    public class CertificateUtils
+    {
+        public static X509Certificate2 CreateCertificate(RSA privateKey, string subjectName, int validityDays)
+        {
+            var request = new CertificateRequest($"CN={subjectName}", privateKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            var notBefore = DateTime.UtcNow.Date;
+            var notAfter = notBefore.AddDays(validityDays);
+            var certificate = request.CreateSelfSigned(notBefore, notAfter);
+            return new X509Certificate2(certificate.Export(X509ContentType.Pfx));
+        }
+    }
+Nästa steg
+Sida Autentisering med JWT Assertion
+
+Exempel SiteVision
+define(function(require) {
+    'use strict';
+    const appData = require('appData');
+    const requester = require('Requester');
+    const jwtUtil = require('JwtUtil');
+    const timestampUtil = require('TimestampUtil');
+    
+    const tokenUrl = appData.get('token-url');
+    const clientId = appData.get('client-id');
+    const clientSecret = appData.get('client-secret');
+    const privateKey = appData.getNode('private-key');
+
+    const randomUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            let r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+            return v.toString(16);
+        });
+    }
+
+    const getJWT = () => {
+        const payload = {
+            client_id: clientId,
+            sub: clientId,
+            iss: clientId,
+            jti: randomUUID(),
+            organizationId: <organizationId>,
+            aud: tokenUrl,
+            exp: timestampUtil.getTimestamp() + ((10 * 60) * 1000)
+        }
+        return jwtUtil.createRSAToken(payload, 'RS256', privateKey, '');
+    }
+
+    const getToken = () => {
+        let token;
+        const options = {
+            contentType: 'application/x-www-form-urlencoded',
+            data: {
+                grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                client_id: clientId,
+                client_secret: clientSecret,
+                scope: 'api',
+                assertion: getJWT(),
+            }
+        }
+
+        requester.post(tokenUrl, options)
+            .done(result => {
+                token = result;
+                token.success = true;
+            })
+            .fail((message, status) => {
+                if(status.body && status.body.error) {
+                    message += ' Error: ' + status.body.error;
+                }
+                token.message = message;
+                token.success = false;
+            })
+        return token;
+    }
+
+    return {
+        getToken: getToken
+    }
+});
+
+5. Användningsfall
+
+Användningsfall Föreningsansökan
+Syfte med tjänsten
+En förening ska kunna ansöka om medlemskap i ett specialidrottsförbund inom Riksidrottsförbundet eller en medlemsorganisation inom SISU Idrottsutbildarna.
+
+API:er som rekommenderas
+
+Organisation API V2->Tjänster->POST /club-membership-application
+Organisation API V2->Organisation->GET /organizations
+Stöd API V2->GET /municipalities
+Stöd API V2->GET /postal-areas
+Flöde
+Inledande info till förening: “På sidan Bilda idrottsförening - Riksidrottsförbundet (rf.se) kan ni läsa mer om regelverket kring bildandet av en idrottsförening. Om föreningen saknar ett organisationsnummer från Skatteverket kan Riksidrottsförbundet bistå med att vidarebefordra denna ansökan till Skatteverket så att föreningen samtidigt ansöker om ett organisationsnummer.”
+
+En ansökan måste initieras via något av följande två scenarios:
+
+En ny förening ansöker till ett förbund
+
+En befintlig eller nedlagd förening ansöker till ett förbund
+
+1. En ny förening ansöker till ett förbund
+Obligatorisk data om föreningen måste anges:
+
+Vilket förbund sker ansökan till
+
+Föreningens fullständiga namn
+
+Organisationsnummer
+
+RF kan ansöka om organisationsnummer åt föreningen
+Föreningen ansöker själva om organisationsnummer
+Föreningen har redan ett organisationsnummer
+Adress
+Viktig info till ansökande förening: “Om föreningen begärt att denna ansökan ska vidarebefordras till Skatteverket för ansökan om organisationsnummer, behöver föreningens besöksadress fyllas i istället för ev. Boxadress." (alla Sveriges postorter kan hämtas från API)
+
+Kommunen där föreningen, enligt stadgarna, har sitt säte (alla Sveriges kommuner (namn och id) kan hämtas från API)
+
+Bankgiro/Plusgiro
+Viktig info till ansökande förening: “Det giro som anges nedan måste vara föreningstecknat med samma föreningsnamn som i föreningens stadgar. Ni kan söka på https://www.bankgirot.se/sok-bankgironummer/ eller https://www.nordea.se/foretag/kundservice/sok-plusgirokonto.html för att se hur föreningens giro är tecknat.”
+
+Föreningens idrottsansvarige i aktuell idrott
+Info till ansökande förening: ”Här anges föreningens kontaktperson för den idrott i vilket förbund inträde söks, t.ex. Handboll. Om föreningens verksamhet består av
+flera idrotter bör föreningen ha en kontaktperson per idrott.”
+
+Övriga upplysningar (fritextfält) – ej obligatoriskt
+
+Föreningens stadgar ska laddas upp
+
+Föreningens undertecknade bildande- eller årsmötesprotokoll ska laddas upp
+Viktig info till ansökande förening: “Tänk på att föreningens beslut om att ansöka om medlemskap i SF måste framgå av bildande-/årsmötesprotokollet.”
+
+En företrädare för ansökan ska signera ansökan och intyga riktighet och sanning
+Viktig info till ansökande förening: “Om medlemskap i förbund beviljas (och därmed en indirekt anslutning till RF) förbinder sig föreningen att i sin idrottsliga verksamhet tillämpa och efterfölja de regler som är vedertagna inom idrottsrörelsen och på vilka RF:s stadgar bygger.”
+
+2. En befintlig eller nedlagd förening ansöker till ett förbund
+Detta scenario gäller om föreningen:
+
+Redan är medlem i ett eller flera SF
+
+Har avslutat tidigare medlemskap och nu har status ”passiviserad” i vårt föreningsregister
+
+Obligatorisk data om föreningen måste anges:
+
+Organisationsnummer eller RF-nummer till befintlig förening
+(föreningens namn kan hämtas från API och visas för att ansökande förening ska få bekräftat att det är rätt förening)
+
+Vilket förbund sker ansökan till
+
+Föreningens idrottsansvarige i aktuell idrott
+Info till ansökande förening: ”Här anges föreningens kontaktperson för den idrott i vilket förbund inträde söks, t.ex. Handboll. Om föreningens verksamhet består av
+flera idrotter bör föreningen ha en kontaktperson per idrott.”
+
+Övriga upplysningar (fritextfält) – ej obligatoriskt
+
+Föreningens stadgar ska laddas upp
+
+Föreningens undertecknade bildande- eller årsmötesprotokoll ska laddas upp
+Viktig info till ansökande förening: “Tänk på att föreningens beslut om att ansöka om medlemskap i SF måste framgå av bildande-/årsmötesprotokollet.”
+
+En företrädare för ansökan ska signera ansökan och intyga riktighet och sanning.
+Viktig info till ansökande förening: “Om medlemskap i förbund beviljas (och därmed en indirekt anslutning till RF) förbinder sig föreningen att i sin idrottsliga verksamhet tillämpa och efterfölja de regler som är vedertagna inom idrottsrörelsen och på vilka RF:s stadgar bygger.”
+
+Obs! Det går aldrig att ändra befintliga uppgifter om en förening via denna tjänst så som kontakt- eller kontouppgifter.
+
+Så här har Riksidrottsförbundet implementerat Föreningsansökan på sin hemsida: Ansökan medlemskap specialidrottsförbund - Riksidrottsförbundet (rf.se)
+
+Användningsfall Medlemsansökan
+Syfte med tjänsten
+För föreningar som använder IdrottOnline som primärt medlemsregister och som vill ha ett ansökningsformulär på sin externa webbplats för personer som vill bli medlemmar i föreningen. Medlemsansökan hamnar direkt i IdrottOnline administration för hantering.
+
+API:er som rekommenderas
+
+Organisation API V2->Organisation->GET /organizations
+Organisation API V2->Organisation->GET /organizations/{id}
+Stöd API V2->GET /postal-areas
+Organisation API V2->Tjänster->POST /membership-applications
+Flöde
+För vilken förening avses medlemskapet (föreningen och deras id kan hämtas från API)
+
+Typ av medlemskap
+
+Vilken idrott och ev gren/klass i föreningen avser personen att vara aktiv inom alt.
+Sker ansökan endast som stödmedlem (dvs inte aktiv inom någon idrott/gren/klass i föreningen). (aktuell förenings idrotter/grenar/klasser kan hämtas från API)
+Ange personuppgifter för ansökande
+
+Info till förening gällande kontaktuppgifter (från tidigare formulär i IdrottOnline): ”Om dina uppgifter redan finns i annan organisation i IdrottOnline kommer uppgifterna du har angivit inte att sparas i IdrottOnline. Dina tidigare uppgifter kommer finnas kvar. Om du sedan tidigare har en manuellt angiven kontaktadress inlagd i IdrottOnline så kan du automatiskt uppdatera denna till din folkbokföringsadress genom att kryssa i kryssrutan nedan. Om du vill ändra någon av dina andra kontaktuppgifter, vänligen kontakta föreningen.”
+
+Obligatorisk data om personen måste anges:
+
+Fullständigt personnummer
+Förnamn
+Efternamn
+Kön
+E-postadress
+Telefon
+Mobiltelefon
+Kontaktadress
+Postnummer
+Postort (alla Sveriges postorter kan hämtas från API)
+Frivillig data om person:
+
+Checkbox för att möjliggöra att använda personens folkbokföringsuppgifter
+C/o adress
+Land
+Ange personuppgifter för ansökandes vårdnadshavare, om ansökande person är under 18 år
+
+En eller flera vårdnadshavare kan anges
+Vårdnadshavare måste vara äldre än den ansökande personen
+Samma typ av obligatorisk och frivillig data som för ansökande person gäller.
+Regelverk/process i IdrottOnlines tjänster för Medlemsansökan
+
+Om personen redan har sina uppgifter i IdrottOnline kommer personinformation som fyllts i inte skriva över befintliga uppgifter.
+Om personen redan är medlem i samma förening och samma idrott, gren eller klass kommer informationen inte läggas till i IdrottOnline.
+Väljer ansökande person att endast kryssa i en gren/klass kommer också överliggande idrott automatiskt tilldelas.
+Möjlighet finns för ansökande person att välja att använda sin folkbokföringsadress istället för angiven kontaktadress.
+Ansökande persons personnummer kan komma att köras mot statens personadressregister (SPAR) för uppdatering av föreningens medlemsregister. Samkörningen genomförs för att säkerställa att personuppgifterna är uppdaterade och korrekta.
+Om personen som vill bli medlem i föreningen är under 18 år, krävs att minst en (1) målsman fyller i sina uppgifter. Det går att ange flera.
+När ansökan skickats kommer ansökande person få en bekräftelse via e-post från IdrottOnline.
+
+Användningsfall Hantera person
+Syfte med tjänsten
+För idrottsorganisationer som vill hålla sina personregister uppdaterade mot RF:s databaser.
+
+Olika möjligheter att hantera en person:
+Hämta person(er) i en organisation
+API:er som rekommenderas
+Person->Person->GET /persons
+Person->Person->GET /persons/{id}
+Att hämta person(er) i en organisation
+Sök efter personer med hjälp av filtreringsparametrar via endpoint GET /persons som returnerar en lista med id:n för personer som stämmer överens med sökparametrarna.
+Dessa id:n används som inparameter i endpoint GET /persons/{id} för att hämta ut mer information om aktuell person.
+Informationen om en person är uppdelad i persondata, status, adressuppgifter, kontaktuppgifter, organisationstillhörigheter samt roller inom resp. organisation.
+Regler att känna till vid hämtning av person eller personuppgifter
+Personer med tillhörighet (medlemskap) till en idrottsorganisation hämtas om personen har en tillhörighet till en idrottsorganisation som en integratör har tillåtelse att se.
+Tillåtelse begränsas utifrån idrottens organisationsstruktur och vad personuppgiftsansvarig part har givit tillåtelse till.
+Om en person flaggas som isProtectedPerson betyder det att personen har markerats som skyddad av antingen en administratör i IdrottOnline eller i ett externt system ELLER från Skatteverket. Beroende på vart markeringen kommer ifrån hanteras personens uppgifter olika:
+Skatteverket: Namnet ersätts med ”Skyddade uppgifter” och Folkbokföringsadressen rensas. Vårdnadshavare kan inte hämtas.
+Externt system/IdrottOnline: Namnet kan ha ersatts med ett alias som då används som för- och efternamn istället för det riktiga men Folkbokföringsadressen och övriga kontaktuppgifter rensas inte. Vårdnadshavare kan inte hämtas.
+Lägg till en medlem i en förening / Skapa en person i en organisation
+Det ska vara möjligt för föreningar att registrera nya personer som sedan kan hanteras via endpoint Uppdatera Person.
+
+API:er som rekommenderas
+Person->Person->POST /persons
+Att registrera en person
+POST-endpoint tar emot detaljer om en person i JSON-format, inklusive namn, kontaktuppgifter, mm. Ett unikt ID returneras som används för hantering av personen.
+Informationen som skickas in är uppdelad i persondata, status, adressuppgifter, kontaktuppgifter, och organisationstillhörigheter.
+Information som skickas in går inte att uppdatera senare. Endast tomma fält, dvs data som saknas, går att fylla i vid senare tillfälle via Uppdatera Person. Det är därför viktigt att korrekta uppgifter lämnas vid registrering.
+För hantering av personuppgifter, se även GDPR-regler för detaljer.
+
+Regler för registrering
+Korrekt personnummer måste tillhandahållas om personen har svenskt medborgarskap.
+En förening kan bara registrera personer för den egna föreningen.
+En person kan bara registreras en gång. Justeringar av uppgifter eller tilläggande av roller/tillhörigheter utförs via separata anrop.
+Läs även avsnittet Regler uppdatera Person för detaljer om hur personuppgifter uppdateras.
+
+Uppdatera en medlem i en förening / Uppdatera en person i en organisation
+Det ska vara möjligt för föreningar att fylla i uppgifter som inte lämnades in när en person först skapades i systemet.
+
+API:er som rekommenderas
+Person->Person->PUT /persons /{id}
+Att uppdatera en person
+PUT-endpoint tar emot en persons unika ID (returneras från Skapa Person) samt detaljer att fylla i, i JSON-format.
+Endast information som inte skickades in tidigare går att uppdatera. Fält som redan fyllts i ignoreras av Uppdatera Person.
+En existerande person läggas till som medlem i en ny organisation genom att inkludera organisations-ID i JSON-body.
+Regler för registrering
+Korrekt unikt ID måste ingå i anropets URL.
+En förening kan inte uppdatera en person som inte är medlem i föreningen.
+Läs även avsnittet Regler uppdatera Person för detaljer om hur personuppgifter uppdateras.
+
+Avsluta medlemskap i en förening / Avsluta uppdrag i ett förbund
+Det ska vara möjligt för föreningar att avsluta en persons medlemskap och för ett förbund att avsluta en persons uppdrag.
+
+API:er som rekommenderas
+Person->Person->DELETE /persons/{id}
+Att avsluta ett medlemskap / uppdrag
+DELETE-endpoint tar emot en persons unika ID (returneras från Skapa Person), samt organisationens ID i JSON-format.
+Regler för avslutande av ett medlemskap / uppdrag
+Personens samtliga roller måste tas bort via endpoint Ta Bort Roller innan personen själv kan tas bort
+Denna endpoint tar endast bort medlemskapet i en särskild förening / uppdraget i ett särskilt förbund. Personen själv finns kvar i systemet efteråt.
+Lägga till roller på en person i en organisation
+Det ska vara möjligt för föreningar att lägga till roller på personer.
+
+API:er som rekommenderas
+Person->Person->POST /persons/{id}/roles
+Att lägga till roller på en person
+POST-endpoint tar emot en persons unika ID (returneras från Skapa Person) samt detaljer om de nya rollerna i JSON-format, inklusive organisation, rolltypskategori, rolltyp, och sport.
+Regler för lägg till roller
+En förening kan inte tilldela personer roller i en annan förening.
+Enbart vissa rolltyper och rolltyps-kategorier kan ha sportkoppling.
+Vissa rolltyper får enbart finnas en gång per förening.
+Rolltyps-kategori är obligatorisk information.
+Ta bort roller från en person i en organisation
+Det ska vara möjligt för föreningar att ta bort roller som tilldelats personer.
+
+API:er som rekommenderas
+Person->Person->DELETE /persons/{id}/roles
+Att lägga till roller på en person
+DELETE-endpoint tar emot en persons unika ID (returneras från Skapa Person), samt en JSON-body med de unika ID:n som är kopplade till personens roller som ska tas bort.
+Regler för lägg till roller
+En förening kan inte ta bort roller som en person innehar i en annan förening.
+Lägga till vårdnadshavare på en person
+Det ska vara möjligt för föreningar att registrera vårdnadshavare för personer.
+
+API:er som rekommenderas
+Person->Person->POST /persons/{id}/guardians
+Att registrera en vårdnadshavare
+POST-endpoint tar emot en persons unika ID (returneras från Skapa Person) samt detaljer om vårdnadshavare i JSON-format. Detaljerna inkluderar namn, personnummer, adress och kontaktuppgifter.
+Information som inte fylls i vid registrering kan senare uppdateras via Uppdatera Vårdnadshavare.
+Regler för lägg till roller
+En förening kan inte registrera vårdnadshavare för personer i andra föreningar.
+Vårdnadshavare behöver inte själv vara registrerad i förening eller annan organisation.
+Hämta alla vårdnadshavare för en person
+Det ska vara möjligt för föreningar att hämta information om vårdnadshavare för personer inom föreningen.
+
+API:er som rekommenderas
+Person->Person->GET /persons/{id}/guardians
+Att söka vårdnadshavare
+GET-endpoint tar emot en persons unika ID (returneras från Skapa Person) och returnerar information om vårdnadshavare som registrerats för den personen.
+Regler för lägg till roller
+En förening kan inte hämta vårdnadshavare för personer i andra föreningar.
+Uppdatera en vårdnadshavare för en person
+Det ska vara möjligt för föreningar att fylla i uppgifter som inte lämnades in när en vårdnadshavare först registrerades.
+
+API:er som rekommenderas
+Person->Person->PUT /persons/{id}/guardians /{id}
+Att uppdatera vårdnadshavare
+PUT-endpoint tar emot en persons unika ID (returneras från Skapa Person) och den specifika vårdnadshavarens unika ID (returneras från Lägg Till Vårdnadshavare), samt detaljer att fylla i, i JSON-format.
+Endast information som inte skickades in tidigare går att uppdatera. Fält som redan fyllts i ignoreras av Uppdatera Vårdnadshavare.
+Regler för lägg till roller
+En förening kan inte uppdatera vårdnadshavare för personer i andra föreningar.
+En vårdnadshavare kan inte läggas till på en annan person via denna endpoint.
+Ta bort en vårdnadshavare för en person
+Det ska vara möjligt för föreningar att avregistrera vårdnadshavare för personer.
+
+API:er som rekommenderas
+Person->Person->DELETE /persons/{id}/guardians /{id}
+Att ta bort vårdnadshavare
+DELETE-endpoint tar emot en persons unika ID (returneras från Skapa Person) och den specifika vårdnadshavarens unika ID (returneras från Lägg Till Vårdnadshavare).
+Regler för lägg till roller
+En förening kan inte avregistrera vårdnadshavare för personer i andra föreningar.
+Vårdnadshavaren tas bort för den angivna personen i samtliga organisationer, men behåller sin status som vårdnadshavare för andra eventuella personer.
+
+Användningsfall utbildning
+Syfte med API:er
+För idrottsorganisationer som vill dela med sig/ta del av utbildningsdata mellan system för att tex rapportera in utbildningsverksamhet som ska ligga till grund för RF och SISU:s statistik, rapporter, bidragsunderlag och kunna ta del av en persons utbildningshistorik.
+
+Definition av utbildningsverksamhet
+Idrottens utbildningsverksamhet kännetecknas av ett formellt lärande där utbildningsplan och utbildningsmål i förväg är formulerade. Utbildningsinsatserna är ofta mätbara, tidsatta och paketerade efter ett givet koncept i syfte att ge en viss behörighet, förmedla kunskap för att uppfylla och utvecklas i en specifik roll eller funktion.
+
+API:er som används
+Skapa utbildning: Utbildning API V3/Utbildning->POST /educations
+Sök organisation: Organisation API V2/Organisation->GET /organizations
+Lägg till deltagare: Utbildning API V3/Utbildning->POST /educations/{educationId}/participants
+Sök kategorier: Utbildning API V3/Utbildning->GET /education-categories
+Sök taggar: Utbildning API V3/Utbildning->GET /education-tags
+Rapportera genomförd utbildning: Utbildning API V3/Tjänster->POST /report-education
+Sök utbildning: Utbildning API V3/Utbildning->GET /educations
+
+Användningsfall för Utbildning
+Flöde för att rapportera utbildningsverksamhet
+
+OBS! Se förklaring och definition av de olika parametrarna och hur de ska användas längre ner.
+
+En utbildning måste alltid skapas först via POST /educations. Där erhålls ett id för utbildningen som senare behöver anges i POST /report-education för att kunna identifiera utbildningen.
+Ta reda på organisationsid för Anordnare och Arrangör via GET /organizations.
+För att slutligen rapportera en utbildning, som kommer vara en inrapportering som endast kan ske en gång per utbildning, används POST /report-education.
+Kategori anges genom att hitta tillgängliga värden via GET /education-categories.
+Taggar anges genom att hitta tillgängliga värden via GET /education-tags.
+Flöde för att rapportera utbildningsverksamhet där behovet av att bedöma förkunskapskrav är viktigt
+
+Detta är ett flöde som kan användas för de utbildningar som hålls öppna under lång tid och som är digitala och genomförs individuellt, se exempel 1 nedan. Då finns en möjlighet att skicka in de deltagare som genomfört/påbörjat utbildningen kontinuerligt så att deras aktuella förkunskaper ska gå att läsa av trots att hela utbildningen inte är inrapporterad.
+
+En utbildning måste alltid skapas först via POST /educations. Där erhålls ett id för utbildningen som senare behöver anges i POST /report-education för att kunna identifiera utbildningen.
+Ta reda på organisationsid för Anordnare och Arrangör via GET /organizations.
+Skicka in deltagare som genomfört/påbörjat utbildningen kontinuerligt via POST /educations/{educationId}/participants
+För att slutligen rapportera en utbildning, som kommer vara en inrapportering som endast kan ske en gång per utbildning, används POST /report-education.
+Kategori anges genom att hitta tillgängliga värden via GET /education-categories.
+Taggar anges genom att hitta tillgängliga värden via GET /education-tags.
+Alla deltagare som faktiskt deltog i aktiviteten kommer behöva skickas in med den slutgiltiga informationen i POST /report-education. Om det redan finns data för dessa deltagare skrivs den över. Deltagare som skickats in i punkt 2 men inte deltagit kommer att exkluderas från rapporteringen.
+Flöde för att hämta en persons genomförda utbildningar
+
+För att lista vilka utbildningar som en person har genomfört (av de som finns registrerade hos RF/SISU) används GET /educations.
+Ange ett personnummer i parametern socialSecurityNumber. Svaret innehåller alla de utbildningar som finns rapporterade i RF och SISU:s nya utbildningsdatabas eller de utbildningar som har migrerats över från tidigare Utbildningsmodulen i IdrottOnline. Migrering av historisk data från Utbildningsmodulen måste respektive SF ha beställt av RF (möjlighet till detta kommer förmodligen efter sommaren 2024).
+Flöde för att söka utbildningar
+
+Sök utbildningar genom att använda GET /educations.
+Förklaring av parametrar
+Obs! Endast utvalda parametrar som behöver förklaring beskrivs nedan
+
+Parameternamn	Benämning på svenska	Definition/regelverk
+Responsible organization id	Anordnare	Den organisation som står för utbildningens innehåll. Anordnaren ger stöd till arrangören innan, under och efter det att utbildningsverksamheten har skett. Anordnaren är ytterst ansvarig för den verksamhet som rapporteras.
+Organizing organisation id	Arrangör	Den organisation där utbildningsverksamheten i praktiken sker.
+Working procedure
+(se tillgängliga val nedan)	Verksamhetsform	Standardiserade värden som beskriver formen för hur en utbildning genomförs. För att vara stödberättigade behöver verksamhetsformerna uppfylla olika kriterier om tid, antal deltagare, deltagares ålder etc.
+-> LECTURE	Föreläsning	Föreläsningen är en källa till inspiration och kunskap.
+-> LEARNING_GROUP	Lärgrupp	Lärgruppen är en mindre grupp människor som enligt framtagen plan och genom samtal och dialog bedriver studier. Lärgruppen styrs av deltagarna där de tillsammans söker kunskap med varandra, använder lärande material i någon form och utvecklar färdigheter utifrån sina behov och intressen.
+-> CULTURAL_EVENT	Kulturarrangemang	Kulturarrangemang ska ge deltagarna möjlighet till en kulturupplevelse men också en möjlighet till ny kunskap, insikt och reflektion.
+-> COURSE_EDUCATION	Kurs/utbildning	Kurs/utbildning är en utbildningsform där det i förväg finns en fastställd kursplan och ett tydligt utbildningsmål.
+-> PROCESS_WORK	Processarbete	Processarbete är den verksamhetsform där arrangören kraftsamlar för att inleda ett utvecklingsarbete mot ett bestämt mål. Processarbetet är avgränsat i tid, har med fördel inletts med en nulägesanalys och ska mynna ut i någon form av dokumentation eller handlingsplan/utvecklingsplan.
+Study plan	Studieplan	Krav från RF och SISU att det finns en godkänd kurs- eller studieplan för utbildningen för att kunna följa upp utvecklingen över tid. Enbart namn krävs.
+Target group
+(se tillgängliga val nedan)	Målgrupp	Den huvudsakliga intressent som arrangemanget riktar sig till.
+-> ACTIVITY_LEADER	Aktivitetsledare	Personer som leder idrotten i form av träning, tävling, lek eller uppvisning som sker i föreningens regi.
+-> REFEREE	Domare	En person som har en särskild uppgift på ett evenemang/tävling som ser till att idrottens regler vid utförandet följs/bedöms.
+-> OFFICIALS	Funktionär	En person som har en särskild uppgift på ett evenemang/tävling och som bidrar till genomförandet tex flaggvakt, mätansvarig.
+-> GUARDIAN	Vårdnadshavare	Även kallat målsman tidigare och är den som har ansvar för barn under 18 år.
+-> ORGANISATIONAL_LEADER	Organisationsledare	Personer med en roll inom förening/förbund men som inte leder idrottsutövandet tex styrelseledamot, kanslist, medlem i kommitté, anställd.
+-> EDUCATOR	Utbildare	Person som håller i en utbildning eller är ansvarig för utbildningen.
+-> ACTIVE	Utövare	Personer, som uppfyller idrottsföreningens kriterier för medlemskap och som utövar SF-idrott i form av träning, tävling, lek eller uppvisning som sker i föreningens regi.
+-> OTHER	Annan målgrupp	Personer som inte passar in i någon annan målgrupp tex politiker, kommuntjänstemän.
+Category	Kategori	Det huvudsakliga ämnet i arrangemanget.
+Tags	Taggar	Möjlighet att tagga ett arrangemang med ett värde, som även kan benämnas frikod, för att kunna följa upp verksamheten för tex olika satsningar som arrangemanget är till för att stödja.
+Operating year	Verksamhetsår	Året då hela utbildningen slutfördes
+Occasion	Tillfälle	Ett tillfälle ingår i en utbildning/arrangemang och kan kännetecknas som ett delmoment i en utbildning eller ett tillfälle som äger rum på flera olika platser och tider. En utbildning måste ha minst ett tillfälle.
+Duration	Tillfällets tid i minuter	Den faktiska tiden för utförd verksamhet för aktuellt tillfälle, angivet i antal minuter.
+Educational environment
+(se tillgängliga val nedan)	Miljö	Den huvudsakliga miljö som arrangemangets aktuella tillfälle/tillfällen avser att genomföras i.
+-> ONLY_PHYSICAL	Fysiskt	Ett tillfälle utan möjlighet till digital medverkan
+-> FOCUS_PHYSICAL	Fysiskt med möjlighet till digital medverkan	Ett tillfälle där träffen fokuserar på den fysiska miljön och den digitala miljön enbart kan göra mindre inspel och ta del av innehållet
+-> BLENDED	Hybrid	Ett tillfälle som fokuserar till lika stor del på fysiska som digitala deltagare
+-> ONLY_DIGITAL	Digitalt	Ett tillfälle som fokuserar enbart på digitala deltagare
+Study format
+(se tillgängliga val nedan)	Format	Det huvudsakliga formatet som arrangemangets aktuella tillfälle/tillfällen avser att genomföras på.
+-> INDIVIDUAL	Individuellt	Ett utbildningstillfälle som har genomförts helt på egen hand
+-> ASYNCHRONOUS_TOGETHER	Asynkront med andra	Ett tillfälle där deltagarna engagerar sig i inlärningsprocessen oberoende av varandra. Det finns ingen interaktion i realtid med andra deltagare. Deltagaren har inte möjlighet till omedelbar feedback. Lärandet sker i varje individs takt.
+-> SYNCHRONOUS_TOGETHER	Synkront med andra	Ett tillfälle där en grupp deltagare är engagerade i lärande samtidigt. Deltagarna ses i realtid fysiskt eller digitalt. Deltagaren har möjlighet till omedelbar feedback. Lärandet sker i gruppens takt.
+Participants	Deltagare	De unika deltagare som genomfört hela utbildningen samt de unika deltagare som deltagit på respektive tillfälle.
+Social security number	Personnummer/samordningsnummer	Personnummer eller samordningsnummer kan användas som unik identifierare för en person.
+Graduation date	Datum för genomförande av hela utbildningen	Används på de deltagare som genomfört hela utbildningen, oavsett om de är godkända eller ej.
+Organization id	Organisationsid	Organisationsid som deltagaren representerar i aktuell utbildning. Om det är en organisation utanför idrottsrörelsen eller ingen, anges 00000000-0000-0000-0000-000000000000.
+Status	Status för deltagaren	Status för deltagaren på hela utbildningen tex pågår, godkänd, inte godkänd.
+Regler/valideringar som är bra att känna till
+
+Det är endast organisationen som är anordnaren för en utbildning som kan rapportera utbildningen, dvs som får anropa POST /report-education.
+Både organisationen som är anordnaren eller arrangör för en utbildning kan lägga till deltagare på utbildningen, dvs genom att anropa POST /educations/{educationId}/participants.
+Om en utbildning redan har rapporterats dvs har status ”Completed” kan den inte uppdateras med deltagare eller rapporteras igen.
+En deltagare som rapporterats på ett tillfälle måste även finnas i listan över utbildningens deltagare samt vice versa, en deltagare som rapporterats på utbildningen måste finnas på minst 1 av utbildningens tillfällen.
+Om en deltagare har lagts till på en utbildning via POST /educations/{educationId}/participants med tex status APPROVED och läggs till igen med en annan status, uppdateras personens uppgifter. Den senaste informationen gäller alltid.
+Tillåtelse att söka fram en deltagares genomförda utbildningar begränsas utifrån idrottens organisationsstruktur och påverkas till stor del av vilken organisation som deltagaren har angivit att denne representerar vid utbildningstillfället.
+Exempel
+Exempel på hur man bör tänka vid rapportering av olika typer av utbildningar
+
+Exempel 1:
+
+En utbildning har inga tillfällen, utan är en ren digital utbildning som deltagarna kan genomföra i egen takt. Deltagaren går igenom olika avsnitt och blir godkänd när alla avsnitt är avklarade. Anmälan till utbildningen är alltid öppen och det finns ingen utbildare som har kontinuerlig kontakt med deltagarna. Ett exempel på en sådan utbildning är ”Matchfixning” som anordnas av SISU.
+
+Anrop API POST /report-education:
+
+En utbildning som ligger öppen under lång tid kan delas upp och rapporteras årligen som om det är flera utbildningar för att man som organisation ska kunna tillgodoräkna sig verksamheten årligen. För exemplet ovan kan man tänka så här (för utvalda parametrar):
+
+Ett tillfälle rapporteras och kan ha samma namn som utbildningen.
+Verksamhetsår = Aktuellt år för vilken utbildningen delas upp i.
+Startdatum för tillfället är den första deltagarens startdatum och slutdatum är det datum för när den sista deltagaren slutförde utbildningen.
+Utbildare är den person som är ansvarig för utbildningen.
+För tillfällets tid i minuter anges den bedömda tiden för utbildningen/tillfället.
+Tillfällets format = Individuellt.
+Tillfällets miljö = Digitalt
+Datum för genomförandet av hela utbildningen = datum då aktuell person slutförde utbildningen.
+Exempel 2:
+
+En utbildning anordnas som en fysisk synkron föreläsning med två olika föreläsare efter varandra. Utbildningen klassas som hybrid då deltagare kan delta både fysiskt och digitalt, vilket man väljer vid anmälan.
+
+Anrop API POST /report-education:
+
+För exemplet ovan kan man tänka så här (för utvalda parametrar):
+
+Ett tillfälle rapporteras och kan ha samma namn som utbildningen.
+Verksamhetsår = Året då utbildningen slutfördes.
+Utbildare är den person som är ansvarig för utbildningen.
+Tillfällets format = Synkront med andra
+Tillfällets miljö = Hybrid
+Datum för genomförandet av hela utbildningen = datum då föreläsningarna ägde rum.
+Exempel 3:
+
+En kurs ”Tränarutbildning” anordnas av ett SF men arrangeras av SDF på olika platser i landet vid olika tidpunkter. Deltagaren kan välja att anmäla sig till det tillfälle som passar hen. Innehållet i alla tillfällen är likadana och har man genomfört ett tillfälle och blivit godkänd så är man godkänd på kursen. Det finns en utbildare och en sista anmälningstid på resp. tillfälle. Träffarna är fysiska.
+
+Anrop API POST /report-education:
+
+En utbildning som genomförs på olika platser, tidpunkter och med olika deltagare får rapporteras som olika utbildningar även om innehållet i dem är i stort sett samma.
+
+För exemplet ovan kan man tänka så här (för utvalda parametrar):
+
+Ett tillfälle rapporteras per utbildning och kan ha samma namn som utbildningen.
+Verksamhetsår = Året då tillfället/utbildningen slutfördes.
+Startdatum, slutdatum och plats anges unikt för det valda tillfället/utbildningen.
+Utbildare är den person som är utbildare på resp. tillfället/utbildningen.
+För tillfällets tid i minuter anges den genomförda tiden för tillfället/utbildningen.
+Tillfällets format = Synkront med andra.
+Tillfällets miljö = Fysiskt
+Datum för genomförandet av hela utbildningen = datum då aktuell person slutförde aktuellt tillfälle/utbildningen.
+Exempel 4:
+
+Ett utbildning med verksamhetsformen processarbete anordnas med 5 olika tillfällen. 4 tillfällen i nov/dec 2023 och ett tillfälle i januari 2024.
+
+Anrop API POST /report-education:
+
+För exemplet ovan kan man tänka så här (för utvalda parametrar):
+
+Fem tillfällen rapporteras på utbildningen och varje tillfälle har sin unika data för start-/slutdatum, utbildare, genomförd tid, format, miljö etc.
+Verksamhetsår = Utbildningen ska rapporteras på verksamhetsår 2024 eftersom det är då processarbetet avslutats.
+Datum för genomförandet av hela utbildningen = datum då aktuell person slutförde hela arrangemanget.
+Verksamhetsform = Processarbete
+Exempel 5:
+
+En utbildning ”Ideella ledare” anordnas med 2 olika tillfällen. Tillfälle 1 genomförs synkront i ett digitalt klassrum med en närvarande utbildare och tillfälle 2 går ut på att deltagarna asynkront ska svara på uppgifter i ett digitalt klassrum, där deltagandet kan mätas digitalt, men ingen utbildare finns närvarande i realtid.
+
+Anrop API POST /report-education:
+
+För exemplet ovan kan man tänka så här (för utvalda parametrar):
+
+Två tillfällen rapporteras för utbildningen.
+Verksamhetsår = Året då hela utbildningen slutfördes.
+Start- och slutdatum anges unikt för de två olika tillfällena.
+Utbildare för tillfälle 1 är den person som är närvarande i det digitala klassrummet. Utbildare för tillfälle 2 kan vara den som är ansvarig för utbildningen.
+För tillfällets tid i minuter för tillfälle 1 är den tid som det synkrona mötet genomfördes på. För tillfälle 2 anges den tid som man bedömer att uppgifterna tar att svara på, alternativt ett medelvärde av deltagarnas genomförda tid.
+Tillfällets format för tillfälle 1 = Synkront med andra.
+Tillfällets miljö för tillfälle 1 = Digitalt
+Tillfällets format för tillfälle 2 = Asynkront med andra.
+Tillfällets miljö för tillfälle 2 = Digitalt
+
+Användningsfall Aktivitet
+Syfte med tjänsten
+För föreningar som vill skicka in genomförda aktiviteter som underlag för framtida ansökan om LOK stöd.
+
+Relaterade API:er som används
+Person API
+Använd detta API för att hantera personer vars ID'n kan användas vid registrering av aktiviteter.
+
+Sök person: GET /persons
+Skapa person: POST /persons
+Lägg till Roll: POST /persons/{id}/roles
+Organisation API
+Använd detta API för att söka fram föreningar vars ID'n kan användas vid registrering av aktiviteter.
+
+Sök organisation: GET /organizations
+Stöd API V2
+Använd detta API för att söka fram sporter vars ID'n kan användas vid registrering av aktiviteter.
+
+Sök sport: GET /sports
+Användningsfall för Aktivitet
+Registrera en genomförd aktivitet för LOK stöd
+En förening ska kunna registrera en utförd aktivitet som grund för framtida ansökan om LOK-stöd.
+
+API:er som rekommenderas
+Aktivitet->Aktivitet->POST /activities
+Att registrera en aktivitet
+POST-endpoint tar emot detaljer om en aktivitet i JSON-format, inklusive datum, plats, mm. Ett unikt ID returneras som används för att redigera eller ta bort aktiviteten.
+Informationen som skickas in är uppdelad i information om aktiviteten, och uppgifter om personer som deltagit.
+Regler att känna till vid registrering av aktivitet
+En förening kan inte utföra registrering av aktivitet för en annan förening.
+Registrering måste utföras av en person som innehar roll inom föreningen.
+En aktivitet måste relatera till en sport som är knuten till föreningen. Detta anges via ett sport-ID som del av anropet. Om en under-sport anges registreras även huvudsporten automatiskt. Flera olika under-sporter kan anges för samma aktivitet.
+Ett unikt externt ID måste tillhandahållas, separat från det som returneras vid utförd registrering.
+Regler att känna till för deltagare på en aktivitet
+Personer som deltagit och/eller varit ledare i aktiviteten måste inneha en roll både inom föreningen samt inom samma sport som aktiviteten.
+En aktivitet måste innehålla minst 1 deltagare för att räknas som giltig.
+Det är tillåtet att skicka in en aktivitet där samtliga deltagare har status ABSENT.
+Uppdatera registrerad Aktivitet
+En förening ska kunna justera detaljerna i en registrerad aktivitet som inte ännu skickats in i ansökan om LOK-stöd. Via denna endpoint går det även att modifiera detaljerna kring de deltagare som finns på aktiviteten.
+
+API:er som rekommenderas
+Aktivitet->Aktivitet->PUT /activities/{id}
+Att uppdatera en aktivitet
+PUT-endpoint matchar unikt ID (som returneras när aktivitet först skapas) med existerande aktivitet.
+Justerade detaljer skickas in i JSON-format med samma struktur som när aktivitet skapas.
+Endast de fält som ska uppdateras behöver ingå i API-anropet.
+Regler att känna till vid uppdatering av aktivitet
+En förening kan inte justera detaljerna i en aktivitet som registrerats av en annan förening.
+En förening kan inte justera detaljerna i en aktivitet som redan skickats in som en del av ansökan om LOK-stöd.
+Aktiviteter måste uppdateras en i taget med sina separata ID:n.
+Att uppdatera deltagare på en aktivitet
+För att uppdatera deltagare på en aktivitet måste fältet attendanceRegistration skickas med i anropet.
+Alla deltagare ska då skickas in som en komplett lista vid varje uppdatering.
+Deltagare som inte ingår i anropet kommer att tas bort från aktiviteten.
+Om fältet attendanceRegistration inte skickas med påverkas inte redan befintliga deltagare på aktiviteten.
+Regler att känna till för deltagare på en aktivitet
+Personer som deltagit och/eller varit ledare i aktiviteten måste inneha en roll både inom föreningen samt inom samma sport som aktiviteten.
+En aktivitet måste innehålla minst 1 deltagare för att räknas som giltig.
+Det är tillåtet att skicka in en aktivitet där samtliga deltagare har status ABSENT.
+Ta bort registrerad Aktivitet
+En förening ska kunna radera en registrerad aktivitet som inte ännu skickats in i ansökan om LOK-stöd.
+
+API:er som rekommenderas
+Aktivitet ->Aktivitet->DELETE /activities /{id}
+Att ta bort en aktivitet
+DELETE-endpoint matchar unikt ID (som returneras när aktivitet först skapas) med existerande aktivitet som sedan raderas.
+Regler att känna till vid borttagning av aktivitet
+En förening kan inte ta bort en aktivitet som registrerats av en annan förening.
+En förening kan inte ta bort en aktivitet som redan skickats in som en del av ansökan om LOK-stöd.
+Aktiviteter måste tas bort en i taget med sina separata ID:n.
+
+6. Release Notes 
+
+7. Idrottsarenan-kommande förändringar 
+
+8. GDPR
+
+I INT (Test) används endast test-personer.
+
+Regler som används
+Personnummer komma från vårt system. Mejla systemintegration@rf.se för att få en lista med såna personnummer.
+Förnamn/efternamn måste börja med "Test_"
+Alternativt förnamn/efternamn måste börja med "Test_"
+Alla adresser (gatunamn) måste börja med "Test_" Det är endast krav på att ange 1 adress.
+Alla telefonnummer måste bestå av +46, följt av minimum sex siffror och maximum 12 siffror
+Alla mejladresser måste bestå av domänen @unknown.com

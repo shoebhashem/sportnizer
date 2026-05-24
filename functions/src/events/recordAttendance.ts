@@ -1,18 +1,18 @@
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { decryptPersonnummerBatch } from "../lok/encryptPersonnummer";
 import {
-  RecordAttendanceRequest,
-  RecordAttendanceResponse,
+    LokActivityInput,
+    LokParticipantInput,
+    validateLokActivity,
+} from "../lok/lokValidation";
+import {
+    RecordAttendanceRequest,
+    RecordAttendanceResponse,
 } from "../types/interfaces";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
-import { decryptPersonnummerBatch } from "../lok/encryptPersonnummer";
-import {
-  LokActivityInput,
-  LokParticipantInput,
-  validateLokActivity,
-} from "../lok/lokValidation";
 
 /**
  * Records actual attendance for an event (admin/coach only)
@@ -34,7 +34,7 @@ import {
  * @throws HttpsError('failed-precondition') - Event not ready for attendance recording
  */
 export const recordAttendance = onCall(
-  { region: config.region },
+  { region: config.region, secrets: ["PERSONNUMMER_ENCRYPTION_KEY"] },
   async (request): Promise<RecordAttendanceResponse> => {
     try {
       // ============================================================================
@@ -244,15 +244,22 @@ export const recordAttendance = onCall(
       // STEP 5: LOK Eligibility Check (Swedish clubs only)
       // ============================================================================
       try {
-        const clubDocForLok = await db.collection("clubs").doc(data.clubId).get();
+        const clubDocForLok = await db
+          .collection("clubs")
+          .doc(data.clubId)
+          .get();
         const clubCountry = clubDocForLok.data()?.country;
 
         // Only run LOK check for SE clubs (or clubs without explicit country)
         if (clubCountry === "SE" || clubCountry === undefined) {
-          console.log(`🔍 Running LOK eligibility check for event ${data.eventId}`);
+          console.log(
+            `🔍 Running LOK eligibility check for event ${data.eventId}`,
+          );
 
           const responses: any[] = eventDataAfter?.responses || [];
-          const attendees = responses.filter((r) => r.actualAttendance === true);
+          const attendees = responses.filter(
+            (r) => r.actualAttendance === true,
+          );
           const attendeeIds = attendees.map((r: any) => r.userId);
 
           const personnummerMap = await decryptPersonnummerBatch(attendeeIds);
@@ -300,8 +307,10 @@ export const recordAttendance = onCall(
             "lok.pendingValidation": false,
             "lok.eligibilityCheckedAt": FieldValue.serverTimestamp(),
             "lok.durationMinutes": validation.summary.durationMinutes,
-            "lok.eligibleParticipantCount": validation.summary.eligibleParticipants,
-            "lok.participantsMissingPersonnummerCount": participantsMissingPersonnummerCount,
+            "lok.eligibleParticipantCount":
+              validation.summary.eligibleParticipants,
+            "lok.participantsMissingPersonnummerCount":
+              participantsMissingPersonnummerCount,
             "lok.warnings": validation.warnings.map((w) => w.code),
             "lok.errors": validation.errors.map((e) => e.code),
             "lok.needsRecheck": false,

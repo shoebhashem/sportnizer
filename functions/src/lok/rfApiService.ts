@@ -423,7 +423,25 @@ export const updateClubRfSettings = onCall(
       updateData["rf.municipality"] = rfSettings.municipality;
     }
     if (rfSettings.integrationEnabled !== undefined) {
+      // Toggling RF direct-API integration requires platformAdmin.
+      // Regular club admins can save org number / municipality but cannot enable the integration.
+      const userDoc = await db.collection("users").doc(request.auth.uid).get();
+      const isPlatformAdmin = userDoc.data()?.platformAdmin === true;
+      if (!isPlatformAdmin) {
+        throw new HttpsError(
+          "permission-denied",
+          "Enabling or disabling RF direct integration requires platform-admin access. Contact Clubnizer support.",
+        );
+      }
       updateData["rf.integrationEnabled"] = rfSettings.integrationEnabled;
+      if (rfSettings.integrationEnabled) {
+        updateData["rf.enabledAt"] = FieldValue.serverTimestamp();
+        updateData["rf.enabledBy"] = request.auth.uid;
+        updateData["rf.enabledByRole"] = "platform-admin";
+        updateData["rf.setupStatus"] = "configured";
+      } else {
+        updateData["rf.setupStatus"] = "not-configured";
+      }
     }
 
     updateData["rf.integrationStatus"] = "pending";

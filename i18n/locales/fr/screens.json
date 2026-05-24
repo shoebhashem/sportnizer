@@ -952,7 +952,13 @@
     "membersCount": "Membres ({{count}})",
     "noMembersMatchFilter": "Aucun membre ne correspond au filtre sélectionné.",
     "childYouthLabel": "(Enfant/Junior)",
-    "failedToLoadMembershipFees": "Échec du chargement des cotisations d'adhésion"
+    "failedToLoadMembershipFees": "Échec du chargement des cotisations d'adhésion",
+    "membersUpdatedSuccess": "Membres mis à jour — {{added}} ajouté(s), {{removed}} supprimé(s).",
+    "paidMembersKept": "{{count}} membre(s) ayant déjà payé n'ont pas pu être supprimés."
+  },
+  "selectEventMembers": {
+    "paidMemberWarningTitle": "Impossible de supprimer le membre",
+    "paidMemberWarningMessage": "{{name}} a déjà payé cette cotisation et ne peut pas être retiré(e) de la liste."
   },
   "stripeOnboarding": {
     "paymentSetup": "Configuration des paiements",

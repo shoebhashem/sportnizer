@@ -133,7 +133,7 @@ function detectSameDaySameSportConflicts(
  * detects conflicts, and creates a report document.
  */
 export const generateLokReport = onCall(
-  { region: "europe-north1" },
+  { region: "europe-north1", secrets: ["PERSONNUMMER_ENCRYPTION_KEY"] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be authenticated.");
@@ -216,7 +216,9 @@ export const generateLokReport = onCall(
           }
           delBatch.delete(existingDoc.ref);
           await delBatch.commit();
-          console.log(`🗑️ Deleted ${existingStatus} report ${existingDoc.id} before confirmation`);
+          console.log(
+            `🗑️ Deleted ${existingStatus} report ${existingDoc.id} before confirmation`,
+          );
         } else if (!force) {
           throw new HttpsError(
             "already-exists",

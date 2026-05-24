@@ -7,6 +7,7 @@
 
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { theme } from "@/constants/theme";
+import { useClubData } from "@/contexts/ClubDataContext";
 import {
     type LokEligibleEvent,
     type LokReportSummary,
@@ -373,6 +374,13 @@ export default function LokReportsScreen() {
   const { clubId } = useLocalSearchParams<{ clubId: string }>();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { getClub } = useClubData();
+
+  // Whether this club has RF direct-API integration enabled
+  const rfIntegrationEnabled =
+    (typeof clubId === "string"
+      ? getClub(clubId)?.rf?.integrationEnabled
+      : false) ?? false;
 
   // ── Tab state ────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"events" | "reports">("events");
@@ -1218,25 +1226,40 @@ export default function LokReportsScreen() {
 
                             {["draft", "stale"].includes(report.status) && (
                               <View style={styles.actionRow}>
-                                <TouchableOpacity
-                                  style={[styles.actionBtn, styles.submitBtn]}
-                                  onPress={() =>
-                                    handleSubmit(
-                                      report.id,
-                                      reportDetail.hasUnresolvedConflicts,
-                                    )
-                                  }
-                                >
-                                  <Ionicons
-                                    name="cloud-upload-outline"
-                                    size={18}
-                                    color="#fff"
-                                    style={{ marginRight: 6 }}
-                                  />
-                                  <Text style={styles.actionBtnText}>
-                                    Skicka till RF
-                                  </Text>
-                                </TouchableOpacity>
+                                {rfIntegrationEnabled ? (
+                                  <TouchableOpacity
+                                    style={[styles.actionBtn, styles.submitBtn]}
+                                    onPress={() =>
+                                      handleSubmit(
+                                        report.id,
+                                        reportDetail.hasUnresolvedConflicts,
+                                      )
+                                    }
+                                  >
+                                    <Ionicons
+                                      name="cloud-upload-outline"
+                                      size={18}
+                                      color="#fff"
+                                      style={{ marginRight: 6 }}
+                                    />
+                                    <Text style={styles.actionBtnText}>
+                                      Skicka till RF
+                                    </Text>
+                                  </TouchableOpacity>
+                                ) : (
+                                  <View style={styles.rfDisabledNote}>
+                                    <Ionicons
+                                      name="information-circle-outline"
+                                      size={16}
+                                      color={theme.colors.textSecondary}
+                                      style={{ marginRight: 6 }}
+                                    />
+                                    <Text style={styles.rfDisabledNoteText}>
+                                      RF-direktintegration är inte aktiverad för
+                                      denna förening.
+                                    </Text>
+                                  </View>
+                                )}
                                 <TouchableOpacity
                                   style={[styles.actionBtn, styles.deleteBtn]}
                                   onPress={() => handleDelete(report.id)}
@@ -1611,6 +1634,19 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.error + "66",
   },
   actionBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  rfDisabledNote: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  rfDisabledNoteText: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontStyle: "italic",
+  },
   submittedBanner: {
     flexDirection: "row",
     alignItems: "center",

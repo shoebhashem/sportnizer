@@ -5,7 +5,7 @@ import Button from "@/components/Button";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { ScreenTooltipManager } from "@/components/onboarding";
 import PaymentStatusBadge, {
-  PaymentStatus,
+    PaymentStatus,
 } from "@/components/PaymentStatusBadge";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
@@ -13,26 +13,36 @@ import { useGroupData } from "@/contexts/GroupDataContext";
 import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { MembershipFee, paymentService } from "@/services/paymentService";
 import { GroupMemberData } from "@/services/types/group";
+import {
+    FeePaymentEntry,
+    setFeePaymentStatuses,
+} from "@/utils/feePaymentStore";
+import { consumeSelectedMemberIds } from "@/utils/memberSelectionStore";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import {
+    router,
+    useFocusEffect,
+    useLocalSearchParams,
+    useNavigation,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useState,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Image,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -66,7 +76,7 @@ export default function TrackPaymentsScreen() {
   const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { clubId, groupId, groupName } = useLocalSearchParams();
+  const { clubId, groupId, groupName, feeId } = useLocalSearchParams();
   useTrackFeatureOnMount("payments-viewed");
   const { getGroupMembers } = useGroupData();
 
@@ -85,9 +95,14 @@ export default function TrackPaymentsScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
   const [showFilters, setShowFilters] = useState(false);
 
+  // Manage-members state
+  const [isUpdatingMembers, setIsUpdatingMembers] = useState(false);
+
   // Modal state
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showUpdateResultModal, setShowUpdateResultModal] = useState(false);
+  const [updateResultMessage, setUpdateResultMessage] = useState("");
 
   // Set header title
   useLayoutEffect(() => {
@@ -136,7 +151,16 @@ export default function TrackPaymentsScreen() {
       if (result.success && result.fees) {
         setFees(result.fees);
 
-        // Auto-select first active fee, or first fee if none active
+        // If a specific feeId was passed (from manage-fees), pre-select it.
+        // Otherwise fall back to first active fee, then first fee.
+        const targetFeeId = typeof feeId === "string" ? feeId : null;
+        if (targetFeeId) {
+          const target = result.fees.find((f) => f.feeId === targetFeeId);
+          if (target) {
+            setSelectedFee(target);
+            return;
+          }
+        }
         const activeFee = result.fees.find((f) => f.status === "active");
         if (activeFee) {
           setSelectedFee(activeFee);
@@ -149,7 +173,76 @@ export default function TrackPaymentsScreen() {
       setErrorMessage(t("screens:trackPayments.failedToLoadMembershipFees"));
       setShowErrorModal(true);
     }
-  }, [clubId, groupId, t]);
+  }, [clubId, groupId, feeId, t]);
+
+  // Navigate to select-event-members in "fee mode"
+  const handleManageMembers = useCallback(() => {
+    if (!selectedFee) return;
+
+    // Populate the fee payment store so select-event-members can show statuses
+    const entries: FeePaymentEntry[] = members
+      .filter((m) => m.displayPaymentStatus !== "no_fee")
+      .map((m) => ({ userId: m.userId, status: m.displayPaymentStatus }));
+    setFeePaymentStatuses(entries);
+
+    router.push({
+      pathname: "/select-event-members",
+      params: {
+        clubId: clubId as string,
+        groupId: groupId as string,
+        groupName: groupName as string,
+        level: "group",
+        sourceScreen: "track-payments",
+        preSelectedIds: selectedFee.includedMembers.join(","),
+      },
+    } as any);
+  }, [selectedFee, members, clubId, groupId, groupName]);
+
+  // Pick up selected member IDs when returning from select-event-members
+  useFocusEffect(
+    useCallback(() => {
+      const ids = consumeSelectedMemberIds();
+      if (ids !== null && selectedFee) {
+        handleMemberUpdate(ids);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedFee]),
+  );
+
+  const handleMemberUpdate = useCallback(
+    async (newMemberIds: string[]) => {
+      if (!selectedFee) return;
+      setIsUpdatingMembers(true);
+      try {
+        const result = await paymentService.updateFeeMembers(
+          selectedFee.feeId,
+          newMemberIds,
+        );
+        if (result.success) {
+          await fetchFees();
+          let msg = t("screens:trackPayments.membersUpdatedSuccess", {
+            added: result.addedCount ?? 0,
+            removed: result.removedCount ?? 0,
+          });
+          if ((result.removedPaidCount ?? 0) > 0) {
+            msg +=
+              "\n\n" +
+              t("screens:trackPayments.paidMembersKept", {
+                count: result.removedPaidCount,
+              });
+          }
+          setUpdateResultMessage(msg);
+          setShowUpdateResultModal(true);
+        } else {
+          setErrorMessage(result.error || t("common:genericError"));
+          setShowErrorModal(true);
+        }
+      } finally {
+        setIsUpdatingMembers(false);
+      }
+    },
+    [selectedFee, fetchFees, t],
+  );
 
   // Derive members with payment status from context
   const fetchMembersWithPaymentStatus = useCallback(async () => {
@@ -519,6 +612,24 @@ export default function TrackPaymentsScreen() {
             count: filteredMembers.length,
           })}
         </Text>
+        {/* Manage members icon — only for active fees */}
+        {selectedFee?.status === "active" && (
+          <TouchableOpacity
+            onPress={handleManageMembers}
+            style={{ padding: 4 }}
+            disabled={isUpdatingMembers}
+          >
+            {isUpdatingMembers ? (
+              <ActivityIndicator size="small" color={theme.colors.secondary} />
+            ) : (
+              <Ionicons
+                name="person-add-outline"
+                size={22}
+                color={theme.colors.secondary}
+              />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </>
   );
@@ -560,6 +671,18 @@ export default function TrackPaymentsScreen() {
         onCancel={() => setShowErrorModal(false)}
         confirmButtonTheme="primary"
       />
+
+      {/* Member update result modal */}
+      <ConfirmationModal
+        visible={showUpdateResultModal}
+        title={t("common:success")}
+        message={updateResultMessage}
+        confirmText="OK"
+        onConfirm={() => setShowUpdateResultModal(false)}
+        onCancel={() => setShowUpdateResultModal(false)}
+        confirmButtonTheme="primary"
+      />
+
       <ScreenTooltipManager screen="track-payments" />
     </View>
   );
@@ -750,6 +873,9 @@ const styles = StyleSheet.create({
   // Members
   membersSection: {
     marginTop: theme.spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   membersList: {
     marginTop: theme.spacing.sm,

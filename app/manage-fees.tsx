@@ -241,7 +241,22 @@ export default function ManageFeesScreen() {
           }
         >
           {fees.map((fee) => (
-            <View key={fee.feeId} style={styles.feeCard}>
+            <TouchableOpacity
+              key={fee.feeId}
+              style={styles.feeCard}
+              activeOpacity={0.75}
+              onPress={() =>
+                router.push({
+                  pathname: "/track-payments",
+                  params: {
+                    clubId: clubId as string,
+                    groupId: fee.groupId,
+                    groupName: fee.groupName,
+                    feeId: fee.feeId,
+                  },
+                } as any)
+              }
+            >
               {/* Title + status badge */}
               <View style={styles.feeHeader}>
                 <Text style={styles.feeTitle} numberOfLines={2}>
@@ -309,7 +324,10 @@ export default function ManageFeesScreen() {
                 <View style={styles.actionsRow}>
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => openEdit(fee)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openEdit(fee);
+                    }}
                   >
                     <Ionicons
                       name="pencil-outline"
@@ -322,7 +340,10 @@ export default function ManageFeesScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionButton, styles.actionButtonDanger]}
-                    onPress={() => setClosingFee(fee)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setClosingFee(fee);
+                    }}
                   >
                     <Ionicons
                       name="close-circle-outline"
@@ -340,7 +361,7 @@ export default function ManageFeesScreen() {
                   </TouchableOpacity>
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
       )}

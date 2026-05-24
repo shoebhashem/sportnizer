@@ -5,7 +5,8 @@ export interface GroupData {
   description: string;
   clubId: string; // Parent club reference
   clubName: string; // Denormalized club name for easy access
-  sport: string; // Sport type for this group
+  sport: string; // Sport type for this group (display name, free text for backward compat)
+  rfSport?: { sportKey: string; rfSportId: string | null }; // Structured sport for RF LOK-stöd
   coaches: string[]; // User IDs with coach role
   admins: string[]; // User IDs with group-admin role
   memberCount: number;

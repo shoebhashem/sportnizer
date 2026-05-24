@@ -8,6 +8,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
+import { useUser } from "@/contexts/UserContext";
 import { updateClubRfSettings } from "@/services/lok/rfService";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation } from "expo-router";
@@ -28,6 +29,9 @@ export default function LokSettingsScreen() {
   const navigation = useNavigation();
   const { clubId } = useLocalSearchParams<{ clubId: string }>();
   const { getClub } = useClubData();
+  const { userProfile } = useUser();
+
+  const isPlatformAdmin = userProfile?.platformAdmin === true;
 
   const club = clubId ? getClub(clubId) : undefined;
   const rf = club?.rf;
@@ -182,10 +186,18 @@ export default function LokSettingsScreen() {
                 Aktivera enbart om du vill skicka rapporter direkt till RF:s API
                 via IdrottOnline. Krävs inte för lokala LOK-rapportutkast.
               </Text>
+              {!isPlatformAdmin && (
+                <Text style={styles.toggleLocked}>
+                  Kontakta Clubnizer support för att aktivera direktintegration.
+                </Text>
+              )}
             </View>
             <Switch
               value={integrationEnabled}
-              onValueChange={setIntegrationEnabled}
+              onValueChange={
+                isPlatformAdmin ? setIntegrationEnabled : undefined
+              }
+              disabled={!isPlatformAdmin}
               trackColor={{
                 false: theme.colors.inputBorder,
                 true: theme.colors.secondary + "88",
@@ -300,6 +312,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textSecondary,
     lineHeight: 17,
+  },
+  toggleLocked: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontStyle: "italic",
+    marginTop: 6,
   },
   saveRow: {
     marginTop: theme.spacing.sm,

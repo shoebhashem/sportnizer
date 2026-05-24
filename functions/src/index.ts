@@ -156,6 +156,7 @@ export { createMembershipFee } from "./payments/createMembershipFee";
 export { deleteMembershipFee } from "./payments/deleteMembershipFee";
 export { getMembershipFees } from "./payments/getMembershipFees";
 export { getUserPendingPayments } from "./payments/getUserPendingPayments";
+export { updateFeeMembers } from "./payments/updateFeeMembers";
 export { updateMembershipFee } from "./payments/updateMembershipFee";
 
 // Accounting Functions
