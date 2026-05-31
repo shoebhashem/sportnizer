@@ -1175,7 +1175,15 @@
     "invitedByDetail": "Invitert av: {{name}}",
     "redirectingToDashboard": "Du blir snart omdirigert til oversikten...",
     "continueToSignUp": "Fortsett til registrering",
-    "invitationStatus": "Invitasjonsstatus"
+    "invitationStatus": "Invitasjonsstatus",
+    "interstitialTitle": "Du er invitert!",
+    "interstitialMessage": "Åpne Clubnizer-appen for best opplevelse, eller fortsett i nettleseren.",
+    "interstitialPreviewClub": "Klubb: {{name}}",
+    "interstitialPreviewGroup": "Gruppe: {{name}}",
+    "interstitialPreviewInvitedBy": "Invitert av {{name}}",
+    "openInApp": "Åpne i app",
+    "continueInBrowser": "Fortsett i nettleser",
+    "interstitialHint": "Hvis appen ikke er installert ennå, blir du sendt til butikken. Etter installasjon — gå tilbake til e-posten din og trykk på invitasjonslenken igjen, så åpner den direkte i appen."
   },
   "invitationReject": {
     "processingResponse": "Behandler svaret ditt...",

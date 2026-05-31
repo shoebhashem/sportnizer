@@ -27,7 +27,7 @@ export const LEGAL_URLS = {
 // Legal document metadata
 export const LEGAL_METADATA = {
   effectiveDate: "2026-03-01",
-  lastUpdated: "2026-03-01",
+  lastUpdated: "2026-05-26",
   privacyChangeSummary:
     "Updated to include handling of Swedish personal identity numbers (personnummer) for LOK-stöd attendance reporting to Riksidrottsförbundet (RF).",
 };

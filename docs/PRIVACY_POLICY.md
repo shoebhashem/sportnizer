@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** PRIVACY_2026.1  
+**Version:** PRIVACY_2026.2  
 **Effective Date:** February 25, 2026  
-**Last Updated:** February 25, 2026
+**Last Updated:** May 26, 2026
 
 ---
 
@@ -109,6 +109,20 @@ Uploaded images are stored using Firebase Storage (Google Cloud). Uploaded image
 **Purpose**
 Images are used solely to personalize your profile or club within the app. We do not use uploaded images for advertising, analytics, or any purpose beyond providing the core functionality of the Service.
 
+### 3.9 Swedish Personal Identity Number (Personnummer)
+
+> **This section applies only to members of clubs that have enabled the LOK Attendance Reporting feature. This feature is currently only available for sports clubs in Sweden registered with the Swedish Sports Confederation (Riksidrottsförbundet / RF).**
+
+Providing your personal identity number (_personnummer_) is **entirely optional**. It is only required if your club uses the LOK attendance reporting feature to submit activity data to RF in order to qualify for activity-based public funding (_aktivitetsstöd_).
+
+If you choose to provide your personnummer, we collect:
+
+- Your personal identity number (normalized to 12-digit format)
+- Your date of birth (derived from the personnummer, stored as a separate non-sensitive field)
+- The timestamp and version of the consent you gave when providing the number
+
+The full personnummer is **never stored in plaintext**. See Section 12b for a full description of how it is protected.
+
 ---
 
 ## 4. How We Use Data
@@ -161,6 +175,12 @@ For Club member data, the Club as Data Controller determines the applicable lawf
 ### 5.4 Legal Obligations
 
 Processing required to comply with applicable laws and regulations.
+
+### 5.5 Explicit Consent for Personnummer (Swedish Clubs)
+
+For the processing of Swedish personal identity numbers (_personnummer_), the legal basis is **explicit consent** (GDPR Art. 6(1)(a)). Consent is recorded in the app at the moment you choose to provide your personnummer, including the consent version and timestamp. You may withdraw consent at any time (see Section 9.6).
+
+The Club, as Data Controller, may additionally rely on a legal obligation toward the Swedish Sports Confederation (RF) when submitting LOK attendance reports.
 
 ---
 
@@ -291,6 +311,12 @@ We may retain certain data longer if:
 
 Backups may retain data for a limited period after deletion from the primary system.
 
+### 9.6 Personnummer Retention (Swedish Clubs)
+
+Your personnummer is retained only for as long as you have given consent. You may withdraw consent and permanently delete your stored personnummer at any time via **LOK Settings → Withdraw Consent** in the app. Deletion is **immediate and permanent** — the encrypted value is removed from the database with no grace period.
+
+Your personnummer is also permanently deleted when you delete your account (Section 9.3). It is **not** subject to the soft-delete grace period that applies to membership records.
+
 ---
 
 ## 10. Your Rights
@@ -361,6 +387,8 @@ Our security measures include:
 - Access controls and authentication
 - Regular security reviews
 
+For particularly sensitive identifiers such as Swedish personal identity numbers, we apply additional protection: **AES-256-GCM authenticated encryption** with keys managed exclusively via Google Cloud Secret Manager (see Section 12b).
+
 **However, no method of transmission over the Internet or electronic storage is completely secure.** We cannot guarantee absolute security, and you use the Service at your own risk.
 
 ---
@@ -376,6 +404,46 @@ Clubnizer may request the following device permissions. The specific permission 
 | Push Notifications | `android.permission.POST_NOTIFICATIONS`    | Prompted at runtime by iOS       | Allows the app to send you notifications about events and club activities              | Optional |
 
 All permissions are requested at the moment you choose to use the relevant feature, or (for notifications) when you first enable them in the app. You may decline any permission — this will prevent the specific feature from working but will not affect other app functionality. You can manage or revoke permissions at any time through your device settings.
+
+---
+
+## 12b. Special Handling of Swedish Personal Identity Numbers (Personnummer)
+
+> **This section applies only to Swedish clubs using the LOK Attendance Reporting feature.**
+
+We take particular care with Swedish personal identity numbers given their sensitivity under Swedish law (_dataskyddslagen 3 kap. 10 §_). The following security measures apply specifically to personnummer:
+
+### Entry and Validation
+
+Your personnummer is entered directly in the app and transmitted over an encrypted connection (HTTPS/TLS) to our backend. Format and Luhn checksum validation are performed **server-side** before any storage occurs. The number is never processed or stored on the client device.
+
+### Encryption
+
+Your personnummer is encrypted server-side using **AES-256-GCM** (Advanced Encryption Standard with a 256-bit key in Galois/Counter Mode — an authenticated encryption algorithm). Each encryption operation uses a unique, cryptographically random initialization vector (IV), ensuring that the same personnummer encrypted twice produces different ciphertext.
+
+### Key Management
+
+The encryption key is stored exclusively in **Google Cloud Secret Manager**. It is never embedded in source code, in environment files accessible to client applications, or in the Firestore database. Access to the key is restricted to the specific backend functions that require it.
+
+### What Is Stored
+
+Only the following is written to the database:
+
+- The **encrypted ciphertext** (never the plaintext personnummer)
+- The **birth date portion** (first 8 digits, e.g. `19900101`) — this non-sensitive derived field is used for age-eligibility checks without requiring decryption
+- Consent metadata: timestamp of when consent was given and the version of the policy consented to
+
+### Client Access
+
+The full personnummer is **never returned to the client application**. The app can only receive confirmation that a number is stored along with the birth date — not the personnummer digits themselves.
+
+### Decryption Scope
+
+Decryption occurs exclusively on the backend, only during LOK report generation for automated submission to the Swedish Sports Confederation (RF). Decryption is not available as a user-callable or client-callable operation.
+
+### Right to Withdraw
+
+You can delete your personnummer at any time via **LOK Settings → Withdraw Consent** in the app. This immediately and permanently removes the encrypted value from the database. See Section 9.6.
 
 ---
 

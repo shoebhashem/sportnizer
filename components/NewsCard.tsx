@@ -156,19 +156,21 @@ export default function NewsCard({
         {getDescriptionPreview(news.description)}
       </Text>
 
-      {/* Footer Row */}
+      {/* Footer: two stacked rows */}
       <View style={styles.footer}>
+        {/* Row 1: creator */}
         <View style={styles.footerLeft}>
           <Ionicons
             name="person-outline"
             size={14}
             color={theme.colors.textSecondary}
           />
-          <Text style={styles.footerText}>
+          <Text style={styles.footerText} numberOfLines={1}>
             {t("components:newsCard.issuedBy", { name: news.createdByName })}
           </Text>
         </View>
 
+        {/* Row 2: reactions + comments + date */}
         <View style={styles.footerRight}>
           {(news.commentCount ?? 0) > 0 && (
             <View style={styles.commentBadge}>
@@ -285,21 +287,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "column",
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
-    paddingTop: 12,
+    paddingTop: 10,
     marginTop: 4,
+    gap: 6,
   },
   footerLeft: {
     flexDirection: "row",
     alignItems: "center",
+    overflow: "hidden",
   },
   footerRight: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
   },
   commentBadge: {
     flexDirection: "row",
@@ -318,6 +322,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#666",
     marginLeft: 4,
+    flexShrink: 1,
   },
   emailIndicator: {
     flexDirection: "row",

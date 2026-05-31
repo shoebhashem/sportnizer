@@ -1193,7 +1193,15 @@
     "invitedByDetail": "Invitado por: {{name}}",
     "redirectingToDashboard": "Será redirigido al panel en breve...",
     "continueToSignUp": "Continuar al registro",
-    "invitationStatus": "Estado de la invitación"
+    "invitationStatus": "Estado de la invitación",
+    "interstitialTitle": "¡Has sido invitado!",
+    "interstitialMessage": "Abre la app de Clubnizer para una mejor experiencia o continúa en el navegador.",
+    "interstitialPreviewClub": "Club: {{name}}",
+    "interstitialPreviewGroup": "Grupo: {{name}}",
+    "interstitialPreviewInvitedBy": "Invitado por {{name}}",
+    "openInApp": "Abrir en la app",
+    "continueInBrowser": "Continuar en el navegador",
+    "interstitialHint": "Si la app no está instalada aún, serás redirigido a la tienda. Después de instalarla, vuelve a tu correo y toca el enlace de invitación de nuevo — se abrirá directamente en la app."
   },
   "invitationReject": {
     "processingResponse": "Procesando su respuesta...",
