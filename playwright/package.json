@@ -1,0 +1,21 @@
+{
+  "name": "clubnizer-demo-videos",
+  "version": "1.0.0",
+  "description": "Playwright scripts for recording Clubnizer instruction videos",
+  "scripts": {
+    "record:all": "playwright test",
+    "record:01": "playwright test scripts/01-signup.spec.ts",
+    "record:02": "playwright test scripts/02-create-club-group.spec.ts",
+    "record:03": "playwright test scripts/03-invite-members.spec.ts",
+    "record:04": "playwright test scripts/04-accept-invitation.spec.ts",
+    "record:05": "playwright test scripts/05-add-underage-player.spec.ts",
+    "record:06": "playwright test scripts/06-upload-profile-picture.spec.ts",
+    "record:07": "playwright test scripts/07-create-event.spec.ts",
+    "record:08": "playwright test scripts/08-post-news.spec.ts",
+    "record:09": "playwright test scripts/09-fees-payments.spec.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "dotenv": "^16.4.5"
+  }
+}

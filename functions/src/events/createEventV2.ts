@@ -8,6 +8,7 @@ import {
     EventDocument,
     EventResponse,
 } from "../types/interfaces";
+import { buildPendingNotificationJobs } from "../utils/notificationHelpers";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
 
@@ -483,43 +484,12 @@ export const createEventV2 = onCall(
 
       const eventDateStr = new Date(data.startDate).toLocaleDateString();
 
-      // Build one notification job per invitee:
-      //   - youth member  → one job per guardian, actionUrl points to the youth's inviteeUserId
-      //   - direct member → one job for themselves
-      type NotificationJob = {
-        targetUserId: string;
-        message: string;
-        inviteeUserId: string;
-        inviteeName: string;
-      };
-
-      const notificationJobs: NotificationJob[] = [];
-
-      for (const resp of responses) {
-        if (
-          resp.isYouthMember &&
-          resp.guardianIds &&
-          resp.guardianIds.length > 0
-        ) {
-          // One notification per guardian, linking to the youth player's context
-          for (const guardianId of resp.guardianIds) {
-            notificationJobs.push({
-              targetUserId: guardianId,
-              message: `${resp.userName || "Your child"} has been invited to ${data.title} on ${eventDateStr}`,
-              inviteeUserId: resp.userId,
-              inviteeName: resp.userName || "",
-            });
-          }
-        } else {
-          // Direct member: notify themselves with their own invitee context
-          notificationJobs.push({
-            targetUserId: resp.userId,
-            message: `You've been invited to ${data.title} on ${eventDateStr}`,
-            inviteeUserId: resp.userId,
-            inviteeName: resp.userName || "",
-          });
-        }
-      }
+      // Build notification jobs — pending-gate applied (only pending invitees notified)
+      const notificationJobs = buildPendingNotificationJobs(
+        responses,
+        data.title,
+        eventDateStr,
+      );
 
       console.log(
         `📬 Sending ${notificationJobs.length} notifications (from ${responses.length} invitees)...`,

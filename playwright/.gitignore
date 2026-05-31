@@ -1,0 +1,9 @@
+# Environment file with real credentials — never commit this
+.env
+
+# Playwright output artefacts
+playwright-report/
+test-results/
+
+# Videos are stored one level up at /videos/ — not ignored there
+node_modules/

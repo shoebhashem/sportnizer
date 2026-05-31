@@ -8,6 +8,8 @@
  *  - sendGroupInvitation → type "group_invitation" + invitationToken
  *  - createMembershipFee → type "payment_request" + metadata
  *  - createNotification (callable) → create / auth / not-found
+ *  - updateEvent → "event updated" notification for all invitees (TC-Q9)
+ *  - editRecurringEvent scope:single → "event updated" notification (TC-Q10)
  */
 
 import {
@@ -160,6 +162,10 @@ async function setupClubGroupAndMembers(): Promise<{
     ],
     memberCount: 2,
   });
+
+  // metadata/members used by createRecurringEvent (different data model from allMembers)
+  await db.doc(`clubs/${clubId}/metadata/members`).set({ memberIds: [adminUser.uid, player.uid] });
+  await db.doc(`clubs/${clubId}/groups/${groupId}/metadata/members`).set({ memberIds: [adminUser.uid, player.uid] });
 
   // Admin groupAccess
   await seedUserDocument(adminUser.uid, {
@@ -534,5 +540,131 @@ describe("Suite Q: Notification Side-Effects Across Cloud Functions", () => {
     //   data.userId          === player.uid            ✓ (embedded at source)
     // These are consumed by redirectFromNotification() in app/_layout.tsx to
     // call markNotificationAsRead(userId, notificationId) on push tap.
+  });
+
+  // ─── updateEvent → notification ──────────────────────────────
+
+  it('TC-Q9: updateEvent creates an "event updated" notification doc for all invitees', async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupClubGroupAndMembers();
+
+    // Create event
+    const createResult = await callFunction<{
+      success: boolean;
+      eventId: string;
+    }>("createEventV2", adminUser.idToken, {
+      clubId,
+      clubName: "Side Club",
+      eventType: "training",
+      title: "Update Side-Effect Event",
+      startDate: futureDate(7),
+      startTime: futureISO(7, 18),
+      endDate: futureDate(7),
+      endTime: futureISO(7, 20),
+      targetScope: {
+        level: "group",
+        groupId,
+        groupName: "Side Group",
+      },
+      createdBy: adminUser.uid,
+      createdByName: adminUser.displayName,
+    });
+
+    expect(createResult.success).toBe(true);
+    const eventId = createResult.eventId;
+
+    // Clear creation-time notifications
+    const db = getFirestore();
+    const snap = await db
+      .collection(`users/${player.uid}/notifications`)
+      .get();
+    await Promise.all(snap.docs.map((d) => d.ref.delete()));
+
+    // Update the event
+    await callFunction("updateEvent", adminUser.idToken, {
+      clubId,
+      eventId,
+      eventData: { title: "Update Side-Effect Event (Changed)" },
+    });
+
+    // Player should receive an edit notification
+    const playerNotifs = await getUserNotifications(player.uid);
+    const editNotif = playerNotifs.find(
+      (n) =>
+        n.type === "event" && (n.title as string).toLowerCase().includes("updated"),
+    );
+    expect(editNotif).toBeDefined();
+    expect(editNotif!.read).toBe(false);
+    expect(editNotif!.dismissed).toBe(false);
+  });
+
+  // ─── editRecurringEvent → notification ───────────────────────
+
+  it("TC-Q10: editRecurringEvent scope:single creates an updated notification doc for invitees", async () => {
+    const {
+      admin: adminUser,
+      player,
+      clubId,
+      groupId,
+    } = await setupClubGroupAndMembers();
+
+    // Create a recurring event series
+    const recurringResult = await callFunction<{
+      success: boolean;
+      recurringEventId: string;
+      occurrenceEventIds: string[];
+    }>("createRecurringEvent", adminUser.idToken, {
+      clubId,
+      clubName: "Side Club",
+      title: "Recurring Side-Effect Event",
+      eventType: "training",
+      startDate: futureDate(7),
+      startTime: futureISO(7, 18),
+      endDate: futureDate(7),
+      endTime: futureISO(7, 20),
+      frequency: "weekly",
+      endType: "occurrences",
+      occurrenceCount: 3,
+      targetScope: {
+        level: "group",
+        groupId,
+        groupName: "Side Group",
+      },
+      createdBy: adminUser.uid,
+      createdByName: adminUser.displayName,
+    });
+
+    expect(recurringResult.success).toBe(true);
+    const { recurringEventId, occurrenceEventIds } = recurringResult;
+
+    // Clear creation-time notifications
+    const db = getFirestore();
+    const snap = await db
+      .collection(`users/${player.uid}/notifications`)
+      .get();
+    await Promise.all(snap.docs.map((d) => d.ref.delete()));
+
+    // Edit a single occurrence
+    await callFunction("editRecurringEvent", adminUser.idToken, {
+      clubId,
+      eventId: occurrenceEventIds[0],
+      recurringEventId,
+      scope: "single",
+      title: "Recurring Side-Effect Event (Single Changed)",
+    });
+
+    // Player should receive an edit notification
+    const playerNotifs = await getUserNotifications(player.uid);
+    const editNotif = playerNotifs.find(
+      (n) =>
+        n.type === "event" && (n.title as string).toLowerCase().includes("updated"),
+    );
+    expect(editNotif).toBeDefined();
+    expect(editNotif!.read).toBe(false);
+    expect(editNotif!.dismissed).toBe(false);
   });
 });

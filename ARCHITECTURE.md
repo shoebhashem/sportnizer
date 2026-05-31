@@ -1722,9 +1722,47 @@ useEffect(() => {
 | `functions/src/notifications/createNotification.ts`   | Orchestrator: Firestore write → push dispatch (embeds `notificationId`+`userId` in data) |
 | `functions/test/push-notifications.test.ts`           | Suite R: 10 backend integration tests                                                    |
 
-### Graceful Degradation
+### Event Notification Strategy
 
-- Push requires network access to `exp.host` — unavailable in the emulator test environment
+#### Pending-Gate Rule
+
+Invitation notifications sent at event **creation** time target only invitees whose `response === "pending"`. Invitees who have already accepted or declined at creation time are skipped.
+
+The gate is enforced by `buildPendingNotificationJobs()` in `functions/src/utils/notificationHelpers.ts`. Both `createEventV2` and `createRecurringEvent` use this helper.
+
+#### Edit Notifications (No Pending-Gate)
+
+When an event is **edited** (`updateEvent` or `editRecurringEvent`), notifications are sent to **all** invitees regardless of their RSVP response, using `buildAllInviteesNotificationJobs()`. This ensures that even invitees who already accepted are informed of schedule or detail changes.
+
+#### Youth Member Guardian Mapping
+
+Both helper functions automatically redirect notifications for youth members to their guardians. If a youth invitee has `isYouthMember: true` and a non-empty `guardianIds` array, one notification job is created per guardian (targeting the guardian's UID) instead of the youth member directly.
+
+#### Daily Event Reminder Scheduler (`sendDailyEventNotifications`)
+
+A Cloud Scheduler job runs at **06:00 UTC** daily and performs two sweeps across all clubs:
+
+| Check | Query | Skip if | Notification | Idempotency field |
+|-------|-------|---------|-------------|-------------------|
+| 24h reminder | `startDate >= now AND startDate <= now+25h AND status == "scheduled"` | `notificationSentAt` is set | `type: "event"`, title: `"Event Reminder: <title>"`, priority: `normal` | `notificationSentAt` |
+| Deadline nudge | `responseDeadline >= now AND responseDeadline <= now+25h AND status == "scheduled"` | `deadlineReminderSentAt` is set | `type: "event"`, title: `"RSVP Reminder: <title>"`, priority: `high` | `deadlineReminderSentAt` |
+
+- **25h window**: catches events starting between "now" and 25 hours ahead. The extra hour beyond 24h guards against the scheduler running slightly after 06:00.
+- **Idempotency**: both guard fields are written to the event document even if there are zero pending invitees, ensuring the scheduler never double-dispatches.
+- **Region**: `europe-west1` (Cloud Scheduler requirement). Callable functions use `europe-north1`.
+- **Timeout**: 540 seconds (9 minutes) to allow iteration over large club datasets.
+
+#### EventDocument Notification Fields
+
+```typescript
+// clubs/{clubId}/events/{eventId}
+{
+  notificationSentAt?: Timestamp | null;      // Written after 24h reminder sweep
+  deadlineReminderSentAt?: Timestamp | null;  // Written after deadline nudge sweep
+}
+```
+
+### Graceful Degradation
 - All push dispatch is wrapped in `.catch()` / `try-catch` — errors are logged but never surfaced to callers
 - The `sendPushNotification()` function has a `Promise<void>` return type and always resolves
 

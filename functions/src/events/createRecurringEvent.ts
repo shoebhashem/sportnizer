@@ -10,6 +10,7 @@ import {
     RecurringEventMaster,
 } from "../types/interfaces";
 import { config } from "../utils/config";
+import { buildPendingNotificationJobs } from "../utils/notificationHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
 /**
@@ -558,51 +559,26 @@ export const createRecurringEvent = onCall(
       // Personalized: guardians see the youth member's name in the message
       // ============================================================================
 
-      // Build one notification job per invitee:
-      //   - youth member  → one job per guardian, actionUrl points to the youth's inviteeUserId
-      //   - direct member → one job for themselves
-      type RecurringNotificationJob = {
-        targetUserId: string;
-        message: string;
-        inviteeUserId: string;
-        inviteeName: string;
-      };
-
       const firstOccurrenceDate = occurrenceDates[0];
-      const notificationJobs: RecurringNotificationJob[] = [];
 
-      for (const resp of responses) {
-        if (
-          resp.isYouthMember &&
-          resp.guardianIds &&
-          resp.guardianIds.length > 0
-        ) {
-          // One notification per guardian, linking to the youth player's context
-          for (const guardianId of resp.guardianIds) {
-            notificationJobs.push({
-              targetUserId: guardianId,
-              message: `${resp.userName || "Your child"} has been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`,
-              inviteeUserId: resp.userId,
-              inviteeName: resp.userName || "",
-            });
-          }
-        } else {
-          // Direct member: notify themselves with their own invitee context
-          notificationJobs.push({
-            targetUserId: resp.userId,
-            message: `You've been invited to ${data.title} (${data.frequency}, ${occurrenceDates.length} occurrences) starting ${firstOccurrenceDate.toLocaleDateString()}`,
-            inviteeUserId: resp.userId,
-            inviteeName: resp.userName || "",
-          });
-        }
-      }
+      // Build notification jobs — pending-gate applied (only pending invitees notified)
+      const notificationJobs = buildPendingNotificationJobs(
+        responses,
+        data.title,
+        firstOccurrenceDate.toLocaleDateString(),
+        {
+          isRecurring: true,
+          occurrenceCount: occurrenceDates.length,
+          frequency: data.frequency,
+        },
+      );
 
       console.log(
         `📬 Sending ${notificationJobs.length} notifications for recurring event (from ${responses.length} invitees)...`,
       );
 
       const notificationPromises = notificationJobs.map(
-        async (job: RecurringNotificationJob) => {
+        async (job) => {
           try {
             await createNotificationDirect(job.targetUserId, {
               type: "event",

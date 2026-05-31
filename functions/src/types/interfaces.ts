@@ -680,6 +680,10 @@ export interface EventDocument {
 
   // Version tracking (for future notification system)
   version?: number; // Incremented on each update, used to trigger notifications
+
+  // Idempotency guards for the daily notification scheduler
+  notificationSentAt?: any | null; // Set when the 24h event reminder has been dispatched
+  deadlineReminderSentAt?: any | null; // Set when the response-deadline nudge has been dispatched
 }
 
 // Legacy EventData interface - keep for backward compatibility with existing UI

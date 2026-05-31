@@ -1,6 +1,8 @@
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { createNotificationDirect } from "../notifications/createNotification";
+import { buildAllInviteesNotificationJobs } from "../utils/notificationHelpers";
 import { config } from "../utils/config";
 import { validateRequiredFields } from "../utils/validation";
 
@@ -89,6 +91,63 @@ export const updateEvent = onCall(
       }
 
       await eventRef.update(updateData);
+
+      // Send "event updated" notifications to all invitees (no pending-gate —
+      // even accepted/declined members need to know about changes).
+      // Fire-and-forget: notification failure must not fail the update.
+      try {
+        const updatedEvent = event!;
+        const responses: any[] = updatedEvent.responses || [];
+        const startDateStr = updatedEvent.startDate?.toDate
+          ? updatedEvent.startDate.toDate().toLocaleDateString()
+          : new Date(updatedEvent.startDate).toLocaleDateString();
+
+        const notificationJobs = buildAllInviteesNotificationJobs(
+          responses,
+          updatedEvent.title,
+          startDateStr,
+          "time, location, or other details",
+        );
+
+        if (notificationJobs.length > 0) {
+          await Promise.all(
+            notificationJobs.map(async (job) => {
+              try {
+                await createNotificationDirect(job.targetUserId, {
+                  type: "event",
+                  title: `Event Updated: ${updatedEvent.title}`,
+                  message: job.message,
+                  sourceId: eventId,
+                  sourceCollection: "events",
+                  clubId,
+                  clubName: updatedEvent.targetScope?.clubName || "",
+                  ...(updatedEvent.targetScope?.groupId && {
+                    groupId: updatedEvent.targetScope.groupId,
+                  }),
+                  ...(updatedEvent.targetScope?.groupName && {
+                    groupName: updatedEvent.targetScope.groupName,
+                  }),
+                  priority: "normal",
+                  actionUrl: `/event-details?eventId=${eventId}&clubId=${clubId}&inviteeUserId=${job.inviteeUserId}&inviteeName=${encodeURIComponent(job.inviteeName)}`,
+                });
+              } catch (notifErr: any) {
+                console.error(
+                  `⚠️ Edit notification failed for user ${job.targetUserId}:`,
+                  notifErr.message,
+                );
+              }
+            }),
+          );
+          console.log(
+            `✅ Sent ${notificationJobs.length} edit notifications for event ${eventId}`,
+          );
+        }
+      } catch (notifErr: any) {
+        console.error(
+          `⚠️ Failed to send edit notifications for event ${eventId}:`,
+          notifErr.message,
+        );
+      }
 
       // 4. Return consistent response
       return {

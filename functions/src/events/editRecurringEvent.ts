@@ -1,8 +1,10 @@
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { createNotificationDirect } from "../notifications/createNotification";
 import { EditRecurringEventRequest } from "../types/interfaces";
 import { config } from "../utils/config";
+import { buildAllInviteesNotificationJobs } from "../utils/notificationHelpers";
 import { validateRequiredFields } from "../utils/validation";
 
 /**
@@ -325,6 +327,65 @@ export const editRecurringEvent = onCall(
 
         console.log(
           `✅ Recurring event edited (future scope): ${updatedCount} occurrences updated, master updated`,
+        );
+      }
+
+      // ============================================================================
+      // STEP 6: Send "event updated" notifications to all invitees
+      // No pending-gate — accepted/declined members must know about changes too.
+      // For "future" scope all occurrences share the same invitedUserIds, so
+      // sending once (deduplicated) is sufficient.
+      // ============================================================================
+      try {
+        const responses: any[] = eventData.responses || [];
+        const startDateStr = eventData.startDate?.toDate
+          ? eventData.startDate.toDate().toLocaleDateString()
+          : new Date(eventData.startDate).toLocaleDateString();
+
+        const notificationJobs = buildAllInviteesNotificationJobs(
+          responses,
+          eventData.title,
+          startDateStr,
+          "time, location, or other details",
+        );
+
+        if (notificationJobs.length > 0) {
+          await Promise.all(
+            notificationJobs.map(async (job) => {
+              try {
+                await createNotificationDirect(job.targetUserId, {
+                  type: "event",
+                  title: `Event Updated: ${eventData.title}`,
+                  message: job.message,
+                  sourceId: data.eventId,
+                  sourceCollection: "events",
+                  clubId,
+                  clubName: eventData.targetScope?.clubName || "",
+                  ...(eventData.targetScope?.groupId && {
+                    groupId: eventData.targetScope.groupId,
+                  }),
+                  ...(eventData.targetScope?.groupName && {
+                    groupName: eventData.targetScope.groupName,
+                  }),
+                  priority: "normal",
+                  actionUrl: `/event-details?eventId=${data.eventId}&clubId=${clubId}&inviteeUserId=${job.inviteeUserId}&inviteeName=${encodeURIComponent(job.inviteeName)}`,
+                });
+              } catch (notifErr: any) {
+                console.error(
+                  `⚠️ Edit notification failed for user ${job.targetUserId}:`,
+                  notifErr.message,
+                );
+              }
+            }),
+          );
+          console.log(
+            `✅ Sent ${notificationJobs.length} edit notifications for recurring event (scope: ${data.scope})`,
+          );
+        }
+      } catch (notifErr: any) {
+        console.error(
+          `⚠️ Failed to send edit notifications for recurring event ${data.eventId}:`,
+          notifErr.message,
         );
       }
 

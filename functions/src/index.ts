@@ -129,6 +129,7 @@ export { uploadProfilePictureForMember } from "./profile/uploadProfilePictureFor
 // Scheduled Functions
 export { cleanupDeletedEntities } from "./scheduled/cleanupDeletedEntities";
 export { cleanupOldEvents } from "./scheduled/cleanupOldEvents";
+export { sendDailyEventNotifications } from "./scheduled/sendDailyEventNotifications";
 
 // Admin/Development Functions
 export { devForceCleanup } from "./admin/devForceCleanup";
