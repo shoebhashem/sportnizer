@@ -5,6 +5,8 @@
   "scripts": {
     "record:all": "playwright test",
     "record:01": "playwright test scripts/01-signup.spec.ts",
+    "record:01:headed": "playwright test scripts/01-signup.spec.ts --headed",
+    "record:01:live": "PWDEBUG=1 playwright test scripts/01-signup.spec.ts --headed",
     "record:02": "playwright test scripts/02-create-club-group.spec.ts",
     "record:03": "playwright test scripts/03-invite-members.spec.ts",
     "record:04": "playwright test scripts/04-accept-invitation.spec.ts",

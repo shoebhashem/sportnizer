@@ -49,3 +49,5 @@ firebase-debug.log
 # Marketing site — has its own git repo (github.com/shoebhashem/sport-club-simplified)
 # Push from within sportnizer_home/sport-club-simplified/ to trigger Netlify CI/CD
 sportnizer_home/
+
+videos/

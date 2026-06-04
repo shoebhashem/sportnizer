@@ -10,11 +10,12 @@ const PHONE_HEIGHT = 844;
 export default defineConfig({
   testDir: './scripts',
   outputDir: '../videos',
-  timeout: 180_000,       // 3 min max per video step
+  timeout: 420_000,       // 7 min max per video step (email + external flows)
   expect: { timeout: 15_000 },
 
   use: {
     baseURL: process.env.BASE_URL || 'https://app.clubnizer.com',
+    browserName: 'chromium',
 
     // iPhone 14 emulation — looks like a real phone in the recording
     ...devices['iPhone 14'],

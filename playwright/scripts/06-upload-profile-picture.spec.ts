@@ -11,6 +11,7 @@
  *               See docs/video-demo-users.md for details.
  */
 
+import * as fs from 'fs';
 import * as path from 'path';
 import { test } from '@playwright/test';
 import { login, pause, tapText, waitForText } from '../helpers/auth';
@@ -18,8 +19,12 @@ import { login, pause, tapText, waitForText } from '../helpers/auth';
 const userEmail = process.env.TESTER6_EMAIL!;       // John Andersson
 const userPassword = process.env.TESTER6_PASSWORD!;
 
-// Path to a sample profile photo to upload (place one in playwright/assets/)
-const PROFILE_PHOTO = path.join(__dirname, '../assets/sample-profile.jpg');
+// Path to a sample profile photo to upload (supports .png and .jpg)
+const PROFILE_PHOTO_PNG = path.join(__dirname, '../assets/sample-profile.png');
+const PROFILE_PHOTO_JPG = path.join(__dirname, '../assets/sample-profile.jpg');
+const PROFILE_PHOTO = fs.existsSync(PROFILE_PHOTO_PNG)
+  ? PROFILE_PHOTO_PNG
+  : PROFILE_PHOTO_JPG;
 
 test('06 – Upload a profile picture', async ({ page }) => {
   // ── Step 1: Sign in ─────────────────────────────────────────────────────────
