@@ -10,8 +10,8 @@
  *     Delete the Firebase Auth account before re-recording.
  */
 
-import { test } from '@playwright/test';
-import { fillByLabel, pause, tapText } from '../helpers/auth';
+import { test } from "@playwright/test";
+import { fillByLabel, pause } from "../helpers/auth";
 
 const email = process.env.NEW_USER_EMAIL!;
 const password = process.env.NEW_USER_PASSWORD!;
@@ -23,12 +23,7 @@ function assertEnv(name: string, value: string | undefined) {
     throw new Error(`Missing required env var: ${name}`);
   }
 
-  const placeholderTokens = [
-    'your_',
-    '_here',
-    'example',
-    'placeholder',
-  ];
+  const placeholderTokens = ["your_", "_here", "example", "placeholder"];
 
   const lower = value.toLowerCase();
   if (placeholderTokens.some((t) => lower.includes(t))) {
@@ -38,7 +33,7 @@ function assertEnv(name: string, value: string | undefined) {
 
 async function clickByTextAny(page: any, texts: string[]) {
   for (const text of texts) {
-    const buttonLike = page.getByRole('button', { name: text }).first();
+    const buttonLike = page.getByRole("button", { name: text }).first();
     if (await buttonLike.isVisible().catch(() => false)) {
       await buttonLike.click({ timeout: 2_500 }).catch(async () => {
         await buttonLike.click({ force: true, timeout: 2_500 });
@@ -57,7 +52,7 @@ async function clickByTextAny(page: any, texts: string[]) {
   }
 
   // Fallback: partial match for any candidate text
-  const regex = new RegExp(texts.join('|'), 'i');
+  const regex = new RegExp(texts.join("|"), "i");
   const partial = page.getByText(regex).last();
   if (await partial.isVisible().catch(() => false)) {
     await partial.click({ timeout: 2_500 }).catch(async () => {
@@ -71,7 +66,7 @@ async function clickByTextAny(page: any, texts: string[]) {
 
 async function clickActionByTextAny(page: any, texts: string[]) {
   for (const text of texts) {
-    const buttonLike = page.getByRole('button', { name: text }).first();
+    const buttonLike = page.getByRole("button", { name: text }).first();
     if (await buttonLike.isVisible().catch(() => false)) {
       await buttonLike.click();
       return true;
@@ -89,7 +84,11 @@ async function clickActionByTextAny(page: any, texts: string[]) {
   return false;
 }
 
-async function fillByPlaceholderAny(page: any, placeholders: string[], value: string) {
+async function fillByPlaceholderAny(
+  page: any,
+  placeholders: string[],
+  value: string,
+) {
   for (const placeholder of placeholders) {
     const el = page.getByPlaceholder(placeholder).first();
     if (await el.isVisible().catch(() => false)) {
@@ -98,13 +97,17 @@ async function fillByPlaceholderAny(page: any, placeholders: string[], value: st
     }
   }
 
-  throw new Error(`Could not find input by placeholders: ${placeholders.join(', ')}`);
+  throw new Error(
+    `Could not find input by placeholders: ${placeholders.join(", ")}`,
+  );
 }
 
 async function clickFirstVisible(
   page: any,
-  selectors: Array<{ type: 'text'; value: string } | { type: 'css'; value: string }>,
-  timeoutMs = 12_000
+  selectors: Array<
+    { type: "text"; value: string } | { type: "css"; value: string }
+  >,
+  timeoutMs = 12_000,
 ) {
   const deadline = Date.now() + timeoutMs;
 
@@ -115,7 +118,7 @@ async function clickFirstVisible(
 
     for (const selector of selectors) {
       const locator =
-        selector.type === 'text'
+        selector.type === "text"
           ? page.getByText(selector.value).first()
           : page.locator(selector.value).first();
 
@@ -133,13 +136,15 @@ async function clickFirstVisible(
 
 async function clickVerificationLinkInWebmail(webmailPage: any) {
   const isVerificationUrl = (url: string) => {
-    return /oobCode=|mode=verifyEmail|accountAction|firebaseapp\.com\/.*action|\/verifyEmail\?token=/i.test(url || '');
+    return /oobCode=|mode=verifyEmail|accountAction|firebaseapp\.com\/.*action|\/verifyEmail\?token=/i.test(
+      url || "",
+    );
   };
 
   const verificationReached = async () => {
-    if (isVerificationUrl(webmailPage.url?.() || '')) return true;
+    if (isVerificationUrl(webmailPage.url?.() || "")) return true;
     for (const p of webmailPage.context().pages()) {
-      if (isVerificationUrl(p.url?.() || '')) return true;
+      if (isVerificationUrl(p.url?.() || "")) return true;
     }
     return false;
   };
@@ -148,34 +153,44 @@ async function clickVerificationLinkInWebmail(webmailPage: any) {
 
   for (const ctx of contexts) {
     // Scroll the email body area to reveal CTA buttons that are below fold.
-    await ctx.evaluate(() => {
-      const candidates = Array.from(document.querySelectorAll('[style*="overflow"], .scrollable, .mail-detail, .message-body')) as HTMLElement[];
-      for (const el of candidates) {
-        try {
-          el.scrollTop = 0;
-        } catch {}
-      }
-      window.scrollTo(0, 0);
-    }).catch(() => {});
+    await ctx
+      .evaluate(() => {
+        const candidates = Array.from(
+          document.querySelectorAll(
+            '[style*="overflow"], .scrollable, .mail-detail, .message-body',
+          ),
+        ) as HTMLElement[];
+        for (const el of candidates) {
+          try {
+            el.scrollTop = 0;
+          } catch {}
+        }
+        window.scrollTo(0, 0);
+      })
+      .catch(() => {});
 
     const clickAttempt = async () => {
       // Primary path: click the explicit CTA text after ensuring it is in view.
       const explicitCtas = [
-        ctx.getByRole('link', { name: /Verify Your Email/i }).first(),
-        ctx.getByRole('button', { name: /Verify Your Email/i }).first(),
+        ctx.getByRole("link", { name: /Verify Your Email/i }).first(),
+        ctx.getByRole("button", { name: /Verify Your Email/i }).first(),
         ctx.getByText(/Verify Your Email/i).first(),
       ];
 
       for (const cta of explicitCtas) {
         if (await cta.isVisible().catch(() => false)) {
-          const popupPromise = webmailPage.waitForEvent('popup', { timeout: 2500 }).catch(() => null);
+          const popupPromise = webmailPage
+            .waitForEvent("popup", { timeout: 2500 })
+            .catch(() => null);
           await cta.scrollIntoViewIfNeeded().catch(() => {});
           await cta.click({ timeout: 3000 }).catch(async () => {
             await cta.click({ force: true, timeout: 3000 });
           });
           const popup = await popupPromise;
           if (popup) {
-            await popup.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
+            await popup
+              .waitForLoadState("domcontentloaded", { timeout: 8000 })
+              .catch(() => {});
           }
           await webmailPage.waitForTimeout(1200).catch(() => {});
           if (await verificationReached()) return true;
@@ -193,32 +208,45 @@ async function clickVerificationLinkInWebmail(webmailPage: any) {
       for (const sel of selectors) {
         const link = ctx.locator(sel).first();
         if (await link.isVisible().catch(() => false)) {
-          const popupPromise = webmailPage.waitForEvent('popup', { timeout: 2500 }).catch(() => null);
+          const popupPromise = webmailPage
+            .waitForEvent("popup", { timeout: 2500 })
+            .catch(() => null);
           await link.scrollIntoViewIfNeeded().catch(() => {});
           await link.click({ timeout: 3000 }).catch(async () => {
             await link.click({ force: true, timeout: 3000 });
           });
           const popup = await popupPromise;
           if (popup) {
-            await popup.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
+            await popup
+              .waitForLoadState("domcontentloaded", { timeout: 8000 })
+              .catch(() => {});
           }
           await webmailPage.waitForTimeout(1200).catch(() => {});
           if (await verificationReached()) return true;
         }
       }
 
-      const textButtons = ['Verify Email', 'Verify Your Email', 'Verify your email', 'Verify your Clubnizer account'];
+      const textButtons = [
+        "Verify Email",
+        "Verify Your Email",
+        "Verify your email",
+        "Verify your Clubnizer account",
+      ];
       for (const text of textButtons) {
-        const btn = ctx.getByText(new RegExp(text, 'i')).first();
+        const btn = ctx.getByText(new RegExp(text, "i")).first();
         if (await btn.isVisible().catch(() => false)) {
-          const popupPromise = webmailPage.waitForEvent('popup', { timeout: 2500 }).catch(() => null);
+          const popupPromise = webmailPage
+            .waitForEvent("popup", { timeout: 2500 })
+            .catch(() => null);
           await btn.scrollIntoViewIfNeeded().catch(() => {});
           await btn.click({ timeout: 3000 }).catch(async () => {
             await btn.click({ force: true, timeout: 3000 });
           });
           const popup = await popupPromise;
           if (popup) {
-            await popup.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
+            await popup
+              .waitForLoadState("domcontentloaded", { timeout: 8000 })
+              .catch(() => {});
           }
           await webmailPage.waitForTimeout(1200).catch(() => {});
           if (await verificationReached()) return true;
@@ -233,29 +261,45 @@ async function clickVerificationLinkInWebmail(webmailPage: any) {
       const clicked = await clickAttempt();
       if (clicked) return true;
 
-      await ctx.evaluate(() => {
-        window.scrollBy(0, 500);
-        const candidates = Array.from(document.querySelectorAll('[style*="overflow"], .scrollable, .mail-detail, .message-body')) as HTMLElement[];
-        for (const el of candidates) {
-          try {
-            el.scrollTop += 500;
-          } catch {}
-        }
-      }).catch(() => {});
+      await ctx
+        .evaluate(() => {
+          window.scrollBy(0, 500);
+          const candidates = Array.from(
+            document.querySelectorAll(
+              '[style*="overflow"], .scrollable, .mail-detail, .message-body',
+            ),
+          ) as HTMLElement[];
+          for (const el of candidates) {
+            try {
+              el.scrollTop += 500;
+            } catch {}
+          }
+        })
+        .catch(() => {});
       await ctx.waitForTimeout(250).catch(() => {});
     }
   }
 
   // Last-resort fallback: extract verification href from DOM and navigate to it.
   for (const ctx of contexts) {
-    const href = await ctx.evaluate(() => {
-      const links = Array.from(document.querySelectorAll('a')) as HTMLAnchorElement[];
-      const found = links.find((a) => /oobCode=|mode=verifyEmail|accountAction|firebaseapp\.com\/.*action|\/verifyEmail\?token=/i.test(a.href || ''));
-      return found?.href || null;
-    }).catch(() => null);
+    const href = await ctx
+      .evaluate(() => {
+        const links = Array.from(
+          document.querySelectorAll("a"),
+        ) as HTMLAnchorElement[];
+        const found = links.find((a) =>
+          /oobCode=|mode=verifyEmail|accountAction|firebaseapp\.com\/.*action|\/verifyEmail\?token=/i.test(
+            a.href || "",
+          ),
+        );
+        return found?.href || null;
+      })
+      .catch(() => null);
 
     if (href) {
-      await webmailPage.goto(href, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
+      await webmailPage
+        .goto(href, { waitUntil: "domcontentloaded", timeout: 60_000 })
+        .catch(() => {});
       await webmailPage.waitForTimeout(1200).catch(() => {});
       if (await verificationReached()) return true;
     }
@@ -271,18 +315,26 @@ function resolveLiveWebmailPage(context: any, currentPage: any) {
 
   const byUrl = context
     .pages()
-    .find((p: any) => !p.isClosed?.() && /webmail\.strato\.com/i.test(p.url?.() || ''));
+    .find(
+      (p: any) =>
+        !p.isClosed?.() && /webmail\.strato\.com/i.test(p.url?.() || ""),
+    );
   if (byUrl) return byUrl;
 
   const anyOpen = context.pages().find((p: any) => !p.isClosed?.());
   return anyOpen || currentPage;
 }
 
-async function openVerificationEmailInInbox(webmailPage: any, timeoutMs = 20_000) {
+async function openVerificationEmailInInbox(
+  webmailPage: any,
+  timeoutMs = 20_000,
+) {
   const deadline = Date.now() + timeoutMs;
 
   const openInbox = async () => {
-    const inboxItem = webmailPage.getByRole('treeitem', { name: /Inkorg|Inbox/i }).first();
+    const inboxItem = webmailPage
+      .getByRole("treeitem", { name: /Inkorg|Inbox/i })
+      .first();
     if (await inboxItem.isVisible().catch(() => false)) {
       await inboxItem.click({ timeout: 2_500 }).catch(async () => {
         await inboxItem.click({ force: true, timeout: 2_500 }).catch(() => {});
@@ -296,16 +348,22 @@ async function openVerificationEmailInInbox(webmailPage: any, timeoutMs = 20_000
   const tryOpenLatestVerificationRow = async () => {
     // Prefer newest message in the list (topmost) with sender+subject.
     const optionBySenderAndSubject = webmailPage
-      .getByRole('option', { name: /noreply@clubnizer\.com.*Verify Your Clubnizer Account/i })
+      .getByRole("option", {
+        name: /noreply@clubnizer\.com.*Verify Your Clubnizer Account/i,
+      })
       .first();
     const optionBySubject = webmailPage
-      .getByRole('option', { name: /Verify Your Clubnizer Account/i })
+      .getByRole("option", { name: /Verify Your Clubnizer Account/i })
       .first();
     const optionBySender = webmailPage
-      .getByRole('option', { name: /noreply@clubnizer\.com/i })
+      .getByRole("option", { name: /noreply@clubnizer\.com/i })
       .first();
 
-    const candidates = [optionBySenderAndSubject, optionBySubject, optionBySender];
+    const candidates = [
+      optionBySenderAndSubject,
+      optionBySubject,
+      optionBySender,
+    ];
 
     for (const row of candidates) {
       if (await row.isVisible().catch(() => false)) {
@@ -316,11 +374,15 @@ async function openVerificationEmailInInbox(webmailPage: any, timeoutMs = 20_000
           await row.click({ force: true, timeout: 2_500 }).catch(() => {});
         });
         if (webmailPage.isClosed?.()) return false;
-        await row.press('Enter').catch(() => {});
+        await row.press("Enter").catch(() => {});
 
-        const conversationHeading = webmailPage.getByRole('heading', { name: /Verify Your Clubnizer Account/i }).first();
-        const messagePanel = webmailPage.getByRole('region', { name: /Konversation|Conversation/i }).first();
-        const mailIframe = webmailPage.locator('iframe').first();
+        const conversationHeading = webmailPage
+          .getByRole("heading", { name: /Verify Your Clubnizer Account/i })
+          .first();
+        const messagePanel = webmailPage
+          .getByRole("region", { name: /Konversation|Conversation/i })
+          .first();
+        const mailIframe = webmailPage.locator("iframe").first();
         if (
           (await conversationHeading.isVisible().catch(() => false)) ||
           (await messagePanel.isVisible().catch(() => false)) ||
@@ -344,15 +406,21 @@ async function openVerificationEmailInInbox(webmailPage: any, timeoutMs = 20_000
     if (opened) return true;
 
     // Last fallback: click visible subject text, then confirm conversation panel/heading.
-    const subjectText = webmailPage.getByText(/Verify Your Clubnizer Account/i).first();
+    const subjectText = webmailPage
+      .getByText(/Verify Your Clubnizer Account/i)
+      .first();
     if (await subjectText.isVisible().catch(() => false)) {
       await subjectText.click({ timeout: 2_500 }).catch(async () => {
         if (webmailPage.isClosed?.()) return;
-        await subjectText.click({ force: true, timeout: 2_500 }).catch(() => {});
+        await subjectText
+          .click({ force: true, timeout: 2_500 })
+          .catch(() => {});
       });
       if (webmailPage.isClosed?.()) return false;
 
-      const conversationHeading = webmailPage.getByRole('heading', { name: /Verify Your Clubnizer Account/i }).first();
+      const conversationHeading = webmailPage
+        .getByRole("heading", { name: /Verify Your Clubnizer Account/i })
+        .first();
       if (await conversationHeading.isVisible().catch(() => false)) {
         return true;
       }
@@ -383,7 +451,9 @@ async function submitStratoLogin(page: any, passwordInput: any) {
     }
   }
 
-  const roleBtn = page.getByRole('button', { name: /Logga in|Login|Sign in/i }).first();
+  const roleBtn = page
+    .getByRole("button", { name: /Logga in|Login|Sign in/i })
+    .first();
   if (await roleBtn.isVisible().catch(() => false)) {
     await roleBtn.click({ timeout: 3000 }).catch(async () => {
       await roleBtn.click({ force: true, timeout: 3000 });
@@ -392,20 +462,30 @@ async function submitStratoLogin(page: any, passwordInput: any) {
   }
 
   // Final fallback: submit form by pressing Enter in password field.
-  await passwordInput.press('Enter').catch(async () => {
-    await page.keyboard.press('Enter');
+  await passwordInput.press("Enter").catch(async () => {
+    await page.keyboard.press("Enter");
   });
   return true;
 }
 
-async function isAnyTextVisible(page: any, patterns: RegExp[], timeoutMs = 12_000) {
+async function isAnyTextVisible(
+  page: any,
+  patterns: RegExp[],
+  timeoutMs = 12_000,
+) {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     if (page.isClosed?.()) return false;
 
     for (const pattern of patterns) {
-      if (await page.getByText(pattern).first().isVisible().catch(() => false)) {
+      if (
+        await page
+          .getByText(pattern)
+          .first()
+          .isVisible()
+          .catch(() => false)
+      ) {
         return true;
       }
     }
@@ -418,8 +498,11 @@ async function isAnyTextVisible(page: any, patterns: RegExp[], timeoutMs = 12_00
 
 async function waitForAnyVisible(
   page: any,
-  selectors: Array<{ type: 'role'; role: 'heading' | 'button' | 'textbox'; name: string } | { type: 'text'; value: string }>,
-  timeoutMs = 20_000
+  selectors: Array<
+    | { type: "role"; role: "heading" | "button" | "textbox"; name: string }
+    | { type: "text"; value: string }
+  >,
+  timeoutMs = 20_000,
 ) {
   const deadline = Date.now() + timeoutMs;
 
@@ -428,7 +511,7 @@ async function waitForAnyVisible(
 
     for (const s of selectors) {
       const locator =
-        s.type === 'role'
+        s.type === "role"
           ? page.getByRole(s.role, { name: s.name }).first()
           : page.getByText(s.value).first();
 
@@ -448,66 +531,82 @@ function logStep(message: string) {
   console.log(`[video-01] ${message}`);
 }
 
-test('01 – Sign up, verify email, sign in', async ({ page }) => {
+test("01 – Sign up, verify email, sign in", async ({ page }) => {
   test.setTimeout(420_000); // 7 minutes for signup + external webmail interaction
 
-  assertEnv('NEW_USER_EMAIL', email);
-  assertEnv('NEW_USER_PASSWORD', password);
-  assertEnv('NEW_USER_NAME', fullName);
-  assertEnv('WEBMAIL_PASSWORD', webmailPassword);
-  logStep('Environment variables validated');
+  assertEnv("NEW_USER_EMAIL", email);
+  assertEnv("NEW_USER_PASSWORD", password);
+  assertEnv("NEW_USER_NAME", fullName);
+  assertEnv("WEBMAIL_PASSWORD", webmailPassword);
+  logStep("Environment variables validated");
 
   // ── Step 1: Welcome screen ──────────────────────────────────────────────────
-  logStep('Opening app welcome screen');
-  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+  logStep("Opening app welcome screen");
+  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page
+    .waitForLoadState("networkidle", { timeout: 20_000 })
+    .catch(() => {});
   await pause(page, 2000); // let viewer see the welcome screen
 
   // If we're already on /signup, skip the welcome CTA click.
   if (!/\/signup/.test(page.url())) {
-    await clickByTextAny(page, ['Get Started', 'Kom igång']);
+    await clickByTextAny(page, ["Get Started", "Kom igång"]);
     await pause(page, 1000);
   }
 
   // ── Step 2: Fill in the sign-up form ────────────────────────────────────────
-  logStep('Navigated to signup and filling account form');
+  logStep("Navigated to signup and filling account form");
   await page.waitForURL(/\/signup/, { timeout: 25_000 });
-  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+  await page
+    .waitForLoadState("networkidle", { timeout: 15_000 })
+    .catch(() => {});
   await pause(page, 800);
 
-  await fillByPlaceholderAny(page, ['Enter your full name', 'Ange ditt fullständiga namn'], fullName).catch(async () => {
-    await fillByLabel(page, 'Full Name', fullName);
+  await fillByPlaceholderAny(
+    page,
+    ["Enter your full name", "Ange ditt fullständiga namn"],
+    fullName,
+  ).catch(async () => {
+    await fillByLabel(page, "Full Name", fullName);
   });
   await pause(page, 500);
 
-  await fillByPlaceholderAny(page, ['your@email.com', 'din@epost.se'], email).catch(async () => {
-    await fillByLabel(page, 'Email', email);
+  await fillByPlaceholderAny(
+    page,
+    ["your@email.com", "din@epost.se"],
+    email,
+  ).catch(async () => {
+    await fillByLabel(page, "Email", email);
   });
   await pause(page, 500);
 
   await fillByPlaceholderAny(
     page,
     [
-      'Create a password (min 6 characters)',
-      'Create a password (min. 6 chars)',
-      'Skapa ett lösenord (minst 6 tecken)',
+      "Create a password (min 6 characters)",
+      "Create a password (min. 6 chars)",
+      "Skapa ett lösenord (minst 6 tecken)",
     ],
-    password
+    password,
   ).catch(async () => {
-    await fillByLabel(page, 'Password', password);
+    await fillByLabel(page, "Password", password);
   });
   await pause(page, 500);
 
-  await fillByPlaceholderAny(page, ['Confirm your password', 'Bekräfta ditt lösenord'], password).catch(async () => {
-    await fillByLabel(page, 'Confirm Password', password);
+  await fillByPlaceholderAny(
+    page,
+    ["Confirm your password", "Bekräfta ditt lösenord"],
+    password,
+  ).catch(async () => {
+    await fillByLabel(page, "Confirm Password", password);
   });
   await pause(page, 800);
 
   // Accept terms & conditions checkbox
   // The legal checkbox is a Pressable — find it by the surrounding text
   await clickActionByTextAny(page, [
-    'I have read and agree to the Terms of Service and Privacy Policy',
-    'Jag har läst och godkänner användarvillkoren och integritetspolicyn',
+    "I have read and agree to the Terms of Service and Privacy Policy",
+    "Jag har läst och godkänner användarvillkoren och integritetspolicyn",
   ]).catch(() => {});
 
   // Fallback: click any explicit checkbox role if present.
@@ -517,11 +616,15 @@ test('01 – Sign up, verify email, sign in', async ({ page }) => {
   }
   await pause(page, 500);
 
-  const submitted = await clickActionByTextAny(page, ['Create Account', 'Sign Up', 'Skapa konto']);
+  const submitted = await clickActionByTextAny(page, [
+    "Create Account",
+    "Sign Up",
+    "Skapa konto",
+  ]);
   if (!submitted) {
-    throw new Error('Could not find clickable Create Account/Sign Up button.');
+    throw new Error("Could not find clickable Create Account/Sign Up button.");
   }
-  logStep('Signup submitted');
+  logStep("Signup submitted");
   await pause(page, 2000); // wait for "verify email" confirmation screen
 
   // Confirm signup actually succeeded before moving to inbox.
@@ -534,7 +637,7 @@ test('01 – Sign up, verify email, sign in', async ({ page }) => {
       /Verifiera din e-post/i,
       /Kontrollera din e-post/i,
     ],
-    20_000
+    20_000,
   );
 
   if (!signupSuccess) {
@@ -544,47 +647,63 @@ test('01 – Sign up, verify email, sign in', async ({ page }) => {
         /An account already exists with this email address/i,
         /Ett konto finns redan med denna e-postadress/i,
       ],
-      5_000
+      5_000,
     );
 
     if (existingAccountError) {
       throw new Error(
-        `Signup failed because ${email} already exists. Delete this user in Firebase Auth (or use a brand new email) before recording Video 01.`
+        `Signup failed because ${email} already exists. Delete this user in Firebase Auth (or use a brand new email) before recording Video 01.`,
       );
     }
 
-    const snippet = (await page.locator('body').innerText().catch(() => ''))
+    const snippet = (
+      await page
+        .locator("body")
+        .innerText()
+        .catch(() => "")
+    )
       .slice(0, 600)
-      .replace(/\s+/g, ' ');
+      .replace(/\s+/g, " ");
     throw new Error(
-      `Signup was submitted but no success/verification message appeared. Page snippet: ${snippet}`
+      `Signup was submitted but no success/verification message appeared. Page snippet: ${snippet}`,
     );
   }
-  logStep('Signup success message confirmed');
+  logStep("Signup success message confirmed");
 
   // ── Step 3: Open Strato webmail to verify the email ────────────────────────
-  logStep('Opening Strato webmail');
+  logStep("Opening Strato webmail");
   const browserContext = page.context();
   let webmailPage = await browserContext.newPage();
 
-  await webmailPage.goto('https://webmail.strato.com/appsuite/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await webmailPage.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+  await webmailPage.goto("https://webmail.strato.com/appsuite/", {
+    waitUntil: "domcontentloaded",
+    timeout: 60_000,
+  });
+  await webmailPage
+    .waitForLoadState("networkidle", { timeout: 20_000 })
+    .catch(() => {});
   await pause(webmailPage, 1500);
 
   // Strato can open either on login form or directly in inbox.
   // Detect login inputs directly and fill when present.
   const loginInput = webmailPage
-    .locator('input[name="login"], input[placeholder*="E-post"], input[placeholder*="Email"], input[type="text"]')
+    .locator(
+      'input[name="login"], input[placeholder*="E-post"], input[placeholder*="Email"], input[type="text"]',
+    )
     .first();
   const passwordInput = webmailPage
-    .locator('input[name="password"], input[placeholder*="Lösenord"], input[placeholder*="Password"], input[type="password"]')
+    .locator(
+      'input[name="password"], input[placeholder*="Lösenord"], input[placeholder*="Password"], input[type="password"]',
+    )
     .first();
 
   const loginInputVisible = await loginInput.isVisible().catch(() => false);
-  const passwordInputVisible = await passwordInput.isVisible().catch(() => false);
+  const passwordInputVisible = await passwordInput
+    .isVisible()
+    .catch(() => false);
 
   if (loginInputVisible && passwordInputVisible) {
-    logStep('Strato login inputs detected; filling credentials');
+    logStep("Strato login inputs detected; filling credentials");
 
     await loginInput.fill(email);
     await pause(webmailPage, 400);
@@ -594,22 +713,24 @@ test('01 – Sign up, verify email, sign in', async ({ page }) => {
 
     await submitStratoLogin(webmailPage, passwordInput);
 
-    logStep('Submitted Strato login form');
+    logStep("Submitted Strato login form");
     await waitForAnyVisible(
       webmailPage,
       [
-        { type: 'text', value: 'Inkorg' },
-        { type: 'text', value: 'E-post' },
-        { type: 'text', value: 'Inloggning' },
-        { type: 'text', value: 'Login' },
+        { type: "text", value: "Inkorg" },
+        { type: "text", value: "E-post" },
+        { type: "text", value: "Inloggning" },
+        { type: "text", value: "Login" },
       ],
-      20_000
+      20_000,
     ).catch(() => null);
-    logStep('Strato post-login readiness check completed');
+    logStep("Strato post-login readiness check completed");
     await pause(webmailPage, 2500);
     webmailPage = resolveLiveWebmailPage(browserContext, webmailPage);
   } else {
-    logStep('Strato login inputs not visible; assuming inbox/session is already open');
+    logStep(
+      "Strato login inputs not visible; assuming inbox/session is already open",
+    );
     await pause(webmailPage, 1200);
   }
 
@@ -618,58 +739,85 @@ test('01 – Sign up, verify email, sign in', async ({ page }) => {
   // Find the Firebase verification email in the inbox.
   // If the exact row is not found quickly, continue without hard-failing the run.
   let emailOpened = await openVerificationEmailInInbox(webmailPage, 20_000);
-  logStep(emailOpened ? 'Verification email opened' : 'Verification email not found in inbox');
+  logStep(
+    emailOpened
+      ? "Verification email opened"
+      : "Verification email not found in inbox",
+  );
 
   // If inbox is empty, trigger resend from app login, then check inbox again.
   if (!emailOpened) {
-    logStep('Triggering resend verification email from app login');
+    logStep("Triggering resend verification email from app login");
 
     await page.bringToFront();
-    await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+    await page.goto("/login", {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
+    await page
+      .waitForLoadState("networkidle", { timeout: 20_000 })
+      .catch(() => {});
     await pause(page, 1000);
 
-    await fillByPlaceholderAny(page, ['your@email.com', 'din@epost.se'], email).catch(async () => {
-      await fillByLabel(page, 'Email', email).catch(async () => {
-        await fillByLabel(page, 'E-post', email);
+    await fillByPlaceholderAny(
+      page,
+      ["your@email.com", "din@epost.se"],
+      email,
+    ).catch(async () => {
+      await fillByLabel(page, "Email", email).catch(async () => {
+        await fillByLabel(page, "E-post", email);
       });
     });
     await pause(page, 300);
 
-    await fillByPlaceholderAny(page, ['Enter your password', 'Ange ditt lösenord'], password).catch(async () => {
-      await fillByLabel(page, 'Password', password).catch(async () => {
-        await fillByLabel(page, 'Lösenord', password);
+    await fillByPlaceholderAny(
+      page,
+      ["Enter your password", "Ange ditt lösenord"],
+      password,
+    ).catch(async () => {
+      await fillByLabel(page, "Password", password).catch(async () => {
+        await fillByLabel(page, "Lösenord", password);
       });
     });
     await pause(page, 300);
 
-    await clickByTextAny(page, ['Sign In', 'Logga in']);
+    await clickByTextAny(page, ["Sign In", "Logga in"]);
     await pause(page, 1500);
 
     // Dismiss any blocking modal before clicking resend.
-    await clickActionByTextAny(page, ['OK', 'Continue', 'Fortsätt']).catch(() => {});
+    await clickActionByTextAny(page, ["OK", "Continue", "Fortsätt"]).catch(
+      () => {},
+    );
     await pause(page, 500);
 
     const resent = await clickByTextAny(page, [
-      'Resend Verification Email',
-      'Skicka verifieringsmail igen',
+      "Resend Verification Email",
+      "Skicka verifieringsmail igen",
     ]);
     if (resent) {
-      logStep('Resend verification email clicked');
+      logStep("Resend verification email clicked");
       await pause(page, 2000);
     } else {
-      logStep('Resend button not visible, continuing to inbox recheck');
+      logStep("Resend button not visible, continuing to inbox recheck");
     }
 
     webmailPage = resolveLiveWebmailPage(browserContext, webmailPage);
     await webmailPage.bringToFront().catch(() => {});
     if (!webmailPage.isClosed()) {
-      await webmailPage.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
-      await webmailPage.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+      await webmailPage
+        .reload({ waitUntil: "domcontentloaded", timeout: 60_000 })
+        .catch(() => {});
+      await webmailPage
+        .waitForLoadState("networkidle", { timeout: 20_000 })
+        .catch(() => {});
       await pause(webmailPage, 2000);
 
       emailOpened = await openVerificationEmailInInbox(webmailPage, 20_000);
-      logStep(emailOpened ? 'Verification email found after resend' : 'Verification email still not found after resend');
+      logStep(
+        emailOpened
+          ? "Verification email found after resend"
+          : "Verification email still not found after resend",
+      );
     }
   }
   webmailPage = resolveLiveWebmailPage(browserContext, webmailPage);
@@ -680,12 +828,15 @@ test('01 – Sign up, verify email, sign in', async ({ page }) => {
   // Click the verification link inside the email body
   // Firebase sends a button/link labelled "Verify Email" or similar
   if (emailOpened && !webmailPage.isClosed()) {
-    logStep('Attempting to click verification link in email');
-    const verificationClicked = await clickVerificationLinkInWebmail(webmailPage);
+    logStep("Attempting to click verification link in email");
+    const verificationClicked =
+      await clickVerificationLinkInWebmail(webmailPage);
     if (!verificationClicked) {
-      throw new Error('Could not find/click verification link in webmail message body after scrolling.');
+      throw new Error(
+        "Could not find/click verification link in webmail message body after scrolling.",
+      );
     }
-    logStep('Verification link clicked');
+    logStep("Verification link clicked");
   }
   if (!webmailPage.isClosed()) {
     await pause(webmailPage, 2000);
@@ -695,49 +846,68 @@ test('01 – Sign up, verify email, sign in', async ({ page }) => {
   if (!webmailPage.isClosed()) {
     await webmailPage.close();
   }
-  logStep('Returned from webmail to app');
+  logStep("Returned from webmail to app");
 
   // After email verification, app shows a success modal on create-account screen.
   // Click Continue so the flow naturally transitions toward sign-in.
   await page.bringToFront();
-  await page.waitForLoadState('domcontentloaded', { timeout: 20_000 }).catch(() => {});
+  await page
+    .waitForLoadState("domcontentloaded", { timeout: 20_000 })
+    .catch(() => {});
   await pause(page, 800);
 
-  const continueAfterVerify = await clickActionByTextAny(page, ['Continue', 'Fortsätt']);
+  const continueAfterVerify = await clickActionByTextAny(page, [
+    "Continue",
+    "Fortsätt",
+  ]);
   if (continueAfterVerify) {
-    logStep('Clicked verification success modal Continue');
+    logStep("Clicked verification success modal Continue");
     await pause(page, 1000);
     await page.waitForURL(/\/login/, { timeout: 10_000 }).catch(() => {});
   } else {
-    logStep('Verification success modal Continue not visible, continuing with login navigation fallback');
+    logStep(
+      "Verification success modal Continue not visible, continuing with login navigation fallback",
+    );
   }
 
   // ── Step 4: Sign in to the app ──────────────────────────────────────────────
-  logStep('Navigating to app login and signing in');
+  logStep("Navigating to app login and signing in");
   await page.bringToFront();
-  await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+  await page.goto("/login", { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page
+    .waitForLoadState("networkidle", { timeout: 20_000 })
+    .catch(() => {});
   await pause(page, 1000);
 
-  await fillByLabel(page, 'Email', email).catch(async () => {
-    await fillByLabel(page, 'E-post', email).catch(async () => {
-      await fillByPlaceholderAny(page, ['your@email.com', 'din@epost.se'], email).catch(async () => {
-        await fillByLabel(page, 'Email', email);
+  await fillByLabel(page, "Email", email).catch(async () => {
+    await fillByLabel(page, "E-post", email).catch(async () => {
+      await fillByPlaceholderAny(
+        page,
+        ["your@email.com", "din@epost.se"],
+        email,
+      ).catch(async () => {
+        await fillByLabel(page, "Email", email);
       });
     });
   });
   await pause(page, 500);
-  await fillByLabel(page, 'Password', password).catch(async () => {
-    await fillByLabel(page, 'Lösenord', password).catch(async () => {
-      await fillByPlaceholderAny(page, ['Enter your password', 'Ange ditt lösenord'], password).catch(async () => {
-        await fillByLabel(page, 'Password', password);
+  await fillByLabel(page, "Password", password).catch(async () => {
+    await fillByLabel(page, "Lösenord", password).catch(async () => {
+      await fillByPlaceholderAny(
+        page,
+        ["Enter your password", "Ange ditt lösenord"],
+        password,
+      ).catch(async () => {
+        await fillByLabel(page, "Password", password);
       });
     });
   });
   await pause(page, 500);
 
-  await clickByTextAny(page, ['Sign In', 'Logga in']);
-  await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
-  logStep('Video 01 flow finished');
+  await clickByTextAny(page, ["Sign In", "Logga in"]);
+  await page
+    .waitForLoadState("networkidle", { timeout: 20_000 })
+    .catch(() => {});
+  logStep("Video 01 flow finished");
   await pause(page, 2500); // hold on the home screen so viewers see the result
 });

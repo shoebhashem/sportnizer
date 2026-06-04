@@ -11,59 +11,88 @@
  *               See docs/video-demo-users.md for details.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { test } from '@playwright/test';
-import { login, pause, tapText, waitForText } from '../helpers/auth';
+import { test } from "@playwright/test";
+import * as fs from "fs";
+import * as path from "path";
+import { login, pause, tapText, waitForText } from "../helpers/auth";
 
-const userEmail = process.env.TESTER6_EMAIL!;       // John Andersson
+const userEmail = process.env.TESTER6_EMAIL!; // John Andersson
 const userPassword = process.env.TESTER6_PASSWORD!;
 
 // Path to a sample profile photo to upload (supports .png and .jpg)
-const PROFILE_PHOTO_PNG = path.join(__dirname, '../assets/sample-profile.png');
-const PROFILE_PHOTO_JPG = path.join(__dirname, '../assets/sample-profile.jpg');
+const PROFILE_PHOTO_PNG = path.join(__dirname, "../assets/sample-profile.png");
+const PROFILE_PHOTO_JPG = path.join(__dirname, "../assets/sample-profile.jpg");
 const PROFILE_PHOTO = fs.existsSync(PROFILE_PHOTO_PNG)
   ? PROFILE_PHOTO_PNG
   : PROFILE_PHOTO_JPG;
 
-test('06 – Upload a profile picture', async ({ page }) => {
+test("06 – Upload a profile picture", async ({ page }) => {
   // ── Step 1: Sign in ─────────────────────────────────────────────────────────
   await login(page, userEmail, userPassword);
   await pause(page, 1500);
 
   // ── Step 2: Navigate to Profile ─────────────────────────────────────────────
   // Profile is usually the last tab or accessible via the tab bar
-  await page.getByText('Profile').last().click().catch(async () => {
-    await page.locator('[aria-label="Profile"]').click().catch(() => {});
-  });
-  await page.waitForLoadState('networkidle');
+  await page
+    .getByText("Profile")
+    .last()
+    .click()
+    .catch(async () => {
+      await page
+        .locator('[aria-label="Profile"]')
+        .click()
+        .catch(() => {});
+    });
+  await page.waitForLoadState("networkidle");
   await pause(page, 1000);
 
   // ── Step 3: Tap the profile picture area ────────────────────────────────────
   // The profile picture is typically at the top of the profile screen
-  const profilePicArea = page.locator('[aria-label="Change profile picture"]').first();
-  const hasPicArea = await profilePicArea.isVisible({ timeout: 3000 }).catch(() => false);
+  const profilePicArea = page
+    .locator('[aria-label="Change profile picture"]')
+    .first();
+  const hasPicArea = await profilePicArea
+    .isVisible({ timeout: 3000 })
+    .catch(() => false);
 
   if (hasPicArea) {
     await profilePicArea.click();
   } else {
     // Fallback: tap the avatar/image at the top of the profile screen
-    await page.locator('img').first().click().catch(async () => {
-      await page.getByText('Change Photo').first().click().catch(() => {});
-    });
+    await page
+      .locator("img")
+      .first()
+      .click()
+      .catch(async () => {
+        await page
+          .getByText("Change Photo")
+          .first()
+          .click()
+          .catch(() => {});
+      });
   }
   await pause(page, 1000);
 
   // ── Step 4: Choose a file (web file input) ──────────────────────────────────
   // On web, the image picker opens a file input — intercept it
-  const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
+  const fileChooserPromise = page.waitForEvent("filechooser", {
+    timeout: 5000,
+  });
 
   // Tap "Choose from Library" or "Upload Photo"
-  await page.getByText('Choose from Library').first().click().catch(async () => {
-    await page.getByText('Upload').first().click().catch(async () => {
-      // If the file chooser was already triggered, just proceed
+  await page
+    .getByText("Choose from Library")
+    .first()
+    .click()
+    .catch(async () => {
+      await page
+        .getByText("Upload")
+        .first()
+        .click()
+        .catch(async () => {
+          // If the file chooser was already triggered, just proceed
+        });
     });
-  });
 
   const fileChooser = await fileChooserPromise.catch(() => null);
   if (fileChooser) {
@@ -72,14 +101,14 @@ test('06 – Upload a profile picture', async ({ page }) => {
   await pause(page, 1500);
 
   // ── Step 5: Confirm / save the photo ────────────────────────────────────────
-  await tapText(page, 'Save').catch(async () => {
-    await tapText(page, 'Done').catch(async () => {
-      await tapText(page, 'Upload');
+  await tapText(page, "Save").catch(async () => {
+    await tapText(page, "Done").catch(async () => {
+      await tapText(page, "Upload");
     });
   });
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState("networkidle");
   await pause(page, 2000); // photo uploaded — viewer sees the new profile picture
 
-  await waitForText(page, 'John Andersson').catch(() => {});
+  await waitForText(page, "John Andersson").catch(() => {});
   await pause(page, 2500); // hold on the updated profile screen
 });
