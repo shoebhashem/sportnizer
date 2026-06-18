@@ -1742,10 +1742,10 @@ Both helper functions automatically redirect notifications for youth members to 
 
 A Cloud Scheduler job runs at **06:00 UTC** daily and performs two sweeps across all clubs:
 
-| Check | Query | Skip if | Notification | Idempotency field |
-|-------|-------|---------|-------------|-------------------|
-| 24h reminder | `startDate >= now AND startDate <= now+25h AND status == "scheduled"` | `notificationSentAt` is set | `type: "event"`, title: `"Event Reminder: <title>"`, priority: `normal` | `notificationSentAt` |
-| Deadline nudge | `responseDeadline >= now AND responseDeadline <= now+25h AND status == "scheduled"` | `deadlineReminderSentAt` is set | `type: "event"`, title: `"RSVP Reminder: <title>"`, priority: `high` | `deadlineReminderSentAt` |
+| Check          | Query                                                                               | Skip if                         | Notification                                                            | Idempotency field        |
+| -------------- | ----------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------- | ------------------------ |
+| 24h reminder   | `startDate >= now AND startDate <= now+25h AND status == "scheduled"`               | `notificationSentAt` is set     | `type: "event"`, title: `"Event Reminder: <title>"`, priority: `normal` | `notificationSentAt`     |
+| Deadline nudge | `responseDeadline >= now AND responseDeadline <= now+25h AND status == "scheduled"` | `deadlineReminderSentAt` is set | `type: "event"`, title: `"RSVP Reminder: <title>"`, priority: `high`    | `deadlineReminderSentAt` |
 
 - **25h window**: catches events starting between "now" and 25 hours ahead. The extra hour beyond 24h guards against the scheduler running slightly after 06:00.
 - **Idempotency**: both guard fields are written to the event document even if there are zero pending invitees, ensuring the scheduler never double-dispatches.
@@ -1763,6 +1763,7 @@ A Cloud Scheduler job runs at **06:00 UTC** daily and performs two sweeps across
 ```
 
 ### Graceful Degradation
+
 - All push dispatch is wrapped in `.catch()` / `try-catch` — errors are logged but never surfaced to callers
 - The `sendPushNotification()` function has a `Promise<void>` return type and always resolves
 
@@ -17340,13 +17341,14 @@ interface Payment {
 
 #### Payment Functions
 
-| Function                 | Purpose                                                   | Security                                    |
-| ------------------------ | --------------------------------------------------------- | ------------------------------------------- |
-| `createMembershipFee`    | Club creates fee request                                  | ✅ club-admin only (NOT group admin/coach!) |
-| `updateFeeMembers`       | Add/remove members from an active fee; skips paid members | ✅ club-admin only; fee must be active      |
-| `createCheckoutSession`  | Create Stripe Checkout for payment                        | ✅ Must be in includedMembers or guardian   |
-| `stripeWebhookHandler`   | Handle Stripe events (HTTP)                               | ✅ Verify Stripe signature                  |
-| `getUserPendingPayments` | Get pending payments for user + dependents                | ✅ Own data only                            |
+| Function                 | Purpose                                                                                          | Security                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `createMembershipFee`    | Club creates fee request                                                                         | ✅ club-admin only (NOT group admin/coach!) |
+| `updateFeeMembers`       | Add/remove members from an active fee; skips paid members                                        | ✅ club-admin only; fee must be active      |
+| `deleteMembershipFee`    | Soft-close a fee (status=closed); dismisses all undismissed payment_request notifications        | ✅ club-admin only                          |
+| `createCheckoutSession`  | Create Stripe Checkout for payment                                                               | ✅ Must be in includedMembers or guardian   |
+| `stripeWebhookHandler`   | Handle Stripe events (HTTP)                                                                      | ✅ Verify Stripe signature                  |
+| `getUserPendingPayments` | Get pending payments for user + dependents; skips notifications whose fee is closed (safety net) | ✅ Own data only                            |
 
 #### File Structure
 
@@ -17364,9 +17366,9 @@ functions/src/
 └── payments/
     ├── createMembershipFee.ts
     ├── getMembershipFees.ts
-    ├── getUserPendingPayments.ts
+    ├── getUserPendingPayments.ts    # Safety-net: skips closed-fee notifications
     ├── updateFeeMembers.ts
-    └── closeMembershipFee.ts
+    └── deleteMembershipFee.ts      # Dismiss notifications on close
 ```
 
 ### Club Onboarding Flow

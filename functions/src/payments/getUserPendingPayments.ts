@@ -83,6 +83,26 @@ export const getUserPendingPayments = onCall(
         // Club/group info is stored at notification root level
         const metadata = notification.metadata || {};
 
+        // Safety-net: skip notifications whose fee has since been closed.
+        // This covers edge cases where notification dismissal on close failed
+        // or the notification pre-dates the dismiss-on-close logic.
+        if (metadata.feeId) {
+          const feeSnap = await db
+            .collection("membershipFees")
+            .doc(metadata.feeId)
+            .get();
+          if (feeSnap.exists && feeSnap.data()?.status === "closed") {
+            // Opportunistically dismiss the stale notification so it won't
+            // be returned in future calls either.
+            notificationDoc.ref
+              .update({ dismissed: true, read: true })
+              .catch(() => {
+                // best-effort — ignore errors
+              });
+            continue;
+          }
+        }
+
         // Club and group names are stored at notification root level by createMembershipFee
         const clubId = notification.clubId || metadata.clubId;
         const clubName = notification.clubName || "Unknown Club";

@@ -9,6 +9,10 @@ import { config } from "../utils/config";
  * Sets status = "closed" and records deletedAt so the fee is retained
  * for accounting / audit purposes.
  *
+ * Also dismisses all undismissed payment_request notifications that
+ * reference this fee, so unpaid members' fee cards disappear from the
+ * home screen immediately without requiring a manual action.
+ *
  * SECURITY: Only the club-admin of the fee's club may close it.
  */
 export const deleteMembershipFee = onCall(
@@ -47,11 +51,48 @@ export const deleteMembershipFee = onCall(
       );
     }
 
+    // 1. Mark the fee as closed
     await feeRef.update({
       status: "closed",
       deletedAt: FieldValue.serverTimestamp(),
       lastModifiedAt: FieldValue.serverTimestamp(),
     });
+
+    // 2. Dismiss all undismissed payment_request notifications for this fee.
+    //    Uses a COLLECTION_GROUP query so both direct members and guardians
+    //    (who receive notifications in their own user doc) are covered in one sweep.
+    try {
+      const notifSnap = await db
+        .collectionGroup("notifications")
+        .where("type", "==", "payment_request")
+        .where("dismissed", "==", false)
+        .where("metadata.feeId", "==", feeId)
+        .get();
+
+      if (!notifSnap.empty) {
+        // Firestore batches are limited to 500 writes each
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < notifSnap.docs.length; i += BATCH_SIZE) {
+          const batch = db.batch();
+          const chunk = notifSnap.docs.slice(i, i + BATCH_SIZE);
+          for (const doc of chunk) {
+            batch.update(doc.ref, {
+              dismissed: true,
+              read: true,
+              dismissedAt: FieldValue.serverTimestamp(),
+            });
+          }
+          await batch.commit();
+        }
+      }
+    } catch (err) {
+      // Log but don't fail the close operation — notification dismissal is
+      // best-effort and the fee is already marked closed.
+      console.error(
+        `[deleteMembershipFee] Failed to dismiss notifications for fee ${feeId}:`,
+        err,
+      );
+    }
 
     return { success: true };
   },

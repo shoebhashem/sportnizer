@@ -468,6 +468,115 @@ describe("deleteMembershipFee", () => {
       "unauthenticated",
     );
   });
+
+  it("dismisses payment_request notifications for unpaid members on close", async () => {
+    const { admin, clubId, groupId } = await setupClubWithStripe();
+
+    // Add a player to the group so createMembershipFee sends them a notification
+    const player = await createFullTestUser({
+      email: "unpaid-player@test.com",
+      displayName: "Unpaid Player",
+    });
+    const db = getFirestore();
+    await db.doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`).set(
+      {
+        members: [
+          {
+            userId: player.uid,
+            name: "Unpaid Player",
+            roles: ["player"],
+            isActive: true,
+            needsGuardian: false,
+          },
+        ],
+        memberCount: 1,
+      },
+      { merge: true },
+    );
+
+    const feeId = await createOneFee(admin, clubId, groupId);
+
+    // Verify player has an undismissed notification
+    const notifsBefore = await db
+      .collection("users")
+      .doc(player.uid)
+      .collection("notifications")
+      .where("type", "==", "payment_request")
+      .where("dismissed", "==", false)
+      .get();
+    expect(notifsBefore.docs.length).toBeGreaterThanOrEqual(1);
+
+    // Close the fee
+    const result = await callFunction("deleteMembershipFee", admin.idToken, {
+      feeId,
+    });
+    expect(result.success).toBe(true);
+
+    // Notification must now be dismissed
+    const notifsAfter = await db
+      .collection("users")
+      .doc(player.uid)
+      .collection("notifications")
+      .where("type", "==", "payment_request")
+      .where("dismissed", "==", false)
+      .get();
+    expect(notifsAfter.docs.length).toBe(0);
+  });
+
+  it("does not affect already-dismissed (paid) notifications on close", async () => {
+    const { admin, clubId, groupId } = await setupClubWithStripe();
+
+    const player = await createFullTestUser({
+      email: "paid-player@test.com",
+      displayName: "Paid Player",
+    });
+    const db = getFirestore();
+    await db.doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`).set(
+      {
+        members: [
+          {
+            userId: player.uid,
+            name: "Paid Player",
+            roles: ["player"],
+            isActive: true,
+            needsGuardian: false,
+          },
+        ],
+        memberCount: 1,
+      },
+      { merge: true },
+    );
+
+    const feeId = await createOneFee(admin, clubId, groupId);
+
+    // Simulate payment: manually dismiss the notification
+    const notifsBefore = await db
+      .collection("users")
+      .doc(player.uid)
+      .collection("notifications")
+      .where("type", "==", "payment_request")
+      .where("dismissed", "==", false)
+      .get();
+    for (const doc of notifsBefore.docs) {
+      await doc.ref.update({ dismissed: true, read: true });
+    }
+
+    // Close the fee — should succeed without touching already-dismissed docs
+    const result = await callFunction("deleteMembershipFee", admin.idToken, {
+      feeId,
+    });
+    expect(result.success).toBe(true);
+
+    // Still dismissed (unchanged)
+    const notifsAfter = await db
+      .collection("users")
+      .doc(player.uid)
+      .collection("notifications")
+      .where("type", "==", "payment_request")
+      .where("dismissed", "==", true)
+      .get();
+    expect(notifsAfter.docs.length).toBeGreaterThanOrEqual(1);
+  });
 });
 
 // ─── updateMembershipFee ─────────────────────────────────────
