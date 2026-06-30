@@ -47,13 +47,13 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Filter options
-type FilterOption = "all" | "paid" | "pending" | "overdue";
+type FilterOption = "all" | "paid" | "pending" | "overdue" | "cancelled";
 
 // Extended member data with payment info (from Firestore allMembers doc)
 interface MemberWithPaymentData extends GroupMemberData {
   paymentStatus?: {
     activeFeeId?: string;
-    status?: "paid" | "pending" | "overdue" | "no_fee";
+    status?: "paid" | "pending" | "overdue" | "no_fee" | "cancelled";
     paidBy?: string;
     paidAt?: any;
   };
@@ -97,6 +97,15 @@ export default function TrackPaymentsScreen() {
 
   // Manage-members state
   const [isUpdatingMembers, setIsUpdatingMembers] = useState(false);
+
+  // Cancel-member state
+  const [cancellingMember, setCancellingMember] =
+    useState<MemberPaymentInfo | null>(null);
+  const [isCancellingMember, setIsCancellingMember] = useState(false);
+
+  // Close-fee state
+  const [showCloseFeeConfirm, setShowCloseFeeConfirm] = useState(false);
+  const [isClosingFee, setIsClosingFee] = useState(false);
 
   // Modal state
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -209,6 +218,61 @@ export default function TrackPaymentsScreen() {
     }, [selectedFee]),
   );
 
+  // Cancel fee obligation for a single member
+  const handleCancelMember = useCallback(async () => {
+    if (!cancellingMember || !selectedFee) return;
+    setIsCancellingMember(true);
+    try {
+      const result = await paymentService.cancelFeeForMembers(
+        selectedFee.feeId,
+        [cancellingMember.userId],
+      );
+      if (result.success) {
+        await fetchFees();
+        if ((result.skippedPaidCount ?? 0) > 0) {
+          setUpdateResultMessage(
+            t("screens:trackPayments.cancelFeeSkippedPaid", {
+              name: cancellingMember.name,
+            }),
+          );
+        } else {
+          setUpdateResultMessage(
+            t("screens:trackPayments.cancelFeeSuccess", {
+              name: cancellingMember.name,
+            }),
+          );
+        }
+        setShowUpdateResultModal(true);
+      } else {
+        setErrorMessage(result.error || t("common:genericError"));
+        setShowErrorModal(true);
+      }
+    } finally {
+      setIsCancellingMember(false);
+      setCancellingMember(null);
+    }
+  }, [cancellingMember, selectedFee, fetchFees, t]);
+
+  // Close the currently selected fee
+  const handleCloseFee = useCallback(async () => {
+    if (!selectedFee) return;
+    setIsClosingFee(true);
+    try {
+      const result = await paymentService.closeMembershipFee(selectedFee.feeId);
+      if (result.success) {
+        await fetchFees();
+        setUpdateResultMessage(t("screens:trackPayments.closeFeeSuccess"));
+        setShowUpdateResultModal(true);
+      } else {
+        setErrorMessage(result.error || t("common:genericError"));
+        setShowErrorModal(true);
+      }
+    } finally {
+      setIsClosingFee(false);
+      setShowCloseFeeConfirm(false);
+    }
+  }, [selectedFee, fetchFees, t]);
+
   const handleMemberUpdate = useCallback(
     async (newMemberIds: string[]) => {
       if (!selectedFee) return;
@@ -271,6 +335,8 @@ export default function TrackPaymentsScreen() {
               status = "paid";
             } else if (paymentData.status === "overdue") {
               status = "overdue";
+            } else if (paymentData.status === "cancelled") {
+              status = "cancelled";
             } else {
               status = "pending";
             }
@@ -343,15 +409,24 @@ export default function TrackPaymentsScreen() {
       return member.displayPaymentStatus === "pending";
     if (activeFilter === "overdue")
       return member.displayPaymentStatus === "overdue";
+    if (activeFilter === "cancelled")
+      return member.displayPaymentStatus === "cancelled";
     return true;
   });
 
-  // Calculate stats
+  // Calculate stats (cancelled members are shown in "All" but excluded from
+  // paid/pending/overdue totals so the numbers represent real obligations)
   const stats = {
-    total: members.filter((m) => m.displayPaymentStatus !== "no_fee").length,
+    total: members.filter(
+      (m) =>
+        m.displayPaymentStatus !== "no_fee" &&
+        m.displayPaymentStatus !== "cancelled",
+    ).length,
     paid: members.filter((m) => m.displayPaymentStatus === "paid").length,
     pending: members.filter((m) => m.displayPaymentStatus === "pending").length,
     overdue: members.filter((m) => m.displayPaymentStatus === "overdue").length,
+    cancelled: members.filter((m) => m.displayPaymentStatus === "cancelled")
+      .length,
   };
 
   // Format currency
@@ -435,6 +510,11 @@ export default function TrackPaymentsScreen() {
 
   // Render member item
   const renderMemberItem = ({ item }: { item: MemberPaymentInfo }) => {
+    const canCancel =
+      selectedFee?.status === "active" &&
+      (item.displayPaymentStatus === "pending" ||
+        item.displayPaymentStatus === "overdue");
+
     return (
       <View style={styles.memberItem}>
         <Image
@@ -454,23 +534,41 @@ export default function TrackPaymentsScreen() {
           status={item.displayPaymentStatus}
           paidBy={item.paidBy}
         />
+        {canCancel && (
+          <TouchableOpacity
+            onPress={() => setCancellingMember(item)}
+            style={styles.cancelMemberButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name="close-circle-outline"
+              size={20}
+              color={theme.colors.error}
+            />
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
 
   // Render filter tabs
-  const renderFilterTabs = () => (
-    <View style={styles.filterContainer}>
-      {(["all", "pending", "paid", "overdue"] as FilterOption[]).map(
-        (filter) => {
+  const renderFilterTabs = () => {
+    const filterOptions: FilterOption[] = ["all", "pending", "paid", "overdue"];
+    if (stats.cancelled > 0) filterOptions.push("cancelled");
+
+    return (
+      <View style={styles.filterContainer}>
+        {filterOptions.map((filter) => {
           const count =
             filter === "all"
-              ? stats.total
+              ? stats.total + stats.cancelled
               : filter === "paid"
                 ? stats.paid
                 : filter === "pending"
                   ? stats.pending
-                  : stats.overdue;
+                  : filter === "cancelled"
+                    ? stats.cancelled
+                    : stats.overdue;
 
           return (
             <TouchableOpacity
@@ -494,10 +592,10 @@ export default function TrackPaymentsScreen() {
               </Text>
             </TouchableOpacity>
           );
-        },
-      )}
-    </View>
-  );
+        })}
+      </View>
+    );
+  };
 
   // Loading state
   if (loading) {
@@ -612,24 +710,50 @@ export default function TrackPaymentsScreen() {
             count: filteredMembers.length,
           })}
         </Text>
-        {/* Manage members icon — only for active fees */}
-        {selectedFee?.status === "active" && (
-          <TouchableOpacity
-            onPress={handleManageMembers}
-            style={{ padding: 4 }}
-            disabled={isUpdatingMembers}
-          >
-            {isUpdatingMembers ? (
-              <ActivityIndicator size="small" color={theme.colors.secondary} />
-            ) : (
-              <Ionicons
-                name="person-add-outline"
-                size={22}
-                color={theme.colors.secondary}
-              />
-            )}
-          </TouchableOpacity>
-        )}
+        <View style={styles.membersSectionActions}>
+          {/* Close fee button — only for active fees */}
+          {selectedFee?.status === "active" && (
+            <TouchableOpacity
+              onPress={() => setShowCloseFeeConfirm(true)}
+              style={{ padding: 4, marginRight: 4 }}
+              disabled={isClosingFee}
+            >
+              {isClosingFee ? (
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.textSecondary}
+                />
+              ) : (
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={22}
+                  color={theme.colors.textSecondary}
+                />
+              )}
+            </TouchableOpacity>
+          )}
+          {/* Manage members icon — only for active fees */}
+          {selectedFee?.status === "active" && (
+            <TouchableOpacity
+              onPress={handleManageMembers}
+              style={{ padding: 4 }}
+              disabled={isUpdatingMembers}
+            >
+              {isUpdatingMembers ? (
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.secondary}
+                />
+              ) : (
+                <Ionicons
+                  name="person-add-outline"
+                  size={22}
+                  color={theme.colors.secondary}
+                />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </>
   );
@@ -672,7 +796,7 @@ export default function TrackPaymentsScreen() {
         confirmButtonTheme="primary"
       />
 
-      {/* Member update result modal */}
+      {/* Member update / cancel result modal */}
       <ConfirmationModal
         visible={showUpdateResultModal}
         title={t("common:success")}
@@ -681,6 +805,40 @@ export default function TrackPaymentsScreen() {
         onConfirm={() => setShowUpdateResultModal(false)}
         onCancel={() => setShowUpdateResultModal(false)}
         confirmButtonTheme="primary"
+      />
+
+      {/* Cancel member confirmation modal */}
+      <ConfirmationModal
+        visible={cancellingMember !== null && !isCancellingMember}
+        title={t("screens:trackPayments.cancelFeeConfirmTitle", {
+          name: cancellingMember?.name ?? "",
+        })}
+        message={t("screens:trackPayments.cancelFeeConfirmMessage", {
+          name: cancellingMember?.name ?? "",
+        })}
+        confirmText={t("common:confirm")}
+        cancelText={t("common:cancel")}
+        onConfirm={handleCancelMember}
+        onCancel={() => setCancellingMember(null)}
+        confirmButtonTheme="danger"
+      />
+
+      {/* Close fee confirmation modal */}
+      <ConfirmationModal
+        visible={showCloseFeeConfirm}
+        title={t("screens:manageFees.confirmCloseTitle")}
+        message={
+          selectedFee
+            ? t("screens:manageFees.confirmCloseMessage", {
+                title: selectedFee.title,
+              })
+            : ""
+        }
+        confirmText={t("screens:manageFees.close")}
+        cancelText={t("common:cancel")}
+        onConfirm={handleCloseFee}
+        onCancel={() => setShowCloseFeeConfirm(false)}
+        confirmButtonTheme="danger"
       />
 
       <ScreenTooltipManager screen="track-payments" />
@@ -876,6 +1034,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  membersSectionActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  cancelMemberButton: {
+    marginLeft: theme.spacing.sm,
+    padding: 2,
   },
   membersList: {
     marginTop: theme.spacing.sm,

@@ -17341,14 +17341,15 @@ interface Payment {
 
 #### Payment Functions
 
-| Function                 | Purpose                                                                                          | Security                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| `createMembershipFee`    | Club creates fee request                                                                         | ✅ club-admin only (NOT group admin/coach!) |
-| `updateFeeMembers`       | Add/remove members from an active fee; skips paid members                                        | ✅ club-admin only; fee must be active      |
-| `deleteMembershipFee`    | Soft-close a fee (status=closed); dismisses all undismissed payment_request notifications        | ✅ club-admin only                          |
-| `createCheckoutSession`  | Create Stripe Checkout for payment                                                               | ✅ Must be in includedMembers or guardian   |
-| `stripeWebhookHandler`   | Handle Stripe events (HTTP)                                                                      | ✅ Verify Stripe signature                  |
-| `getUserPendingPayments` | Get pending payments for user + dependents; skips notifications whose fee is closed (safety net) | ✅ Own data only                            |
+| Function                 | Purpose                                                                                                                                                          | Security                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `createMembershipFee`    | Club creates fee request                                                                                                                                         | ✅ club-admin only (NOT group admin/coach!) |
+| `updateFeeMembers`       | Add/remove members from an active fee; skips paid members                                                                                                        | ✅ club-admin only; fee must be active      |
+| `cancelFeeForMembers`    | Cancel a fee obligation for specific members; sets `paymentStatus.status="cancelled"` (audit trail retained), dismisses their notifications (handles guardians) | ✅ club-admin only; fee must be active      |
+| `deleteMembershipFee`    | Soft-close a fee (status=closed); dismisses all undismissed payment_request notifications                                                                        | ✅ club-admin only                          |
+| `createCheckoutSession`  | Create Stripe Checkout for payment                                                                                                                               | ✅ Must be in includedMembers or guardian   |
+| `stripeWebhookHandler`   | Handle Stripe events (HTTP)                                                                                                                                      | ✅ Verify Stripe signature                  |
+| `getUserPendingPayments` | Get pending payments for user + dependents; skips notifications whose fee is closed (safety net)                                                                 | ✅ Own data only                            |
 
 #### File Structure
 
@@ -17368,6 +17369,7 @@ functions/src/
     ├── getMembershipFees.ts
     ├── getUserPendingPayments.ts    # Safety-net: skips closed-fee notifications
     ├── updateFeeMembers.ts
+    ├── cancelFeeForMembers.ts       # Cancel obligation per member; keeps audit trail; dismisses guardian notifs
     └── deleteMembershipFee.ts      # Dismiss notifications on close
 ```
 

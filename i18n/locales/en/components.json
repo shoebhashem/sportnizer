@@ -2,13 +2,11 @@
   "confirmationModal": {
     "confirm": "Confirm"
   },
-
   "deletionConfirmationModal": {
     "gracePeriodNote": "{{gracePeriodDays}}-day grace period - You can undo this!",
     "deletionMessage": "Are you sure you want to delete \"{{entityName}}\"? This will affect {{affectedCount}} members.",
     "deleting": "Deleting..."
   },
-
   "invitationModal": {
     "roleUpdate": "Role Update",
     "clubAdminInvitation": "Club Admin Invitation",
@@ -26,7 +24,6 @@
     "acceptRole": "Accept Role",
     "acceptAndJoin": "Accept & Join"
   },
-
   "roleFilterModal": {
     "filterByRole": "Filter by Role",
     "apply": "Apply",
@@ -51,7 +48,6 @@
       "guardiansDesc": "Parents/guardians of youth members"
     }
   },
-
   "memberContactModal": {
     "contactDetails": "Contact Details",
     "loadingDetails": "Loading details...",
@@ -70,12 +66,10 @@
     "scheduledDeletion": "Account data will be permanently deleted on {{date}}.",
     "openWhatsApp": "Open in WhatsApp"
   },
-
   "groupFilterBar": {
     "searchPlaceholder": "Search groups…",
     "allSports": "All Sports"
   },
-
   "memberFilterBar": {
     "all": "All",
     "active": "Active",
@@ -88,7 +82,6 @@
     "guardian": "Guardian",
     "searchPlaceholder": "Search by name or email…"
   },
-
   "eventCard": {
     "today": "Today",
     "tomorrow": "Tomorrow",
@@ -102,7 +95,6 @@
     "recurring": "Recurring",
     "organizer": "Organizer"
   },
-
   "newsCard": {
     "you": "You",
     "new": "New",
@@ -112,7 +104,6 @@
     "hoursAgo": "{{count}}h ago",
     "daysAgo": "{{count}}d ago"
   },
-
   "paymentCard": {
     "dueToday": "Due Today",
     "dueTomorrow": "Due Tomorrow",
@@ -127,14 +118,13 @@
     "paid": "Paid",
     "noDueDate": "No due date"
   },
-
   "paymentStatusBadge": {
     "paid": "Paid",
     "notPaid": "Not Paid",
     "overdue": "Overdue",
-    "paidBy": "by {{paidBy}}"
+    "paidBy": "by {{paidBy}}",
+    "cancelled": "Cancelled"
   },
-
   "notificationBell": {
     "notifications": "Notifications",
     "markAllRead": "Mark all read",
@@ -146,16 +136,13 @@
     "later": "Later",
     "paymentError": "Payment Error"
   },
-
   "phoneInput": {
     "selectCountryCode": "Select country code",
     "search": "Search..."
   },
-
   "dropdownInput": {
     "selectAnOption": "Select an option"
   },
-
   "genderPicker": {
     "male": "Male",
     "female": "Female",
@@ -164,13 +151,11 @@
     "selectGender": "Select gender",
     "selectLabel": "Select {{label}}"
   },
-
   "floatingActionButton": {
     "newEvent": "New Event",
     "news": "News",
     "event": "Event"
   },
-
   "profilePictureUpload": {
     "uploadMemberPhoto": "Upload Member Photo",
     "uploadProfilePicture": "Upload Profile Picture",
@@ -187,7 +172,6 @@
     "failedToUploadProfilePicture": "Failed to upload profile picture",
     "unexpectedError": "An unexpected error occurred"
   },
-
   "legalAcceptanceScreen": {
     "updatedTermsTitle": "Updated Terms & Privacy Policy",
     "termsTitle": "Terms of Service & Privacy Policy",
@@ -219,7 +203,6 @@
     "agreeAndContinue": "I Agree & Continue",
     "pleaseWait": "Please wait..."
   },
-
   "legalSettingsSection": {
     "legal": "Legal",
     "termsOfService": "Terms of Service",
@@ -229,7 +212,6 @@
     "updateRequired": "Update Required",
     "lastAcceptedOn": "Last accepted on {{date}}"
   },
-
   "subscriptionWarningBanner": {
     "memberLimitReached": "Member Limit Reached",
     "approachingMemberLimit": "Approaching Member Limit",
@@ -237,7 +219,6 @@
     "approachingLimitMessage": "Only {{remaining}} member slot(s) remaining on the {{tier}} plan.",
     "upgrade": "Upgrade"
   },
-
   "countdownTimer": {
     "expired": "Expired",
     "gracePeriodExpired": "Grace period expired",
@@ -245,7 +226,6 @@
     "fullFormat": "{{days}} days, {{hours}} hours, {{minutes}} minutes",
     "remaining": "remaining"
   },
-
   "pushNotifications": {
     "channels": {
       "default": "General",
@@ -260,7 +240,6 @@
       "openSettings": "Open Settings"
     }
   },
-
   "onboarding": {
     "tooltips": {
       "attendance": {
@@ -300,7 +279,6 @@
         "body": "Create subgroups to organize members within your group — for example, by age or skill level."
       }
     },
-
     "feeCategory": {
       "membershipFee": "Membership Fee",
       "trainingFee": "Training Fee",
@@ -309,7 +287,6 @@
       "salesKiosk": "Kiosk / Sales",
       "other": "Other"
     },
-
     "coachMarks": {
       "clubSettings": "Settings, payments & invites",
       "groupSettings": "Roles, invitations & settings",

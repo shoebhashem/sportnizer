@@ -11,7 +11,7 @@
  * unaffected when it is opened from event-details or create-event.
  */
 
-export type FeePaymentStatus = "paid" | "pending" | "overdue" | "no_fee";
+export type FeePaymentStatus = "paid" | "pending" | "overdue" | "no_fee" | "cancelled";
 
 export interface FeePaymentEntry {
   userId: string;

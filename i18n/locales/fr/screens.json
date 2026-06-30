@@ -954,7 +954,13 @@
     "childYouthLabel": "(Enfant/Junior)",
     "failedToLoadMembershipFees": "Échec du chargement des cotisations d'adhésion",
     "membersUpdatedSuccess": "Membres mis à jour — {{added}} ajouté(s), {{removed}} supprimé(s).",
-    "paidMembersKept": "{{count}} membre(s) ayant déjà payé n'ont pas pu être supprimés."
+    "paidMembersKept": "{{count}} membre(s) ayant déjà payé n'ont pas pu être supprimés.",
+    "filterCancelled": "Annulé ({{count}})",
+    "cancelFeeConfirmTitle": "Annuler le frais pour {{name}} ?",
+    "cancelFeeConfirmMessage": "Annuler ce frais pour {{name}} ? Ils ne verront plus ce frais. Leur obligation sera enregistrée comme annulée.",
+    "cancelFeeSuccess": "Frais annulé pour {{name}}.",
+    "cancelFeeSkippedPaid": "{{name}} a déjà payé et ne peut pas annuler le frais.",
+    "closeFeeSuccess": "Le frais a été clôturé."
   },
   "selectEventMembers": {
     "paidMemberWarningTitle": "Impossible de supprimer le membre",

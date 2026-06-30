@@ -924,7 +924,13 @@
     "childYouthLabel": "(Barn/Ungdom)",
     "failedToLoadMembershipFees": "Kunde inte ladda medlemsavgifter",
     "membersUpdatedSuccess": "Medlemmar uppdaterade — {{added}} tillagda, {{removed}} borttagna.",
-    "paidMembersKept": "{{count}} medlem(mar) som redan betalat kunde inte tas bort."
+    "paidMembersKept": "{{count}} medlem(mar) som redan betalat kunde inte tas bort.",
+    "filterCancelled": "Inställd ({{count}})",
+    "cancelFeeConfirmTitle": "Avboka avgift för {{name}}?",
+    "cancelFeeConfirmMessage": "Avboka denna avgift för {{name}}? De kommer inte längre att se denna avgift. Deras skyldighet registreras som avbokad.",
+    "cancelFeeSuccess": "Avgift avbokad för {{name}}.",
+    "cancelFeeSkippedPaid": "{{name}} har redan betalat och kan inte avboka avgiften.",
+    "closeFeeSuccess": "Avgiften stängdes."
   },
   "selectEventMembers": {
     "paidMemberWarningTitle": "Kan inte ta bort medlem",

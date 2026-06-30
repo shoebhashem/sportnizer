@@ -579,6 +579,250 @@ describe("deleteMembershipFee", () => {
   });
 });
 
+// ─── cancelFeeForMembers ─────────────────────────────────────
+
+describe("cancelFeeForMembers", () => {
+  beforeEach(async () => {
+    await clearAll();
+  });
+
+  async function setupFeeWithPlayer() {
+    const { admin, clubId, groupId } = await setupClubWithStripe();
+
+    const player = await createFullTestUser({
+      email: `player-cancel-${Date.now()}@test.com`,
+      displayName: "Cancel Player",
+    });
+    const db = getFirestore();
+
+    await db.doc(`clubs/${clubId}/groups/${groupId}/allMembers/members`).set(
+      {
+        members: [
+          {
+            userId: player.uid,
+            name: "Cancel Player",
+            roles: ["player"],
+            isActive: true,
+            needsGuardian: false,
+          },
+        ],
+        memberCount: 1,
+      },
+      { merge: true },
+    );
+
+    const result = await callFunction("createMembershipFee", admin.idToken, {
+      clubId,
+      groupId,
+      title: "Fee To Cancel",
+      currency: "sek",
+      targetRoles: ["player"],
+      components: [{ category: "membership_fee", amount: 50000 }],
+    });
+
+    return { admin, clubId, groupId, player, feeId: result.feeId as string };
+  }
+
+  it("cancels an unpaid member — sets status cancelled, dismisses notification, decrements totalExpected", async () => {
+    const { admin, player, feeId } = await setupFeeWithPlayer();
+    const db = getFirestore();
+
+    // Verify notification exists and is undismissed
+    const notifsBefore = await db
+      .collection("users")
+      .doc(player.uid)
+      .collection("notifications")
+      .where("type", "==", "payment_request")
+      .where("dismissed", "==", false)
+      .get();
+    expect(notifsBefore.docs.length).toBeGreaterThanOrEqual(1);
+
+    // Fetch original totalExpected
+    const feeBefore = await db.doc(`membershipFees/${feeId}`).get();
+    const totalExpectedBefore = feeBefore.data()!.totalExpected as number;
+
+    const result = await callFunction(
+      "cancelFeeForMembers",
+      admin.idToken,
+      { feeId, memberIds: [player.uid] },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.cancelledCount).toBe(1);
+    expect(result.skippedPaidCount).toBe(0);
+
+    // Notification must be dismissed
+    const notifsAfter = await db
+      .collection("users")
+      .doc(player.uid)
+      .collection("notifications")
+      .where("type", "==", "payment_request")
+      .where("dismissed", "==", false)
+      .get();
+    expect(notifsAfter.docs.length).toBe(0);
+
+    // totalExpected decremented
+    const feeAfter = await db.doc(`membershipFees/${feeId}`).get();
+    expect(feeAfter.data()!.totalExpected).toBe(totalExpectedBefore - 1);
+  });
+
+  it("skips a paid member — returns skippedPaidCount 1, leaves allMembers unchanged", async () => {
+    const { admin, clubId, groupId, player, feeId } =
+      await setupFeeWithPlayer();
+    const db = getFirestore();
+
+    // Simulate payment by setting paymentStatus.status = "paid" in allMembers
+    const allMembersRef = db.doc(
+      `clubs/${clubId}/groups/${groupId}/allMembers/members`,
+    );
+    const snap = await allMembersRef.get();
+    const members = (snap.data()!.members as any[]).map((m) =>
+      m.userId === player.uid
+        ? { ...m, paymentStatus: { activeFeeId: feeId, status: "paid", amount: 50000, currency: "sek", dueDate: null, paidAt: new Date().toISOString(), paidBy: player.uid } }
+        : m,
+    );
+    await allMembersRef.update({ members });
+
+    const result = await callFunction(
+      "cancelFeeForMembers",
+      admin.idToken,
+      { feeId, memberIds: [player.uid] },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.cancelledCount).toBe(0);
+    expect(result.skippedPaidCount).toBe(1);
+
+    // allMembers still has status "paid"
+    const snapAfter = await allMembersRef.get();
+    const memberAfter = (snapAfter.data()!.members as any[]).find(
+      (m) => m.userId === player.uid,
+    );
+    expect(memberAfter.paymentStatus.status).toBe("paid");
+  });
+
+  it("is idempotent — cancelling an already-cancelled member returns cancelledCount 0", async () => {
+    const { admin, player, feeId } = await setupFeeWithPlayer();
+
+    // First cancel
+    const first = await callFunction(
+      "cancelFeeForMembers",
+      admin.idToken,
+      { feeId, memberIds: [player.uid] },
+    );
+    expect(first.cancelledCount).toBe(1);
+
+    // Second cancel — should be idempotent
+    const second = await callFunction(
+      "cancelFeeForMembers",
+      admin.idToken,
+      { feeId, memberIds: [player.uid] },
+    );
+    expect(second.success).toBe(true);
+    expect(second.cancelledCount).toBe(0);
+    expect(second.skippedPaidCount).toBe(0);
+  });
+
+  it("cancels multiple members in one call", async () => {
+    const { admin, clubId, groupId, feeId } = await setupFeeWithPlayer();
+    const db = getFirestore();
+
+    // Add a second player
+    const player2 = await createFullTestUser({
+      email: `player2-cancel-${Date.now()}@test.com`,
+      displayName: "Cancel Player 2",
+    });
+    const allMembersRef = db.doc(
+      `clubs/${clubId}/groups/${groupId}/allMembers/members`,
+    );
+    const snap = await allMembersRef.get();
+    const members = [
+      ...(snap.data()!.members as any[]),
+      {
+        userId: player2.uid,
+        name: "Cancel Player 2",
+        roles: ["player"],
+        isActive: true,
+        needsGuardian: false,
+      },
+    ];
+    await allMembersRef.update({ members });
+
+    // Seed player2 paymentStatus directly in allMembers
+    const snap2 = await allMembersRef.get();
+    const updatedMembers = (snap2.data()!.members as any[]).map((m) =>
+      m.userId === player2.uid
+        ? {
+            ...m,
+            paymentStatus: {
+              activeFeeId: feeId,
+              status: "pending",
+              amount: 50000,
+              currency: "sek",
+              dueDate: null,
+              paidAt: null,
+              paidBy: null,
+            },
+          }
+        : m,
+    );
+    await allMembersRef.update({ members: updatedMembers });
+
+    // Get all playerIds from allMembers now
+    const snap3 = await allMembersRef.get();
+    const allPlayerIds = (snap3.data()!.members as any[])
+      .filter((m) => m.paymentStatus?.activeFeeId === feeId)
+      .map((m) => m.userId);
+
+    expect(allPlayerIds.length).toBeGreaterThanOrEqual(1);
+
+    const result = await callFunction(
+      "cancelFeeForMembers",
+      admin.idToken,
+      { feeId, memberIds: allPlayerIds },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.cancelledCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("rejects unauthenticated calls", async () => {
+    const { feeId } = await setupFeeWithPlayer();
+
+    await expectFunctionError(
+      "cancelFeeForMembers",
+      "",
+      { feeId, memberIds: ["anyone"] },
+      "unauthenticated",
+    );
+  });
+
+  it("returns not-found for a non-existent feeId", async () => {
+    const { admin } = await setupClubWithStripe();
+
+    await expectFunctionError(
+      "cancelFeeForMembers",
+      admin.idToken,
+      { feeId: "nonexistent-fee", memberIds: ["anyone"] },
+      "not-found",
+    );
+  });
+
+  it("rejects cancellation on a closed fee", async () => {
+    const { admin, player, feeId } = await setupFeeWithPlayer();
+
+    // Close the fee first
+    await callFunction("deleteMembershipFee", admin.idToken, { feeId });
+
+    await expectFunctionError(
+      "cancelFeeForMembers",
+      admin.idToken,
+      { feeId, memberIds: [player.uid] },
+      "failed-precondition",
+    );
+  });
+});
+
 // ─── updateMembershipFee ─────────────────────────────────────
 
 describe("updateMembershipFee", () => {

@@ -70,7 +70,6 @@
     "searchPlaceholder": "Sök bland grupper…",
     "allSports": "Alla sporter"
   },
-
   "memberFilterBar": {
     "all": "Alla",
     "active": "Aktiva",
@@ -123,7 +122,8 @@
     "paid": "Betald",
     "notPaid": "Ej betald",
     "overdue": "Försenad",
-    "paidBy": "av {{paidBy}}"
+    "paidBy": "av {{paidBy}}",
+    "cancelled": "Inställd"
   },
   "notificationBell": {
     "notifications": "Aviseringar",
@@ -140,7 +140,6 @@
     "selectCountryCode": "Välj landskod",
     "search": "Sök..."
   },
-
   "dropdownInput": {
     "selectAnOption": "Välj ett alternativ"
   },

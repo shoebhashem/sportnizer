@@ -36,6 +36,7 @@ const getUserPendingPaymentsFn = httpsCallable(
 const deleteMembershipFeeFn = httpsCallable(functions, "deleteMembershipFee");
 const updateMembershipFeeFn = httpsCallable(functions, "updateMembershipFee");
 const updateFeeMembersFn = httpsCallable(functions, "updateFeeMembers");
+const cancelFeeForMembersFn = httpsCallable(functions, "cancelFeeForMembers");
 const getAccountingDataFn = httpsCallable(functions, "getAccountingData");
 const exportAccountingDataFn = httpsCallable(functions, "exportAccountingData");
 const getChartOfAccountsFn = httpsCallable(functions, "getChartOfAccounts");
@@ -554,6 +555,27 @@ export const paymentService = {
         addedCount: number;
         removedCount: number;
         removedPaidCount: number;
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async cancelFeeForMembers(
+    feeId: string,
+    memberIds: string[],
+  ): Promise<{
+    success: boolean;
+    cancelledCount?: number;
+    skippedPaidCount?: number;
+    error?: string;
+  }> {
+    try {
+      const result = await cancelFeeForMembersFn({ feeId, memberIds });
+      return result.data as {
+        success: boolean;
+        cancelledCount: number;
+        skippedPaidCount: number;
       };
     } catch (error: any) {
       return { success: false, error: error.message };

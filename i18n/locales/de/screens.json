@@ -972,7 +972,13 @@
     "childYouthLabel": "(Kind/Jugend)",
     "failedToLoadMembershipFees": "Mitgliedsbeiträge konnten nicht geladen werden",
     "membersUpdatedSuccess": "Mitglieder aktualisiert — {{added}} hinzugefügt, {{removed}} entfernt.",
-    "paidMembersKept": "{{count}} Mitglied(er), die bereits bezahlt haben, konnten nicht entfernt werden."
+    "paidMembersKept": "{{count}} Mitglied(er), die bereits bezahlt haben, konnten nicht entfernt werden.",
+    "filterCancelled": "Storniert ({{count}})",
+    "cancelFeeConfirmTitle": "Gebühr für {{name}} stornieren?",
+    "cancelFeeConfirmMessage": "Diese Gebühr für {{name}} stornieren? Sie sehen diese Gebühr nicht mehr. Ihre Verpflichtung wird als storniert erfasst.",
+    "cancelFeeSuccess": "Gebühr für {{name}} storniert.",
+    "cancelFeeSkippedPaid": "{{name}} hat bereits bezahlt und kann die Gebühr nicht stornieren.",
+    "closeFeeSuccess": "Gebühr wurde geschlossen."
   },
   "selectEventMembers": {
     "paidMemberWarningTitle": "Mitglied kann nicht entfernt werden",

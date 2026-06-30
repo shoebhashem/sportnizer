@@ -954,7 +954,13 @@
     "childYouthLabel": "(Barn/Ungdom)",
     "failedToLoadMembershipFees": "Kunne ikke laste medlemsavgifter",
     "membersUpdatedSuccess": "Medlemmer oppdatert — {{added}} lagt til, {{removed}} fjernet.",
-    "paidMembersKept": "{{count}} medlem(mer) som allerede har betalt kunne ikke fjernes."
+    "paidMembersKept": "{{count}} medlem(mer) som allerede har betalt kunne ikke fjernes.",
+    "filterCancelled": "Avlyst ({{count}})",
+    "cancelFeeConfirmTitle": "Kanseller avgift for {{name}}?",
+    "cancelFeeConfirmMessage": "Kanseller denne avgiften for {{name}}? De vil ikke lenger se denne avgiften. Forpliktelsen vil bli registrert som kansellert.",
+    "cancelFeeSuccess": "Avgift kansellert for {{name}}.",
+    "cancelFeeSkippedPaid": "{{name}} har allerede betalt og kan ikke kansellere avgiften.",
+    "closeFeeSuccess": "Avgiften ble stengt."
   },
   "selectEventMembers": {
     "paidMemberWarningTitle": "Kan ikke fjerne medlem",

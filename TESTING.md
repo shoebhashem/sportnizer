@@ -944,9 +944,9 @@ Triggers on push/PR to `main` or `develop` when `functions/` changes.
 
 ---
 
-### 16. Fee Management (`fee-management.test.ts`) — 34 tests
+### 16. Fee Management (`fee-management.test.ts`) — 41 tests
 
-> Tests createMembershipFee, getMembershipFees, deleteMembershipFee, updateMembershipFee, and createClub country/currency variants.
+> Tests createMembershipFee, getMembershipFees, deleteMembershipFee, cancelFeeForMembers, updateMembershipFee, and createClub country/currency variants.
 
 #### deleteMembershipFee (7 tests)
 

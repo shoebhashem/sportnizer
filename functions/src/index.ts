@@ -153,6 +153,7 @@ export { subscriptionWebhookHandler } from "./subscriptions/subscriptionWebhookH
 export { updateSubscription } from "./subscriptions/updateSubscription";
 
 // Payment Functions (Membership Fees)
+export { cancelFeeForMembers } from "./payments/cancelFeeForMembers";
 export { createMembershipFee } from "./payments/createMembershipFee";
 export { deleteMembershipFee } from "./payments/deleteMembershipFee";
 export { getMembershipFees } from "./payments/getMembershipFees";

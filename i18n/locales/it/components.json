@@ -70,7 +70,6 @@
     "searchPlaceholder": "Cerca gruppi…",
     "allSports": "Tutti gli sport"
   },
-
   "memberFilterBar": {
     "all": "Tutti",
     "active": "Attivi",
@@ -123,7 +122,8 @@
     "paid": "Pagato",
     "notPaid": "Non pagato",
     "overdue": "Scaduto",
-    "paidBy": "da {{paidBy}}"
+    "paidBy": "da {{paidBy}}",
+    "cancelled": "Annullato"
   },
   "notificationBell": {
     "notifications": "Notifiche",
@@ -140,7 +140,6 @@
     "selectCountryCode": "Seleziona prefisso internazionale",
     "search": "Cerca..."
   },
-
   "dropdownInput": {
     "selectAnOption": "Seleziona un'opzione"
   },

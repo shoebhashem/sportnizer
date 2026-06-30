@@ -998,7 +998,13 @@
     "childYouthLabel": "(Child/Youth)",
     "failedToLoadMembershipFees": "Failed to load membership fees",
     "membersUpdatedSuccess": "Members updated — {{added}} added, {{removed}} removed.",
-    "paidMembersKept": "{{count}} member(s) who already paid could not be removed."
+    "paidMembersKept": "{{count}} member(s) who already paid could not be removed.",
+    "filterCancelled": "Cancelled ({{count}})",
+    "cancelFeeConfirmTitle": "Cancel Fee for {{name}}?",
+    "cancelFeeConfirmMessage": "Cancel this fee for {{name}}? They will no longer see this fee. Their obligation will be recorded as cancelled.",
+    "cancelFeeSuccess": "Fee cancelled for {{name}}.",
+    "cancelFeeSkippedPaid": "{{name}} has already paid and cannot have their fee cancelled.",
+    "closeFeeSuccess": "Fee closed successfully."
   },
   "selectEventMembers": {
     "paidMemberWarningTitle": "Cannot Remove Member",

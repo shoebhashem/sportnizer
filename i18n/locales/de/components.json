@@ -70,7 +70,6 @@
     "searchPlaceholder": "Gruppen suchen…",
     "allSports": "Alle Sportarten"
   },
-
   "memberFilterBar": {
     "all": "Alle",
     "active": "Aktiv",
@@ -123,7 +122,8 @@
     "paid": "Bezahlt",
     "notPaid": "Nicht bezahlt",
     "overdue": "Überfällig",
-    "paidBy": "von {{paidBy}}"
+    "paidBy": "von {{paidBy}}",
+    "cancelled": "Storniert"
   },
   "notificationBell": {
     "notifications": "Benachrichtigungen",
@@ -140,7 +140,6 @@
     "selectCountryCode": "Ländervorwahl auswählen",
     "search": "Suchen..."
   },
-
   "dropdownInput": {
     "selectAnOption": "Option auswählen"
   },

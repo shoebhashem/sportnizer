@@ -66,7 +66,6 @@
     "searchPlaceholder": "Søg efter grupper…",
     "allSports": "Alle sportsgrene"
   },
-
   "memberFilterBar": {
     "all": "Alle",
     "active": "Aktive",
@@ -119,7 +118,8 @@
     "paid": "Betalt",
     "notPaid": "Ikke betalt",
     "overdue": "Forsinket",
-    "paidBy": "af {{paidBy}}"
+    "paidBy": "af {{paidBy}}",
+    "cancelled": "Aflyst"
   },
   "notificationBell": {
     "notifications": "Notifikationer",
@@ -136,7 +136,6 @@
     "selectCountryCode": "Vælg landekode",
     "search": "Søg..."
   },
-
   "dropdownInput": {
     "selectAnOption": "Vælg en mulighed"
   },

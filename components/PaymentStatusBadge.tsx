@@ -6,7 +6,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
-export type PaymentStatus = "paid" | "pending" | "overdue" | "no_fee";
+export type PaymentStatus = "paid" | "pending" | "overdue" | "no_fee" | "cancelled";
 
 interface PaymentStatusBadgeProps {
   status: PaymentStatus;
@@ -25,6 +25,7 @@ export default function PaymentStatusBadge({
   if (status === "no_fee") {
     return null;
   }
+
 
   const getStatusConfig = () => {
     switch (status) {
@@ -48,6 +49,13 @@ export default function PaymentStatusBadge({
           backgroundColor: "#FEE2E2",
           textColor: "#991B1B",
           borderColor: "#FCA5A5",
+        };
+      case "cancelled":
+        return {
+          label: t("components:paymentStatusBadge.cancelled"),
+          backgroundColor: "#F3F4F6",
+          textColor: "#4B5563",
+          borderColor: "#D1D5DB",
         };
       default:
         return {

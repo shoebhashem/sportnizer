@@ -972,7 +972,13 @@
     "childYouthLabel": "(Minore/Giovanile)",
     "failedToLoadMembershipFees": "Impossibile caricare le quote associative",
     "membersUpdatedSuccess": "Membri aggiornati — {{added}} aggiunti, {{removed}} rimossi.",
-    "paidMembersKept": "{{count}} membro/i che ha/hanno già pagato non ha/hanno potuto essere rimosso/i."
+    "paidMembersKept": "{{count}} membro/i che ha/hanno già pagato non ha/hanno potuto essere rimosso/i.",
+    "filterCancelled": "Annullato ({{count}})",
+    "cancelFeeConfirmTitle": "Annullare la quota per {{name}}?",
+    "cancelFeeConfirmMessage": "Annullare questa quota per {{name}}? Non vedranno più questa quota. Il loro obbligo verrà registrato come annullato.",
+    "cancelFeeSuccess": "Quota annullata per {{name}}.",
+    "cancelFeeSkippedPaid": "{{name}} ha già pagato e non può annullare la quota.",
+    "closeFeeSuccess": "La quota è stata chiusa."
   },
   "selectEventMembers": {
     "paidMemberWarningTitle": "Impossibile rimuovere il membro",

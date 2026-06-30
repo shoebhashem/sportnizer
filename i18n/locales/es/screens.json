@@ -972,7 +972,13 @@
     "childYouthLabel": "(Niño/Juvenil)",
     "failedToLoadMembershipFees": "Error al cargar cuotas de membresía",
     "membersUpdatedSuccess": "Miembros actualizados — {{added}} añadidos, {{removed}} eliminados.",
-    "paidMembersKept": "{{count}} miembro(s) que ya pagaron no pudieron ser eliminados."
+    "paidMembersKept": "{{count}} miembro(s) que ya pagaron no pudieron ser eliminados.",
+    "filterCancelled": "Cancelado ({{count}})",
+    "cancelFeeConfirmTitle": "¿Cancelar cuota para {{name}}?",
+    "cancelFeeConfirmMessage": "¿Cancelar esta cuota para {{name}}? Ya no verán esta cuota. Su obligación se registrará como cancelada.",
+    "cancelFeeSuccess": "Cuota cancelada para {{name}}.",
+    "cancelFeeSkippedPaid": "{{name}} ya ha pagado y no puede cancelar la cuota.",
+    "closeFeeSuccess": "La cuota se cerró correctamente."
   },
   "selectEventMembers": {
     "paidMemberWarningTitle": "No se puede eliminar al miembro",
