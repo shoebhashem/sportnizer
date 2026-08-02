@@ -133,6 +133,12 @@ export { sendDailyEventNotifications } from "./scheduled/sendDailyEventNotificat
 
 // Admin/Development Functions
 export { devForceCleanup } from "./admin/devForceCleanup";
+export { adminGetClubDetails } from "./admin/adminGetClubDetails";
+export { adminGetDashboardStats } from "./admin/adminGetDashboardStats";
+export { adminGetUserDetails } from "./admin/adminGetUserDetails";
+export { adminListClubs } from "./admin/adminListClubs";
+export { adminListUsers } from "./admin/adminListUsers";
+export { adminUpdateDocument } from "./admin/adminUpdateDocument";
 
 // Stripe Connect Functions (Account Management)
 export { checkStripeAccountStatus } from "./stripe/checkStripeAccountStatus";
