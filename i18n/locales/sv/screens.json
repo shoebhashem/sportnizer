@@ -608,7 +608,8 @@
     "accounting": "Bokföring",
     "accountingDesc": "Bokföringsverifikationer och SIE-export",
     "manageGroups": "Hantera grupper",
-    "manageGroupsDesc": "Lägg till eller ta bort grupper i denna klubb"
+    "manageGroupsDesc": "Lägg till eller ta bort grupper i denna klubb",
+    "moreSettings": "Fler inställningar"
   },
   "clubInfo": {
     "loadingClubInfo": "Laddar klubbinfo...",

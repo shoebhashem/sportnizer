@@ -287,6 +287,14 @@
       "groupEventFab": "Crear entrenamientos y partidos",
       "groupNewsFab": "Publicar noticias en el grupo",
       "clubCard": "Toca para gestionar miembros y grupos"
+    },
+    "checklist": {
+      "title": "Primeros pasos",
+      "step1": "Crear tu club",
+      "step2": "Crear tu primer grupo",
+      "step3": "Invitar miembros a tu grupo",
+      "step3Hint": "Crea un grupo primero",
+      "dismiss": "Cerrar"
     }
   },
   "feeCategory": {

@@ -287,6 +287,14 @@
       "groupEventFab": "Trainings & Spiele erstellen",
       "groupNewsFab": "Neuigkeiten in der Gruppe posten",
       "clubCard": "Tippen, um Mitglieder & Gruppen zu verwalten"
+    },
+    "checklist": {
+      "title": "Erste Schritte",
+      "step1": "Verein erstellen",
+      "step2": "Erste Gruppe erstellen",
+      "step3": "Mitglieder einladen",
+      "step3Hint": "Erstelle zuerst eine Gruppe",
+      "dismiss": "Schließen"
     }
   },
   "feeCategory": {

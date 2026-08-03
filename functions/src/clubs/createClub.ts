@@ -2,13 +2,14 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { seedClubAccountingConfig } from "../accounting/chartOfAccounts";
+import { sendAdminWelcomeEmail } from "../admin/sendAdminWelcomeEmail";
 import { STRIPE_CONFIG } from "../config/stripe";
 import { config } from "../utils/config";
 import { checkClubLimit, DEFAULT_LIMITS } from "../utils/limits";
 import { validateRequiredFields } from "../utils/validation";
 
 export const createClub = onCall(
-  { region: config.region },
+  { region: config.region, secrets: ["SMTP_PASSWORD"] },
   async (
     request,
   ): Promise<{ success: boolean; clubId?: string; error?: string }> => {
@@ -191,7 +192,18 @@ export const createClub = onCall(
         `Created club ${clubRef.id} with initialized members document. User now has ${activeClubsAsAdmin + 1} active clubs.`,
       );
 
-      // 5. Return consistent response
+      // 5. Send welcome email for first-time club admins (fire-and-forget)
+      if (activeClubsAsAdmin === 0) {
+        const userEmail = userData?.email;
+        const fullName = userData?.displayName || "there";
+        if (userEmail) {
+          sendAdminWelcomeEmail(userEmail, fullName, trimmedName).catch(
+            (err) => console.error("Welcome email error (non-fatal):", err),
+          );
+        }
+      }
+
+      // 6. Return consistent response
       return {
         success: true,
         clubId: clubRef.id,

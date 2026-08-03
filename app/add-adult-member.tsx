@@ -33,6 +33,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useUserProfile } from "@/contexts/UserContext";
 import { addRegularMemberToGroupService } from "@/services/orchestration/addRegularMemberToGroup";
 import { validateMemberForInvitation } from "@/services/validation/validateMemberForInvitation";
@@ -123,6 +124,7 @@ export default function AddAdultMemberScreen() {
     useLocalSearchParams();
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
+  const { markFeatureSeen } = useOnboarding();
   const navigation = useNavigation();
 
   // Get role configuration
@@ -499,6 +501,7 @@ export default function AddAdultMemberScreen() {
       console.log("📧 Invitation workflow result:", result);
 
       if (result.success) {
+        markFeatureSeen("onboarding-members-invited");
         const successCount =
           result.results?.filter((r) => r.success).length || 0;
         const failureCount =

@@ -630,7 +630,8 @@
     "accounting": "Regnskab",
     "accountingDesc": "Bogføringsbilag og SIE-eksport",
     "manageGroups": "Administrer grupper",
-    "manageGroupsDesc": "Tilføj eller fjern grupper i denne klub"
+    "manageGroupsDesc": "Tilføj eller fjern grupper i denne klub",
+    "moreSettings": "Flere indstillinger"
   },
   "clubInfo": {
     "loadingClubInfo": "Indlæser klubinfo...",

@@ -283,6 +283,14 @@
       "groupEventFab": "Créer des entraînements et matchs",
       "groupNewsFab": "Publier des nouvelles dans le groupe",
       "clubCard": "Appuyez pour gérer les membres et groupes"
+    },
+    "checklist": {
+      "title": "Démarrer",
+      "step1": "Créer votre club",
+      "step2": "Créer votre premier groupe",
+      "step3": "Inviter des membres dans votre groupe",
+      "step3Hint": "Créez d'abord un groupe",
+      "dismiss": "Fermer"
     }
   },
   "feeCategory": {

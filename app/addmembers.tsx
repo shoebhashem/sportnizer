@@ -15,11 +15,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../components/Button";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { theme } from "../constants/theme";
+import { useOnboarding } from "../contexts/OnboardingContext";
 import { functions } from "../services/core/firebase";
 import { memberService } from "../services/member";
 
 export default function AddMembersScreen() {
   const { t } = useTranslation(["screens", "common"]);
+  const { markFeatureSeen } = useOnboarding();
   const { groupId, groupName, inviterName, ageGroup } = useLocalSearchParams<{
     groupId: string;
     groupName: string;
@@ -185,6 +187,7 @@ export default function AddMembersScreen() {
 
       console.log("Invitation result:", result);
 
+      markFeatureSeen("onboarding-members-invited");
       setModalMessage(
         t("screens:addMembers.invitationSentMessage", {
           email: email.trim(),

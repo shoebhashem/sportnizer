@@ -630,7 +630,8 @@
     "accounting": "Comptabilité",
     "accountingDesc": "Écritures comptables et export SIE",
     "manageGroups": "Gérer les groupes",
-    "manageGroupsDesc": "Ajouter ou supprimer des groupes dans ce club"
+    "manageGroupsDesc": "Ajouter ou supprimer des groupes dans ce club",
+    "moreSettings": "Plus de paramètres"
   },
   "clubInfo": {
     "loadingClubInfo": "Chargement des infos du club...",

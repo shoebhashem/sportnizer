@@ -674,7 +674,8 @@
     "removeClubAdminPickerDesc": "Select a club admin to remove their admin privileges",
     "removeClubAdminSuccess": "Club admin removed successfully",
     "removeClubAdminFailed": "Failed to remove club admin",
-    "removingAdmin": "Removing..."
+    "removingAdmin": "Removing...",
+    "moreSettings": "More settings"
   },
   "clubInfo": {
     "loadingClubInfo": "Loading club info...",

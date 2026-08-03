@@ -295,6 +295,14 @@
       "groupEventFab": "Create training sessions & matches",
       "groupNewsFab": "Post news to this group",
       "clubCard": "Tap to manage members & groups"
+    },
+    "checklist": {
+      "title": "Get Started",
+      "step1": "Create your club",
+      "step2": "Create your first group",
+      "step3": "Invite members to your group",
+      "step3Hint": "Create a group first",
+      "dismiss": "Dismiss"
     }
   }
 }

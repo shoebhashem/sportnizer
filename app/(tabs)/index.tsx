@@ -18,14 +18,13 @@ import {
 import ConfirmationModal from "../../components/ConfirmationModal";
 import EventCard from "../../components/EventCard";
 import InvitationModal from "../../components/InvitationModal";
-import { PulsingDot, ScreenTooltipManager } from "../../components/onboarding";
+import { ScreenTooltipManager } from "../../components/onboarding";
+import OnboardingChecklist from "../../components/OnboardingChecklist";
 import PaymentCard from "../../components/PaymentCard";
 import { useAuth } from "../../contexts/AuthContext";
 import { useClubData } from "../../contexts/ClubDataContext";
 import { useEvents } from "../../contexts/EventContext";
-import { useOnboarding } from "../../contexts/OnboardingContext";
 import { useUser } from "../../contexts/UserContext";
-import { useHasSeenFeature } from "../../hooks/useOnboardingFeatureTracker";
 import { getCurrentUser } from "../../services/auth/authService";
 import { fetchDependentProfiles } from "../../services/fetchDependentProfiles";
 import {
@@ -64,8 +63,6 @@ export default function Index() {
   const { t } = useTranslation(["screens", "common", "components"]);
   const { user } = useAuth();
   const { userProfile } = useUser();
-  const hasSeenClubCard = useHasSeenFeature("club-card-tapped");
-  const { markFeatureSeen } = useOnboarding();
   const {
     events: contextEvents,
     refreshEvents,
@@ -830,119 +827,87 @@ export default function Index() {
           <>
             {userProfile.clubAccess.map((club) => {
               const isAdmin = club.role === "club-admin";
-              const showPulse = isAdmin && !hasSeenClubCard;
               return (
-                <View key={club.clubId} style={{ position: "relative" }}>
-                  <TouchableOpacity
-                    style={styles.clubContainer}
-                    onPress={() => {
-                      if (isAdmin) {
-                        markFeatureSeen("club-card-tapped");
-                        router.push(`/manage-club?clubId=${club.clubId}`);
-                      }
-                    }}
-                    disabled={!isAdmin}
-                    activeOpacity={isAdmin ? 0.7 : 1}
-                  >
-                    <View style={styles.clubHeader}>
-                      <View style={styles.clubIcon}>
-                        {clubLogos[club.clubId] ? (
-                          <Image
-                            source={{ uri: clubLogos[club.clubId]! }}
-                            style={styles.clubLogoImage}
-                          />
-                        ) : (
-                          <Ionicons
-                            name="trophy"
-                            size={24}
-                            color={theme.colors.secondary}
-                          />
-                        )}
-                      </View>
-                      <View style={styles.clubInfo}>
-                        <Text style={styles.clubName}>{club.clubName}</Text>
-                        {isAdmin ? (
-                          <View style={styles.adminBadge}>
-                            <Ionicons
-                              name="shield-checkmark"
-                              size={12}
-                              color={theme.colors.secondary}
-                            />
-                            <Text style={styles.adminText}>
-                              {t("screens:home.adminTapToManage")}
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.clubSubtext}>
-                            {t("screens:home.memberBadge")}
-                          </Text>
-                        )}
-                      </View>
-                      {/* Info icon for all users */}
-                      <TouchableOpacity
-                        style={styles.infoIconButton}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          router.push(
-                            `/club-info?clubId=${club.clubId}&mode=${isAdmin ? "edit" : "view"}`,
-                          );
-                        }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <Ionicons
-                          name="information-circle-outline"
-                          size={24}
-                          color={theme.colors.textSecondary}
+                <TouchableOpacity
+                  key={club.clubId}
+                  style={styles.clubContainer}
+                  onPress={() => {
+                    if (isAdmin) {
+                      router.push(`/manage-club?clubId=${club.clubId}`);
+                    }
+                  }}
+                  disabled={!isAdmin}
+                  activeOpacity={isAdmin ? 0.7 : 1}
+                >
+                  <View style={styles.clubHeader}>
+                    <View style={styles.clubIcon}>
+                      {clubLogos[club.clubId] ? (
+                        <Image
+                          source={{ uri: clubLogos[club.clubId]! }}
+                          style={styles.clubLogoImage}
                         />
-                      </TouchableOpacity>
-                      {isAdmin && (
+                      ) : (
                         <Ionicons
-                          name="chevron-forward"
-                          size={20}
-                          color={theme.colors.textSecondary}
-                          style={{ marginLeft: 4 }}
+                          name="trophy"
+                          size={24}
+                          color={theme.colors.secondary}
                         />
                       )}
                     </View>
-                  </TouchableOpacity>
-                  {/* Pulsing dot + coach mark for admin who hasn't visited */}
-                  {showPulse && (
-                    <View style={{ position: "absolute", top: 12, right: 12 }}>
-                      <PulsingDot active size={8} />
+                    <View style={styles.clubInfo}>
+                      <Text style={styles.clubName}>{club.clubName}</Text>
+                      {isAdmin ? (
+                        <View style={styles.adminBadge}>
+                          <Ionicons
+                            name="shield-checkmark"
+                            size={12}
+                            color={theme.colors.secondary}
+                          />
+                          <Text style={styles.adminText}>
+                            {t("screens:home.adminTapToManage")}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.clubSubtext}>
+                          {t("screens:home.memberBadge")}
+                        </Text>
+                      )}
                     </View>
-                  )}
-                  {showPulse && (
+                    {/* Info icon for all users */}
                     <TouchableOpacity
-                      onPress={() => markFeatureSeen("club-card-tapped")}
-                      style={{
-                        alignSelf: "center",
-                        backgroundColor: theme.colors.primary,
-                        borderWidth: 1,
-                        borderColor: theme.colors.secondary,
-                        borderRadius: 8,
-                        paddingHorizontal: 10,
-                        paddingVertical: 6,
-                        marginTop: -4,
-                        marginBottom: 4,
+                      style={styles.infoIconButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        router.push(
+                          `/club-info?clubId=${club.clubId}&mode=${isAdmin ? "edit" : "view"}`,
+                        );
                       }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Text
-                        style={{
-                          color: theme.colors.secondary,
-                          fontSize: 12,
-                          fontWeight: "600",
-                        }}
-                      >
-                        {t("components:onboarding.coachMarks.clubCard")} ✕
-                      </Text>
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={24}
+                        color={theme.colors.textSecondary}
+                      />
                     </TouchableOpacity>
-                  )}
-                </View>
+                    {isAdmin && (
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={theme.colors.textSecondary}
+                        style={{ marginLeft: 4 }}
+                      />
+                    )}
+                  </View>
+                </TouchableOpacity>
               );
             })}
           </>
         )}
       </View>
+
+      {/* Onboarding Checklist for club admins */}
+      <OnboardingChecklist />
 
       {/* Content */}
       <ScrollView

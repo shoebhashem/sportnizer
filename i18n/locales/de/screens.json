@@ -648,7 +648,8 @@
     "accounting": "Buchhaltung",
     "accountingDesc": "Buchungsbelege und SIE-Export",
     "manageGroups": "Gruppen verwalten",
-    "manageGroupsDesc": "Gruppen in diesem Verein hinzufügen oder entfernen"
+    "manageGroupsDesc": "Gruppen in diesem Verein hinzufügen oder entfernen",
+    "moreSettings": "Weitere Einstellungen"
   },
   "clubInfo": {
     "loadingClubInfo": "Vereinsinfo wird geladen...",

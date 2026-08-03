@@ -11,15 +11,12 @@ import MemberFilterBar, {
     type RoleOption,
     type StatusFilter,
 } from "@/components/MemberFilterBar";
-import { FeatureHighlight } from "@/components/onboarding";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useDataCache } from "@/contexts/DataCacheContext";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useUser } from "@/contexts/UserContext";
-import { useHasSeenFeature } from "@/hooks/useOnboardingFeatureTracker";
 import { functions } from "@/services/core/firebase";
 import { ClubGroupData, fetchClubGroups } from "@/services/fetchClubGroups";
 import { groupService } from "@/services/group";
@@ -65,11 +62,6 @@ export default function ManageClubScreen() {
     () => checkIsClubAdmin(userProfile, clubId as string),
     [userProfile, clubId],
   );
-  const hasSeenClubSettings = useHasSeenFeature("club-settings-viewed");
-  const hasSeenClubEvents = useHasSeenFeature("club-events-fab-seen");
-  const hasSeenClubNews = useHasSeenFeature("club-news-fab-seen");
-  const { markFeatureSeen } = useOnboarding();
-
   const [groups, setGroups] = useState<ClubGroupData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"members" | "groups">(
@@ -387,30 +379,18 @@ export default function ManageClubScreen() {
           </TouchableOpacity>
           {/* Settings gear (admin only) */}
           {isAdmin && (
-            <FeatureHighlight
-              active={!hasSeenClubSettings}
-              borderRadius={20}
-              coachMark={
-                !hasSeenClubSettings
-                  ? t("components:onboarding.coachMarks.clubSettings")
-                  : undefined
-              }
-              coachMarkPosition="left"
-              onDismiss={() => markFeatureSeen("club-settings-viewed")}
+            <TouchableOpacity
+              onPress={() => {
+                router.push(`/club-settings?clubId=${clubId}` as any);
+              }}
+              style={{ marginRight: 8, padding: 8 }}
             >
-              <TouchableOpacity
-                onPress={() => {
-                  router.push(`/club-settings?clubId=${clubId}` as any);
-                }}
-                style={{ marginRight: 8, padding: 8 }}
-              >
-                <Ionicons
-                  name="settings-outline"
-                  size={24}
-                  color={theme.colors.secondary}
-                />
-              </TouchableOpacity>
-            </FeatureHighlight>
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                color={theme.colors.secondary}
+              />
+            </TouchableOpacity>
           )}
         </View>
       ),
@@ -856,16 +836,6 @@ export default function ManageClubScreen() {
                 memberCount: contextMembers.length,
               },
             });
-          }}
-          newsHighlight={{
-            active: !hasSeenClubNews,
-            coachMark: t("components:onboarding.coachMarks.clubNewsFab"),
-            onDismiss: () => markFeatureSeen("club-news-fab-seen"),
-          }}
-          eventHighlight={{
-            active: !hasSeenClubEvents,
-            coachMark: t("components:onboarding.coachMarks.clubEventFab"),
-            onDismiss: () => markFeatureSeen("club-events-fab-seen"),
           }}
         />
       )}

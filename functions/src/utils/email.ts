@@ -508,3 +508,105 @@ export const passwordResetTemplate = (fullName: string, resetLink: string) =>
       </p>
     </div>
   `);
+
+// =======================================================
+// ADMIN WELCOME EMAIL (After First Club Creation)
+// =======================================================
+export const adminWelcomeTemplate = (
+  fullName: string,
+  clubName: string,
+  appLink: string,
+) =>
+  emailWrapper(`
+    ${emailHeader("Welcome to Clubnizer!")}
+
+    <div style="padding: 40px 30px;">
+      <h2 style="color:${BRAND.textDark}; margin-top:0;">
+        Congratulations, ${fullName}!
+      </h2>
+
+      <p style="color:${BRAND.textLight}; font-size:16px; line-height:1.6;">
+        You've created your club <strong style="color:${BRAND.accent};">${clubName}</strong> on Clubnizer.
+        Here's how to get your team up and running in just a few steps:
+      </p>
+
+      <!-- Step 1: Done -->
+      <div style="
+        display: flex;
+        align-items: flex-start;
+        margin: 20px 0 12px;
+        padding: 14px 16px;
+        background-color: #f0fdf4;
+        border-radius: 8px;
+        border-left: 4px solid #22c55e;
+      ">
+        <span style="font-size: 20px; margin-right: 12px;">&#10003;</span>
+        <div>
+          <strong style="color:${BRAND.textDark}; font-size:15px;">Step 1: Create your club</strong>
+          <p style="color:#22c55e; font-size:13px; margin:4px 0 0;">Done!</p>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div style="
+        display: flex;
+        align-items: flex-start;
+        margin: 0 0 12px;
+        padding: 14px 16px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid ${BRAND.accent};
+      ">
+        <span style="font-size: 20px; margin-right: 12px; color:${BRAND.accent};">2</span>
+        <div>
+          <strong style="color:${BRAND.textDark}; font-size:15px;">Create a group</strong>
+          <p style="color:${BRAND.textLight}; font-size:13px; margin:4px 0 0;">
+            Groups represent your teams (e.g. "U15 Boys", "Senior Team").
+            Open your club and tap the <strong>Groups</strong> tab to create one.
+          </p>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div style="
+        display: flex;
+        align-items: flex-start;
+        margin: 0 0 20px;
+        padding: 14px 16px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid ${BRAND.accent};
+      ">
+        <span style="font-size: 20px; margin-right: 12px; color:${BRAND.accent};">3</span>
+        <div>
+          <strong style="color:${BRAND.textDark}; font-size:15px;">Invite members to your group</strong>
+          <p style="color:${BRAND.textLight}; font-size:13px; margin:4px 0 0;">
+            Tap on a group, then go to <strong>Group Settings</strong> to invite
+            members by email. Members join groups, not the club directly &mdash;
+            this lets you organize multiple teams under one club.
+          </p>
+        </div>
+      </div>
+
+      <div style="
+        background-color: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin-bottom: 20px;
+      ">
+        <p style="color:${BRAND.textDark}; font-size:14px; margin:0; line-height:1.5;">
+          <strong>Tip:</strong> Members are added to groups, not the club.
+          This way you can manage multiple teams, send targeted events,
+          and track attendance per group.
+        </p>
+      </div>
+
+      ${primaryButton("Open Clubnizer", appLink)}
+
+      <p style="color:${BRAND.textLight}; font-size:14px; text-align:center; margin-top:20px; line-height:1.6;">
+        Need help? Reply to this email or reach out at
+        <a href="mailto:feedback@clubnizer.com" style="color:${BRAND.accent}; text-decoration:none; font-weight:600;">feedback@clubnizer.com</a>
+      </p>
+    </div>
+  `);

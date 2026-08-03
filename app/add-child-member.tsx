@@ -26,6 +26,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import Input from "@/components/Input";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useUserProfile } from "@/contexts/UserContext";
 import type { YouthOption } from "@/services/validation/types";
 import { validateMemberForInvitation } from "@/services/validation/validateMemberForInvitation";
@@ -49,6 +50,7 @@ export default function AddChildMemberScreen() {
   const { groupId, groupName, clubId, clubName } = useLocalSearchParams();
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
+  const { markFeatureSeen } = useOnboarding();
   const navigation = useNavigation();
   const { t } = useTranslation(["screens", "common"]);
   const insets = useSafeAreaInsets();
@@ -372,6 +374,7 @@ export default function AddChildMemberScreen() {
         const inviteResult = result.results[0];
 
         if (inviteResult.success) {
+          markFeatureSeen("onboarding-members-invited");
           const youthName =
             overrideExistingYouthData?.youthName || childName.trim();
           const isExisting = inviteResult.action === "in_app_notification";

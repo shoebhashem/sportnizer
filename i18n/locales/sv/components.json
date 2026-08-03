@@ -287,6 +287,14 @@
       "groupEventFab": "Skapa träningar & matcher",
       "groupNewsFab": "Publicera nyheter i gruppen",
       "clubCard": "Tryck för att hantera medlemmar & grupper"
+    },
+    "checklist": {
+      "title": "Kom igång",
+      "step1": "Skapa din klubb",
+      "step2": "Skapa din första grupp",
+      "step3": "Bjud in medlemmar till din grupp",
+      "step3Hint": "Skapa en grupp först",
+      "dismiss": "Stäng"
     }
   },
   "feeCategory": {

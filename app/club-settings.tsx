@@ -7,6 +7,7 @@ import { getSportByKey, SPORTS_SORTED } from "@/constants/swedishSports";
 import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useUser } from "@/contexts/UserContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { clubService } from "@/services/club";
 import { memberService } from "@/services/member";
@@ -34,6 +35,7 @@ export default function ClubSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(["screens", "common", "sports"]);
   useTrackFeatureOnMount("club-settings-viewed");
+  const { markFeatureSeen } = useOnboarding();
   const { clubId } = useLocalSearchParams();
   const { firebaseUser, userProfile } = useUser();
   const { getClub, getClubMembers, isLoading: isClubLoading } = useClubData();
@@ -66,8 +68,8 @@ export default function ClubSettingsScreen() {
   );
   const isStripeEnabled = stripeAccountStatus === "active";
 
-  // Manage Groups expandable section
-  const [manageGroupsExpanded, setManageGroupsExpanded] = useState(false);
+  // "More settings" collapsible section
+  const [moreSettingsExpanded, setMoreSettingsExpanded] = useState(false);
 
   // Set dynamic header with club name
   useLayoutEffect(() => {
@@ -207,6 +209,7 @@ export default function ClubSettingsScreen() {
 
       if (result.success && result.groupId) {
         console.log("Group created successfully, closing modal");
+        markFeatureSeen("onboarding-group-created");
         setShowAddGroupModal(false);
         setGroupName("");
         setSelectedSport("");
@@ -367,452 +370,371 @@ export default function ClubSettingsScreen() {
           </View>
         )}
 
-        {/* Settings Options */}
-        <View style={styles.optionsContainer}>
-          {/* Manage Groups — expandable section (Add Group + Delete Group) */}
-          {isClubAdmin && (
-            <View
-              style={[
-                styles.optionItem,
-                manageGroupsExpanded && styles.optionItemExpanded,
-              ]}
-            >
-              {/* Header row — tap to expand/collapse */}
-              <TouchableOpacity
-                style={styles.expandableHeader}
-                onPress={() => setManageGroupsExpanded((v) => !v)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.optionIcon}>
-                  <Ionicons
-                    name="people-outline"
-                    size={24}
-                    color={theme.colors.secondary}
-                  />
-                </View>
-                <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>
-                    {t("screens:clubSettings.manageGroups")}
-                  </Text>
-                  <Text style={styles.optionDescription}>
-                    {t("screens:clubSettings.manageGroupsDesc")}
-                  </Text>
-                </View>
-                <Ionicons
-                  name={manageGroupsExpanded ? "chevron-up" : "chevron-down"}
-                  size={20}
-                  color={theme.colors.textSecondary}
-                />
-              </TouchableOpacity>
+        {/* Hero Action: Add Group */}
+        {isClubAdmin && (
+          <TouchableOpacity
+            style={styles.heroAction}
+            onPress={handleAddGroup}
+            activeOpacity={0.7}
+          >
+            <View style={styles.heroIcon}>
+              <Ionicons
+                name="add-circle"
+                size={28}
+                color={theme.colors.secondary}
+              />
+            </View>
+            <View style={styles.optionContent}>
+              <Text style={styles.heroTitle}>
+                {t("screens:clubSettings.addGroup")}
+              </Text>
+              <Text style={styles.optionDescription}>
+                {t("screens:clubSettings.addGroupDesc")}
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={theme.colors.secondary}
+            />
+          </TouchableOpacity>
+        )}
 
-              {/* Expanded sub-options */}
-              {manageGroupsExpanded && (
-                <View style={styles.subOptionsContainer}>
-                  {/* Add Group */}
+        {/* More Settings — collapsible section */}
+        {isClubAdmin && (
+          <View style={styles.optionsContainer}>
+            <TouchableOpacity
+              style={styles.moreSettingsToggle}
+              onPress={() => setMoreSettingsExpanded((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="settings-outline"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.moreSettingsText}>
+                {t("screens:clubSettings.moreSettings")}
+              </Text>
+              <Ionicons
+                name={moreSettingsExpanded ? "chevron-up" : "chevron-down"}
+                size={18}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+
+            {moreSettingsExpanded && (
+              <>
+                {/* Delete Group */}
+                {!isScheduledForDeletion && (
                   <TouchableOpacity
-                    style={styles.subOptionItem}
-                    onPress={handleAddGroup}
+                    style={styles.optionItem}
+                    onPress={() =>
+                      router.push(
+                        `/manage-club?clubId=${clubId}&tab=groups&deleteMode=true` as any,
+                      )
+                    }
                   >
-                    <Ionicons
-                      name="add-circle-outline"
-                      size={20}
-                      color={theme.colors.secondary}
-                    />
-                    <View style={styles.subOptionContent}>
-                      <Text style={styles.subOptionTitle}>
-                        {t("screens:clubSettings.addGroup")}
+                    <View style={styles.optionIcon}>
+                      <Ionicons
+                        name="trash-bin-outline"
+                        size={24}
+                        color={theme.colors.secondary}
+                      />
+                    </View>
+                    <View style={styles.optionContent}>
+                      <Text style={styles.optionTitle}>
+                        {t("screens:clubSettings.deleteGroup")}
                       </Text>
-                      <Text style={styles.subOptionDescription}>
-                        {t("screens:clubSettings.addGroupDesc")}
+                      <Text style={styles.optionDescription}>
+                        {t("screens:clubSettings.deleteGroupDesc")}
                       </Text>
                     </View>
                     <Ionicons
                       name="chevron-forward"
-                      size={16}
+                      size={20}
                       color={theme.colors.textSecondary}
                     />
                   </TouchableOpacity>
+                )}
 
-                  {/* Delete Group */}
-                  {!isScheduledForDeletion && (
-                    <TouchableOpacity
-                      style={styles.subOptionItem}
-                      onPress={() =>
-                        router.push(
-                          `/manage-club?clubId=${clubId}&tab=groups&deleteMode=true` as any,
-                        )
-                      }
-                    >
+                {/* Add Club Admin */}
+                <TouchableOpacity
+                  style={styles.optionItem}
+                  onPress={() => {
+                    router.push({
+                      pathname: "/add-adult-member",
+                      params: {
+                        clubId: clubId as string,
+                        clubName: club?.name || "",
+                        role: "club-admin",
+                      },
+                    } as any);
+                  }}
+                >
+                  <View style={styles.optionIcon}>
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={24}
+                      color={theme.colors.secondary}
+                    />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <Text style={styles.optionTitle}>
+                      {t("screens:clubSettings.addClubAdmin")}
+                    </Text>
+                    <Text style={styles.optionDescription}>
+                      {t("screens:clubSettings.addClubAdminDesc")}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                </TouchableOpacity>
+
+                {/* Remove Club Admin */}
+                {otherClubAdmins.length > 0 && (
+                  <TouchableOpacity
+                    style={[styles.optionItem, styles.dangerOption]}
+                    onPress={() => {
+                      setSelectedAdminId(null);
+                      setShowRemoveAdminModal(true);
+                    }}
+                  >
+                    <View style={styles.optionIcon}>
                       <Ionicons
-                        name="trash-bin-outline"
-                        size={20}
+                        name="person-remove-outline"
+                        size={24}
+                        color={theme.colors.error}
+                      />
+                    </View>
+                    <View style={styles.optionContent}>
+                      <Text style={[styles.optionTitle, styles.dangerText]}>
+                        {t("screens:clubSettings.removeClubAdmin")}
+                      </Text>
+                      <Text style={styles.optionDescription}>
+                        {t("screens:clubSettings.removeClubAdminDesc")}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={theme.colors.error}
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {/* Payment Settings */}
+                <TouchableOpacity
+                  style={styles.optionItem}
+                  onPress={() => {
+                    router.push({
+                      pathname: "/stripe-onboarding",
+                      params: {
+                        clubId: clubId as string,
+                        clubName: club?.name || "",
+                      },
+                    } as any);
+                  }}
+                >
+                  <View style={styles.optionIcon}>
+                    <Ionicons
+                      name="card-outline"
+                      size={24}
+                      color={theme.colors.secondary}
+                    />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <Text style={styles.optionTitle}>
+                      {t("screens:clubSettings.paymentSettings")}
+                    </Text>
+                    <Text style={styles.optionDescription}>
+                      {isStripeEnabled
+                        ? t("screens:clubSettings.paymentSettingsDescActive")
+                        : t("screens:clubSettings.paymentSettingsDescInactive")}
+                    </Text>
+                  </View>
+                  {isStripeEnabled ? (
+                    <View style={styles.statusBadge}>
+                      <Text style={styles.statusBadgeText}>
+                        {t("common:active")}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                    />
+                  )}
+                </TouchableOpacity>
+
+                {/* Manage Fees */}
+                {isStripeEnabled && (
+                  <TouchableOpacity
+                    style={styles.optionItem}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/manage-fees",
+                        params: {
+                          clubId: clubId as string,
+                          clubName: club?.name || "",
+                        },
+                      } as any);
+                    }}
+                  >
+                    <View style={styles.optionIcon}>
+                      <Ionicons
+                        name="receipt-outline"
+                        size={24}
                         color={theme.colors.secondary}
                       />
-                      <View style={styles.subOptionContent}>
-                        <Text style={styles.subOptionTitle}>
-                          {t("screens:clubSettings.deleteGroup")}
-                        </Text>
-                        <Text style={styles.subOptionDescription}>
-                          {t("screens:clubSettings.deleteGroupDesc")}
-                        </Text>
-                      </View>
+                    </View>
+                    <View style={styles.optionContent}>
+                      <Text style={styles.optionTitle}>
+                        {t("screens:clubSettings.manageFees")}
+                      </Text>
+                      <Text style={styles.optionDescription}>
+                        {t("screens:clubSettings.manageFeesDesc")}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {/* Accounting */}
+                <TouchableOpacity
+                  style={styles.optionItem}
+                  onPress={() => {
+                    router.push({
+                      pathname: "/accounting",
+                      params: { clubId: clubId as string },
+                    } as any);
+                  }}
+                >
+                  <View style={styles.optionIcon}>
+                    <Ionicons
+                      name="bar-chart-outline"
+                      size={24}
+                      color={theme.colors.secondary}
+                    />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <Text style={styles.optionTitle}>
+                      {t("screens:clubSettings.accounting")}
+                    </Text>
+                    <Text style={styles.optionDescription}>
+                      {t("screens:clubSettings.accountingDesc")}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                </TouchableOpacity>
+
+                {/* LOK-stöd - Swedish clubs only */}
+                {club?.country === "SE" && (
+                  <TouchableOpacity
+                    style={styles.optionItem}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/lok-reports",
+                        params: { clubId: clubId as string },
+                      } as any)
+                    }
+                  >
+                    <View style={styles.optionIcon}>
                       <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={theme.colors.textSecondary}
+                        name="ribbon-outline"
+                        size={24}
+                        color={theme.colors.secondary}
                       />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-            </View>
-          )}
+                    </View>
+                    <View style={styles.optionContent}>
+                      <Text style={styles.optionTitle}>LOK-stöd</Text>
+                      <Text style={styles.optionDescription}>
+                        Hantera RF-rapporter och deltagarstöd
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
 
-          {/* Add Club Admin Option - Only for Club Admin */}
-          {isClubAdmin && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => {
-                router.push({
-                  pathname: "/add-adult-member",
-                  params: {
-                    clubId: clubId as string,
-                    clubName: club?.name || "",
-                    role: "club-admin",
-                  },
-                } as any);
-              }}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="shield-checkmark-outline"
-                  size={24}
-                  color={theme.colors.secondary}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>
-                  {t("screens:clubSettings.addClubAdmin")}
-                </Text>
-                <Text style={styles.optionDescription}>
-                  {t("screens:clubSettings.addClubAdminDesc")}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
+                {/* Role Permissions */}
+                <TouchableOpacity
+                  style={styles.optionItem}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/role-permissions",
+                      params: { clubId: clubId as string },
+                    })
+                  }
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.optionIcon}>
+                    <Ionicons
+                      name="eye-outline"
+                      size={24}
+                      color={theme.colors.secondary}
+                    />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <Text style={styles.optionTitle}>Role Permissions</Text>
+                    <Text style={styles.optionDescription}>
+                      Control which roles can see events, news and more
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                </TouchableOpacity>
 
-          {/* Remove Club Admin Option - Only for Club Admin with other admins */}
-          {isClubAdmin && otherClubAdmins.length > 0 && (
-            <TouchableOpacity
-              style={[styles.optionItem, styles.dangerOption]}
-              onPress={() => {
-                setSelectedAdminId(null);
-                setShowRemoveAdminModal(true);
-              }}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="person-remove-outline"
-                  size={24}
-                  color={theme.colors.error}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={[styles.optionTitle, styles.dangerText]}>
-                  {t("screens:clubSettings.removeClubAdmin")}
-                </Text>
-                <Text style={styles.optionDescription}>
-                  {t("screens:clubSettings.removeClubAdminDesc")}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.error}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Subscription Option - PARKED (app is free)
-             Kept for potential future reactivation.
-             To re-enable: uncomment this block and update limits.ts + subscriptionConfig.ts */}
-          {/* {isClubAdmin && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => {
-                router.push({
-                  pathname: "/subscription-settings",
-                  params: {
-                    clubId: clubId as string,
-                  },
-                } as any);
-              }}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="diamond-outline"
-                  size={24}
-                  color={theme.colors.secondary}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>
-                  {t("screens:clubSettings.subscription")}
-                </Text>
-                <Text style={styles.optionDescription}>
-                  {t("screens:clubSettings.subscriptionDesc")}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )} */}
-
-          {/* Payment Settings Option - Only for Club Admin */}
-          {isClubAdmin && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => {
-                router.push({
-                  pathname: "/stripe-onboarding",
-                  params: {
-                    clubId: clubId as string,
-                    clubName: club?.name || "",
-                  },
-                } as any);
-              }}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="card-outline"
-                  size={24}
-                  color={theme.colors.secondary}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>
-                  {t("screens:clubSettings.paymentSettings")}
-                </Text>
-                <Text style={styles.optionDescription}>
-                  {isStripeEnabled
-                    ? t("screens:clubSettings.paymentSettingsDescActive")
-                    : t("screens:clubSettings.paymentSettingsDescInactive")}
-                </Text>
-              </View>
-              {isStripeEnabled ? (
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusBadgeText}>
-                    {t("common:active")}
-                  </Text>
-                </View>
-              ) : (
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={theme.colors.textSecondary}
-                />
-              )}
-            </TouchableOpacity>
-          )}
-
-          {/* Manage Fees - Only for Club Admin with active Stripe */}
-          {isClubAdmin && isStripeEnabled && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => {
-                router.push({
-                  pathname: "/manage-fees",
-                  params: {
-                    clubId: clubId as string,
-                    clubName: club?.name || "",
-                  },
-                } as any);
-              }}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="receipt-outline"
-                  size={24}
-                  color={theme.colors.secondary}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>
-                  {t("screens:clubSettings.manageFees")}
-                </Text>
-                <Text style={styles.optionDescription}>
-                  {t("screens:clubSettings.manageFeesDesc")}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Accounting - Only for Club Admin */}
-          {isClubAdmin && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => {
-                router.push({
-                  pathname: "/accounting",
-                  params: { clubId: clubId as string },
-                } as any);
-              }}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="bar-chart-outline"
-                  size={24}
-                  color={theme.colors.secondary}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>
-                  {t("screens:clubSettings.accounting")}
-                </Text>
-                <Text style={styles.optionDescription}>
-                  {t("screens:clubSettings.accountingDesc")}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* LOK-stöd - Only for Club Admin in Swedish clubs */}
-          {isClubAdmin && club?.country === "SE" && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() =>
-                router.push({
-                  pathname: "/lok-reports",
-                  params: { clubId: clubId as string },
-                } as any)
-              }
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="ribbon-outline"
-                  size={24}
-                  color={theme.colors.secondary}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>LOK-stöd</Text>
-                <Text style={styles.optionDescription}>
-                  Hantera RF-rapporter och deltagarstöd
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Role Permissions — navigate to dedicated screen (only for Club Admin) */}
-          {isClubAdmin && (
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() =>
-                router.push({
-                  pathname: "/role-permissions",
-                  params: { clubId: clubId as string },
-                })
-              }
-              activeOpacity={0.7}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="eye-outline"
-                  size={24}
-                  color={theme.colors.secondary}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Role Permissions</Text>
-                <Text style={styles.optionDescription}>
-                  Control which roles can see events, news and more
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Delete Club Option - Only for Club Admin and not already scheduled */}
-          {isClubAdmin && !isScheduledForDeletion && (
-            <TouchableOpacity
-              style={[styles.optionItem, styles.dangerOption]}
-              onPress={handleDeleteClub}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons
-                  name="trash-outline"
-                  size={24}
-                  color={theme.colors.error}
-                />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={[styles.optionTitle, styles.dangerText]}>
-                  {t("screens:clubSettings.deleteClub")}
-                </Text>
-                <Text style={styles.optionDescription}>
-                  {t("screens:clubSettings.deleteClubDesc")}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.error}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Example placeholder options (uncomment/modify as needed) */}
-          {/* 
-          <TouchableOpacity 
-            style={styles.optionItem}
-            onPress={() => {}}
-          >
-            <View style={styles.optionIcon}>
-              <Ionicons 
-                name="settings-outline" 
-                size={24} 
-                color={theme.colors.secondary} 
-              />
-            </View>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionTitle}>Edit Club Details</Text>
-              <Text style={styles.optionDescription}>Update club name and description</Text>
-            </View>
-            <Ionicons 
-              name="chevron-forward" 
-              size={20} 
-              color={theme.colors.textSecondary} 
-            />
-          </TouchableOpacity>
-          */}
-        </View>
+                {/* Delete Club */}
+                {!isScheduledForDeletion && (
+                  <TouchableOpacity
+                    style={[styles.optionItem, styles.dangerOption]}
+                    onPress={handleDeleteClub}
+                  >
+                    <View style={styles.optionIcon}>
+                      <Ionicons
+                        name="trash-outline"
+                        size={24}
+                        color={theme.colors.error}
+                      />
+                    </View>
+                    <View style={styles.optionContent}>
+                      <Text style={[styles.optionTitle, styles.dangerText]}>
+                        {t("screens:clubSettings.deleteClub")}
+                      </Text>
+                      <Text style={styles.optionDescription}>
+                        {t("screens:clubSettings.deleteClubDesc")}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={theme.colors.error}
+                    />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* Delete Club Info Modal */}
@@ -1054,19 +976,46 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     lineHeight: 22,
   },
-  optionsContainer: {
-    gap: theme.spacing.sm,
+  heroAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: theme.colors.inputBackground,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 2,
+    borderColor: theme.colors.secondary + "60",
+    marginBottom: theme.spacing.xl,
   },
-  placeholderText: {
+  heroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.secondary + "20",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: theme.spacing.md,
+  },
+  heroTitle: {
+    fontSize: theme.typography.fontSize.large,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  moreSettingsToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  moreSettingsText: {
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
-    textAlign: "center",
-    fontStyle: "italic",
-    padding: theme.spacing.xl,
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  optionsContainer: {
+    gap: theme.spacing.sm,
   },
   optionItem: {
     flexDirection: "row",
@@ -1137,44 +1086,6 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: theme.colors.error,
-  },
-  optionItemExpanded: {
-    flexDirection: "column",
-    alignItems: "stretch",
-  },
-  expandableHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-  },
-  subOptionsContainer: {
-    marginTop: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.inputBorder,
-    paddingTop: theme.spacing.sm,
-    gap: theme.spacing.xs,
-  },
-  subOptionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.small,
-    backgroundColor: theme.colors.primary,
-    gap: theme.spacing.sm,
-  },
-  subOptionContent: {
-    flex: 1,
-  },
-  subOptionTitle: {
-    fontSize: theme.typography.fontSize.medium,
-    fontWeight: theme.typography.fontWeight.medium,
-    color: theme.colors.text,
-  },
-  subOptionDescription: {
-    fontSize: theme.typography.fontSize.small,
-    color: theme.colors.textSecondary,
-    marginTop: 1,
   },
   adminPickerItem: {
     flexDirection: "row",

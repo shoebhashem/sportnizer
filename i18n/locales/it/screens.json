@@ -648,7 +648,8 @@
     "accounting": "Contabilità",
     "accountingDesc": "Registrazioni contabili ed esportazione SIE",
     "manageGroups": "Gestisci gruppi",
-    "manageGroupsDesc": "Aggiungi o rimuovi gruppi in questo club"
+    "manageGroupsDesc": "Aggiungi o rimuovi gruppi in questo club",
+    "moreSettings": "Altre impostazioni"
   },
   "clubInfo": {
     "loadingClubInfo": "Caricamento info club...",

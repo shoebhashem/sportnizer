@@ -283,6 +283,14 @@
       "groupEventFab": "Opret træninger og kampe",
       "groupNewsFab": "Post nyheder i gruppen",
       "clubCard": "Tryk for at administrere medlemmer og grupper"
+    },
+    "checklist": {
+      "title": "Kom i gang",
+      "step1": "Opret din klub",
+      "step2": "Opret din første gruppe",
+      "step3": "Inviter medlemmer til din gruppe",
+      "step3Hint": "Opret en gruppe først",
+      "dismiss": "Luk"
     }
   },
   "feeCategory": {
