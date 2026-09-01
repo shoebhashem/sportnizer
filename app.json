@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "clubnizer",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "googleServicesFile": "./GoogleService-Info.plist",
@@ -75,7 +74,6 @@
         "foregroundImage": "./assets/images/icon-foreground.png",
         "backgroundColor": "#25292e"
       },
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS"
@@ -120,7 +118,12 @@
           "color": "#25292e",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      "expo-image",
+      "expo-sharing",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
