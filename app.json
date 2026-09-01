@@ -20,8 +20,11 @@
       "entitlements": {
         "aps-environment": "production"
       },
-      "associatedDomains": ["applinks:app.clubnizer.com"],
-      "bundleIdentifier": "com.clubnizer.app"
+      "associatedDomains": [
+        "applinks:app.clubnizer.com"
+      ],
+      "bundleIdentifier": "com.clubnizer.app",
+      "buildNumber": "2"
     },
     "android": {
       "package": "com.clubnizer.app",
@@ -62,7 +65,10 @@
               "pathPrefix": "/stripe-refresh"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
@@ -79,7 +85,8 @@
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "versionCode": 2
     },
     "web": {
       "bundler": "metro",
