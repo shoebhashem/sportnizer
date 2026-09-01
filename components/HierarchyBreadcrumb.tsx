@@ -8,7 +8,7 @@
 //   neither           → grey (textSecondary)  — visible but not navigable
 
 import { theme } from "@/constants/theme";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React from "react";
 import {
     ScrollView,
@@ -19,7 +19,7 @@ import {
 } from "react-native";
 
 export interface BreadcrumbSegment {
-  iconName: keyof typeof Ionicons.glyphMap;
+  iconName: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
   /** True when this segment represents the current screen level. */
   isCurrent?: boolean;

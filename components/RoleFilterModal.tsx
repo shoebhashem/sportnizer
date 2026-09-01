@@ -1,18 +1,4 @@
-/**
- * 🎭 ROLE FILTER MODAL COMPONENT
- *
- * A reusable modal component for filtering group members by role.
- * Used in event creation to select which roles should receive event invitations.
- *
- * Features:
- * - Full-screen modal with checkboxes for each role
- * - Multi-select capability (select multiple roles at once)
- * - Group-level roles only: player, player-underage, coach, admin
- * - Visual feedback for selected roles
- * - Apply/Cancel actions
- */
-
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -37,7 +23,7 @@ interface RoleInfo {
   value: ClubRole;
   label: string;
   description: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
 }
 
 // Group-level roles for filtering

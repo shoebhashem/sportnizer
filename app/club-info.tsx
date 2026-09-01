@@ -1,8 +1,6 @@
-// /app/club-info.tsx — Club Info Screen
-// View mode: displays logo, name, location, address, phone (read-only)
-// Edit mode: toggle via header ✏️ icon — all fields become editable (club-admin only)
-
-import { FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import FontAwesome from "@react-native-vector-icons/fontawesome/static";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
+import MaterialIcons from "@react-native-vector-icons/material-icons/static";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { httpsCallable } from "firebase/functions";
@@ -811,7 +809,7 @@ const styles = StyleSheet.create({
   },
   // ---- Uploading Overlay ----
   uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "center",
     alignItems: "center",

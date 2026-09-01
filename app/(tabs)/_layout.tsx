@@ -12,7 +12,7 @@ import {
   savePushTokenToFirestore,
 } from "@/services/pushNotificationService";
 import { VersionCheckResult } from "@/services/types/legal";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Redirect, router, Tabs } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";

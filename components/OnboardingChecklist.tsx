@@ -2,7 +2,7 @@ import { theme } from "@/constants/theme";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useUser } from "@/contexts/UserContext";
 import { useHasSeenFeature } from "@/hooks/useOnboardingFeatureTracker";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useRouter } from "expo-router";
 import React from "react";
 import { useTranslation } from "react-i18next";

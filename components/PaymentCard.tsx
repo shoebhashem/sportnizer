@@ -3,7 +3,7 @@
 
 import { theme } from "@/constants/theme";
 import { paymentService, type PendingPayment } from "@/services/paymentService";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {

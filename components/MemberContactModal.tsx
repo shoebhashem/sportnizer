@@ -14,7 +14,8 @@ import {
     MemberContactDetails,
     memberService,
 } from "@/services/member";
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import FontAwesome from "@react-native-vector-icons/fontawesome/static";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { httpsCallable } from "firebase/functions";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";

@@ -10,7 +10,7 @@ import { theme } from "@/constants/theme";
 import { useClubData } from "@/contexts/ClubDataContext";
 import { useUser } from "@/contexts/UserContext";
 import { updateClubRfSettings } from "@/services/lok/rfService";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useLayoutEffect, useState } from "react";

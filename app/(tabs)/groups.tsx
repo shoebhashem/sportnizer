@@ -3,7 +3,7 @@ import { theme } from "@/constants/theme";
 import { useGroupData } from "@/contexts/GroupDataContext";
 import { useUser } from "@/contexts/UserContext";
 import { canManageGroup } from "@/utils/permissionHelpers";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";

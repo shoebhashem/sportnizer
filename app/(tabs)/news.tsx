@@ -12,7 +12,7 @@ import { useTrackFeatureOnMount } from "@/hooks/useOnboardingFeatureTracker";
 import { fetchDependentProfiles } from "@/services/fetchDependentProfiles";
 import { hasUserReadNews, News } from "@/services/news";
 import { paymentService, PendingPayment } from "@/services/paymentService";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useState } from "react";

@@ -8,7 +8,7 @@ import {
     resolveClubPermissions
 } from "@/services/types/clubPermissions";
 import { isClubAdmin as checkClubAdmin } from "@/utils/permissionHelpers";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useLocalSearchParams } from "expo-router";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";

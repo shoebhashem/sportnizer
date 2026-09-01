@@ -19,7 +19,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGroupData } from "@/contexts/GroupDataContext";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { httpsCallable } from "firebase/functions";
 import React, {

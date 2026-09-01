@@ -22,7 +22,7 @@ import { ClubGroupData, fetchClubGroups } from "@/services/fetchClubGroups";
 import { groupService } from "@/services/group";
 import type { ClubMemberData } from "@/services/types/club";
 import { isClubAdmin as checkIsClubAdmin } from "@/utils/permissionHelpers";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import {
     router,
     useFocusEffect,

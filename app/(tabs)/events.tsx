@@ -8,7 +8,7 @@ import { useEvents } from "@/contexts/EventContext";
 import { useUser } from "@/contexts/UserContext";
 import { fetchDependentProfiles } from "@/services/fetchDependentProfiles";
 import type { EventData } from "@/services/types/event";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";

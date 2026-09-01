@@ -18,7 +18,8 @@ import { useTrackFeatureOnAction } from "@/hooks/useOnboardingFeatureTracker";
 import { fetchClubGroups } from "@/services/fetchClubGroups";
 import { paymentService } from "@/services/paymentService";
 import { consumeSelectedMemberIds } from "@/utils/memberSelectionStore";
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import FontAwesome from "@react-native-vector-icons/fontawesome/static";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import {
     router,
     useFocusEffect,

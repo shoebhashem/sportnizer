@@ -11,7 +11,7 @@ import { UserProvider } from "@/contexts/UserContext";
 import "@/i18n";
 import { markNotificationAsRead } from "@/services/fetchNotifications";
 import { setupNotificationChannels } from "@/services/pushNotificationService";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import * as Notifications from "expo-notifications";
 import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";

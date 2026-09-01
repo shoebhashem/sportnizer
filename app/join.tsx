@@ -5,7 +5,7 @@ import { getFunctionsUrl } from "@/constants/config";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { auth } from "@/services/core/firebase";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   createUserWithEmailAndPassword,

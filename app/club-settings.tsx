@@ -14,7 +14,7 @@ import { memberService } from "@/services/member";
 import { createNewGroupInExistingClub } from "@/services/orchestration/createNewGroupInExistingClub";
 import { paymentService } from "@/services/paymentService";
 import { isClubAdmin as checkClubAdmin } from "@/utils/permissionHelpers";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";

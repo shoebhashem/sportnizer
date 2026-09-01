@@ -3,7 +3,7 @@
 
 import { theme } from "@/constants/theme";
 import { News, hasUserReadNews } from "@/services/news";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";

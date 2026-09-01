@@ -8,7 +8,7 @@ import {
     type NotificationData,
 } from "@/services/fetchNotifications";
 import { paymentService } from "@/services/paymentService";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
+import FontAwesome from "@react-native-vector-icons/fontawesome/static";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -269,7 +269,7 @@ export default function NotificationBell({
   // Get icon for notification type
   const getNotificationIcon = (
     type: string,
-  ): keyof typeof FontAwesome.glyphMap => {
+  ): React.ComponentProps<typeof FontAwesome>['name'] => {
     switch (type) {
       case "group_invitation":
         return "user-plus";

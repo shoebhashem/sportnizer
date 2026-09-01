@@ -124,7 +124,11 @@
       "expo-image",
       "expo-sharing",
       "expo-web-browser",
-      "expo-status-bar"
+      "expo-status-bar",
+      "@react-native-vector-icons/ionicons",
+      "@react-native-vector-icons/fontawesome",
+      "@react-native-vector-icons/material-icons",
+      "@react-native-vector-icons/fontawesome5"
     ],
     "experiments": {
       "typedRoutes": true

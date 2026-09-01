@@ -6,7 +6,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import { FEE_CATEGORY_I18N_KEYS } from "@/constants/feeCategories";
 import { theme } from "@/constants/theme";
 import { paymentService } from "@/services/paymentService";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, {

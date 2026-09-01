@@ -1,14 +1,4 @@
-/**
- * PhoneInput — country-code picker + local number field.
- *
- * value:    full E.164 string, e.g. "+46701234567", or ""
- * onChange: called with the full E.164 string or "" when cleared
- *
- * The component guarantees the stored value always starts with + and
- * contains only digits after stripping whitespace, making it safe to
- * pass directly to WhatsApp's wa.me deep link.
- */
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {

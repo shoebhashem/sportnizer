@@ -1,4 +1,4 @@
-import { FontAwesome } from "@expo/vector-icons";
+import FontAwesome from "@react-native-vector-icons/fontawesome/static";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";

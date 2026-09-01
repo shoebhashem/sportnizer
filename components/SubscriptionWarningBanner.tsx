@@ -1,5 +1,5 @@
 import { theme } from "@/constants/theme";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router } from "expo-router";
 import React from "react";
 import { useTranslation } from "react-i18next";

@@ -20,7 +20,7 @@ import {
   personnummerService,
   type PersonnummerStatus,
 } from "@/services/lok/personnummerService";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {

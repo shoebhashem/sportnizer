@@ -1,9 +1,6 @@
-// /app/child-profile.tsx — Guardian view of a dependent's profile
-// Accessible via "Mina barn" list in the parent's profile screen.
-// Allows guardian to: view child details, manage their personnummer,
-// and see their club/group memberships.
-
-import { FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import FontAwesome from "@react-native-vector-icons/fontawesome/static";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
+import MaterialIcons from "@react-native-vector-icons/material-icons/static";
 import { doc, getDoc } from "firebase/firestore";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";

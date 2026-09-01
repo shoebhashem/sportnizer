@@ -3,7 +3,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import { theme } from "@/constants/theme";
 import { useGroupData } from "@/contexts/GroupDataContext";
 import { subgroupService } from "@/services/subgroup";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";

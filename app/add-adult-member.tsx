@@ -37,7 +37,7 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useUserProfile } from "@/contexts/UserContext";
 import { addRegularMemberToGroupService } from "@/services/orchestration/addRegularMemberToGroup";
 import { validateMemberForInvitation } from "@/services/validation/validateMemberForInvitation";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useLayoutEffect, useRef, useState } from "react";
@@ -65,7 +65,7 @@ interface RoleConfig {
   infoText: string;
   roleLabel: string;
   pluralLabel: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
 }
 
 const roleConfigs: Record<RoleType, RoleConfig> = {

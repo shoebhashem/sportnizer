@@ -1,8 +1,6 @@
-// /app/profile.tsx — User Profile Screen
-// View mode: displays avatar, name, email, phone, DOB, clubs, groups, sign-out
-// Edit mode: toggle via header ✏️ icon — name, phone, DOB become editable
-
-import { FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import FontAwesome from "@react-native-vector-icons/fontawesome/static";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
+import MaterialIcons from "@react-native-vector-icons/material-icons/static";
 import { useNavigation, useRouter } from "expo-router";
 import React, { useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";

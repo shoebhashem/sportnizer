@@ -33,7 +33,7 @@ import {
     type NewsReactionEntry,
 } from "@/services/news";
 import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { format } from "date-fns";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";

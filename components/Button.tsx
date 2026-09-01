@@ -1,5 +1,6 @@
+import { type ComponentProps } from 'react';
 import { StyleSheet, View, Pressable, Text, ActivityIndicator } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import FontAwesome from "@react-native-vector-icons/fontawesome/static";
 import { theme } from '@/constants/theme';
 
 type Props = {
@@ -8,7 +9,7 @@ type Props = {
   theme?: "primary" | "secondary";
   disabled?: boolean;
   loading?: boolean;
-  icon?: keyof typeof FontAwesome.glyphMap;
+  icon?: ComponentProps<typeof FontAwesome>['name'];
 };
 
 export default function Button({ 

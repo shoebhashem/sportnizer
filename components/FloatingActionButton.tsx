@@ -1,6 +1,6 @@
 import { FeatureHighlight } from "@/components/onboarding";
 import { theme } from "@/constants/theme";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -17,7 +17,7 @@ interface FloatingActionButtonProps {
   onPress: () => void;
   text?: string;
   style?: ViewStyle;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
   color?: string;
 }
 
@@ -26,7 +26,7 @@ interface MultiFABProps {
   buttons: {
     id: string;
     text: string;
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: React.ComponentProps<typeof Ionicons>['name'];
     color: string;
     onPress: () => void;
   }[];

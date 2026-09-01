@@ -4,7 +4,7 @@ import ProfilePictureUpload from "@/components/ProfilePictureUpload";
 import { getDefaultProfilePicture } from "@/constants/profilePictures";
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, useLocalSearchParams } from "expo-router";
 import { doc, getDoc, getFirestore, updateDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";

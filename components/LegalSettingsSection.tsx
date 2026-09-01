@@ -1,7 +1,4 @@
-// /components/LegalSettingsSection.tsx
-// Displays legal document links and acceptance status in user settings/profile
-
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import * as Linking from "expo-linking";
 import React from "react";
 import { useTranslation } from "react-i18next";

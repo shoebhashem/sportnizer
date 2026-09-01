@@ -5,7 +5,7 @@
 // Uses Reanimated for smooth fade-in/out.
 
 import { theme } from "@/constants/theme";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {

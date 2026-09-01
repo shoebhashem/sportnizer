@@ -22,7 +22,7 @@ import { syncRecipientsService } from "@/services/event/syncRecipients";
 import type { EventData } from "@/services/types/event";
 import { consumeSelectedMemberIds } from "@/utils/memberSelectionStore";
 import { canManageGroup, isClubAdmin } from "@/utils/permissionHelpers";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { format } from "date-fns";
 import {
     useFocusEffect,

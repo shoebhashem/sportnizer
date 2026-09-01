@@ -1,8 +1,6 @@
-// /app/group-info.tsx — Group Info Screen
-// View mode: displays name, sport type, description (read-only for all users)
-// Edit mode: toggle via header ✏️ icon — fields become editable (club-admin or group admin only)
-
-import { FontAwesome5, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import FontAwesome5 from "@react-native-vector-icons/fontawesome5/static";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
+import MaterialIcons from "@react-native-vector-icons/material-icons/static";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { httpsCallable } from "firebase/functions";
@@ -354,6 +352,7 @@ export default function GroupInfoScreen() {
                 <View style={styles.picturePlaceholder}>
                   <FontAwesome5
                     name="users"
+                    iconStyle="solid"
                     size={40}
                     color={theme.colors.secondary}
                   />
@@ -410,6 +409,7 @@ export default function GroupInfoScreen() {
               <View style={styles.fieldIconContainer}>
                 <FontAwesome5
                   name="running"
+                  iconStyle="solid"
                   size={16}
                   color={theme.colors.secondary}
                 />
@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
   },
   // ---- Uploading Overlay ----
   uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "center",
     alignItems: "center",

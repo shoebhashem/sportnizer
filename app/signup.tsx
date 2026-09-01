@@ -4,7 +4,7 @@ import Input from "@/components/Input";
 import { LEGAL_URLS } from "@/constants/legal";
 import { theme } from "@/constants/theme";
 import { functions } from "@/services/core/firebase";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, useLocalSearchParams } from "expo-router";
 import { httpsCallable } from "firebase/functions";
 import React, { useEffect, useState } from "react";
