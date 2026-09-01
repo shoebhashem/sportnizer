@@ -175,7 +175,7 @@ export default function AccountingScreen() {
         URL.revokeObjectURL(url);
       } else {
         try {
-          const FileSystem = await import("expo-file-system");
+          const FileSystem = await import("expo-file-system/legacy");
           const Sharing = await import("expo-sharing");
           const fileUri =
             FileSystem.documentDirectory +
