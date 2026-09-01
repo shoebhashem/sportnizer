@@ -26,7 +26,7 @@ import { theme } from '@/constants/theme';
 import { auth } from '@/services/core/firebase';
 import { functions } from '@/services/core/firebase';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Head } from 'expo-router/head';
+import Head from 'expo-router/head';
 import { onAuthStateChanged } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import React, { useEffect, useRef, useState } from 'react';
