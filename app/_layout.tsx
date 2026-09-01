@@ -12,6 +12,7 @@ import "@/i18n";
 import { markNotificationAsRead } from "@/services/fetchNotifications";
 import { setupNotificationChannels } from "@/services/pushNotificationService";
 import Ionicons from "@react-native-vector-icons/ionicons/static";
+import { useFonts } from "expo-font";
 import * as Notifications from "expo-notifications";
 import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -72,6 +73,21 @@ if (!__DEV__) {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    // These font family names must match the postScriptName used by each icon set.
+    // The /static variant of @react-native-vector-icons assumes fonts are already
+    // embedded in the native binary (via config plugins). Loading them here via
+    // expo-font ensures they work in the simulator and during JS-only dev reloads.
+    Ionicons: require("@react-native-vector-icons/ionicons/fonts/Ionicons.ttf"),
+    FontAwesome: require("@react-native-vector-icons/fontawesome/fonts/FontAwesome.ttf"),
+    "FontAwesome5Free-Regular": require("@react-native-vector-icons/fontawesome5/fonts/FontAwesome5_Regular.ttf"),
+    "FontAwesome5Free-Solid": require("@react-native-vector-icons/fontawesome5/fonts/FontAwesome5_Solid.ttf"),
+    "FontAwesome5Brands-Regular": require("@react-native-vector-icons/fontawesome5/fonts/FontAwesome5_Brands.ttf"),
+    "MaterialIcons-Regular": require("@react-native-vector-icons/material-icons/fonts/MaterialIcons.ttf"),
+  });
+
+  if (!fontsLoaded) return null;
+
   return (
     <LanguageProvider>
       <DataCacheProvider>
