@@ -14,7 +14,7 @@ export default function OnboardingChecklist() {
   const { t } = useTranslation("components");
   const { userProfile } = useUser();
   const { markFeatureSeen } = useOnboarding();
-  const { groups, isLoading: groupsLoading } = useGroupData();
+  const { groups, groupMembers, isLoading: groupsLoading } = useGroupData();
 
   // "dismissed" stays in local storage — it's a UI preference, not a task state
   const dismissed = useHasSeenFeature("onboarding-checklist-dismissed");
@@ -40,12 +40,19 @@ export default function OnboardingChecklist() {
       .map(([, group]) => group)
       .filter((g) => g.isActive !== false);
 
+  // Check actual members from the allMembers subcollection — more reliable than
+  // the denormalized memberCount field which can be stale.
+  const clubHasMembers = (id: string) =>
+    getClubGroups(id).some((g) => {
+      const members = groupMembers.get(`${id}:${g.id}`) ?? [];
+      return members.some((m) => m.isActive !== false);
+    });
+
   // Find the first admin club that still has incomplete setup steps.
   // If all clubs are fully set up, hide the checklist entirely.
   const incompleteClubId = adminClubIds.find((id) => {
-    const clubGroups = getClubGroups(id);
-    const hasGroup = clubGroups.length > 0;
-    const hasMembers = clubGroups.some((g) => g.memberCount > 0);
+    const hasGroup = getClubGroups(id).length > 0;
+    const hasMembers = clubHasMembers(id);
     return !(hasGroup && hasMembers);
   });
 
@@ -54,8 +61,7 @@ export default function OnboardingChecklist() {
   // Compute step status specifically for the incomplete club.
   const clubGroups = getClubGroups(incompleteClubId);
   const groupCreated = clubGroups.length > 0;
-  // memberCount starts at 0 on group creation; admin is not auto-added as member
-  const membersInvited = clubGroups.some((g) => g.memberCount > 0);
+  const membersInvited = clubHasMembers(incompleteClubId);
   const clubId = incompleteClubId;
 
   return (
