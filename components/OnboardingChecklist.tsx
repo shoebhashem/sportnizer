@@ -23,28 +23,40 @@ export default function OnboardingChecklist() {
     (c) => c.role === "club-admin",
   );
 
-  const adminClub = userProfile?.clubAccess?.find(
-    (c) => c.role === "club-admin",
-  );
-  const clubId = adminClub?.clubId;
-
-  // Derive task completion from real Firestore data so it survives reinstalls,
-  // sign-out/sign-in, and new devices — not from device-local AsyncStorage.
-  const adminClubGroups = clubId
-    ? [...groups.entries()]
-        .filter(([key]) => key.startsWith(`${clubId}:`))
-        .map(([, group]) => group)
-        .filter((g) => g.isActive !== false)
-    : [];
-
-  const groupCreated = adminClubGroups.length > 0;
-  // memberCount starts at 0 on group creation; admin is not auto-added as member
-  const membersInvited = adminClubGroups.some((g) => g.memberCount > 0);
-
   // Wait for group data before deciding — prevents a checklist flash for users
   // who have already completed the tasks (data loads in under a second).
   if (!isClubAdmin || groupsLoading) return null;
-  if (dismissed || (groupCreated && membersInvited)) return null;
+  if (dismissed) return null;
+
+  // All clubs this user admins — there may be more than one.
+  const adminClubIds = (userProfile?.clubAccess ?? [])
+    .filter((c) => c.role === "club-admin" && c.isActive !== false)
+    .map((c) => c.clubId);
+
+  // Per-club helper: groups that are active and belong to that club.
+  const getClubGroups = (id: string) =>
+    [...groups.entries()]
+      .filter(([key]) => key.startsWith(`${id}:`))
+      .map(([, group]) => group)
+      .filter((g) => g.isActive !== false);
+
+  // Find the first admin club that still has incomplete setup steps.
+  // If all clubs are fully set up, hide the checklist entirely.
+  const incompleteClubId = adminClubIds.find((id) => {
+    const clubGroups = getClubGroups(id);
+    const hasGroup = clubGroups.length > 0;
+    const hasMembers = clubGroups.some((g) => g.memberCount > 0);
+    return !(hasGroup && hasMembers);
+  });
+
+  if (!incompleteClubId) return null;
+
+  // Compute step status specifically for the incomplete club.
+  const clubGroups = getClubGroups(incompleteClubId);
+  const groupCreated = clubGroups.length > 0;
+  // memberCount starts at 0 on group creation; admin is not auto-added as member
+  const membersInvited = clubGroups.some((g) => g.memberCount > 0);
+  const clubId = incompleteClubId;
 
   return (
     <View style={styles.container}>
