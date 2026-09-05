@@ -1,4 +1,5 @@
 import { theme } from "@/constants/theme";
+import { useGroupData } from "@/contexts/GroupDataContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useUser } from "@/contexts/UserContext";
 import { useHasSeenFeature } from "@/hooks/useOnboardingFeatureTracker";
@@ -13,23 +14,37 @@ export default function OnboardingChecklist() {
   const { t } = useTranslation("components");
   const { userProfile } = useUser();
   const { markFeatureSeen } = useOnboarding();
+  const { groups, isLoading: groupsLoading } = useGroupData();
 
-  const groupCreated = useHasSeenFeature("onboarding-group-created");
-  const membersInvited = useHasSeenFeature("onboarding-members-invited");
+  // "dismissed" stays in local storage — it's a UI preference, not a task state
   const dismissed = useHasSeenFeature("onboarding-checklist-dismissed");
 
   const isClubAdmin = userProfile?.clubAccess?.some(
     (c) => c.role === "club-admin",
   );
 
-  if (!isClubAdmin || dismissed || (groupCreated && membersInvited)) {
-    return null;
-  }
-
   const adminClub = userProfile?.clubAccess?.find(
     (c) => c.role === "club-admin",
   );
   const clubId = adminClub?.clubId;
+
+  // Derive task completion from real Firestore data so it survives reinstalls,
+  // sign-out/sign-in, and new devices — not from device-local AsyncStorage.
+  const adminClubGroups = clubId
+    ? [...groups.entries()]
+        .filter(([key]) => key.startsWith(`${clubId}:`))
+        .map(([, group]) => group)
+        .filter((g) => g.isActive !== false)
+    : [];
+
+  const groupCreated = adminClubGroups.length > 0;
+  // memberCount starts at 0 on group creation; admin is not auto-added as member
+  const membersInvited = adminClubGroups.some((g) => g.memberCount > 0);
+
+  // Wait for group data before deciding — prevents a checklist flash for users
+  // who have already completed the tasks (data loads in under a second).
+  if (!isClubAdmin || groupsLoading) return null;
+  if (dismissed || (groupCreated && membersInvited)) return null;
 
   return (
     <View style={styles.container}>
