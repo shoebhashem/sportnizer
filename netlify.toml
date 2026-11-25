@@ -2,6 +2,9 @@
   command = "npx expo export --platform web"
   publish = "dist"
 
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "EXPO_PUBLIC_FIREBASE_API_KEY,EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,EXPO_PUBLIC_FIREBASE_PROJECT_ID,EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,EXPO_PUBLIC_FIREBASE_APP_ID,EXPO_PUBLIC_FIREBASE_APP_ID_ANDROID,EXPO_PUBLIC_FIREBASE_APP_ID_IOS,EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,EXPO_PUBLIC_FIREBASE_FUNCTIONS_URL,BASE_URL"
+
 # Serve Apple App Site Association and Android Asset Links with correct Content-Type.
 # iOS requires Content-Type: application/json or it silently ignores the file.
 [[headers]]
