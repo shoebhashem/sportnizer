@@ -64,7 +64,8 @@ function redirectFromNotification(
 }
 
 // Suppress console logs in production to prevent exposing sensitive data
-if (!__DEV__) {
+// Keep console.error on web so crashes are visible in browser DevTools
+if (!__DEV__ && Platform.OS !== "web") {
   console.log = () => {};
   console.warn = () => {};
   console.error = () => {};
@@ -86,7 +87,7 @@ export default function RootLayout() {
     "MaterialIcons-Regular": require("@react-native-vector-icons/material-icons/fonts/MaterialIcons.ttf"),
   });
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded && Platform.OS !== "web") return null;
 
   return (
     <LanguageProvider>
