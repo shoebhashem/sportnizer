@@ -113,6 +113,28 @@ export default function RootLayout() {
   );
 }
 
+// Handles cold-start notification taps. Must be a separate component so that
+// useLastNotificationResponse (which throws on web) is never called on web.
+function NativeNotificationHandler() {
+  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (
+      lastNotificationResponse &&
+      lastNotificationResponse.actionIdentifier ===
+        Notifications.DEFAULT_ACTION_IDENTIFIER
+    ) {
+      const data = lastNotificationResponse.notification.request.content.data;
+      const requestId =
+        lastNotificationResponse.notification.request.identifier;
+      if (data) {
+        redirectFromNotification(data, requestId);
+        Notifications.clearLastNotificationResponse();
+      }
+    }
+  }, [lastNotificationResponse]);
+  return null;
+}
+
 function RootLayoutNav() {
   const { t } = useTranslation("navigation");
 
@@ -148,28 +170,6 @@ function RootLayoutNav() {
   // Notification tap handler — deep-link when app was killed/backgrounded
   // ---------------------------------------------------------------------------
 
-  // Cold-start (app terminated): useLastNotificationResponse is a reactive
-  // hook — the effect fires when the response becomes available AFTER the
-  // navigator has finished initialising its initial route. This avoids the
-  // race condition where router.push() is called before Expo Router is ready.
-  // See: https://docs.expo.dev/versions/latest/sdk/notifications/#uselastnotificationresponse
-  const lastNotificationResponse = Notifications.useLastNotificationResponse();
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    if (
-      lastNotificationResponse &&
-      lastNotificationResponse.actionIdentifier ===
-        Notifications.DEFAULT_ACTION_IDENTIFIER
-    ) {
-      const data = lastNotificationResponse.notification.request.content.data;
-      const requestId =
-        lastNotificationResponse.notification.request.identifier;
-      if (data) {
-        redirectFromNotification(data, requestId);
-        Notifications.clearLastNotificationResponse();
-      }
-    }
-  }, [lastNotificationResponse]);
 
   // Background / foreground: fires when user taps a notification while the
   // app is already running (or was suspended but not killed).
@@ -191,10 +191,12 @@ function RootLayoutNav() {
   }, []);
 
   return (
-    <Stack
-      screenOptions={{
-        contentStyle: { backgroundColor: theme.colors.primary },
-        headerLeft: ({ canGoBack, tintColor }) => {
+    <>
+      {Platform.OS !== "web" && <NativeNotificationHandler />}
+      <Stack
+        screenOptions={{
+          contentStyle: { backgroundColor: theme.colors.primary },
+          headerLeft: ({ canGoBack, tintColor }) => {
           if (canGoBack) {
             // Normal stack — render a back arrow that pops the stack
             return (
@@ -695,6 +697,7 @@ function RootLayoutNav() {
           title: t("screens.newsDetails"),
         }}
       />
-    </Stack>
+      </Stack>
+    </>
   );
 }
