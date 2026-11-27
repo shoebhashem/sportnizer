@@ -52,7 +52,14 @@ jobs:
         with:
           node-version: "22" # matches "runtime": "nodejs22" in firebase.json
           cache: "npm"
-          cache-dependency-path: functions/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      # functions/ is linted with the root eslint.config.js (same as `firebase deploy`
+      # on a Mac), so the root dependencies are needed too.
+      - name: Install root dependencies (for ESLint config)
+        run: npm ci
 
       - name: Install functions dependencies
         working-directory: functions
@@ -85,10 +92,17 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: functions/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
+
+      # functions/ is linted with the root eslint.config.js (same as `firebase deploy`
+      # on a Mac), so the root dependencies are needed too.
+      - name: Install root dependencies (for ESLint config)
+        run: npm ci
 
       - name: Install functions dependencies
         working-directory: functions
