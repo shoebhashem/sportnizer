@@ -1,0 +1,120 @@
+name: Deploy Cloud Functions
+
+# Deploys Cloud Functions to the production Firebase project (sportnizer)
+# when changes under functions/ are merged to main.
+# Lint, build and the emulator integration tests must pass first;
+# if any of them fail, nothing is deployed.
+#
+# Required GitHub secrets:
+#   FIREBASE_SERVICE_ACCOUNT_SPORTNIZER  JSON key of the github-functions-deployer service account
+#   FUNCTIONS_DOTENV                     Contents of functions/.env (non-secret config such as
+#                                        SMTP_USER and BASE_URL; this file is git-ignored, so CI
+#                                        has to recreate it or the deployed functions lose these values)
+#
+# Real secrets (SMTP_PASSWORD, STRIPE_*, RF_*, PERSONNUMMER_ENCRYPTION_KEY) stay in
+# Google Secret Manager and are NOT handled here.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "firebase.json"
+      - ".github/workflows/deploy-functions.yml"
+  # Manual run from the Actions tab (always deploys the current main)
+  workflow_dispatch:
+
+# Never run two deploys at the same time; a newer push waits for the running one.
+concurrency:
+  group: deploy-functions-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22" # matches "runtime": "nodejs22" in firebase.json
+          cache: "npm"
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Setup Java (required by Firebase Emulators)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Lint
+        working-directory: functions
+        run: npm run lint
+
+      - name: Build
+        working-directory: functions
+        run: npm run build
+
+      - name: Integration tests against emulators
+        working-directory: functions
+        run: |
+          firebase emulators:exec \
+            --only auth,firestore,functions,storage \
+            --project sportnizer \
+            'npx jest --runInBand --forceExit --silent'
+
+  deploy:
+    name: Deploy to production
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Recreate functions/.env
+        env:
+          FUNCTIONS_DOTENV: ${{ secrets.FUNCTIONS_DOTENV }}
+        run: |
+          if [ -z "$FUNCTIONS_DOTENV" ]; then
+            echo "::error::Secret FUNCTIONS_DOTENV is missing. Refusing to deploy without functions/.env (BASE_URL would fall back to localhost)."
+            exit 1
+          fi
+          printf '%s\n' "$FUNCTIONS_DOTENV" > functions/.env
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPORTNIZER }}
+
+      # No --force: if production has a function that no longer exists in the code,
+      # the deploy stops with an error instead of deleting it.
+      - name: Deploy functions
+        run: firebase deploy --only functions --project sportnizer --non-interactive
