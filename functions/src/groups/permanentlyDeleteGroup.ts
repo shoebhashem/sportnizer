@@ -27,19 +27,9 @@ export async function permanentlyDeleteGroup(
   let deletedMembers = 0;
 
   try {
-    // 1. Delete all subgroups
+    // 1. Count subgroups (they are deleted together with the group in step 5)
     const subgroupsSnapshot = await groupRef.collection("subgroups").get();
-    if (!subgroupsSnapshot.empty) {
-      const batch = db.batch();
-      subgroupsSnapshot.docs.forEach((subgroupDoc) => {
-        batch.delete(subgroupDoc.ref);
-        deletedSubgroups++;
-      });
-      await batch.commit();
-      console.log(
-        `Deleted ${deletedSubgroups} subgroups from group ${groupId}`,
-      );
-    }
+    deletedSubgroups = subgroupsSnapshot.size;
 
     // 2. Get member IDs and process role deductions
     const membersDoc = await groupRef
@@ -171,23 +161,18 @@ export async function permanentlyDeleteGroup(
       }
     }
     4;
-    // 3. Delete allMembers collection
+    // 4. Count member documents (deleted together with the group in step 5)
     const membersSnapshot = await groupRef.collection("allMembers").get();
-    if (!membersSnapshot.empty) {
-      const batch = db.batch();
-      membersSnapshot.docs.forEach((memberDoc) => {
-        batch.delete(memberDoc.ref);
-        deletedMembers++;
-      });
-      await batch.commit();
-      console.log(
-        `Deleted ${deletedMembers} member documents from group ${groupId}`,
-      );
-    }
+    deletedMembers = membersSnapshot.size;
 
-    // 5. Delete group document
-    await groupRef.delete();
-    console.log(`Permanently deleted group ${groupId} from club ${clubId}`);
+    // 5. Delete the group document together with ALL its subcollections, at
+    //    any depth: subgroups (and their allMembers), allMembers, events,
+    //    results, statistics, metadata, ...
+    await db.recursiveDelete(groupRef);
+    console.log(
+      `Permanently deleted group ${groupId} from club ${clubId} ` +
+        `(${deletedSubgroups} subgroups, ${deletedMembers} member documents)`,
+    );
 
     return {
       success: true,
