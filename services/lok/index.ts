@@ -11,7 +11,7 @@ export { rfService } from "./rfService";
 // Re-export commonly used functions
 export {
     formatPersonnummerInput,
-    getMaskedPersonnummer, getPersonnummerStatus, removePersonnummer, storePersonnummer, validatePersonnummerFormat
+    getPersonnummerStatus, removePersonnummer, storePersonnummer, validatePersonnummerFormat
 } from "./personnummerService";
 
 export {
