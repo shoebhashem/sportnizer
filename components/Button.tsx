@@ -6,7 +6,7 @@ import { theme } from '@/constants/theme';
 type Props = {
   label: string;
   onPress?: () => void;
-  theme?: "primary" | "secondary";
+  theme?: "primary" | "secondary" | "danger";
   disabled?: boolean;
   loading?: boolean;
   icon?: ComponentProps<typeof FontAwesome>['name'];
@@ -21,6 +21,13 @@ export default function Button({
   icon 
 }: Props) {
   const isPrimary = buttonTheme === 'primary';
+  // Destructive actions (delete, close, cancel a fee): red button, white text
+  const isDanger = buttonTheme === 'danger';
+  const contentColor = isPrimary
+    ? theme.colors.primary
+    : isDanger
+      ? theme.colors.white
+      : theme.colors.text;
   
   return (
     <View style={[
@@ -32,6 +39,7 @@ export default function Button({
         style={[
           styles.button, 
           isPrimary && styles.primaryButton,
+          isDanger && styles.dangerButton,
           disabled && styles.disabledButton
         ]}
         onPress={disabled || loading ? undefined : onPress}
@@ -40,7 +48,7 @@ export default function Button({
         {loading ? (
           <ActivityIndicator 
             size="small" 
-            color={isPrimary ? theme.colors.primary : theme.colors.text} 
+            color={contentColor} 
           />
         ) : (
           <>
@@ -48,13 +56,14 @@ export default function Button({
               <FontAwesome 
                 name={icon} 
                 size={18} 
-                color={isPrimary ? theme.colors.primary : theme.colors.text} 
+                color={contentColor} 
                 style={styles.buttonIcon} 
               />
             )}
             <Text style={[
               styles.buttonLabel, 
               isPrimary && styles.primaryLabel,
+              isDanger && styles.dangerLabel,
               disabled && styles.disabledLabel
             ]}>
               {label}
@@ -95,6 +104,9 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: theme.colors.white,
   },
+  dangerButton: {
+    backgroundColor: theme.colors.error,
+  },
   disabledButton: {
     backgroundColor: theme.colors.textSecondary,
   },
@@ -108,6 +120,9 @@ const styles = StyleSheet.create({
   },
   primaryLabel: {
     color: theme.colors.primary,
+  },
+  dangerLabel: {
+    color: theme.colors.white,
   },
   disabledLabel: {
     color: theme.colors.textSecondary,

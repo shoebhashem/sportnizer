@@ -12,7 +12,7 @@ interface ConfirmationModalProps {
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;
-  confirmButtonTheme?: 'primary' | 'secondary';
+  confirmButtonTheme?: 'primary' | 'secondary' | 'danger';
 }
 
 export default function ConfirmationModal({
