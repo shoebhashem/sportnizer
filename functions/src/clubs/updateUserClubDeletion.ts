@@ -28,7 +28,11 @@ export const updateUserClubDeletion = onCall(
 
       // 2. Extract and validate parameters
       const { userId, clubId, isActive, deletionScheduledAt } = request.data;
-      validateRequiredFields(request.data, ["userId", "clubId", "isActive"]);
+      validateRequiredFields(request.data, ["userId", "clubId"]);
+      // isActive is a boolean; validateRequiredFields treats `false` as missing
+      if (typeof isActive !== "boolean") {
+        throw new HttpsError("invalid-argument", "isActive (boolean) is required");
+      }
 
       // Only a club admin of this club may change members' club access
       await assertClubAdminOrSelf(request.auth, { userId, clubId, allowSelf: false });
