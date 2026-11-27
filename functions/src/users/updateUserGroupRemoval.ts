@@ -4,6 +4,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FunctionResponse } from "../types/interfaces";
 import { config } from "../utils/config";
 import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
+import { assertGroupAdminOrSelf } from "../utils/callerChecks";
 import { validateRequiredFields } from "../utils/validation";
 
 /**
@@ -35,6 +36,11 @@ export const updateUserGroupRemoval = onCall(
 
       // Validate required fields
       validateRequiredFields(request.data, ["userId", "clubId", "groupId"]);
+
+      // Group admin (or club admin), or the user leaving the group themself
+      await assertGroupAdminOrSelf(request.auth, {
+        userId, clubId, groupId, allowSelf: true,
+      });
 
       console.log(
         `Removing group ${groupId} from user ${userId}'s groupAccess in club ${clubId}`,

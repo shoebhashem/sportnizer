@@ -4,6 +4,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FunctionResponse } from "../types/interfaces";
 import { config } from "../utils/config";
 import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
+import { assertClubAdminOrSelf } from "../utils/callerChecks";
 import { validateRequiredFields } from "../utils/validation";
 
 /**
@@ -32,6 +33,9 @@ export const updateUserClubRemoval = onCall(
 
       // Validate required fields
       validateRequiredFields(request.data, ["userId", "clubId"]);
+
+      // Club admin of this club, or the user leaving the club themself
+      await assertClubAdminOrSelf(request.auth, { userId, clubId, allowSelf: true });
 
       console.log(`Removing club ${clubId} from user ${userId}'s clubAccess`);
 

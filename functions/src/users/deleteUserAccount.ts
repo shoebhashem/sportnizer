@@ -17,13 +17,16 @@
  *
  * Actions on success:
  * 1. Delete Firebase Auth user
- * 2. Delete Firestore /users/{uid} document
- * 3. Clean up any remaining notification documents
+ * 2. Delete profile pictures from Storage (profilePictures/users/{uid}/)
+ * 3. Delete Firestore /users/{uid} document with all its subcollections
+ *    (notifications, pushTokens, ...)
  */
 
 import * as admin from "firebase-admin";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
+
+const STORAGE_BUCKET = "sportnizer.firebasestorage.app";
 
 export const deleteUserAccount = onCall(
   {
@@ -152,30 +155,22 @@ export const deleteUserAccount = onCall(
         }
       }
 
-      // 7b. Clean up notifications
+      // 7b. Delete the profile picture(s) from Storage (non-blocking)
       try {
-        const notificationsSnapshot = await db
-          .collection("users")
-          .doc(callingUserId)
-          .collection("notifications")
-          .get();
-
-        if (!notificationsSnapshot.empty) {
-          const batch = db.batch();
-          notificationsSnapshot.docs.forEach((doc) => batch.delete(doc.ref));
-          await batch.commit();
-          console.log(
-            `  ✅ Deleted ${notificationsSnapshot.size} notifications`,
-          );
-        }
-      } catch (notifError) {
-        console.warn("  ⚠️ Notification cleanup failed:", notifError);
+        await admin
+          .storage()
+          .bucket(STORAGE_BUCKET)
+          .deleteFiles({ prefix: `profilePictures/users/${callingUserId}/`, force: true });
+        console.log(`  ✅ Deleted profile pictures from Storage`);
+      } catch (storageError) {
+        console.warn("  ⚠️ Profile picture cleanup failed:", storageError);
         // Non-blocking
       }
 
-      // 7c. Delete Firestore user document
-      await userRef.delete();
-      console.log(`  ✅ Deleted user document`);
+      // 7c. Delete the Firestore user document together with ALL its
+      //     subcollections (notifications, pushTokens, ...)
+      await db.recursiveDelete(userRef);
+      console.log(`  ✅ Deleted user document and its subcollections`);
 
       console.log(`🗑️ Account deletion complete for user ${callingUserId}`);
 

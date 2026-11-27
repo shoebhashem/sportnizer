@@ -4,17 +4,15 @@
  * Coordinates club deletion including:
  * - Soft delete with 30-day grace period
  * - Cascade deletion to all groups and subgroups
- * - User document updates for all affected members
- * - User inactivity marking (if no other active clubs)
- * - Batch processing for efficiency
+ * - Members' profiles (clubAccess) are updated by the deleteClub
+ *   Cloud Function itself
  * 
  * This is a service layer function that orchestrates multiple atomic backend functions.
  * It does NOT directly access Firestore - all operations go through atomic functions.
  */
 
-import { collection, getDocs } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../core/firebase';
+import { functions } from '../core/firebase';
 
 // Firebase Function references
 const deleteClubFn = httpsCallable<
@@ -27,11 +25,6 @@ const deleteClubFn = httpsCallable<
     error?: string;
   }
 >(functions, 'deleteClub');
-
-const updateUserClubDeletionFn = httpsCallable<
-  { userId: string; clubId: string },
-  { success: boolean; userMarkedInactive: boolean; message?: string }
->(functions, 'updateUserClubDeletion');
 
 export interface DeleteClubServiceResponse {
   success: boolean;
@@ -72,38 +65,7 @@ export async function deleteClubService(
     console.log(`[deleteClubService] Club marked for deletion. Scheduled: ${new Date(deleteData.deletionScheduledAt).toISOString()}`);
     console.log(`[deleteClubService] Groups affected: ${deleteData.groupsAffected}`);
 
-    // Step 2: Get all club members
-    // We need to check all groups for members since it's a club-wide deletion
-    console.log('[deleteClubService] Fetching all club members...');
-    const clubMembersRef = collection(db, `clubs/${clubId}/clubMembers`);
-    const membersSnapshot = await getDocs(clubMembersRef);
-    
-    const memberIds = membersSnapshot.docs.map(doc => doc.id);
-    console.log(`[deleteClubService] Found ${memberIds.length} members to update`);
-
-    // Step 3: Update user documents in parallel
-    let inactiveUsersCount = 0;
-    if (memberIds.length > 0) {
-      console.log('[deleteClubService] Updating user documents...');
-      const userUpdatePromises = memberIds.map(userId =>
-        updateUserClubDeletionFn({ userId, clubId })
-          .then(result => {
-            if (result.data.userMarkedInactive) {
-              inactiveUsersCount++;
-            }
-            return result;
-          })
-          .catch(error => {
-            console.error(`[deleteClubService] Failed to update user ${userId}:`, error);
-            // Don't fail entire operation if one user update fails
-            return { data: { success: false, userMarkedInactive: false, message: error.message } };
-          })
-      );
-
-      await Promise.all(userUpdatePromises);
-      console.log('[deleteClubService] User documents updated');
-      console.log(`[deleteClubService] Users marked inactive: ${inactiveUsersCount}`);
-    }
+    // Members' profiles are updated server-side by deleteClub.
 
     console.log('[deleteClubService] Club deletion complete!');
 
@@ -112,8 +74,6 @@ export async function deleteClubService(
       deletionScheduledAt: deleteData.deletionScheduledAt,
       gracePeriodDays: deleteData.gracePeriodDays,
       groupsAffected: deleteData.groupsAffected,
-      affectedUsers: memberIds.length,
-      inactiveUsersCount,
     };
   } catch (error: any) {
     console.error('[deleteClubService] Error:', error);
