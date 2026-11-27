@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
+import { restoreClubAccessAfterReactivation } from './clubAccessDeletionSync';
 
 /**
  * Reactivates a soft-deleted club (undo deletion within grace period)
@@ -117,6 +118,10 @@ export const reactivateClub = onCall(
       
       console.log(`Successfully reactivated club ${clubId}`);
       
+      // Restore the club on members' profiles (only entries that were
+      // deactivated by the club deletion)
+      await restoreClubAccessAfterReactivation(clubId);
+
       return {
         success: true,
         reactivatedGroups: reactivatedGroupCount

@@ -9,6 +9,10 @@
  * - User has NO active dependents (no youth players linked as guardian)
  * - User does NOT hold the club-admin role in any club
  *
+ * Only clubs and groups that still exist and are active count. A club or group
+ * that was deleted (or is scheduled for deletion) can leave a stale entry on
+ * the user's clubAccess; such entries never block account deletion.
+ *
  * If any pre-condition fails, the function returns an error explaining what to do first.
  *
  * Actions on success:
@@ -57,8 +61,16 @@ export const deleteUserAccount = onCall(
       const activeGroups: { clubName: string; groupName: string }[] = [];
       const activeClubAdminClubs: string[] = [];
 
+      // Look up which referenced clubs and groups still exist and are active
+      const { liveClubIds, liveGroupKeys } = await findLiveClubsAndGroups(
+        db,
+        clubAccess,
+      );
+
       for (const club of clubAccess) {
         if (club.isActive === false) continue;
+        // Stale entry: the club was deleted or is scheduled for deletion
+        if (!liveClubIds.has(club.clubId)) continue;
 
         // Check if user is a club-admin
         if (club.role === "club-admin") {
@@ -69,6 +81,8 @@ export const deleteUserAccount = onCall(
         const groups = club.groupAccess || [];
         for (const group of groups) {
           if (group.isActive === false) continue;
+          // Stale entry: the group was deleted or is scheduled for deletion
+          if (!liveGroupKeys.has(`${club.clubId}/${group.groupId}`)) continue;
           if (group.roles && group.roles.length > 0) {
             activeGroups.push({
               clubName: club.clubName || club.clubId,
@@ -181,3 +195,54 @@ export const deleteUserAccount = onCall(
     }
   },
 );
+
+/**
+ * Returns the IDs of the clubs referenced by active clubAccess entries that
+ * still exist and are active, and the "clubId/groupId" keys of referenced
+ * groups (in those clubs) that still exist and are active.
+ */
+async function findLiveClubsAndGroups(
+  db: admin.firestore.Firestore,
+  clubAccess: any[],
+): Promise<{ liveClubIds: Set<string>; liveGroupKeys: Set<string> }> {
+  const liveClubIds = new Set<string>();
+  const liveGroupKeys = new Set<string>();
+
+  const activeEntries = clubAccess.filter(
+    (club: any) => club && club.clubId && club.isActive !== false,
+  );
+  const clubIds = [...new Set(activeEntries.map((c: any) => c.clubId as string))];
+  if (clubIds.length === 0) return { liveClubIds, liveGroupKeys };
+
+  const clubDocs = await db.getAll(
+    ...clubIds.map((id) => db.collection("clubs").doc(id)),
+  );
+  for (const doc of clubDocs) {
+    if (doc.exists && doc.data()?.isActive !== false) liveClubIds.add(doc.id);
+  }
+
+  const groupRefs: admin.firestore.DocumentReference[] = [];
+  for (const club of activeEntries) {
+    if (!liveClubIds.has(club.clubId)) continue;
+    for (const group of club.groupAccess || []) {
+      if (!group?.groupId || group.isActive === false) continue;
+      groupRefs.push(
+        db
+          .collection("clubs")
+          .doc(club.clubId)
+          .collection("groups")
+          .doc(group.groupId),
+      );
+    }
+  }
+  if (groupRefs.length > 0) {
+    const groupDocs = await db.getAll(...groupRefs);
+    for (const doc of groupDocs) {
+      if (doc.exists && doc.data()?.isActive !== false) {
+        liveGroupKeys.add(`${doc.ref.parent.parent!.id}/${doc.id}`);
+      }
+    }
+  }
+
+  return { liveClubIds, liveGroupKeys };
+}
