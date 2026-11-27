@@ -3,6 +3,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
+import { assertGroupAdminOrSelf } from "../utils/callerChecks";
 import { validateRequiredFields } from "../utils/validation";
 
 /**
@@ -22,6 +23,11 @@ export const updateUserGroupDeletion = onCall(
       const { userId, clubId, groupId, isActive, deletionScheduledAt } =
         request.data;
       validateRequiredFields(request.data, ["userId", "clubId", "groupId"]);
+
+      // Only a group admin (or club admin) may change members' group access
+      await assertGroupAdminOrSelf(request.auth, {
+        userId, clubId, groupId, allowSelf: false,
+      });
 
       // isActive is required for the operation, but we validate it separately
       if (isActive === undefined || isActive === null) {

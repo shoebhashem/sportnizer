@@ -5,17 +5,15 @@
  * - Validation of grace period (must be within 30 days)
  * - Verification token validation (TODO: when support system ready)
  * - Reactivation of club, all groups, and all subgroups
- * - User document updates for all affected members
- * - User reactivation (if they were marked inactive)
- * - Batch processing for efficiency
+ * - Members' profiles (clubAccess) are restored by the reactivateClub
+ *   Cloud Function itself
  * 
  * This is a service layer function that orchestrates multiple atomic backend functions.
  * It does NOT directly access Firestore - all operations go through atomic functions.
  */
 
-import { collection, getDocs } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../core/firebase';
+import { functions } from '../core/firebase';
 
 // Firebase Function references
 const reactivateClubFn = httpsCallable<
@@ -28,11 +26,6 @@ const reactivateClubFn = httpsCallable<
     error?: string;
   }
 >(functions, 'reactivateClub');
-
-const updateUserClubReactivationFn = httpsCallable<
-  { userId: string; clubId: string },
-  { success: boolean; userReactivated: boolean; message?: string }
->(functions, 'updateUserClubReactivation');
 
 export interface ReactivateClubServiceResponse {
   success: boolean;
@@ -74,37 +67,7 @@ export async function reactivateClubService(
     console.log(`[reactivateClubService] Groups reactivated: ${reactivateData.groupsReactivated}`);
     console.log(`[reactivateClubService] Subgroups reactivated: ${reactivateData.subgroupsReactivated}`);
 
-    // Step 2: Get all club members
-    console.log('[reactivateClubService] Fetching all club members...');
-    const clubMembersRef = collection(db, `clubs/${clubId}/clubMembers`);
-    const membersSnapshot = await getDocs(clubMembersRef);
-    
-    const memberIds = membersSnapshot.docs.map(doc => doc.id);
-    console.log(`[reactivateClubService] Found ${memberIds.length} members to update`);
-
-    // Step 3: Update user documents in parallel (reactivate club + all group access)
-    let reactivatedUsersCount = 0;
-    if (memberIds.length > 0) {
-      console.log('[reactivateClubService] Updating user documents...');
-      const userUpdatePromises = memberIds.map(userId =>
-        updateUserClubReactivationFn({ userId, clubId })
-          .then(result => {
-            if (result.data.userReactivated) {
-              reactivatedUsersCount++;
-            }
-            return result;
-          })
-          .catch(error => {
-            console.error(`[reactivateClubService] Failed to update user ${userId}:`, error);
-            // Don't fail entire operation if one user update fails
-            return { data: { success: false, userReactivated: false, message: error.message } };
-          })
-      );
-
-      await Promise.all(userUpdatePromises);
-      console.log('[reactivateClubService] User documents updated');
-      console.log(`[reactivateClubService] Users reactivated: ${reactivatedUsersCount}`);
-    }
+    // Members' profiles are restored server-side by reactivateClub.
 
     console.log('[reactivateClubService] Club reactivation complete!');
 
@@ -112,8 +75,6 @@ export async function reactivateClubService(
       success: true,
       groupsReactivated: reactivateData.groupsReactivated,
       subgroupsReactivated: reactivateData.subgroupsReactivated,
-      affectedUsers: memberIds.length,
-      reactivatedUsersCount,
       message: reactivateData.message,
     };
   } catch (error: any) {
