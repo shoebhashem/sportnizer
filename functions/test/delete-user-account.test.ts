@@ -16,6 +16,7 @@ import {
     documentExists,
     expectFunctionError,
     getFirestore,
+    seedClubDocument,
     seedUserDocument
 } from "./helpers";
 
@@ -116,6 +117,12 @@ describe("Delete User Account", () => {
       email: `hasgroups_${Date.now()}@test.com`,
     });
 
+    // The club and group must exist and be active to block deletion
+    await seedClubDocument("club123", { name: "Active Club" });
+    await getFirestore()
+      .doc("clubs/club123/groups/group456")
+      .set({ name: "Active Group", isActive: true });
+
     await seedUserDocument(user.uid, {
       clubAccess: [
         {
@@ -156,6 +163,9 @@ describe("Delete User Account", () => {
     const user = await createFullTestUser({
       email: `isadmin_${Date.now()}@test.com`,
     });
+
+    // The club must exist and be active to block deletion
+    await seedClubDocument("club789", { name: "My Club" });
 
     await seedUserDocument(user.uid, {
       clubAccess: [

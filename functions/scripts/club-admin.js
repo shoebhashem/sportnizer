@@ -8,7 +8,10 @@
  *   ACTION=soft-delete  Mark ONE club (by exact ID) for deletion, exactly like
  *                       the app's deleteClub function: isActive=false and
  *                       deletionScheduledAt = now + 30 days on the club, its
- *                       groups and subgroups. The weekly cleanup deletes it
+ *                       groups and subgroups, and deactivates the club on
+ *                       every member's profile. If the club is already
+ *                       marked, only the profiles are synced. The weekly
+ *                       cleanup deletes it
  *                       permanently afterwards; until then it can be
  *                       reactivated. Only allowed if the requester e-mail belongs
  *                       to a club-admin of that club.
@@ -146,6 +149,73 @@ function printClub(info, requesterHash) {
   return requesterAdmin;
 }
 
+// Mirrors functions/src/clubs/clubAccessDeletionSync.ts (markClubAccessDeleted).
+// Keep the two in sync.
+const CLUB_DELETION_REASON = "club-deletion";
+
+function buildFlatArrays(clubAccess) {
+  // Mirrors functions/src/utils/flatArrayHelpers.ts (without guardianOfGroups)
+  const r = { adminOfClubs: [], memberOfClubs: [], adminOfGroups: [], coachOfGroups: [], memberOfGroups: [] };
+  for (const ca of clubAccess || []) {
+    if (ca.isActive === false) continue;
+    if (ca.role === "club-admin") r.adminOfClubs.push(ca.clubId);
+    else if (ca.role === "member") r.memberOfClubs.push(ca.clubId);
+    for (const ga of ca.groupAccess || []) {
+      if (ga.isActive === false) continue;
+      const roles = ga.roles || [];
+      if (roles.length > 0) r.memberOfGroups.push(ga.groupId);
+      if (roles.includes("admin")) r.adminOfGroups.push(ga.groupId);
+      if (roles.includes("coach")) r.coachOfGroups.push(ga.groupId);
+    }
+  }
+  return r;
+}
+
+async function markClubAccessDeleted(clubId, deletionScheduledAt) {
+  const ids = new Set();
+  const membersDoc = await db.collection("clubs").doc(clubId).collection("allMembers").doc("members").get();
+  for (const m of (membersDoc.exists && membersDoc.data().members) || []) if (m && m.userId) ids.add(m.userId);
+  for (const field of ["adminOfClubs", "memberOfClubs"]) {
+    const snap = await db.collection("users").where(field, "array-contains", clubId).select().get();
+    snap.docs.forEach((d) => ids.add(d.id));
+  }
+
+  let updated = 0;
+  let errors = 0;
+  for (const userId of ids) {
+    try {
+      const userRef = db.collection("users").doc(userId);
+      const changed = await db.runTransaction(async (tx) => {
+        const userDoc = await tx.get(userRef);
+        if (!userDoc.exists) return false;
+        const clubAccess = userDoc.get("clubAccess") || [];
+        let didChange = false;
+        const next = clubAccess.map((entry) => {
+          if (!entry || entry.clubId !== clubId || entry.isActive === false) return entry;
+          didChange = true;
+          return {
+            ...entry,
+            isActive: false,
+            deletionScheduledAt,
+            inactiveReason: CLUB_DELETION_REASON,
+            groupAccess: (entry.groupAccess || []).map((g) =>
+              g && g.isActive === false ? g : { ...g, isActive: false, deletionScheduledAt, inactiveReason: CLUB_DELETION_REASON },
+            ),
+          };
+        });
+        if (!didChange) return false;
+        tx.update(userRef, { clubAccess: next, ...buildFlatArrays(next), version: FieldValue.increment(1) });
+        return true;
+      });
+      if (changed) updated++;
+    } catch (e) {
+      errors++;
+      console.error("profile update failed for one member:", e.message);
+    }
+  }
+  return { checked: ids.size, updated, errors };
+}
+
 async function softDelete(info, requesterAdmin) {
   const clubRef = db.collection("clubs").doc(info.id);
   const deletionTimestamp = Timestamp.fromMillis(
@@ -204,7 +274,10 @@ async function softDelete(info, requesterAdmin) {
   }
   if (ops > 0) await batch.commit();
 
+  const profiles = await markClubAccessDeleted(info.id, deletionTimestamp);
+
   out(`✅ Club \`${info.id}\` marked for deletion: ${groupCount} groups and ${subgroupCount} subgroups too.`);
+  out(`   Member profiles updated: ${profiles.updated} of ${profiles.checked} (${profiles.errors} errors).`);
   out(`   Permanent deletion by the weekly cleanup after ${fmtDate(deletionTimestamp)}.`);
   out("   Until then it can be undone with reactivateClub.");
 }
@@ -243,8 +316,17 @@ async function main() {
 
   const info = await describeClub(clubDoc);
   const requesterAdmin = printClub(info, requesterHash);
-  if (!info.isActive) fail("Club is already marked for deletion. Nothing changed.");
   if (!requesterAdmin) fail("Requester is NOT a club admin of this club. Nothing changed.");
+
+  if (!info.isActive) {
+    // Already marked: only make sure members' profiles are in sync
+    // (clubs soft-deleted before profiles were updated automatically).
+    const profiles = await markClubAccessDeleted(info.id, info.deletionScheduledAt);
+    out("ℹ️ Club is already marked for deletion; the club itself was not changed.");
+    out(`   Member profiles updated: ${profiles.updated} of ${profiles.checked} (${profiles.errors} errors).`);
+    flushSummary();
+    return;
+  }
 
   await softDelete(info, requesterAdmin);
   flushSummary();

@@ -3,6 +3,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { config } from '../utils/config';
 import { validateRequiredFields } from '../utils/validation';
+import { markClubAccessDeleted } from './clubAccessDeletionSync';
 
 const GRACE_PERIOD_DAYS = 30;
 const GRACE_PERIOD_MS = GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000;
@@ -101,9 +102,14 @@ export const deleteClub = onCall(
         console.log(`Soft deleted ${groupsSnapshot.size} groups and their subgroups in cascade`);
       }
       
+      // 6. Deactivate the club on every member's profile (clubAccess), so it
+      //    disappears from their app now and no longer blocks account deletion.
+      //    Errors per user are logged, never fail the deletion.
+      await markClubAccessDeleted(clubId, deletionTimestamp);
+
       console.log(`Club ${clubId} scheduled for deletion on ${deletionTimestamp.toDate()}`);
       
-      // 6. Return consistent response
+      // 7. Return consistent response
       return {
         success: true,
         deletionScheduledAt: deletionTimestamp.toMillis(),
