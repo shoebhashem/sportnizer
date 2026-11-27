@@ -441,14 +441,14 @@ const styles = StyleSheet.create({
   },
   domainTitle: {
     fontSize: theme.typography.fontSize.medium,
-    fontWeight: theme.typography.fontWeight.semiBold,
+    fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.text,
   },
 
   // Section label (sub-heading inside a card)
   sectionLabel: {
     fontSize: theme.typography.fontSize.small,
-    fontWeight: theme.typography.fontWeight.semiBold,
+    fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.8,
