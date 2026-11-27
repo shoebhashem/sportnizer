@@ -15,6 +15,10 @@
     "expo-env.d.ts"
   ],
   "exclude": [
+    "functions/**/*",
+    "admin/**/*",
+    "playwright/**/*",
+    "scripts/**/*",
     "services/archived/**/*",
     "contexts/*_backup.tsx",
     "contexts/*_new.tsx", 

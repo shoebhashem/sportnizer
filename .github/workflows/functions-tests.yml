@@ -45,6 +45,13 @@ jobs:
         working-directory: functions
         run: npm run build
 
+      # The emulator reads secrets from functions/.secret.local (git-ignored).
+      # Generate a random throwaway key for each run; the real key stays in
+      # Google Secret Manager and is never used by tests.
+      - name: Create test encryption key
+        working-directory: functions
+        run: echo "PERSONNUMMER_ENCRYPTION_KEY=$(openssl rand -hex 32)" > .secret.local
+
       - name: Run integration tests against emulators
         working-directory: functions
         id: tests
