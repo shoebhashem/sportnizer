@@ -3,6 +3,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { config } from "../utils/config";
 import { flatArrayFieldsFromClubAccess } from "../utils/flatArrayHelpers";
+import { assertClubAdminOrSelf } from "../utils/callerChecks";
 import { validateRequiredFields } from "../utils/validation";
 
 /**
@@ -28,6 +29,9 @@ export const updateUserClubDeletion = onCall(
       // 2. Extract and validate parameters
       const { userId, clubId, isActive, deletionScheduledAt } = request.data;
       validateRequiredFields(request.data, ["userId", "clubId", "isActive"]);
+
+      // Only a club admin of this club may change members' club access
+      await assertClubAdminOrSelf(request.auth, { userId, clubId, allowSelf: false });
 
       // 3. Get user document
       const db = admin.firestore();
