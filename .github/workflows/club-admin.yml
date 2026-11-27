@@ -1,0 +1,87 @@
+name: Club admin (support)
+
+# Handles club support requests without needing a local machine.
+# Started manually (Actions tab, GitHub mobile app, or by Claude via the API).
+#
+#   lookup       Read-only: find a club by ID or name and show a summary
+#                (ID, status, member/group counts, whether the requester is a
+#                club admin). No personal data is printed; logs are public.
+#   soft-delete  Mark ONE club (exact ID) for deletion, the same way the app's
+#                deleteClub does. Only if the requester is a club admin of
+#                that club. Permanently deleted by the weekly cleanup 30 days
+#                later; can be reactivated until then. Runs only from main.
+#
+# The requester's e-mail is given as a SHA-256 hash (of the lower-cased,
+# trimmed address) so it never appears in this public repository's run data.
+#
+# Requires the FIREBASE_SERVICE_ACCOUNT_SPORTNIZER secret with the
+# "Cloud Datastore User" role.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do"
+        required: true
+        default: lookup
+        type: choice
+        options:
+          - lookup
+          - soft-delete
+      club:
+        description: "Club ID (required for soft-delete) or club name (lookup)"
+        required: true
+        type: string
+      requester_email_sha256:
+        description: "SHA-256 of the requester's e-mail (lower-case). Optional for lookup."
+        required: false
+        type: string
+
+concurrency:
+  group: club-admin
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    # soft-delete changes production data: only from main, and through the
+    # "production" environment (add required reviewers there for an extra
+    # approval step in the GitHub app).
+    environment: ${{ inputs.action == 'soft-delete' && 'production' || '' }}
+    steps:
+      - name: Refuse soft-delete outside main
+        if: inputs.action == 'soft-delete' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::soft-delete can only run from main"
+          exit 1
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci --omit=dev
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPORTNIZER }}
+
+      - name: Run ${{ inputs.action }}
+        working-directory: functions
+        env:
+          ACTION: ${{ inputs.action }}
+          CLUB: ${{ inputs.club }}
+          REQUESTER_EMAIL_SHA256: ${{ inputs.requester_email_sha256 }}
+        run: node scripts/club-admin.js
