@@ -50,10 +50,7 @@ import {
     SafeAreaView,
     useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { removeMemberFromClubService } from "../services/orchestration/removeMemberFromClub";
 import { removeMemberFromGroupService } from "../services/orchestration/removeMemberFromGroup";
-
-type RemovalLevel = "club" | "group";
 
 export default function RemoveMemberScreen() {
   const {
@@ -61,7 +58,6 @@ export default function RemoveMemberScreen() {
     clubId,
     memberType,
     removeType,
-    removalLevel,
     groupName,
     clubName,
     mode, // "remove" (default) or "select" (single-select, navigate on confirm)
@@ -223,27 +219,18 @@ export default function RemoveMemberScreen() {
     setRemoving(true);
 
     const results = { success: 0, failed: 0, errors: [] as string[] };
-    const level = (removalLevel as RemovalLevel) || "group";
 
     // Process each selected member
     for (const member of selectedMembers) {
       try {
-        let result;
-
-        if (level === "club") {
-          result = await removeMemberFromClubService(
-            clubId as string,
-            member.userId,
-          );
-        } else {
-          const roleToRemove = getRoleToRemove();
-          result = await removeMemberFromGroupService(
-            clubId as string,
-            groupId as string,
-            member.userId,
-            roleToRemove,
-          );
-        }
+        // Members are removed from a group only (there is no club-level removal)
+        const roleToRemove = getRoleToRemove();
+        const result = await removeMemberFromGroupService(
+          clubId as string,
+          groupId as string,
+          member.userId,
+          roleToRemove,
+        );
 
         console.log(
           `[DEBUG] Result for ${member.name}:`,
@@ -360,8 +347,7 @@ export default function RemoveMemberScreen() {
   };
 
   const renderConfirmModal = () => {
-    const level = (removalLevel as RemovalLevel) || "group";
-    const scope = level === "club" ? clubName : groupName;
+    const scope = groupName;
     const memberCount = selectedMembers.length;
     const roleLabel = getRoleLabel();
 
@@ -389,9 +375,7 @@ export default function RemoveMemberScreen() {
               showsVerticalScrollIndicator={false}
             >
               <Text style={styles.modalMessage}>
-                {level === "club"
-                  ? `This will remove ${roleLabel} from ${memberCount} member${memberCount > 1 ? "s" : ""} in all groups within ${scope}. This action cannot be undone.`
-                  : `This will remove ${roleLabel} from ${memberCount} member${memberCount > 1 ? "s" : ""} in ${scope}. They will remain in the club and other groups.`}
+                {`This will remove ${roleLabel} from ${memberCount} member${memberCount > 1 ? "s" : ""} in ${scope}. They will remain in the club and other groups.`}
               </Text>
 
               <View style={styles.infoSection}>
@@ -486,7 +470,7 @@ export default function RemoveMemberScreen() {
           </Text>
           <Text style={styles.subtitle}>
             {t("screens:removeMember.fromScope", {
-              scope: removalLevel === "club" ? clubName : groupName,
+              scope: groupName,
             })}
           </Text>
         </View>
